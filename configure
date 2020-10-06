@@ -1,0 +1,13 @@
+#!/bin/sh -e
+srcdir=${SRCDIR:-$(dirname "$0")}
+eval ". $srcdir/config.sh"
+
+harec() {
+	genrules harec \
+		src/lex.c \
+		src/main.c
+}
+
+all="harec"
+
+run_configure
