@@ -48,6 +48,7 @@ enum lexical_token {
 	T_USE,
 	T_VOID,
 	T_WHILE,
+	T_LAST_KEYWORD = T_WHILE,
 
 	// Operators
 	T_ANDEQ,
@@ -93,7 +94,9 @@ enum lexical_token {
 	T_SLICE,
 	T_TIMES,
 	T_TIMESEQ,
+	T_XOR,
 	T_XOREQ,
+	T_LAST_OPERATOR = T_XOREQ,
 
 	// Tokens with additional information
 	T_NAME,
@@ -115,9 +118,11 @@ struct lexer {
 	FILE *in;
 	char *buf;
 	size_t bufsz, buflen;
+	int c;
 };
 
 void lex_init(struct lexer *lexer, FILE *f);
+void lex_finish(struct lexer *lexer);
 int lex(struct lexer *lexer, struct token *out);
 
 void token_finish(struct token *tok);
