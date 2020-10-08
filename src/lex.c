@@ -507,7 +507,6 @@ lex(struct lexer *lexer, struct token *out)
 		assert(0); // TODO: Operators
 	}
 
-	consume(lexer, 1);
 	return c;
 }
 
