@@ -317,8 +317,7 @@ lex2(struct lexer *lexer, struct token *out)
 		return d;
 	}
 
-	out->token = T_ERROR; // Right?
-	return d;
+	assert(0); // Invariant
 }
 
 int
