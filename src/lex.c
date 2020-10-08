@@ -69,13 +69,13 @@ static const char *tokens[] = {
 	[T_ELLIPSIS] = "...",
 	[T_EQUAL] = "=",
 	[T_GREATER] = ">",
-	[T_GTR_EQL] = ">=",
+	[T_GREATEREQ] = ">=",
 	[T_LAND] = "&&",
 	[T_LBRACE] = "{",
 	[T_LBRACKET] = "[",
 	[T_LEQUAL] = "==",
 	[T_LESS] = "<",
-	[T_LESS_EQL] = "<=",
+	[T_LESSEQ] = "<=",
 	[T_LNOT] = "!",
 	[T_LOR] = "||",
 	[T_LPAREN] = "(",
@@ -83,12 +83,14 @@ static const char *tokens[] = {
 	[T_LSHIFTEQ] = "<<=",
 	[T_MINUS] = "-",
 	[T_MINUSEQ] = "-=",
+	[T_MINUSMINUS] = "--",
 	[T_MODEQ] = "%=",
 	[T_MODULO] = "%",
 	[T_NEQUAL] = "!=",
 	[T_OREQ] = "|=",
 	[T_PLUS] = "+",
 	[T_PLUSEQ] = "+=",
+	[T_PLUSPLUS] = "++",
 	[T_RBRACE] = "}",
 	[T_RBRACKET] = "]",
 	[T_RPAREN] = ")",
@@ -213,111 +215,225 @@ lex_literal(struct lexer *lexer, struct token *out)
 }
 
 static int
-lex2(struct lexer *lexer, struct token *out)
+lex3(struct lexer *lexer, struct token *out, int c)
 {
-	int c = next(lexer, false), d = next(lexer, false);
+	assert(c != EOF);
+
+	switch (c) {
+	case '.':
+		switch ((c = next(lexer, false))) {
+		case '.':
+			switch ((c = next(lexer, false))) {
+			case '.':
+				out->token = T_ELLIPSIS;
+				break;
+			default:
+				push(lexer, c, false);
+				out->token = T_SLICE;
+				break;
+			}
+			break;
+		default:
+			push(lexer, c, false);
+			out->token = T_DOT;
+			break;
+		}
+		break;
+	case '<':
+		switch ((c = next(lexer, false))) {
+		case '<':
+			switch ((c = next(lexer, false))) {
+			case '=':
+				out->token = T_LSHIFTEQ;
+				break;
+			default:
+				push(lexer, c, false);
+				out->token = T_LSHIFT;
+				break;
+			}
+			break;
+		case '=':
+			out->token = T_LESSEQ;
+			break;
+		default:
+			push(lexer, c, false);
+			out->token = T_LESS;
+			break;
+		}
+		break;
+	case '>':
+		switch ((c = next(lexer, false))) {
+		case '>':
+			switch ((c = next(lexer, false))) {
+			case '=':
+				out->token = T_RSHIFTEQ;
+				break;
+			default:
+				push(lexer, c, false);
+				out->token = T_RSHIFT;
+				break;
+			}
+			break;
+		case '=':
+			out->token = T_GREATEREQ;
+			break;
+		default:
+			push(lexer, c, false);
+			out->token = T_GREATER;
+			break;
+		}
+		break;
+	default:
+		assert(0); // Invariant
+	}
+
+	return c;
+}
+
+static int
+lex2(struct lexer *lexer, struct token *out, int c)
+{
 	assert(c != EOF);
 
 	switch (c) {
 	case '^':
-		switch (d) {
+		switch ((c = next(lexer, false))) {
 		case '=':
 			out->token = T_XOREQ;
 			break;
-		case EOF:
 		default:
-			push(lexer, d, false);
+			push(lexer, c, false);
 			out->token = T_XOR;
 			break;
 		}
-		return d;
+		break;
 	case '*':
-		switch (d) {
+		switch ((c = next(lexer, false))) {
 		case '=':
 			out->token = T_TIMESEQ;
 			break;
-		case EOF:
 		default:
-			push(lexer, d, false);
+			push(lexer, c, false);
 			out->token = T_TIMES;
 			break;
 		}
-		return d;
+		break;
 	case '%':
-		switch (d) {
+		switch ((c = next(lexer, false))) {
 		case '=':
 			out->token = T_MODEQ;
 			break;
-		case EOF:
 		default:
-			push(lexer, d, false);
+			push(lexer, c, false);
 			out->token = T_MODULO;
 			break;
 		}
-		return d;
+		break;
 	case '/':
-		switch (d) {
+		switch ((c = next(lexer, false))) {
 		case '=':
 			out->token = T_DIVEQ;
 			break;
-		case EOF:
 		default:
-			push(lexer, d, false);
+			push(lexer, c, false);
 			out->token = T_DIV;
 			break;
 		}
-		return d;
+		break;
 	case '+':
-		switch (d) {
+		switch ((c = next(lexer, false))) {
 		case '=':
 			out->token = T_PLUSEQ;
 			break;
-		case EOF:
+		case '+':
+			out->token = T_PLUSPLUS;
+			break;
 		default:
-			push(lexer, d, false);
+			push(lexer, c, false);
 			out->token = T_PLUS;
 			break;
 		}
-		return d;
+		break;
 	case '-':
-		switch (d) {
+		switch ((c = next(lexer, false))) {
 		case '=':
 			out->token = T_MINUSEQ;
 			break;
-		case EOF:
+		case '-':
+			out->token = T_MINUSMINUS;
+			break;
 		default:
-			push(lexer, d, false);
+			push(lexer, c, false);
 			out->token = T_MINUS;
 			break;
 		}
-		return d;
+		break;
 	case ':':
-		switch (d) {
+		switch (c) {
 		case ':':
 			out->token = T_DOUBLE_COLON;
 			break;
-		case EOF:
 		default:
-			push(lexer, d, false);
+			push(lexer, c, false);
 			out->token = T_COLON;
 			break;
 		}
-		return d;
+		break;
 	case '!':
-		switch (d) {
+		switch ((c = next(lexer, false))) {
 		case '=':
 			out->token = T_NEQUAL;
 			break;
-		case EOF:
 		default:
-			push(lexer, d, false);
+			push(lexer, c, false);
 			out->token = T_LNOT;
 			break;
 		}
-		return d;
+		break;
+	case '&':
+		switch ((c = next(lexer, false))) {
+		case '&':
+			out->token = T_LAND;
+			break;
+		case '=':
+			out->token = T_ANDEQ;
+			break;
+		default:
+			push(lexer, c, false);
+			out->token = T_BAND;
+			break;
+		}
+		break;
+	case '|':
+		switch ((c = next(lexer, false))) {
+		case '&':
+			out->token = T_LOR;
+			break;
+		case '=':
+			out->token = T_OREQ;
+			break;
+		default:
+			push(lexer, c, false);
+			out->token = T_BOR;
+			break;
+		}
+		break;
+	case '=':
+		switch ((c = next(lexer, false))) {
+		case '=':
+			out->token = T_LEQUAL;
+			break;
+		default:
+			push(lexer, c, false);
+			out->token = T_EQUAL;
+			break;
+		}
+		break;
+	default:
+		assert(0); // Invariant
 	}
 
-	assert(0); // Invariant
+	return c;
 }
 
 int
@@ -345,12 +461,9 @@ lex(struct lexer *lexer, struct token *out)
 		push(lexer, c, false);
 		return lex_literal(lexer, out);
 	case '.': // . .. ...
-	case '&': // & && &=
-	case '|': // | || |=
-	case '<': // < << <=
-	case '>': // > >> >=
-	case '=': // = == =>
-		assert(0); // TODO
+	case '<': // < << <= <<=
+	case '>': // > >> >= >>=
+		return lex3(lexer, out, c);
 	case '^': // ^ ^=
 	case '*': // * *=
 	case '%': // % %=
@@ -359,8 +472,10 @@ lex(struct lexer *lexer, struct token *out)
 	case '-': // - -=
 	case ':': // : ::
 	case '!': // ! !=
-		push(lexer, c, false);
-		return lex2(lexer, out);
+	case '&': // & && &=
+	case '|': // | || |=
+	case '=': // = == =>
+		return lex2(lexer, out, c);
 	case '~':
 		out->token = T_BNOT;
 		break;
@@ -406,6 +521,7 @@ token_finish(struct token *tok)
 	default:
 		break;
 	}
+	tok->token = 0;
 }
 
 const char *

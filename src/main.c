@@ -24,6 +24,7 @@ main(int argc, char *argv[])
 			fprintf(stderr, "%s\n", token_str(&tok));
 			break;
 		}
+		token_finish(&tok);
 	};
 
 	lex_finish(&lexer);
