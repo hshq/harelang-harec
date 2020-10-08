@@ -8,7 +8,8 @@ main(int argc, char *argv[])
 	lex_init(&lexer, stdin);
 
 	struct token tok;
-	while (lex(&lexer, &tok) != EOF) {
+	while (tok.token != T_EOF) {
+		lex(&lexer, &tok);
 		switch (tok.token) {
 		case T_NAME:
 			fprintf(stderr, "'%s'\n", tok.name);

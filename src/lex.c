@@ -98,7 +98,7 @@ static const char *tokens[] = {
 	[T_SLICE] = "..",
 	[T_TIMES] = "*",
 	[T_TIMESEQ] = "*=",
-	[T_XOR] = "^=",
+	[T_XOR] = "^",
 	[T_XOREQ] = "^=",
 };
 
@@ -212,6 +212,115 @@ lex_literal(struct lexer *lexer, struct token *out)
 	assert(0); // TODO
 }
 
+static int
+lex2(struct lexer *lexer, struct token *out)
+{
+	int c = next(lexer, false), d = next(lexer, false);
+	assert(c != EOF);
+
+	switch (c) {
+	case '^':
+		switch (d) {
+		case '=':
+			out->token = T_XOREQ;
+			break;
+		case EOF:
+		default:
+			push(lexer, d, false);
+			out->token = T_XOR;
+			break;
+		}
+		return d;
+	case '*':
+		switch (d) {
+		case '=':
+			out->token = T_TIMESEQ;
+			break;
+		case EOF:
+		default:
+			push(lexer, d, false);
+			out->token = T_TIMES;
+			break;
+		}
+		return d;
+	case '%':
+		switch (d) {
+		case '=':
+			out->token = T_MODEQ;
+			break;
+		case EOF:
+		default:
+			push(lexer, d, false);
+			out->token = T_MODULO;
+			break;
+		}
+		return d;
+	case '/':
+		switch (d) {
+		case '=':
+			out->token = T_DIVEQ;
+			break;
+		case EOF:
+		default:
+			push(lexer, d, false);
+			out->token = T_DIV;
+			break;
+		}
+		return d;
+	case '+':
+		switch (d) {
+		case '=':
+			out->token = T_PLUSEQ;
+			break;
+		case EOF:
+		default:
+			push(lexer, d, false);
+			out->token = T_PLUS;
+			break;
+		}
+		return d;
+	case '-':
+		switch (d) {
+		case '=':
+			out->token = T_MINUSEQ;
+			break;
+		case EOF:
+		default:
+			push(lexer, d, false);
+			out->token = T_MINUS;
+			break;
+		}
+		return d;
+	case ':':
+		switch (d) {
+		case ':':
+			out->token = T_DOUBLE_COLON;
+			break;
+		case EOF:
+		default:
+			push(lexer, d, false);
+			out->token = T_COLON;
+			break;
+		}
+		return d;
+	case '!':
+		switch (d) {
+		case '=':
+			out->token = T_NEQUAL;
+			break;
+		case EOF:
+		default:
+			push(lexer, d, false);
+			out->token = T_LNOT;
+			break;
+		}
+		return d;
+	}
+
+	out->token = T_ERROR; // Right?
+	return d;
+}
+
 int
 lex(struct lexer *lexer, struct token *out)
 {
@@ -251,7 +360,8 @@ lex(struct lexer *lexer, struct token *out)
 	case '-': // - -=
 	case ':': // : ::
 	case '!': // ! !=
-		assert(0); // TODO
+		push(lexer, c, false);
+		return lex2(lexer, out);
 	case '~':
 		out->token = T_BNOT;
 		break;
