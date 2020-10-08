@@ -254,7 +254,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 					push(lexer, c, true);
 					goto finalize;
 				}
-				suff = lexer->buf;
+				suff = &lexer->buf[lexer->buflen - 1];
 				issuff = true;
 				break;
 			default:
