@@ -9,10 +9,14 @@ main(int argc, char *argv[])
 
 	struct token tok;
 	while (tok.token != T_EOF) {
+		token_finish(&tok);
 		lex(&lexer, &tok);
 		switch (tok.token) {
 		case T_NAME:
 			fprintf(stderr, "'%s'\n", tok.name);
+			break;
+		case T_LITERAL:
+			fprintf(stderr, "(%s)\n", tok.literal);
 			break;
 		case T_ERROR:
 			fprintf(stderr, "ERROR\n");
@@ -24,7 +28,6 @@ main(int argc, char *argv[])
 			fprintf(stderr, "%s\n", token_str(&tok));
 			break;
 		}
-		token_finish(&tok);
 	};
 
 	lex_finish(&lexer);

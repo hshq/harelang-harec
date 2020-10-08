@@ -182,10 +182,7 @@ static int
 lex_name(struct lexer *lexer, struct token *out)
 {
 	int c = next(lexer, true);
-	if (c == EOF || (!isalpha(c) && c != '_')) {
-		out->token = T_ERROR;
-		return EOF;
-	}
+	assert(c != EOF && (isalpha(c) || c == '_'));
 	while ((c = next(lexer, true)) != EOF) {
 		if (!isalnum(c) && c != '_') {
 			push(lexer, c, true);
@@ -210,6 +207,92 @@ lookup:;
 
 static int
 lex_literal(struct lexer *lexer, struct token *out)
+{
+	int c = next(lexer, true);
+	assert(c != EOF && isdigit(c));
+
+	const char *base = "0123456789";
+	switch ((c = next(lexer, true))) {
+	case 'b':
+		base = "01";
+		break;
+	case 'o':
+		base = "01234567";
+		break;
+	case 'x':
+		base = "0123456789ABCDEFabcdef";
+		break;
+	default:
+		push(lexer, c, true);
+		break;
+	}
+
+	char *suff = NULL;
+	bool isfloat = false, isexp = false, issuff = false;
+	while ((c = next(lexer, true)) != EOF) {
+		if (!strchr(base, c)) {
+			switch (c) {
+			case '.':
+				if (isfloat || issuff) {
+					push(lexer, c, true);
+					goto finalize;
+				}
+				isfloat = true;
+				break;
+			case 'e':
+				if (isexp || issuff) {
+					push(lexer, c, true);
+					goto finalize;
+				}
+				isexp = true;
+				isfloat = false;
+				break;
+			case 'i':
+			case 'u':
+			case 'f':
+				if (issuff) {
+					push(lexer, c, true);
+					goto finalize;
+				}
+				suff = lexer->buf;
+				issuff = true;
+				break;
+			default:
+				push(lexer, c, true);
+				goto finalize;
+			}
+		}
+	}
+
+finalize:
+	if (suff) {
+		const char *valid[] = {
+			"u8", "u16", "u32", "u64",
+			"i8", "i16", "i32", "i64",
+			"f32", "f64", "u", "i", "z",
+		};
+		bool isvalid = false;
+		for (size_t i = 0; i < sizeof(valid) / sizeof(valid[0]); ++i) {
+			if (strcmp(suff, valid[i]) == 0) {
+				isvalid = true;
+				break;
+			}
+		}
+		if (!isvalid) {
+			out->token = T_ERROR;
+			consume(lexer, -1);
+			return c;
+		}
+	}
+
+	out->token = T_LITERAL;
+	out->name = strdup(lexer->buf);
+	consume(lexer, -1);
+	return c;
+}
+
+static int
+lex_string(struct lexer *lexer, struct token *out)
 {
 	assert(0); // TODO
 }
@@ -445,7 +528,7 @@ lex(struct lexer *lexer, struct token *out)
 		return c;
 	}
 
-	if (isalpha(c)) {
+	if (isalpha(c) || c == '_') {
 		push(lexer, c, false);
 		return lex_name(lexer, out);
 	}
@@ -459,7 +542,7 @@ lex(struct lexer *lexer, struct token *out)
 	case '"':
 	case '\'':
 		push(lexer, c, false);
-		return lex_literal(lexer, out);
+		return lex_string(lexer, out);
 	case '.': // . .. ...
 	case '<': // < << <= <<=
 	case '>': // > >> >= >>=

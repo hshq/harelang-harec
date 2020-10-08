@@ -113,6 +113,7 @@ struct token {
 	enum lexical_token token;
 	union {
 		char *name;
+		char *literal;
 	};
 };
 
