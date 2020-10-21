@@ -417,6 +417,9 @@ lex2(struct lexer *lexer, struct token *out, int c)
 		case '=':
 			out->token = T_DIVEQ;
 			break;
+		case '/':
+			while ((c = next(lexer, false)) != EOF && c != '\n') ;
+			return lex(lexer, out);
 		default:
 			push(lexer, c, false);
 			out->token = T_DIV;
@@ -550,7 +553,7 @@ lex(struct lexer *lexer, struct token *out)
 	case '^': // ^ ^=
 	case '*': // * *=
 	case '%': // % %=
-	case '/': // / /=
+	case '/': // / /= //
 	case '+': // + +=
 	case '-': // - -=
 	case ':': // : ::
