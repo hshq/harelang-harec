@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lex.h"
+#include "utf8.h"
 
 static const char *tokens[] = {
 	// Must be alpha sorted
@@ -120,34 +121,37 @@ lex_finish(struct lexer *lexer)
 	free(lexer->buf);
 }
 
-static int
+static uint32_t
 next(struct lexer *lexer, bool buffer)
 {
-	int c;
+	uint32_t c;
 	if (lexer->c != 0) {
 		c = lexer->c;
 		lexer->c = 0;
 	} else {
-		c = fgetc(lexer->in);
+		c = utf8_fgetch(lexer->in);
 	}
-	if (c == EOF || !buffer) {
+	if (c == UTF8_INVALID || !buffer) {
 		return c;
 	}
-	if (lexer->buflen + 1 >= lexer->bufsz) {
+	if (lexer->buflen + utf8_chsize(c) >= lexer->bufsz) {
 		lexer->bufsz *= 2;
 		lexer->buf = realloc(lexer->buf, lexer->bufsz);
 		assert(lexer->buf);
 	}
-	lexer->buf[lexer->buflen++] = c;
+	char buf[UTF8_MAX_SIZE];
+	size_t sz = utf8_encode(&buf[0], c);
+	memcpy(lexer->buf + lexer->buflen, buf, sz);
+	lexer->buflen += sz;
 	lexer->buf[lexer->buflen] = '\0';
 	return c;
 }
 
-static int
+static uint32_t
 wgetc(struct lexer *lexer)
 {
-	int c;
-	while ((c = next(lexer, false)) != EOF && isspace(c)) ;
+	uint32_t c;
+	while ((c = next(lexer, false)) != UTF8_INVALID && isspace(c)) ;
 	return c;
 }
 
@@ -159,16 +163,18 @@ consume(struct lexer *lexer, ssize_t n)
 		lexer->buf[0] = 0;
 		return;
 	}
-	memmove(lexer->buf, &lexer->buf[lexer->buflen], lexer->buflen - n);
-	lexer->buflen -= n;
+	for (ssize_t i = 0; i < n; i++) {
+		while ((lexer->buf[--lexer->buflen] & 0xC0) == 0x80) ;
+	}
+	lexer->buf[lexer->buflen] = 0;
 }
 
 static void
-push(struct lexer *lexer, int c, bool buffer)
+push(struct lexer *lexer, uint32_t c, bool buffer)
 {
 	lexer->c = c;
 	if (buffer) {
-		lexer->buf[--lexer->buflen] = 0;
+		consume(lexer, 1);
 	}
 }
 
@@ -178,13 +184,13 @@ cmp_keyword(const void *va, const void *vb)
 	return strcmp(*(const char **)va, *(const char **)vb);
 }
 
-static int
+static uint32_t
 lex_name(struct lexer *lexer, struct token *out)
 {
-	int c = next(lexer, true);
-	assert(c != EOF && (isalpha(c) || c == '_'));
-	while ((c = next(lexer, true)) != EOF) {
-		if (!isalnum(c) && c != '_') {
+	uint32_t c = next(lexer, true);
+	assert(c != UTF8_INVALID && c <= 0x7F && (isalpha(c) || c == '_'));
+	while ((c = next(lexer, true)) != UTF8_INVALID) {
+		if (c > 0x7F || (!isalnum(c) && c != '_')) {
 			push(lexer, c, true);
 			goto lookup;
 		}
@@ -205,11 +211,11 @@ lookup:;
 	return c;
 }
 
-static int
+static uint32_t
 lex_literal(struct lexer *lexer, struct token *out)
 {
-	int c = next(lexer, true);
-	assert(c != EOF && isdigit(c));
+	uint32_t c = next(lexer, true);
+	assert(c != UTF8_INVALID && c <= 0x7F && isdigit(c));
 
 	const char *base = "0123456789";
 	switch ((c = next(lexer, true))) {
@@ -229,7 +235,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 
 	char *suff = NULL;
 	bool isfloat = false, isexp = false, issuff = false;
-	while ((c = next(lexer, true)) != EOF) {
+	while ((c = next(lexer, true)) != UTF8_INVALID) {
 		if (!strchr(base, c)) {
 			switch (c) {
 			case '.':
@@ -297,10 +303,10 @@ lex_string(struct lexer *lexer, struct token *out)
 	assert(0); // TODO
 }
 
-static int
-lex3(struct lexer *lexer, struct token *out, int c)
+static uint32_t
+lex3(struct lexer *lexer, struct token *out, uint32_t c)
 {
-	assert(c != EOF);
+	assert(c != UTF8_INVALID);
 
 	switch (c) {
 	case '.':
@@ -373,10 +379,10 @@ lex3(struct lexer *lexer, struct token *out, int c)
 	return c;
 }
 
-static int
-lex2(struct lexer *lexer, struct token *out, int c)
+static uint32_t
+lex2(struct lexer *lexer, struct token *out, uint32_t c)
 {
-	assert(c != EOF);
+	assert(c != UTF8_INVALID);
 
 	switch (c) {
 	case '^':
@@ -418,7 +424,7 @@ lex2(struct lexer *lexer, struct token *out, int c)
 			out->token = T_DIVEQ;
 			break;
 		case '/':
-			while ((c = next(lexer, false)) != EOF && c != '\n') ;
+			while ((c = next(lexer, false)) != UTF8_INVALID && c != '\n') ;
 			return lex(lexer, out);
 		default:
 			push(lexer, c, false);
@@ -522,21 +528,21 @@ lex2(struct lexer *lexer, struct token *out, int c)
 	return c;
 }
 
-int
+uint32_t
 lex(struct lexer *lexer, struct token *out)
 {
-	int c = wgetc(lexer);
-	if (c == EOF) {
+	uint32_t c = wgetc(lexer);
+	if (c == UTF8_INVALID) {
 		out->token = T_EOF;
 		return c;
 	}
 
-	if (isalpha(c) || c == '_') {
+	if (c <= 0x7F && (isalpha(c) || c == '_')) {
 		push(lexer, c, false);
 		return lex_name(lexer, out);
 	}
 
-	if (isdigit(c)) {
+	if (c <= 0x7F && isdigit(c)) {
 		push(lexer, c, false);
 		return lex_literal(lexer, out);
 	}

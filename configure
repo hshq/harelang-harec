@@ -5,7 +5,8 @@ eval ". $srcdir/config.sh"
 harec() {
 	genrules harec \
 		src/lex.c \
-		src/main.c
+		src/main.c \
+		src/utf8.c
 }
 
 all="harec"

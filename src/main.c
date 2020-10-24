@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "lex.h"
+#include "utf8.h"
 
 int
 main(int argc, char *argv[])

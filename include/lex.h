@@ -121,12 +121,12 @@ struct lexer {
 	FILE *in;
 	char *buf;
 	size_t bufsz, buflen;
-	int c;
+	uint32_t c;
 };
 
 void lex_init(struct lexer *lexer, FILE *f);
 void lex_finish(struct lexer *lexer);
-int lex(struct lexer *lexer, struct token *out);
+uint32_t lex(struct lexer *lexer, struct token *out);
 
 void token_finish(struct token *tok);
 const char *token_str(const struct token *tok);
