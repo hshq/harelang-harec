@@ -1,5 +1,6 @@
 #ifndef HAREC_LEX_H
 #define HAREC_LEX_H
+#include <stdint.h>
 
 // Keep sorted
 enum lexical_token {
@@ -103,6 +104,8 @@ enum lexical_token {
 	// Tokens with additional information
 	T_NAME,
 	T_LITERAL,
+	T_RUNE,
+	T_STRING,
 
 	// Magic tokens
 	T_EOF,
@@ -114,6 +117,11 @@ struct token {
 	union {
 		char *name;
 		char *literal;
+		uint32_t rune;
+		struct {
+			size_t len;
+			char *value;
+		} string;
 	};
 };
 

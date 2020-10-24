@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -297,10 +298,111 @@ finalize:
 	return c;
 }
 
-static int
+static uint32_t
+lex_rune(struct lexer *lexer)
+{
+	char buf[5];
+	char *endptr;
+	uint32_t c = next(lexer, false);
+	assert(c != UTF8_INVALID);
+
+	switch (c) {
+	case '\\':
+		c = next(lexer, false);
+		switch (c) {
+		case '0':
+			return '\0';
+		case 'a':
+			return '\a';
+		case 'b':
+			return '\b';
+		case 'f':
+			return '\f';
+		case 'n':
+			return '\n';
+		case 'r':
+			return '\r';
+		case 't':
+			return '\t';
+		case 'v':
+			return '\v';
+		case '\\':
+			return '\\';
+		case '\'':
+			return '\'';
+		case '"':
+			return '\"';
+		case 'x':
+			buf[0] = next(lexer, false);
+			buf[1] = next(lexer, false);
+			buf[2] = '\0';
+			c = strtoul(&buf[0], &endptr, 16);
+			assert(*endptr == '\0');
+			return c;
+		case 'u':
+			buf[0] = next(lexer, false);
+			buf[1] = next(lexer, false);
+			buf[2] = next(lexer, false);
+			buf[3] = next(lexer, false);
+			buf[4] = '\0';
+			c = strtoul(&buf[0], &endptr, 16);
+			assert(*endptr == '\0');
+			return c;
+		default:
+			assert(0); // Invariant
+		}
+		assert(0);
+	default:
+		return c;
+	}
+	assert(0);
+}
+
+static uint32_t
 lex_string(struct lexer *lexer, struct token *out)
 {
-	assert(0); // TODO
+	uint32_t c = next(lexer, false);
+	assert(c != UTF8_INVALID);
+
+	switch (c) {
+	case '"':
+		while ((c = next(lexer, false)) != UTF8_INVALID) {
+			switch (c) {
+			case '"':;
+				char *buf = malloc(lexer->buflen);
+				memcpy(buf, lexer->buf, lexer->buflen);
+				out->token = T_STRING;
+				out->string.len = lexer->buflen;
+				out->string.value = buf;
+				consume(lexer, -1);
+				return c;
+			default:
+				push(lexer, c, false);
+				push(lexer, lex_rune(lexer), false);
+				next(lexer, true);
+			}
+		}
+		assert(0); // Invariant
+	case '\'':
+		c = next(lexer, false);
+		switch (c) {
+		case '\'':
+			assert(0); // Invariant
+		case '\\':
+			push(lexer, c, false);
+			out->rune = lex_rune(lexer);
+			break;
+		default:
+			out->rune = c;
+		}
+		c = next(lexer, false);
+		assert(c == '\'');
+		out->token = T_RUNE;
+		return c;
+	default:
+		assert(0); // Invariant
+	}
+	assert(0);
 }
 
 static uint32_t
@@ -608,6 +710,9 @@ token_finish(struct token *tok)
 	switch (tok->token) {
 	case T_NAME:
 		free(tok->name);
+		break;
+	case T_STRING:
+		free(tok->string.value);
 		break;
 	default:
 		break;

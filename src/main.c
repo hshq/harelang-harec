@@ -19,6 +19,16 @@ main(int argc, char *argv[])
 		case T_LITERAL:
 			fprintf(stderr, "(%s)\n", tok.literal);
 			break;
+		case T_RUNE:
+			putc('\'', stderr);
+			utf8_fputch(stderr, tok.rune);
+			putc('\'', stderr);
+			putc('\n', stderr);
+			break;
+		case T_STRING:
+			fprintf(stderr, "\"%*s\"\n", (int)tok.string.len,
+				tok.string.value);
+			break;
 		case T_ERROR:
 			fprintf(stderr, "ERROR\n");
 			break;
