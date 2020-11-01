@@ -6,6 +6,7 @@ harec() {
 	genrules harec \
 		src/lex.c \
 		src/main.c \
+		src/parse.c \
 		src/utf8.c
 }
 
