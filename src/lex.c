@@ -83,6 +83,7 @@ static const char *tokens[] = {
 	[T_LPAREN] = "(",
 	[T_LSHIFT] = "<<",
 	[T_LSHIFTEQ] = "<<=",
+	[T_LXOR] = "^^",
 	[T_MINUS] = "-",
 	[T_MINUSEQ] = "-=",
 	[T_MINUSMINUS] = "--",
@@ -489,6 +490,9 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 	switch (c) {
 	case '^':
 		switch ((c = next(lexer, false))) {
+		case '^':
+			out->token = T_LXOR;
+			break;
 		case '=':
 			out->token = T_XOREQ;
 			break;

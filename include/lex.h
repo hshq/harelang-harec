@@ -78,6 +78,7 @@ enum lexical_token {
 	T_LPAREN,
 	T_LSHIFT,
 	T_LSHIFTEQ,
+	T_LXOR,
 	T_MINUS,
 	T_MINUSEQ,
 	T_MINUSMINUS,
