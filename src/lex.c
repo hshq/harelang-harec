@@ -702,7 +702,8 @@ lex(struct lexer *lexer, struct token *out)
 		out->token = T_SEMICOLON;
 		break;
 	default:
-		assert(0); // TODO: Operators
+		out->token = T_ERROR;
+		break;
 	}
 
 	return c;
