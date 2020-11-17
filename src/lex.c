@@ -129,9 +129,10 @@ static uint32_t
 next(struct lexer *lexer, bool buffer)
 {
 	uint32_t c;
-	if (lexer->c != 0) {
-		c = lexer->c;
-		lexer->c = 0;
+	if (lexer->c[0] != 0) {
+		c = lexer->c[0];
+		lexer->c[0] = lexer->c[1];
+		lexer->c[1] = 0;
 	} else {
 		c = utf8_fgetch(lexer->in);
 	}
@@ -176,7 +177,8 @@ consume(struct lexer *lexer, ssize_t n)
 static void
 push(struct lexer *lexer, uint32_t c, bool buffer)
 {
-	lexer->c = c;
+	lexer->c[1] = lexer->c[0];
+	lexer->c[0] = c;
 	if (buffer) {
 		consume(lexer, 1);
 	}
@@ -249,6 +251,12 @@ lex_literal(struct lexer *lexer, struct token *out)
 					goto finalize;
 				}
 				isfloat = true;
+				if (!strchr(base, c = next(lexer, false))) {
+					push(lexer, c, false);
+					push(lexer, '.', true);
+					goto finalize;
+				}
+				push(lexer, c, false);
 				break;
 			case 'e':
 				if (exp || suff) {
@@ -276,9 +284,13 @@ lex_literal(struct lexer *lexer, struct token *out)
 
 finalize:
 	out->token = T_LITERAL;
-	out->literal.storage = TYPE_STORAGE_INT;
+	if (isfloat) {
+		out->literal.storage = TYPE_STORAGE_F64;
+	} else {
+		out->literal.storage = TYPE_STORAGE_INT;
+	}
 	if (suff) {
-		const char *suffs[] = {
+		const char *isuffs[] = {
 			[TYPE_STORAGE_U8] = "u8",
 			[TYPE_STORAGE_U16] = "u16",
 			[TYPE_STORAGE_U32] = "u32",
@@ -294,10 +306,23 @@ finalize:
 			[TYPE_STORAGE_F32] = "f32",
 			[TYPE_STORAGE_F64] = "f64",
 		};
+
+		const char *fsuffs[] = {
+			[TYPE_STORAGE_F32] = "f32",
+			[TYPE_STORAGE_F64] = "f64",
+		};
 		bool isvalid = false;
 		for (enum type_storage i = 0;
-				i < sizeof(suffs) / sizeof(suffs[0]); ++i) {
-			if (suffs[i] && strcmp(suff, suffs[i]) == 0) {
+				i < sizeof(isuffs) / sizeof(isuffs[0]); ++i) {
+			if (isuffs[i] && strcmp(suff, isuffs[i]) == 0) {
+				isvalid = true;
+				out->literal.storage = i;
+				break;
+			}
+		}
+		for (enum type_storage i = 0;
+				i < sizeof(fsuffs) / sizeof(fsuffs[0]); ++i) {
+			if (fsuffs[i] && strcmp(suff, fsuffs[i]) == 0) {
 				isvalid = true;
 				out->literal.storage = i;
 				isfloat = true;
@@ -347,7 +372,8 @@ finalize:
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-		assert(0); // TODO
+		out->literal.f = strtod(lexer->buf, NULL);
+		break;
 	default:
 		assert(0);
 	}

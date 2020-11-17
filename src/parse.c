@@ -38,6 +38,11 @@ parse(struct lexer *lexer, struct identifier *ns, struct ast_unit *unit)
 				fprintf(stderr, "(%jd: %s)\n", tok.literal.s,
 					type_storage_unparse(tok.literal.storage));
 				break;
+			case TYPE_STORAGE_F32:
+			case TYPE_STORAGE_F64:
+				fprintf(stderr, "(%lf: %s)\n", tok.literal.f,
+					type_storage_unparse(tok.literal.storage));
+				break;
 			default:
 				assert(0);
 			}

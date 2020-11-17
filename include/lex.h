@@ -114,12 +114,17 @@ enum lexical_token {
 	T_ERROR,
 };
 
+#ifndef __STDC_IEC_559__
+#error "harec requires IEC 60559 (IEEE 754) floating-point arithmetic"
+#endif
+
 struct token {
 	enum lexical_token token;
 	union {
 		struct {
 			uintmax_t u;
 			intmax_t s;
+			double f;
 			enum type_storage storage;
 		} literal;
 		char *name;
@@ -135,7 +140,7 @@ struct lexer {
 	FILE *in;
 	char *buf;
 	size_t bufsz, buflen;
-	uint32_t c;
+	uint32_t c[2];
 };
 
 void lex_init(struct lexer *lexer, FILE *f);
