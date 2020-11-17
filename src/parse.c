@@ -1,9 +1,11 @@
+#include <assert.h>
 #include <stdio.h>
 #include "ast.h"
 #include "identifier.h"
 #include "lex.h"
 #include "parse.h"
 #include "utf8.h"
+#include "types.h"
 
 void
 parse(struct lexer *lexer, struct identifier *ns, struct ast_unit *unit)
@@ -18,7 +20,27 @@ parse(struct lexer *lexer, struct identifier *ns, struct ast_unit *unit)
 			fprintf(stderr, "'%s'\n", tok.name);
 			break;
 		case T_LITERAL:
-			fprintf(stderr, "(%s)\n", tok.literal);
+			switch (tok.literal.storage) {
+			case TYPE_STORAGE_U8:
+			case TYPE_STORAGE_U16:
+			case TYPE_STORAGE_U32:
+			case TYPE_STORAGE_UINT:
+			case TYPE_STORAGE_U64:
+			case TYPE_STORAGE_SIZE:
+				fprintf(stderr, "(%ju: %s)\n", tok.literal.u,
+					type_storage_unparse(tok.literal.storage));
+				break;
+			case TYPE_STORAGE_I8:
+			case TYPE_STORAGE_I16:
+			case TYPE_STORAGE_I32:
+			case TYPE_STORAGE_INT:
+			case TYPE_STORAGE_I64:
+				fprintf(stderr, "(%jd: %s)\n", tok.literal.s,
+					type_storage_unparse(tok.literal.storage));
+				break;
+			default:
+				assert(0);
+			}
 			break;
 		case T_RUNE:
 			putc('\'', stderr);

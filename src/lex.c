@@ -1,5 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -236,34 +238,34 @@ lex_literal(struct lexer *lexer, struct token *out)
 	}
 
 	char *suff = NULL;
-	bool isfloat = false, isexp = false, issuff = false;
+	char *exp = NULL;
+	bool isfloat = false;
 	while ((c = next(lexer, true)) != UTF8_INVALID) {
 		if (!strchr(base, c)) {
 			switch (c) {
 			case '.':
-				if (isfloat || issuff) {
+				if (isfloat || suff) {
 					push(lexer, c, true);
 					goto finalize;
 				}
 				isfloat = true;
 				break;
 			case 'e':
-				if (isexp || issuff) {
+				if (exp || suff) {
 					push(lexer, c, true);
 					goto finalize;
 				}
-				isexp = true;
-				isfloat = false;
+				exp = &lexer->buf[lexer->buflen];
 				break;
 			case 'i':
 			case 'u':
 			case 'f':
-				if (issuff) {
+			case 'z':
+				if (suff) {
 					push(lexer, c, true);
 					goto finalize;
 				}
 				suff = &lexer->buf[lexer->buflen - 1];
-				issuff = true;
 				break;
 			default:
 				push(lexer, c, true);
@@ -273,16 +275,32 @@ lex_literal(struct lexer *lexer, struct token *out)
 	}
 
 finalize:
+	out->token = T_LITERAL;
+	out->literal.storage = TYPE_STORAGE_INT;
 	if (suff) {
-		const char *valid[] = {
-			"u8", "u16", "u32", "u64",
-			"i8", "i16", "i32", "i64",
-			"f32", "f64", "u", "i", "z",
+		const char *suffs[] = {
+			[TYPE_STORAGE_U8] = "u8",
+			[TYPE_STORAGE_U16] = "u16",
+			[TYPE_STORAGE_U32] = "u32",
+			[TYPE_STORAGE_U64] = "u64",
+			[TYPE_STORAGE_I8] = "i8",
+			[TYPE_STORAGE_I16] = "i16",
+			[TYPE_STORAGE_I32] = "i32",
+			[TYPE_STORAGE_I64] = "i64",
+		
+			[TYPE_STORAGE_UINT] = "u",
+			[TYPE_STORAGE_INT] = "i",
+			[TYPE_STORAGE_SIZE] = "z",
+			[TYPE_STORAGE_F32] = "f32",
+			[TYPE_STORAGE_F64] = "f64",
 		};
 		bool isvalid = false;
-		for (size_t i = 0; i < sizeof(valid) / sizeof(valid[0]); ++i) {
-			if (strcmp(suff, valid[i]) == 0) {
+		for (enum type_storage i = 0;
+				i < sizeof(suffs) / sizeof(suffs[0]); ++i) {
+			if (suffs[i] && strcmp(suff, suffs[i]) == 0) {
 				isvalid = true;
+				out->literal.storage = i;
+				isfloat = true;
 				break;
 			}
 		}
@@ -293,8 +311,49 @@ finalize:
 		}
 	}
 
-	out->token = T_LITERAL;
-	out->name = strdup(lexer->buf);
+	uintmax_t exponent = 0;
+	if (exp) {
+		char *endptr = NULL;
+		exponent = strtoumax(exp, &endptr, 10);
+		if (endptr == exp) {
+			out->token = T_ERROR;
+			consume(lexer, -1);
+			return c;
+		}
+	}
+
+	errno = 0;
+	switch (out->literal.storage) {
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_SIZE:
+		out->literal.u = strtoumax(lexer->buf, NULL, strlen(base));
+		for (uintmax_t i = 0; i < exponent; i++) {
+			out->literal.u *= 10;
+		}
+		break;
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_I64:
+		out->literal.s = strtoimax(lexer->buf, NULL, strlen(base));
+		for (uintmax_t i = 0; i < exponent; i++) {
+			out->literal.s *= 10;
+		}
+		break;
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		assert(0); // TODO
+	default:
+		assert(0);
+	}
+	if (errno == ERANGE) {
+		out->token = T_ERROR;
+	}
 	consume(lexer, -1);
 	return c;
 }

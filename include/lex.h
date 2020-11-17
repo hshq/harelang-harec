@@ -1,6 +1,7 @@
 #ifndef HAREC_LEX_H
 #define HAREC_LEX_H
 #include <stdint.h>
+#include "types.h"
 
 // Keep sorted
 enum lexical_token {
@@ -103,8 +104,8 @@ enum lexical_token {
 	T_LAST_OPERATOR = T_XOREQ,
 
 	// Tokens with additional information
-	T_NAME,
 	T_LITERAL,
+	T_NAME,
 	T_RUNE,
 	T_STRING,
 
@@ -116,8 +117,12 @@ enum lexical_token {
 struct token {
 	enum lexical_token token;
 	union {
+		struct {
+			uintmax_t u;
+			intmax_t s;
+			enum type_storage storage;
+		} literal;
 		char *name;
-		char *literal;
 		uint32_t rune;
 		struct {
 			size_t len;
