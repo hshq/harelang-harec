@@ -41,6 +41,7 @@ static const char *tokens[] = {
 	[T_NULL] = "null",
 	[T_NULLABLE] = "nullable",
 	[T_RETURN] = "return",
+	[T_RUNE] = "rune",
 	[T_SIZE] = "size",
 	[T_STATIC] = "static",
 	[T_STR] = "str",

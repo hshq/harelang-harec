@@ -34,6 +34,7 @@ enum lexical_token {
 	T_NULL,
 	T_NULLABLE,
 	T_RETURN,
+	T_RUNE,
 	T_SIZE,
 	T_STATIC,
 	T_STR,
