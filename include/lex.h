@@ -106,8 +106,6 @@ enum lexical_token {
 	// Tokens with additional information
 	T_LITERAL,
 	T_NAME,
-	T_RUNE,
-	T_STRING,
 
 	// Magic tokens
 	T_EOF,
@@ -120,19 +118,17 @@ enum lexical_token {
 
 struct token {
 	enum lexical_token token;
+	enum type_storage storage;
 	union {
-		struct {
-			uintmax_t u;
-			intmax_t s;
-			double f;
-			enum type_storage storage;
-		} literal;
+		double _float;
 		char *name;
 		uint32_t rune;
+		intmax_t _signed;
 		struct {
 			size_t len;
 			char *value;
 		} string;
+		uintmax_t _unsigned;
 	};
 };
 

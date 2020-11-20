@@ -285,12 +285,12 @@ lex_literal(struct lexer *lexer, struct token *out)
 finalize:
 	out->token = T_LITERAL;
 	if (isfloat) {
-		out->literal.storage = TYPE_STORAGE_F64;
+		out->storage = TYPE_STORAGE_F64;
 	} else {
-		out->literal.storage = TYPE_STORAGE_INT;
+		out->storage = TYPE_STORAGE_INT;
 	}
 	if (suff) {
-		const char *isuffs[] = {
+		const char *suffs[] = {
 			[TYPE_STORAGE_U8] = "u8",
 			[TYPE_STORAGE_U16] = "u16",
 			[TYPE_STORAGE_U32] = "u32",
@@ -306,26 +306,12 @@ finalize:
 			[TYPE_STORAGE_F32] = "f32",
 			[TYPE_STORAGE_F64] = "f64",
 		};
-
-		const char *fsuffs[] = {
-			[TYPE_STORAGE_F32] = "f32",
-			[TYPE_STORAGE_F64] = "f64",
-		};
 		bool isvalid = false;
 		for (enum type_storage i = 0;
-				i < sizeof(isuffs) / sizeof(isuffs[0]); ++i) {
-			if (isuffs[i] && strcmp(suff, isuffs[i]) == 0) {
+				i < sizeof(suffs) / sizeof(suffs[0]); ++i) {
+			if (suffs[i] && strcmp(suff, suffs[i]) == 0) {
 				isvalid = true;
-				out->literal.storage = i;
-				break;
-			}
-		}
-		for (enum type_storage i = 0;
-				i < sizeof(fsuffs) / sizeof(fsuffs[0]); ++i) {
-			if (fsuffs[i] && strcmp(suff, fsuffs[i]) == 0) {
-				isvalid = true;
-				out->literal.storage = i;
-				isfloat = true;
+				out->storage = i;
 				break;
 			}
 		}
@@ -348,16 +334,16 @@ finalize:
 	}
 
 	errno = 0;
-	switch (out->literal.storage) {
+	switch (out->storage) {
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_U16:
 	case TYPE_STORAGE_U32:
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_U64:
 	case TYPE_STORAGE_SIZE:
-		out->literal.u = strtoumax(lexer->buf, NULL, strlen(base));
+		out->_unsigned = strtoumax(lexer->buf, NULL, strlen(base));
 		for (uintmax_t i = 0; i < exponent; i++) {
-			out->literal.u *= 10;
+			out->_unsigned *= 10;
 		}
 		break;
 	case TYPE_STORAGE_I8:
@@ -365,14 +351,14 @@ finalize:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_I64:
-		out->literal.s = strtoimax(lexer->buf, NULL, strlen(base));
+		out->_signed = strtoimax(lexer->buf, NULL, strlen(base));
 		for (uintmax_t i = 0; i < exponent; i++) {
-			out->literal.s *= 10;
+			out->_signed *= 10;
 		}
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-		out->literal.f = strtod(lexer->buf, NULL);
+		out->_float = strtod(lexer->buf, NULL);
 		break;
 	default:
 		assert(0);
@@ -457,7 +443,8 @@ lex_string(struct lexer *lexer, struct token *out)
 			case '"':;
 				char *buf = malloc(lexer->buflen);
 				memcpy(buf, lexer->buf, lexer->buflen);
-				out->token = T_STRING;
+				out->token = T_LITERAL;
+				out->storage = TYPE_STORAGE_STRING;
 				out->string.len = lexer->buflen;
 				out->string.value = buf;
 				consume(lexer, -1);
@@ -483,7 +470,8 @@ lex_string(struct lexer *lexer, struct token *out)
 		}
 		c = next(lexer, false);
 		assert(c == '\'');
-		out->token = T_RUNE;
+		out->token = T_LITERAL;
+		out->storage = TYPE_STORAGE_RUNE;
 		return c;
 	default:
 		assert(0); // Invariant
@@ -801,13 +789,20 @@ token_finish(struct token *tok)
 	case T_NAME:
 		free(tok->name);
 		break;
-	case T_STRING:
-		free(tok->string.value);
+	case T_LITERAL:
+		switch (tok->storage) {
+		case TYPE_STORAGE_STRING:
+			free(tok->string.value);
+			break;
+		default:
+			break;
+		}
 		break;
 	default:
 		break;
 	}
 	tok->token = 0;
+	tok->storage = 0;
 }
 
 const char *

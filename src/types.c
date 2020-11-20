@@ -23,6 +23,8 @@ type_storage_unparse(enum type_storage storage)
 		return "i64";
 	case TYPE_STORAGE_INT:
 		return "int";
+	case TYPE_STORAGE_RUNE:
+		return "rune";
 	case TYPE_STORAGE_UINT:
 		return "uint";
 	case TYPE_STORAGE_UINTPTR:
@@ -33,6 +35,8 @@ type_storage_unparse(enum type_storage storage)
 		return "f32";
 	case TYPE_STORAGE_F64:
 		return "f64";
+	case TYPE_STORAGE_STRING:
+		return "str";
 	default:
 		assert(0);
 	}
