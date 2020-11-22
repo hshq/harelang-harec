@@ -74,7 +74,7 @@ parse_identifier(struct parser *par, struct identifier *ident)
 			i = ns;
 			break;
 		default:
-			// TODO: Unlex
+			unlex(par->lex, &tok);
 			return;
 		}
 	}
@@ -120,7 +120,7 @@ parse_imports(struct parser *par, struct ast_subunit *subunit)
 			next = &imports->next;
 			break;
 		default:
-			// TODO: unlex
+			unlex(par->lex, &tok);
 			return;
 		}
 	}
