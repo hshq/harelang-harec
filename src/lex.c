@@ -119,6 +119,9 @@ lex_init(struct lexer *lexer, FILE *f)
 	lexer->bufsz = 256;
 	lexer->buf = calloc(1, lexer->bufsz);
 	lexer->un.token = T_ERROR;
+	lexer->loc.lineno = 1;
+	lexer->loc.colno = 0;
+	lexer->loc.path = "stdin"; // TODO: non-stdin paths
 }
 
 void
@@ -128,8 +131,19 @@ lex_finish(struct lexer *lexer)
 	free(lexer->buf);
 }
 
+static void
+update_lineno(struct location *loc, uint32_t c)
+{
+	if (c == '\n') {
+		loc->lineno++;
+		loc->colno = 0;
+	} else {
+		loc->colno++;
+	}
+}
+
 static uint32_t
-next(struct lexer *lexer, bool buffer)
+next(struct lexer *lexer, struct location *loc, bool buffer)
 {
 	uint32_t c;
 	if (lexer->c[0] != 0) {
@@ -138,6 +152,15 @@ next(struct lexer *lexer, bool buffer)
 		lexer->c[1] = 0;
 	} else {
 		c = utf8_fgetch(lexer->in);
+		update_lineno(&lexer->loc, c);
+	}
+	if (loc != NULL) {
+		loc->path = lexer->loc.path;
+		loc->lineno = lexer->loc.lineno;
+		loc->colno = lexer->loc.colno;
+		for (size_t i = 0; i < 2 && lexer->c[i] != 0; i++) {
+			update_lineno(&lexer->loc, lexer->c[i]);
+		}
 	}
 	if (c == UTF8_INVALID || !buffer) {
 		return c;
@@ -156,10 +179,10 @@ next(struct lexer *lexer, bool buffer)
 }
 
 static uint32_t
-wgetc(struct lexer *lexer)
+wgetc(struct lexer *lexer, struct location *loc)
 {
 	uint32_t c;
-	while ((c = next(lexer, false)) != UTF8_INVALID && isspace(c)) ;
+	while ((c = next(lexer, loc, false)) != UTF8_INVALID && isspace(c)) ;
 	return c;
 }
 
@@ -196,9 +219,9 @@ cmp_keyword(const void *va, const void *vb)
 static uint32_t
 lex_name(struct lexer *lexer, struct token *out)
 {
-	uint32_t c = next(lexer, true);
+	uint32_t c = next(lexer, &out->loc, true);
 	assert(c != UTF8_INVALID && c <= 0x7F && (isalpha(c) || c == '_'));
-	while ((c = next(lexer, true)) != UTF8_INVALID) {
+	while ((c = next(lexer, NULL, true)) != UTF8_INVALID) {
 		if (c > 0x7F || (!isalnum(c) && c != '_')) {
 			push(lexer, c, true);
 			goto lookup;
@@ -223,11 +246,11 @@ lookup:;
 static uint32_t
 lex_literal(struct lexer *lexer, struct token *out)
 {
-	uint32_t c = next(lexer, true);
+	uint32_t c = next(lexer, &out->loc, true);
 	assert(c != UTF8_INVALID && c <= 0x7F && isdigit(c));
 
 	const char *base = "0123456789";
-	switch ((c = next(lexer, true))) {
+	switch ((c = next(lexer, NULL, true))) {
 	case 'b':
 		base = "01";
 		break;
@@ -245,7 +268,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 	char *suff = NULL;
 	char *exp = NULL;
 	bool isfloat = false;
-	while ((c = next(lexer, true)) != UTF8_INVALID) {
+	while ((c = next(lexer, NULL, true)) != UTF8_INVALID) {
 		if (!strchr(base, c)) {
 			switch (c) {
 			case '.':
@@ -254,7 +277,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 					goto finalize;
 				}
 				isfloat = true;
-				if (!strchr(base, c = next(lexer, false))) {
+				if (!strchr(base, c = next(lexer, NULL, false))) {
 					push(lexer, c, false);
 					push(lexer, '.', true);
 					goto finalize;
@@ -378,12 +401,12 @@ lex_rune(struct lexer *lexer)
 {
 	char buf[5];
 	char *endptr;
-	uint32_t c = next(lexer, false);
+	uint32_t c = next(lexer, NULL, false);
 	assert(c != UTF8_INVALID);
 
 	switch (c) {
 	case '\\':
-		c = next(lexer, false);
+		c = next(lexer, NULL, false);
 		switch (c) {
 		case '0':
 			return '\0';
@@ -408,17 +431,17 @@ lex_rune(struct lexer *lexer)
 		case '"':
 			return '\"';
 		case 'x':
-			buf[0] = next(lexer, false);
-			buf[1] = next(lexer, false);
+			buf[0] = next(lexer, NULL, false);
+			buf[1] = next(lexer, NULL, false);
 			buf[2] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			assert(*endptr == '\0');
 			return c;
 		case 'u':
-			buf[0] = next(lexer, false);
-			buf[1] = next(lexer, false);
-			buf[2] = next(lexer, false);
-			buf[3] = next(lexer, false);
+			buf[0] = next(lexer, NULL, false);
+			buf[1] = next(lexer, NULL, false);
+			buf[2] = next(lexer, NULL, false);
+			buf[3] = next(lexer, NULL, false);
 			buf[4] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			assert(*endptr == '\0');
@@ -436,12 +459,12 @@ lex_rune(struct lexer *lexer)
 static enum lexical_token
 lex_string(struct lexer *lexer, struct token *out)
 {
-	uint32_t c = next(lexer, false);
+	uint32_t c = next(lexer, &out->loc, false);
 	assert(c != UTF8_INVALID);
 
 	switch (c) {
 	case '"':
-		while ((c = next(lexer, false)) != UTF8_INVALID) {
+		while ((c = next(lexer, NULL, false)) != UTF8_INVALID) {
 			switch (c) {
 			case '"':;
 				char *buf = malloc(lexer->buflen);
@@ -455,12 +478,12 @@ lex_string(struct lexer *lexer, struct token *out)
 			default:
 				push(lexer, c, false);
 				push(lexer, lex_rune(lexer), false);
-				next(lexer, true);
+				next(lexer, NULL, true);
 			}
 		}
 		assert(0); // Invariant
 	case '\'':
-		c = next(lexer, false);
+		c = next(lexer, NULL, false);
 		switch (c) {
 		case '\'':
 			assert(0); // Invariant
@@ -471,7 +494,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		default:
 			out->rune = c;
 		}
-		c = next(lexer, false);
+		c = next(lexer, NULL, false);
 		assert(c == '\'');
 		out->token = T_LITERAL;
 		out->storage = TYPE_STORAGE_RUNE;
@@ -489,9 +512,9 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 
 	switch (c) {
 	case '.':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '.':
-			switch ((c = next(lexer, false))) {
+			switch ((c = next(lexer, NULL, false))) {
 			case '.':
 				out->token = T_ELLIPSIS;
 				break;
@@ -508,9 +531,9 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '<':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '<':
-			switch ((c = next(lexer, false))) {
+			switch ((c = next(lexer, NULL, false))) {
 			case '=':
 				out->token = T_LSHIFTEQ;
 				break;
@@ -530,9 +553,9 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '>':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '>':
-			switch ((c = next(lexer, false))) {
+			switch ((c = next(lexer, NULL, false))) {
 			case '=':
 				out->token = T_RSHIFTEQ;
 				break;
@@ -565,7 +588,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 
 	switch (c) {
 	case '^':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '^':
 			out->token = T_LXOR;
 			break;
@@ -579,7 +602,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '*':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '=':
 			out->token = T_TIMESEQ;
 			break;
@@ -590,7 +613,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '%':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '=':
 			out->token = T_MODEQ;
 			break;
@@ -601,12 +624,12 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '/':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '=':
 			out->token = T_DIVEQ;
 			break;
 		case '/':
-			while ((c = next(lexer, false)) != UTF8_INVALID && c != '\n') ;
+			while ((c = next(lexer, NULL, false)) != UTF8_INVALID && c != '\n') ;
 			return lex(lexer, out);
 		default:
 			push(lexer, c, false);
@@ -615,7 +638,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '+':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '=':
 			out->token = T_PLUSEQ;
 			break;
@@ -629,7 +652,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '-':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '=':
 			out->token = T_MINUSEQ;
 			break;
@@ -643,7 +666,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case ':':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case ':':
 			out->token = T_DOUBLE_COLON;
 			break;
@@ -654,7 +677,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '!':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '=':
 			out->token = T_NEQUAL;
 			break;
@@ -665,7 +688,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '&':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '&':
 			out->token = T_LAND;
 			break;
@@ -679,7 +702,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '|':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '&':
 			out->token = T_LOR;
 			break;
@@ -693,7 +716,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case '=':
-		switch ((c = next(lexer, false))) {
+		switch ((c = next(lexer, NULL, false))) {
 		case '=':
 			out->token = T_LEQUAL;
 			break;
@@ -719,7 +742,7 @@ _lex(struct lexer *lexer, struct token *out)
 		return out->token;
 	}
 
-	uint32_t c = wgetc(lexer);
+	uint32_t c = wgetc(lexer, &out->loc);
 	if (c == UTF8_INVALID) {
 		out->token = T_EOF;
 		return out->token;
@@ -820,6 +843,9 @@ token_finish(struct token *tok)
 	}
 	tok->token = 0;
 	tok->storage = 0;
+	tok->loc.path = NULL;
+	tok->loc.colno = 0;
+	tok->loc.lineno = 0;
 }
 
 const char *

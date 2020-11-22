@@ -117,7 +117,13 @@ enum lexical_token {
 #error "harec requires IEC 60559 (IEEE 754) floating-point arithmetic"
 #endif
 
+struct location {
+	const char *path;
+	int lineno, colno;
+};
+
 struct token {
+	struct location loc;
 	enum lexical_token token;
 	enum type_storage storage;
 	union {
@@ -139,6 +145,7 @@ struct lexer {
 	size_t bufsz, buflen;
 	uint32_t c[2];
 	struct token un;
+	struct location loc;
 };
 
 void lex_init(struct lexer *lexer, FILE *f);
