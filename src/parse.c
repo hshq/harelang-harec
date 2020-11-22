@@ -102,9 +102,12 @@ parse_import(struct parser *par, struct ast_imports *imports)
 	case T_LBRACE:
 		assert(0); // TODO
 	case T_SEMICOLON:
-		return;
+		imports->mode = AST_IMPORT_IDENTIFIER;
+		imports->ident = ident;
+		break;
 	default:
 		synassert(false, &tok, T_EQUAL, T_LBRACE, T_SEMICOLON, T_EOF);
+		break;
 	}
 }
 
