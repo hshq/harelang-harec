@@ -114,7 +114,8 @@ parse_imports(struct parser *par, struct ast_subunit *subunit)
 	struct token tok = {0};
 	struct ast_imports **next = &subunit->imports;
 
-	while (true) {
+	bool more = true;
+	while (more) {
 		struct ast_imports *imports;
 		switch (lex(par->lex, &tok)) {
 		case T_USE:
@@ -125,8 +126,15 @@ parse_imports(struct parser *par, struct ast_subunit *subunit)
 			break;
 		default:
 			unlex(par->lex, &tok);
-			return;
+			more = false;
+			break;
 		}
+	}
+
+	for (struct ast_imports *i = subunit->imports; i; i = i->next) {
+		char buf[1024];
+		identifier_unparse_static(&i->ident, buf, sizeof(buf));
+		trace("parse", "-> use %s", buf);
 	}
 }
 

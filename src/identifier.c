@@ -50,10 +50,14 @@ identifier_unparse_static(const struct identifier *ident, char *buf, size_t len)
 	if (ident->ns) {
 		int prefix = identifier_unparse_static(ident->ns, buf, len);
 		int n = snprintf(&buf[prefix], len - prefix, "::%s", ident->name);
-		assert(prefix + n < (int)len);
+		if (n >= (int)len) {
+			buf[len - 1] = '\0';
+		}
 		return n;
 	}
 	int n = snprintf(buf, len, ident->name);
-	assert(n < (int)len);
+	if (n >= (int)len) {
+		buf[len - 1] = '\0';
+	}
 	return n;
 }
