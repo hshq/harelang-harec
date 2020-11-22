@@ -46,6 +46,17 @@ synassert(bool cond, struct token *tok, ...)
 }
 
 static void
+want(struct parser *par, enum lexical_token ltok, struct token *tok)
+{
+	struct token _tok = {0};
+	lex(par->lex, tok ? tok : &_tok);
+	synassert(tok->token == ltok, tok ? tok : &_tok, ltok, T_EOF);
+	if (!tok) {
+		token_finish(&_tok);
+	}
+}
+
+static void
 parse_identifier(struct parser *par, struct identifier *ident)
 {
 	struct token tok = {0};
@@ -53,7 +64,7 @@ parse_identifier(struct parser *par, struct identifier *ident)
 	trace(par, "identifier");
 
 	while (true) {
-		synassert(lex(par->lex, &tok) == T_NAME, &tok, T_NAME, T_EOF);
+		want(par, T_NAME, &tok);
 		i->name = strdup(tok.name);
 		token_finish(&tok);
 
