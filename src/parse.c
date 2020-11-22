@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -37,7 +38,11 @@ synassert(bool cond, struct token *tok, ...)
 			token_str(tok),
 			t == T_EOF ? "\n" : ", expected " );
 		while (t != T_EOF) {
-			fprintf(stderr, "%s", lexical_token_str(t));
+			if (t == T_LITERAL || t == T_NAME) {
+				fprintf(stderr, "%s", lexical_token_str(t));
+			} else {
+				fprintf(stderr, "'%s'", lexical_token_str(t));
+			}
 			t = va_arg(ap, enum lexical_token);
 			fprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
 		}
@@ -89,7 +94,18 @@ parse_import(struct parser *par, struct ast_imports *imports)
 	trace(par, "import");
 	struct identifier ident = {0};
 	parse_identifier(par, &ident);
-	// TODO: Parse the various forms of imports
+
+	struct token tok = {0};
+	switch (lex(par->lex, &tok)) {
+	case T_EQUAL:
+		assert(0); // TODO
+	case T_LBRACE:
+		assert(0); // TODO
+	case T_SEMICOLON:
+		return;
+	default:
+		synassert(false, &tok, T_EQUAL, T_LBRACE, T_SEMICOLON, T_EOF);
+	}
 }
 
 static void
