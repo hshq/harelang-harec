@@ -6,4 +6,8 @@ struct identifier {
 	struct identifier *ns;
 };
 
+char *identifier_unparse(const struct identifier *ident);
+int identifier_unparse_static(const struct identifier *ident,
+		char *buf, size_t len);
+
 #endif

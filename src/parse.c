@@ -60,7 +60,7 @@ parse_identifier(struct parser *par, struct identifier *ident)
 	struct identifier *i = ident;
 	trace("parse", "identifier");
 
-	while (true) {
+	while (!i->name) {
 		want(par, T_NAME, &tok);
 		i->name = strdup(tok.name);
 		token_finish(&tok);
@@ -71,13 +71,17 @@ parse_identifier(struct parser *par, struct identifier *ident)
 			ns = calloc(1, sizeof(struct identifier));
 			*ns = *i;
 			i->ns = ns;
-			i = ns;
+			i->name = NULL;
 			break;
 		default:
 			unlex(par->lex, &tok);
-			return;
+			break;
 		}
 	}
+
+	char buf[1024];
+	identifier_unparse_static(ident, buf, sizeof(buf));
+	trace("parse", "-> %s", buf);
 }
 
 static void
