@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lex.h"
+#include "trace.h"
 #include "utf8.h"
 
 static const char *tokens[] = {
@@ -709,8 +710,8 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 	return out->token;
 }
 
-enum lexical_token
-lex(struct lexer *lexer, struct token *out)
+static enum lexical_token
+_lex(struct lexer *lexer, struct token *out)
 {
 	if (lexer->un.token != T_ERROR) {
 		*out = lexer->un;
@@ -790,6 +791,14 @@ lex(struct lexer *lexer, struct token *out)
 	return out->token;
 }
 
+enum lexical_token
+lex(struct lexer *lexer, struct token *out)
+{
+	enum lexical_token l = _lex(lexer, out);
+	trace("lex", "%s", token_str(out));
+	return l;
+}
+
 void
 token_finish(struct token *tok)
 {
@@ -848,5 +857,6 @@ void
 unlex(struct lexer *lexer, struct token *in)
 {
 	assert(lexer->un.token == T_ERROR && "Only one unlex is supported");
+	trace("lex", "(unlex) %s", token_str(in));
 	lexer->un = *in;
 }

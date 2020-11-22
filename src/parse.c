@@ -8,21 +8,13 @@
 #include "identifier.h"
 #include "lex.h"
 #include "parse.h"
+#include "trace.h"
 #include "types.h"
 #include "utf8.h"
 
 struct parser {
 	struct lexer *lex;
 };
-
-static void
-trace(struct parser *par, const char *name)
-{
-	if (getenv("HAREC_TRACE") == NULL) {
-		return;
-	}
-	fprintf(stderr, "%s\n", name);
-}
 
 static void
 synassert(bool cond, struct token *tok, ...)
@@ -66,7 +58,7 @@ parse_identifier(struct parser *par, struct identifier *ident)
 {
 	struct token tok = {0};
 	struct identifier *i = ident;
-	trace(par, "identifier");
+	trace("parse", "identifier");
 
 	while (true) {
 		want(par, T_NAME, &tok);
@@ -91,7 +83,7 @@ parse_identifier(struct parser *par, struct identifier *ident)
 static void
 parse_import(struct parser *par, struct ast_imports *imports)
 {
-	trace(par, "import");
+	trace("parse", "import");
 	struct identifier ident = {0};
 	parse_identifier(par, &ident);
 
@@ -114,7 +106,7 @@ parse_import(struct parser *par, struct ast_imports *imports)
 static void
 parse_imports(struct parser *par, struct ast_subunit *subunit)
 {
-	trace(par, "imports");
+	trace("parse", "imports");
 	struct token tok = {0};
 	struct ast_imports **next = &subunit->imports;
 
