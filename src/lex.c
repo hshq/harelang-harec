@@ -203,7 +203,7 @@ lex_name(struct lexer *lexer, struct token *out)
 		}
 	}
 	out->token = T_EOF;
-	return c;
+	return out->token;
 
 lookup:;
 	void *token = bsearch(&lexer->buf, tokens, T_LAST_KEYWORD + 1,
@@ -215,7 +215,7 @@ lookup:;
 		out->token = (const char **)token - tokens;
 	}
 	consume(lexer, -1);
-	return c;
+	return out->token;
 }
 
 static uint32_t
@@ -319,7 +319,7 @@ finalize:
 		if (!isvalid) {
 			out->token = T_ERROR;
 			consume(lexer, -1);
-			return c;
+			return out->token;
 		}
 	}
 
@@ -330,7 +330,7 @@ finalize:
 		if (endptr == exp) {
 			out->token = T_ERROR;
 			consume(lexer, -1);
-			return c;
+			return out->token;
 		}
 	}
 
@@ -368,7 +368,7 @@ finalize:
 		out->token = T_ERROR;
 	}
 	consume(lexer, -1);
-	return c;
+	return out->token;
 }
 
 static uint32_t
@@ -449,7 +449,7 @@ lex_string(struct lexer *lexer, struct token *out)
 				out->string.len = lexer->buflen;
 				out->string.value = buf;
 				consume(lexer, -1);
-				return c;
+				return out->token;
 			default:
 				push(lexer, c, false);
 				push(lexer, lex_rune(lexer), false);
@@ -473,7 +473,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		assert(c == '\'');
 		out->token = T_LITERAL;
 		out->storage = TYPE_STORAGE_RUNE;
-		return c;
+		return out->token;
 	default:
 		assert(0); // Invariant
 	}
@@ -553,7 +553,7 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 		assert(0); // Invariant
 	}
 
-	return c;
+	return out->token;
 }
 
 static uint32_t
@@ -705,7 +705,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		assert(0); // Invariant
 	}
 
-	return c;
+	return out->token;
 }
 
 uint32_t
@@ -714,7 +714,7 @@ lex(struct lexer *lexer, struct token *out)
 	uint32_t c = wgetc(lexer);
 	if (c == UTF8_INVALID) {
 		out->token = T_EOF;
-		return c;
+		return out->token;
 	}
 
 	if (c <= 0x7F && (isalpha(c) || c == '_')) {
@@ -780,7 +780,7 @@ lex(struct lexer *lexer, struct token *out)
 		break;
 	}
 
-	return c;
+	return out->token;
 }
 
 void
@@ -807,13 +807,32 @@ token_finish(struct token *tok)
 }
 
 const char *
+lexical_token_str(enum lexical_token tok)
+{
+	switch (tok) {
+	case T_NAME:
+		return "name";
+	case T_LITERAL:
+		return "literal";
+	case T_EOF:
+		return "end of file";
+	case T_ERROR:
+		return "error";
+	default:
+		assert(tok < sizeof(tokens) / sizeof(tokens[0]));
+		return tokens[tok];
+	}
+}
+
+const char *
 token_str(const struct token *tok)
 {
 	switch (tok->token) {
 	case T_NAME:
 		return tok->name;
+	case T_LITERAL:
+		assert(0); // TODO
 	default:
-		assert(tok->token < sizeof(tokens) / sizeof(tokens[0]));
-		return tokens[tok->token];
+		return lexical_token_str(tok->token);
 	}
 }

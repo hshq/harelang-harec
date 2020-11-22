@@ -146,5 +146,6 @@ uint32_t lex(struct lexer *lexer, struct token *out);
 
 void token_finish(struct token *tok);
 const char *token_str(const struct token *tok);
+const char *lexical_token_str(enum lexical_token tok);
 
 #endif

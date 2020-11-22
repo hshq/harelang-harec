@@ -1,73 +1,114 @@
-#include <assert.h>
+#include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "ast.h"
 #include "identifier.h"
 #include "lex.h"
 #include "parse.h"
-#include "utf8.h"
 #include "types.h"
+#include "utf8.h"
 
-void
-parse(struct lexer *lexer, struct identifier *ns, struct ast_unit *unit)
+struct parser {
+	struct lexer *lex;
+};
+
+static void
+trace(struct parser *par, const char *name)
+{
+	if (getenv("HAREC_TRACE") == NULL) {
+		return;
+	}
+	fprintf(stderr, "%s\n", name);
+}
+
+static void
+synassert(bool cond, struct token *tok, ...)
+{
+	if (!cond) {
+		va_list ap;
+		va_start(ap, tok);
+
+		// TODO: file name, lineno, colno
+		enum lexical_token t = va_arg(ap, enum lexical_token);
+		fprintf(stderr,
+			"Syntax error: unexpected '%s'%s",
+			token_str(tok),
+			t == T_EOF ? "\n" : ", expected " );
+		while (t != T_EOF) {
+			fprintf(stderr, "%s", lexical_token_str(t));
+			t = va_arg(ap, enum lexical_token);
+			fprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
+		}
+		exit(1);
+	}
+}
+
+static void
+parse_identifier(struct parser *par, struct identifier *ident)
 {
 	struct token tok = {0};
+	struct identifier *i = ident;
+	trace(par, "identifier");
 
-	while (tok.token != T_EOF) {
+	while (true) {
+		synassert(lex(par->lex, &tok) == T_NAME, &tok, T_NAME, T_EOF);
+		i->name = strdup(tok.name);
 		token_finish(&tok);
-		lex(lexer, &tok);
-		switch (tok.token) {
-		case T_NAME:
-			fprintf(stderr, "'%s'\n", tok.name);
-			break;
-		case T_LITERAL:
-			switch (tok.storage) {
-			case TYPE_STORAGE_F32:
-			case TYPE_STORAGE_F64:
-				fprintf(stderr, "(%lf: %s)\n", tok._float,
-					type_storage_unparse(tok.storage));
-				break;
-			case TYPE_STORAGE_I8:
-			case TYPE_STORAGE_I16:
-			case TYPE_STORAGE_I32:
-			case TYPE_STORAGE_I64:
-			case TYPE_STORAGE_INT:
-				fprintf(stderr, "(%jd: %s)\n", tok._signed,
-					type_storage_unparse(tok.storage));
-				break;
-			case TYPE_STORAGE_RUNE:
-				putc('\'', stderr);
-				utf8_fputch(stderr, tok.rune);
-				putc('\'', stderr);
-				putc('\n', stderr);
-				break;
-			case TYPE_STORAGE_STRING:
-				fprintf(stderr, "\"%*s\"\n", (int)tok.string.len,
-					tok.string.value);
-				break;
-			case TYPE_STORAGE_SIZE:
-			case TYPE_STORAGE_U8:
-			case TYPE_STORAGE_U16:
-			case TYPE_STORAGE_U32:
-			case TYPE_STORAGE_U64:
-			case TYPE_STORAGE_UINT:
-				fprintf(stderr, "(%ju: %s)\n", tok._unsigned,
-					type_storage_unparse(tok.storage));
-				break;
-			default:
-				assert(0);
-			}
-			break;
-		case T_ERROR:
-			fprintf(stderr, "ERROR\n");
-			break;
-		case T_EOF:
-			fprintf(stderr, "EOF\n");
+
+		struct identifier *ns;
+		switch (lex(par->lex, &tok)) {
+		case T_DOUBLE_COLON:
+			ns = calloc(1, sizeof(struct identifier));
+			*ns = *i;
+			i->ns = ns;
+			i = ns;
 			break;
 		default:
-			fprintf(stderr, "%s\n", token_str(&tok));
-			break;
+			// TODO: Unlex
+			return;
 		}
-	};
+	}
+}
 
-	token_finish(&tok);
+static void
+parse_import(struct parser *par, struct ast_imports *imports)
+{
+	trace(par, "import");
+	struct identifier ident = {0};
+	parse_identifier(par, &ident);
+	// TODO: Parse the various forms of imports
+}
+
+static void
+parse_imports(struct parser *par, struct ast_subunit *subunit)
+{
+	trace(par, "imports");
+	struct token tok = {0};
+	struct ast_imports **next = &subunit->imports;
+
+	while (true) {
+		struct ast_imports *imports;
+		switch (lex(par->lex, &tok)) {
+		case T_USE:
+			imports = calloc(1, sizeof(struct ast_imports));
+			parse_import(par, imports);
+			*next = imports;
+			next = &imports->next;
+			break;
+		default:
+			// TODO: unlex
+			return;
+		}
+	}
+}
+
+void
+parse(struct lexer *lex, struct ast_subunit *subunit)
+{
+	struct parser par = {
+		.lex = lex,
+	};
+	parse_imports(&par, subunit);
 }

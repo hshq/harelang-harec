@@ -2,10 +2,9 @@
 #define HAREC_PARSE_H
 #include <stdio.h>
 
-struct ast_unit;
-struct identifier;
+struct ast_subunit;
 struct lexer;
 
-void parse(struct lexer *lexer, struct identifier *ns, struct ast_unit *unit);
+void parse(struct lexer *lexer, struct ast_subunit *unit);
 
 #endif
