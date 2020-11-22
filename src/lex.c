@@ -643,7 +643,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		}
 		break;
 	case ':':
-		switch (c) {
+		switch ((c = next(lexer, false))) {
 		case ':':
 			out->token = T_DOUBLE_COLON;
 			break;
