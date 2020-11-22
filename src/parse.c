@@ -58,7 +58,7 @@ parse_identifier(struct parser *par, struct identifier *ident)
 {
 	struct token tok = {0};
 	struct identifier *i = ident;
-	trace("parse", "identifier");
+	trenter(TR_PARSE, "identifier");
 
 	while (!i->name) {
 		want(par, T_NAME, &tok);
@@ -81,13 +81,13 @@ parse_identifier(struct parser *par, struct identifier *ident)
 
 	char buf[1024];
 	identifier_unparse_static(ident, buf, sizeof(buf));
-	trace("parse", "-> %s", buf);
+	trleave(TR_PARSE, "%s", buf);
 }
 
 static void
 parse_import(struct parser *par, struct ast_imports *imports)
 {
-	trace("parse", "import");
+	trenter(TR_PARSE, "import");
 	struct identifier ident = {0};
 	parse_identifier(par, &ident);
 
@@ -105,12 +105,14 @@ parse_import(struct parser *par, struct ast_imports *imports)
 		synassert(false, &tok, T_EQUAL, T_LBRACE, T_SEMICOLON, T_EOF);
 		break;
 	}
+
+	trleave(TR_PARSE, NULL);
 }
 
 static void
 parse_imports(struct parser *par, struct ast_subunit *subunit)
 {
-	trace("parse", "imports");
+	trenter(TR_PARSE, "imports");
 	struct token tok = {0};
 	struct ast_imports **next = &subunit->imports;
 
@@ -134,8 +136,9 @@ parse_imports(struct parser *par, struct ast_subunit *subunit)
 	for (struct ast_imports *i = subunit->imports; i; i = i->next) {
 		char buf[1024];
 		identifier_unparse_static(&i->ident, buf, sizeof(buf));
-		trace("parse", "-> use %s", buf);
+		trace(TR_PARSE, "use %s", buf);
 	}
+	trleave(TR_PARSE, NULL);
 }
 
 void

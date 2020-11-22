@@ -795,7 +795,7 @@ enum lexical_token
 lex(struct lexer *lexer, struct token *out)
 {
 	enum lexical_token l = _lex(lexer, out);
-	trace("lex", "%s", token_str(out));
+	trace(TR_LEX, "%s", token_str(out));
 	return l;
 }
 
@@ -857,6 +857,6 @@ void
 unlex(struct lexer *lexer, struct token *in)
 {
 	assert(lexer->un.token == T_ERROR && "Only one unlex is supported");
-	trace("lex", "(unlex) %s", token_str(in));
+	trace(TR_LEX, "(unlex) %s", token_str(in));
 	lexer->un = *in;
 }
