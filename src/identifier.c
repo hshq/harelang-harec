@@ -49,13 +49,14 @@ identifier_unparse_static(const struct identifier *ident, char *buf, size_t len)
 	assert(len < INT_MAX);
 	if (ident->ns) {
 		int prefix = identifier_unparse_static(ident->ns, buf, len);
-		int n = snprintf(&buf[prefix], len - prefix, "::%s", ident->name);
+		int n = snprintf(&buf[prefix], len - prefix,
+				"::%s", ident->name);
 		if (n >= (int)len) {
 			buf[len - 1] = '\0';
 		}
-		return n;
+		return prefix + n;
 	}
-	int n = snprintf(buf, len, ident->name);
+	int n = snprintf(buf, len, "%s", ident->name);
 	if (n >= (int)len) {
 		buf[len - 1] = '\0';
 	}
