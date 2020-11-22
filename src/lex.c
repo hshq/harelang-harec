@@ -117,6 +117,7 @@ lex_init(struct lexer *lexer, FILE *f)
 	lexer->in = f;
 	lexer->bufsz = 256;
 	lexer->buf = calloc(1, lexer->bufsz);
+	lexer->un.token = T_ERROR;
 }
 
 void
@@ -711,6 +712,12 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 enum lexical_token
 lex(struct lexer *lexer, struct token *out)
 {
+	if (lexer->un.token != T_ERROR) {
+		*out = lexer->un;
+		lexer->un.token = T_ERROR;
+		return out->token;
+	}
+
 	uint32_t c = wgetc(lexer);
 	if (c == UTF8_INVALID) {
 		out->token = T_EOF;
@@ -835,4 +842,11 @@ token_str(const struct token *tok)
 	default:
 		return lexical_token_str(tok->token);
 	}
+}
+
+void
+unlex(struct lexer *lexer, struct token *in)
+{
+	assert(lexer->un.token == T_ERROR && "Only one unlex is supported");
+	lexer->un = *in;
 }
