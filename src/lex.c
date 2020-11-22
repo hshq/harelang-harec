@@ -431,7 +431,7 @@ lex_rune(struct lexer *lexer)
 	assert(0);
 }
 
-static uint32_t
+static enum lexical_token
 lex_string(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, false);
@@ -480,7 +480,7 @@ lex_string(struct lexer *lexer, struct token *out)
 	assert(0);
 }
 
-static uint32_t
+static enum lexical_token
 lex3(struct lexer *lexer, struct token *out, uint32_t c)
 {
 	assert(c != UTF8_INVALID);
@@ -556,7 +556,7 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 	return out->token;
 }
 
-static uint32_t
+static enum lexical_token
 lex2(struct lexer *lexer, struct token *out, uint32_t c)
 {
 	assert(c != UTF8_INVALID);
@@ -708,7 +708,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 	return out->token;
 }
 
-uint32_t
+enum lexical_token
 lex(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = wgetc(lexer);

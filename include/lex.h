@@ -142,7 +142,7 @@ struct lexer {
 
 void lex_init(struct lexer *lexer, FILE *f);
 void lex_finish(struct lexer *lexer);
-uint32_t lex(struct lexer *lexer, struct token *out);
+enum lexical_token lex(struct lexer *lexer, struct token *out);
 
 void token_finish(struct token *tok);
 const char *token_str(const struct token *tok);
