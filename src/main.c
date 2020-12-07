@@ -9,7 +9,7 @@ main(int argc, char *argv[])
 	struct lexer lexer;
 	lex_init(&lexer, stdin);
 
-	struct ast_subunit subunit;
+	struct ast_subunit subunit = {0};
 	parse(&lexer, &subunit);
 
 	lex_finish(&lexer);
