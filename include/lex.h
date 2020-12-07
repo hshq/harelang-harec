@@ -6,6 +6,7 @@
 // Keep sorted
 enum lexical_token {
 	T_AS,
+	T_ABORT,
 	T_ASSERT,
 	T_BOOL,
 	T_BREAK,

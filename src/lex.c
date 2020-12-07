@@ -14,6 +14,7 @@
 static const char *tokens[] = {
 	// Must be alpha sorted
 	[T_AS] = "as",
+	[T_ABORT] = "abort",
 	[T_ASSERT] = "assert",
 	[T_BOOL] = "bool",
 	[T_BREAK] = "break",
