@@ -45,10 +45,11 @@ static void
 want(struct parser *par, enum lexical_token ltok, struct token *tok)
 {
 	struct token _tok = {0};
-	lex(par->lex, tok ? tok : &_tok);
-	synassert(tok->token == ltok, tok ? tok : &_tok, ltok, T_EOF);
+	struct token *out = tok ? tok : &_tok;
+	lex(par->lex, out);
+	synassert(out->token == ltok, out, ltok, T_EOF);
 	if (!tok) {
-		token_finish(&_tok);
+		token_finish(out);
 	}
 }
 
