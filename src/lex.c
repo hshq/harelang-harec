@@ -13,8 +13,8 @@
 
 static const char *tokens[] = {
 	// Must be alpha sorted
-	[T_AS] = "as",
 	[T_ABORT] = "abort",
+	[T_AS] = "as",
 	[T_ASSERT] = "assert",
 	[T_BOOL] = "bool",
 	[T_BREAK] = "break",
@@ -61,6 +61,11 @@ static const char *tokens[] = {
 	[T_USE] = "use",
 	[T_VOID] = "void",
 	[T_WHILE] = "while",
+	[T_ATTR_FINI] = "@fini",
+	[T_ATTR_INIT] = "@init",
+	[T_ATTR_NORETURN] = "@noreturn",
+	[T_ATTR_SYMBOL] = "@symbol",
+	[T_ATTR_TEST] = "@test",
 
 	// Operators
 	[T_ANDEQ] = "&=",
@@ -222,7 +227,7 @@ static uint32_t
 lex_name(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, true);
-	assert(c != UTF8_INVALID && c <= 0x7F && (isalpha(c) || c == '_'));
+	assert(c != UTF8_INVALID && c <= 0x7F && (isalpha(c) || c == '_' || c == '@'));
 	while ((c = next(lexer, NULL, true)) != UTF8_INVALID) {
 		if (c > 0x7F || (!isalnum(c) && c != '_')) {
 			push(lexer, c, true);
@@ -236,6 +241,11 @@ lookup:;
 	void *token = bsearch(&lexer->buf, tokens, T_LAST_KEYWORD + 1,
 			sizeof(tokens[0]), cmp_keyword);
 	if (!token) {
+		if (lexer->buf[0] == '@') {
+			out->token = T_ERROR;
+			consume(lexer, -1);
+			return out->token;
+		}
 		out->token = T_NAME;
 		out->name = strdup(lexer->buf);
 	} else {
@@ -750,7 +760,7 @@ _lex(struct lexer *lexer, struct token *out)
 		return out->token;
 	}
 
-	if (c <= 0x7F && (isalpha(c) || c == '_')) {
+	if (c <= 0x7F && (isalpha(c) || c == '_' || c == '@')) {
 		push(lexer, c, false);
 		return lex_name(lexer, out);
 	}
