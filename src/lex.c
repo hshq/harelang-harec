@@ -148,10 +148,10 @@ static uint32_t
 next(struct lexer *lexer, struct location *loc, bool buffer)
 {
 	uint32_t c;
-	if (lexer->c[0] != 0) {
+	if (lexer->c[0] != UINT32_MAX) {
 		c = lexer->c[0];
 		lexer->c[0] = lexer->c[1];
-		lexer->c[1] = 0;
+		lexer->c[1] = UINT32_MAX;
 	} else {
 		c = utf8_fgetch(lexer->in);
 		update_lineno(&lexer->loc, c);
@@ -205,6 +205,7 @@ consume(struct lexer *lexer, ssize_t n)
 static void
 push(struct lexer *lexer, uint32_t c, bool buffer)
 {
+	assert(lexer->c[1] == UINT32_MAX);
 	lexer->c[1] = lexer->c[0];
 	lexer->c[0] = c;
 	if (buffer) {
