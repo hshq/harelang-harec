@@ -24,10 +24,11 @@ synassert(bool cond, struct token *tok, ...)
 		va_start(ap, tok);
 
 		enum lexical_token t = va_arg(ap, enum lexical_token);
+		const char *s = token_str(tok);
 		fprintf(stderr,
-			"Syntax error: unexpected '%s' at %s:%d:%d%s",
-			token_str(tok), tok->loc.path, tok->loc.lineno,
-			tok->loc.colno, t == T_EOF ? "\n" : ", expected " );
+			"Syntax error: unexpected '%s' at %s:%d:%d%s", s,
+			tok->loc.path, tok->loc.lineno, tok->loc.colno,
+			t == T_EOF ? "\n" : ", expected " );
 		while (t != T_EOF) {
 			if (t == T_LITERAL || t == T_NAME) {
 				fprintf(stderr, "%s", lexical_token_str(t));

@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -830,7 +831,8 @@ enum lexical_token
 lex(struct lexer *lexer, struct token *out)
 {
 	enum lexical_token l = _lex(lexer, out);
-	trace(TR_LEX, "%s", token_str(out));
+	const char *s = token_str(out);
+	trace(TR_LEX, "%s", s);
 	return l;
 }
 
@@ -878,16 +880,120 @@ lexical_token_str(enum lexical_token tok)
 	}
 }
 
+static const char *
+rune_unparse(uint32_t c)
+{
+	static char buf[7];
+	switch (c) {
+	case '\0':
+		snprintf(buf, sizeof(buf), "\\0");
+		break;
+	case '\a':
+		snprintf(buf, sizeof(buf), "\\a");
+		break;
+	case '\b':
+		snprintf(buf, sizeof(buf), "\\b");
+		break;
+	case '\f':
+		snprintf(buf, sizeof(buf), "\\f");
+		break;
+	case '\n':
+		snprintf(buf, sizeof(buf), "\\n");
+		break;
+	case '\r':
+		snprintf(buf, sizeof(buf), "\\r");
+		break;
+	case '\t':
+		snprintf(buf, sizeof(buf), "\\t");
+		break;
+	case '\v':
+		snprintf(buf, sizeof(buf), "\\v");
+		break;
+	case '\\':
+		snprintf(buf, sizeof(buf), "\\\\");
+		break;
+	case '\'':
+		snprintf(buf, sizeof(buf), "\\'");
+		break;
+	case '"':
+		snprintf(buf, sizeof(buf), "\\\"");
+		break;
+	default:
+		if (c > 0x7F) {
+			snprintf(buf, sizeof(buf), "\\u%04x", c);
+		} else if (!isprint(c)) {
+			snprintf(buf, sizeof(buf), "\\x%02x", c);
+		} else {
+			assert(utf8_chsize(c) < sizeof(buf));
+			buf[utf8_encode(buf, c)] = '\0';
+		}
+		break;
+	}
+	return buf;
+}
+
+static const char *
+string_unparse(const struct token *tok)
+{
+	static char buf[1024];
+	assert(tok->token == T_LITERAL && tok->storage == TYPE_STORAGE_STRING);
+	int bytes = 0;
+	memset(buf, 0, sizeof(buf));
+	bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "\"");
+	const char *s = tok->string.value;
+	for (uint32_t c = utf8_decode(&s);
+			s - tok->string.value <= (ptrdiff_t)tok->string.len;
+			c = utf8_decode(&s)) {
+		bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "%s",
+			rune_unparse(c));
+	}
+	bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "\"");
+	return buf;
+}
+
 const char *
 token_str(const struct token *tok)
 {
+	static char buf[1024];
+	int bytes = 0;
 	switch (tok->token) {
 	case T_NAME:
 		return tok->name;
 	case T_LITERAL:
-		assert(0); // TODO
-	default:
-		return lexical_token_str(tok->token);
+		switch (tok->storage) {
+		case TYPE_STORAGE_U8:
+		case TYPE_STORAGE_U16:
+		case TYPE_STORAGE_U32:
+		case TYPE_STORAGE_U64:
+		case TYPE_STORAGE_UINT:
+		case TYPE_STORAGE_UINTPTR:
+		case TYPE_STORAGE_SIZE:
+			snprintf(buf, sizeof(buf), "%ju", tok->_unsigned);
+			break;
+		case TYPE_STORAGE_I8:
+		case TYPE_STORAGE_I16:
+		case TYPE_STORAGE_I32:
+		case TYPE_STORAGE_I64:
+		case TYPE_STORAGE_INT:
+			snprintf(buf, sizeof(buf), "%jd", tok->_signed);
+			break;
+		case TYPE_STORAGE_F32:
+		case TYPE_STORAGE_F64:
+			snprintf(buf, sizeof(buf), "%lf", tok->_float);
+			break;
+		case TYPE_STORAGE_RUNE:
+			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
+			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "%s",
+				rune_unparse(tok->rune));
+			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
+			break;
+		case TYPE_STORAGE_STRING:
+			return string_unparse(tok);
+		}
+		return buf;
+	default:;
+		const char *out = lexical_token_str(tok->token);
+		return out;
 	}
 }
 
@@ -895,6 +1001,7 @@ void
 unlex(struct lexer *lexer, struct token *in)
 {
 	assert(lexer->un.token == T_ERROR && "Only one unlex is supported");
-	trace(TR_LEX, "(unlex) %s", token_str(in));
+	const char *s = token_str(in);
+	trace(TR_LEX, "(unlex) %s", s);
 	lexer->un = *in;
 }
