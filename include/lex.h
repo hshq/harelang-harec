@@ -42,6 +42,7 @@ enum lexical_token {
 	T_STRUCT,
 	T_SWITCH,
 	T_TRUE,
+	T_TYPE,
 	T_U16,
 	T_U32,
 	T_U64,

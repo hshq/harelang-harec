@@ -50,6 +50,7 @@ static const char *tokens[] = {
 	[T_STRUCT] = "struct",
 	[T_SWITCH] = "switch",
 	[T_TRUE] = "true",
+	[T_TYPE] = "type",
 	[T_U16] = "u16",
 	[T_U32] = "u32",
 	[T_U64] = "u64",
