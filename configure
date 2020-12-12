@@ -9,8 +9,10 @@ harec() {
 		src/main.c \
 		src/parse.c \
 		src/trace.c \
+		src/type_store.c \
 		src/types.c \
-		src/utf8.c
+		src/utf8.c \
+		src/util.c
 }
 
 all="harec"

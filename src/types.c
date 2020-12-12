@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdbool.h>
 #include "types.h"
 
 const char *
@@ -62,3 +63,100 @@ type_storage_unparse(enum type_storage storage)
 	}
 	assert(0);
 }
+
+// Built-in type singletons
+const struct type builtin_type_bool = {
+	.storage = TYPE_STORAGE_BOOL,
+	.size = 4, // XXX: ARCH
+	.align = 4,
+},
+builtin_type_char = {
+	.storage = TYPE_STORAGE_CHAR,
+	.size = 1,
+	.align = 1,
+},
+builtin_type_f32 = {
+	.storage = TYPE_STORAGE_F32,
+	.size = 4,
+	.align = 4,
+},
+builtin_type_f64 = {
+	.storage = TYPE_STORAGE_F64,
+	.size = 8,
+	.align = 8,
+},
+builtin_type_i8 = {
+	.storage = TYPE_STORAGE_I8,
+	.size = 1,
+	.align = 1,
+},
+builtin_type_i16 = {
+	.storage = TYPE_STORAGE_I16,
+	.size = 2,
+	.align = 2,
+},
+builtin_type_i32 = {
+	.storage = TYPE_STORAGE_I32,
+	.size = 4,
+	.align = 4,
+},
+builtin_type_i64 = {
+	.storage = TYPE_STORAGE_I64,
+	.size = 8,
+	.align = 8,
+},
+builtin_type_int = {
+	.storage = TYPE_STORAGE_INT,
+	.size = 4, // XXX: ARCH
+	.align = 4,
+},
+builtin_type_u8 = {
+	.storage = TYPE_STORAGE_U8,
+	.size = 1,
+	.align = 1,
+},
+builtin_type_u16 = {
+	.storage = TYPE_STORAGE_U16,
+	.size = 2,
+	.align = 2,
+},
+builtin_type_u32 = {
+	.storage = TYPE_STORAGE_U32,
+	.size = 4,
+	.align = 4,
+},
+builtin_type_u64 = {
+	.storage = TYPE_STORAGE_U64,
+	.size = 8,
+	.align = 8,
+},
+builtin_type_uint = {
+	.storage = TYPE_STORAGE_UINT,
+	.size = 4,
+	.align = 4,
+},
+builtin_type_uintptr = {
+	.storage = TYPE_STORAGE_UINTPTR,
+	.size = 8, // XXX: ARCH
+	.align = 8,
+},
+builtin_type_size = {
+	.storage = TYPE_STORAGE_SIZE,
+	.size = 8, // XXX: ARCH
+	.align = 8,
+},
+builtin_type_void = {
+	.storage = TYPE_STORAGE_VOID,
+	.size = 0,
+	.align = 0,
+};
+
+// Selected aggregate type singletons
+const struct type builtin_type_charptr = {
+	.storage = TYPE_STORAGE_POINTER,
+	.size = 8, // XXX: ARCH
+	.align = 8,
+	.pointer = {
+		.referent = &builtin_type_char,
+	},
+};
