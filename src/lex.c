@@ -130,6 +130,8 @@ lex_init(struct lexer *lexer, FILE *f)
 	lexer->loc.lineno = 1;
 	lexer->loc.colno = 0;
 	lexer->loc.path = "stdin"; // TODO: non-stdin paths
+	lexer->c[0] = UINT32_MAX;
+	lexer->c[1] = UINT32_MAX;
 }
 
 void
@@ -154,10 +156,10 @@ static uint32_t
 next(struct lexer *lexer, struct location *loc, bool buffer)
 {
 	uint32_t c;
-	if (lexer->c[0] != 0) {
+	if (lexer->c[0] != UINT32_MAX) {
 		c = lexer->c[0];
 		lexer->c[0] = lexer->c[1];
-		lexer->c[1] = 0;
+		lexer->c[1] = UINT32_MAX;
 	} else {
 		c = utf8_fgetch(lexer->in);
 		update_lineno(&lexer->loc, c);
@@ -166,7 +168,7 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 		loc->path = lexer->loc.path;
 		loc->lineno = lexer->loc.lineno;
 		loc->colno = lexer->loc.colno;
-		for (size_t i = 0; i < 2 && lexer->c[i] != 0; i++) {
+		for (size_t i = 0; i < 2 && lexer->c[i] != UINT32_MAX; i++) {
 			update_lineno(&lexer->loc, lexer->c[i]);
 		}
 	}
@@ -211,6 +213,7 @@ consume(struct lexer *lexer, ssize_t n)
 static void
 push(struct lexer *lexer, uint32_t c, bool buffer)
 {
+	assert(lexer->c[1] == UINT32_MAX);
 	lexer->c[1] = lexer->c[0];
 	lexer->c[0] = c;
 	if (buffer) {
