@@ -1,6 +1,7 @@
 #ifndef HARE_TYPES_H
 #define HARE_TYPES_H
 #include <stdbool.h>
+#include <stdint.h>
 #include "identifier.h"
 
 enum type_storage {
@@ -39,14 +40,22 @@ enum type_storage {
 
 struct type;
 
+enum pointer_flags {
+	POINTER_NULLABLE = 1 << 0,
+};
+
 struct type_pointer {
-	bool nullable;
 	const struct type *referent;
+	unsigned int flags;
+};
+
+enum type_flags {
+	TYPE_CONST = 1 << 0,
 };
 
 struct type {
 	enum type_storage storage;
-	bool constant;
+	unsigned int flags;
 	size_t size, align;
 	union {
 		struct type_pointer pointer;

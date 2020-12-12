@@ -233,7 +233,7 @@ parse_type(struct parser *par, struct ast_type *type)
 	struct token tok = {0};
 	switch (lex(par->lex, &tok)) {
 	case T_CONST:
-		type->constant = true;
+		type->flags |= TYPE_CONST;
 		break;
 	default:
 		unlex(par->lex, &tok);
@@ -300,7 +300,7 @@ parse_type(struct parser *par, struct ast_type *type)
 	case T_ENUM:
 		assert(0); // TODO: Enums
 	case T_NULLABLE:
-		type->pointer.nullable = true;
+		type->pointer.flags |= POINTER_NULLABLE;
 		want(par, T_TIMES, NULL);
 		trace(TR_PARSE, "nullable");
 		/* fallthrough */
@@ -330,7 +330,7 @@ parse_type(struct parser *par, struct ast_type *type)
 		parse_identifier(par, &type->alias);
 		break;
 	}
-	trleave(TR_PARSE, "%s%s", type->constant ? "const " : "",
+	trleave(TR_PARSE, "%s%s", (type->flags & TYPE_CONST) ? "const " : "",
 		type_storage_unparse(type->storage));
 }
 
@@ -425,7 +425,7 @@ parse_global_decl(struct parser *par, enum lexical_token mode,
 		want(par, T_COLON, NULL);
 		parse_type(par, &i->type);
 		if (mode == T_CONST) {
-			i->type.constant = true;
+			i->type.flags |= TYPE_CONST;
 		}
 		want(par, T_EQUAL, NULL);
 		parse_simple_expression(par, &i->init);

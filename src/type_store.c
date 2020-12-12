@@ -7,6 +7,7 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 {
 	unsigned long hash = DJB2_INIT;
 	hash = djb2(hash, type->storage);
+	hash = djb2(hash, type->flags);
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -46,6 +47,7 @@ type_hash(struct type_store *store, const struct type *type)
 {
 	unsigned long hash = DJB2_INIT;
 	hash = djb2(hash, type->storage);
+	hash = djb2(hash, type->flags);
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:

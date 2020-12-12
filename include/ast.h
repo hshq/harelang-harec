@@ -57,8 +57,8 @@ struct ast_function_type {
 };
 
 struct ast_pointer_type {
-	bool nullable;
 	struct ast_type *referent;
+	unsigned int flags;
 };
 
 struct ast_tagged_union_type {
@@ -74,7 +74,7 @@ struct ast_struct_union_type {
 
 struct ast_type {
 	enum type_storage storage;
-	bool constant;
+	unsigned int flags;
 	union {
 		struct identifier alias;
 		struct ast_list_type array;
