@@ -41,7 +41,7 @@ enum type_storage {
 struct type;
 
 enum pointer_flags {
-	POINTER_NULLABLE = 1 << 0,
+	POINTER_FLAGS_NULLABLE = 1 << 0,
 };
 
 struct type_pointer {
@@ -50,7 +50,7 @@ struct type_pointer {
 };
 
 enum type_flags {
-	TYPE_CONST = 1 << 0,
+	TYPE_FLAGS_CONST = 1 << 0,
 };
 
 struct type {
@@ -82,9 +82,29 @@ extern const struct type
 	builtin_type_u64,
 	builtin_type_uint,
 	builtin_type_uintptr,
+	builtin_type_rune,
 	builtin_type_size,
 	builtin_type_void,
+	// Const primitives
+	builtin_type_const_bool,
+	builtin_type_const_char,
+	builtin_type_const_f32,
+	builtin_type_const_f64,
+	builtin_type_const_i8,
+	builtin_type_const_i16,
+	builtin_type_const_i32,
+	builtin_type_const_i64,
+	builtin_type_const_int,
+	builtin_type_const_u8,
+	builtin_type_const_u16,
+	builtin_type_const_u32,
+	builtin_type_const_u64,
+	builtin_type_const_uint,
+	builtin_type_const_uintptr,
+	builtin_type_const_rune,
+	builtin_type_const_size,
+	builtin_type_const_void,
 	// Aggregate
-	builtin_type_charptr;
+	builtin_type_const_ptr_char;
 
 #endif
