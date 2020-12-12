@@ -112,6 +112,7 @@ enum lexical_token {
 	T_LAST_OPERATOR = T_XOREQ,
 
 	// Tokens with additional information
+	T_LABEL,
 	T_LITERAL,
 	T_NAME,
 
