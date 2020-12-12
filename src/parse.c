@@ -169,6 +169,7 @@ parse_parameter_list(struct parser *par, struct ast_function_type *type)
 		(*next)->name = tok.name;
 		want(par, T_COLON, NULL);
 		parse_type(par, (*next)->type);
+		trace(TR_PARSE, "%s: [type]", (*next)->name);
 		switch (lex(par->lex, &tok)) {
 		case T_COMMA:
 			switch (lex(par->lex, &tok)) {
@@ -178,6 +179,7 @@ parse_parameter_list(struct parser *par, struct ast_function_type *type)
 					unlex(par->lex, &tok);
 				}
 				more = false;
+				trace(TR_PARSE, ", ...");
 				break;
 			default:
 				unlex(par->lex, &tok);
@@ -191,6 +193,7 @@ parse_parameter_list(struct parser *par, struct ast_function_type *type)
 				unlex(par->lex, &tok);
 			}
 			more = false;
+			trace(TR_PARSE, "...");
 			break;
 		default:
 			more = false;
@@ -214,7 +217,12 @@ parse_prototype(struct parser *par, struct ast_function_type *type)
 	}
 	type->result = calloc(1, sizeof(struct ast_type));
 	parse_type(par, type->result);
-	// TODO: unparse prototype
+	size_t ctr = 0;
+	for (struct ast_function_parameters *param = type->parameters; param;
+			param = param->next) {
+		ctr++;
+	}
+	trace(TR_PARSE, "[%zu parameters] [type]", ctr);
 	trleave(TR_PARSE, NULL);
 }
 
@@ -294,6 +302,7 @@ parse_type(struct parser *par, struct ast_type *type)
 	case T_NULLABLE:
 		type->pointer.nullable = true;
 		want(par, T_TIMES, NULL);
+		trace(TR_PARSE, "nullable");
 		/* fallthrough */
 	case T_TIMES:
 		type->storage = TYPE_STORAGE_POINTER;
@@ -321,16 +330,18 @@ parse_type(struct parser *par, struct ast_type *type)
 		parse_identifier(par, &type->alias);
 		break;
 	}
-	// TODO: unparse type
-	trleave(TR_PARSE, NULL);
+	trleave(TR_PARSE, "%s%s", type->constant ? "const " : "",
+		type_storage_unparse(type->storage));
 }
 
 static void
 parse_simple_expression(struct parser *par, struct ast_expression *exp)
 {
+	trenter(TR_PARSE, "simple-expression");
 	struct token tok = {0};
 	lex(par->lex, &tok);
 	assert(tok.token == T_LITERAL); // TODO: other simple expressions
+	trenter(TR_PARSE, "constant");
 	exp->type = EXPR_CONSTANT;
 	exp->constant.storage = tok.storage;
 	switch (tok.storage) {
@@ -358,13 +369,17 @@ parse_simple_expression(struct parser *par, struct ast_expression *exp)
 	default:
 		assert(0); // TODO
 	}
+	trleave(TR_PARSE, "%s", token_str(&tok));
+	trleave(TR_PARSE, NULL);
 }
 
 static void
 parse_complex_expression(struct parser *par, struct ast_expression *exp)
 {
 	// TODO: other complex expressions
+	trenter(TR_PARSE, "complex-expression");
 	parse_simple_expression(par, exp);
+	trleave(TR_PARSE, NULL);
 }
 
 static char *
@@ -432,17 +447,14 @@ parse_global_decl(struct parser *par, enum lexical_token mode,
 	}
 
 	for (struct ast_global_decl *i = decl; i; i = i->next) {
-		char ibuf[1024], tbuf[1024], ebuf[1024];
-		identifier_unparse_static(&i->ident, ibuf, sizeof(ibuf));
-		strncpy(tbuf, "[type]", sizeof(tbuf)); // TODO: unparse type
-		strncpy(ebuf, "[expr]", sizeof(ebuf)); // TODO: unparse expr
+		char buf[1024];
+		identifier_unparse_static(&i->ident, buf, sizeof(buf));
 		if (decl->symbol) {
-			trace(TR_PARSE, "%s @symbol(\"%s\") %s: %s = %s",
-				lexical_token_str(mode), decl->symbol, ibuf,
-				tbuf, ebuf);
+			trace(TR_PARSE, "%s @symbol(\"%s\") %s: [type] = [expr]",
+				lexical_token_str(mode), decl->symbol, buf);
 		} else {
-			trace(TR_PARSE, "%s %s: %s = [expr]",
-				lexical_token_str(mode), ibuf, tbuf);
+			trace(TR_PARSE, "%s %s: [type] = [expr]",
+				lexical_token_str(mode), buf);
 		}
 	}
 	trleave(TR_PARSE, NULL);
@@ -525,12 +537,12 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 		snprintf(symbol, sizeof(symbol), "@symbol(\"%s\") ", decl->symbol);
 	}
 	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
-	trace(TR_PARSE, "%s%s%s%s%sfn %s %s = %s",
+	trace(TR_PARSE, "%s%s%s%s%sfn %s [prototype] = [expr]",
 		decl->flags & FN_FINI ? "@fini " : "",
 		decl->flags & FN_INIT ? "@init " : "",
 		decl->prototype.noreturn ? "@noreturn " : "",
 		decl->flags & FN_TEST ? "@test " : "",
-		decl->symbol ? symbol : "", buf, "[prototype]", "[expr]");
+		decl->symbol ? symbol : "", buf);
 	trleave(TR_PARSE, NULL);
 }
 
