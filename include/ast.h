@@ -2,6 +2,7 @@
 #define HARE_AST_H
 #include <stdbool.h>
 #include <stdint.h>
+#include "check.h"
 #include "identifier.h"
 #include "types.h"
 
@@ -125,15 +126,9 @@ struct ast_type_decl {
 	struct ast_type_decl *next;
 };
 
-enum function_flags {
-	FN_FINI = 1 << 0,
-	FN_INIT = 1 << 1,
-	FN_TEST = 1 << 2,
-};
-
 struct ast_function_decl {
 	char *symbol;
-	uint32_t flags; // enum function_flags
+	uint32_t flags; // enum function_flags (check.h)
 	struct identifier ident;
 	struct ast_function_type prototype;
 	struct ast_expression body;
