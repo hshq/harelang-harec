@@ -233,7 +233,7 @@ parse_type(struct parser *par, struct ast_type *type)
 	struct token tok = {0};
 	switch (lex(par->lex, &tok)) {
 	case T_CONST:
-		type->flags |= TYPE_FLAGS_CONST;
+		type->flags |= TYPE_CONST;
 		break;
 	default:
 		unlex(par->lex, &tok);
@@ -300,7 +300,7 @@ parse_type(struct parser *par, struct ast_type *type)
 	case T_ENUM:
 		assert(0); // TODO: Enums
 	case T_NULLABLE:
-		type->pointer.flags |= POINTER_FLAGS_NULLABLE;
+		type->pointer.flags |= PTR_NULLABLE;
 		want(par, T_TIMES, NULL);
 		trace(TR_PARSE, "nullable");
 		/* fallthrough */
@@ -317,7 +317,7 @@ parse_type(struct parser *par, struct ast_type *type)
 	case T_LBRACKET:
 		assert(0); // TODO: Slices/arrays
 	case T_ATTR_NORETURN:
-		type->function.noreturn = true;
+		type->function.flags |= FN_NORETURN;
 		want(par, T_FN, NULL);
 		/* fallthrough */
 	case T_FN:
@@ -330,7 +330,7 @@ parse_type(struct parser *par, struct ast_type *type)
 		parse_identifier(par, &type->alias);
 		break;
 	}
-	trleave(TR_PARSE, "%s%s", (type->flags & TYPE_FLAGS_CONST) ? "const " : "",
+	trleave(TR_PARSE, "%s%s", type->flags & TYPE_CONST ? "const " : "",
 		type_storage_unparse(type->storage));
 }
 
@@ -425,7 +425,7 @@ parse_global_decl(struct parser *par, enum lexical_token mode,
 		want(par, T_COLON, NULL);
 		parse_type(par, &i->type);
 		if (mode == T_CONST) {
-			i->type.flags |= TYPE_FLAGS_CONST;
+			i->type.flags |= TYPE_CONST;
 		}
 		want(par, T_EQUAL, NULL);
 		parse_simple_expression(par, &i->init);
@@ -518,7 +518,7 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 			decl->flags |= FN_TEST;
 			break;
 		case T_ATTR_NORETURN:
-			decl->prototype.noreturn = true;
+			decl->prototype.flags |= FN_NORETURN;
 			break;
 		default:
 			more = false;
@@ -540,7 +540,7 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 	trace(TR_PARSE, "%s%s%s%s%sfn %s [prototype] = [expr]",
 		decl->flags & FN_FINI ? "@fini " : "",
 		decl->flags & FN_INIT ? "@init " : "",
-		decl->prototype.noreturn ? "@noreturn " : "",
+		decl->prototype.flags & FN_NORETURN ? "@noreturn " : "",
 		decl->flags & FN_TEST ? "@test " : "",
 		decl->symbol ? symbol : "", buf);
 	trleave(TR_PARSE, NULL);

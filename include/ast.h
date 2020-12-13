@@ -38,12 +38,6 @@ struct ast_enum_type {
 	struct ast_enum_field *values;
 };
 
-enum variadism {
-	VARIADISM_NONE,
-	VARIADISM_C,
-	VARIADISM_HARE,
-};
-
 struct ast_function_parameters {
 	char *name;
 	struct ast_type *type;
@@ -51,10 +45,10 @@ struct ast_function_parameters {
 };
 
 struct ast_function_type {
-	bool noreturn;
-	enum variadism variadism;
 	struct ast_type *result;
 	struct ast_function_parameters *parameters;
+	enum variadism variadism;
+	unsigned int flags; // enum function_flags (types.h)
 };
 
 struct ast_pointer_type {
@@ -128,10 +122,10 @@ struct ast_type_decl {
 
 struct ast_function_decl {
 	char *symbol;
-	uint32_t flags; // enum function_flags (check.h)
 	struct identifier ident;
 	struct ast_function_type prototype;
 	struct ast_expression body;
+	unsigned int flags; // enum func_decl_flags (check.h)
 };
 
 enum ast_decl_type {

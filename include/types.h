@@ -40,8 +40,30 @@ enum type_storage {
 
 struct type;
 
+enum variadism {
+	VARIADISM_NONE,
+	VARIADISM_C,
+	VARIADISM_HARE,
+};
+
+enum function_flags {
+	FN_NORETURN = 1 << 0,
+};
+
+struct type_func_param {
+	const struct type *type;
+	struct type_func_parameter *next;
+};
+
+struct type_func {
+	const struct type *result;
+	enum variadism variadism;
+	struct type_func_param *params;
+	unsigned int flags; // enum function_flags
+};
+
 enum pointer_flags {
-	POINTER_FLAGS_NULLABLE = 1 << 0,
+	PTR_NULLABLE = 1 << 0,
 };
 
 struct type_pointer {
@@ -50,7 +72,7 @@ struct type_pointer {
 };
 
 enum type_flags {
-	TYPE_FLAGS_CONST = 1 << 0,
+	TYPE_CONST = 1 << 0,
 };
 
 struct type {

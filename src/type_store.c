@@ -86,7 +86,7 @@ type_hash(struct type_store *store, const struct type *type)
 static const struct type *
 builtin_for_atype(const struct ast_type *atype)
 {
-	bool is_const = (atype->flags & TYPE_FLAGS_CONST) != 0;
+	bool is_const = (atype->flags & TYPE_CONST) != 0;
 	switch (atype->storage) {
 	case TYPE_STORAGE_BOOL:
 		return is_const ? &builtin_type_bool : &builtin_type_const_bool;
@@ -126,7 +126,7 @@ builtin_for_atype(const struct ast_type *atype)
 		return is_const ? &builtin_type_void : &builtin_type_const_void;
 	case TYPE_STORAGE_POINTER:
 		if (atype->pointer.referent->storage == TYPE_STORAGE_CHAR
-				&& atype->pointer.referent->flags == TYPE_FLAGS_CONST) {
+				&& atype->pointer.referent->flags == TYPE_CONST) {
 			return &builtin_type_const_ptr_char;
 		}
 		return NULL;
