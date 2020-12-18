@@ -161,7 +161,7 @@ parse_parameter_list(struct parser *par, struct ast_function_type *type)
 	trenter(TR_PARSE, "parameter-list");
 	struct token tok = {0};
 	bool more = true;
-	struct ast_function_parameters **next = &type->parameters;
+	struct ast_function_parameters **next = &type->params;
 	while (more) {
 		*next = calloc(1, sizeof(struct ast_function_parameters));
 		(*next)->type = calloc(1, sizeof(struct ast_type));
@@ -218,8 +218,8 @@ parse_prototype(struct parser *par, struct ast_function_type *type)
 	type->result = calloc(1, sizeof(struct ast_type));
 	parse_type(par, type->result);
 	size_t ctr = 0;
-	for (struct ast_function_parameters *param = type->parameters; param;
-			param = param->next) {
+	for (struct ast_function_parameters *param = type->params;
+			param; param = param->next) {
 		ctr++;
 	}
 	trace(TR_PARSE, "[%zu parameters] [type]", ctr);
@@ -317,12 +317,12 @@ parse_type(struct parser *par, struct ast_type *type)
 	case T_LBRACKET:
 		assert(0); // TODO: Slices/arrays
 	case T_ATTR_NORETURN:
-		type->function.flags |= FN_NORETURN;
+		type->func.flags |= FN_NORETURN;
 		want(par, T_FN, NULL);
 		/* fallthrough */
 	case T_FN:
 		type->storage = TYPE_STORAGE_FUNCTION;
-		parse_prototype(par, &type->function);
+		parse_prototype(par, &type->func);
 		break;
 	default:
 		unlex(par->lex, &tok);

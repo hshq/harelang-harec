@@ -52,7 +52,7 @@ enum function_flags {
 
 struct type_func_param {
 	const struct type *type;
-	struct type_func_parameter *next;
+	struct type_func_param *next;
 };
 
 struct type_func {
@@ -80,6 +80,7 @@ struct type {
 	unsigned int flags;
 	size_t size, align;
 	union {
+		struct type_func func;
 		struct type_pointer pointer;
 	};
 };

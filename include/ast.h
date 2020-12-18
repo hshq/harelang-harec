@@ -46,7 +46,7 @@ struct ast_function_parameters {
 
 struct ast_function_type {
 	struct ast_type *result;
-	struct ast_function_parameters *parameters;
+	struct ast_function_parameters *params;
 	enum variadism variadism;
 	unsigned int flags; // enum function_flags (types.h)
 };
@@ -74,7 +74,7 @@ struct ast_type {
 		struct identifier alias;
 		struct ast_list_type array;
 		struct ast_enum_type _enum;
-		struct ast_function_type function;
+		struct ast_function_type func;
 		struct ast_pointer_type pointer;
 		struct ast_list_type slice;
 		struct ast_struct_union_type _struct;

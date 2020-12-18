@@ -32,6 +32,14 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
+		hash = djb2(hash, atype_hash(store, type->func.result));
+		hash = djb2(hash, type->func.variadism);
+		hash = djb2(hash, type->func.flags);
+		for (struct ast_function_parameters *param = type->func.params;
+				param; param = param->next) {
+			hash = djb2(hash, atype_hash(store, param->type));
+		}
+		break;
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
@@ -72,6 +80,14 @@ type_hash(struct type_store *store, const struct type *type)
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
+		hash = djb2(hash, type_hash(store, type->func.result));
+		hash = djb2(hash, type->func.variadism);
+		hash = djb2(hash, type->func.flags);
+		for (struct type_func_param *param = type->func.params;
+				param; param = param->next) {
+			hash = djb2(hash, type_hash(store, param->type));
+		}
+		break;
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
@@ -218,7 +234,14 @@ type_init_from_atype(struct type_store *store,
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
+		type->func.result =
+			type_store_lookup_atype(store, atype->func.result);
+		type->func.variadism = atype->func.variadism;
+		type->func.flags = atype->func.flags;
+		assert(!atype->func.params); // TODO
+		break;
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
