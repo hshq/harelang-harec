@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 #include "ast.h"
 #include "check.h"
 #include "types.h"
@@ -7,6 +8,42 @@
 struct context {
 	struct type_store store;
 };
+
+static void
+check_function(struct context *ctx,
+	const struct ast_function_decl *adecl,
+	struct declaration *decl)
+{
+	decl->type = DECL_FUNC;
+	assert(0); // TODO
+}
+
+static void
+check_declarations(struct context *ctx,
+		const struct ast_decls *adecls,
+		struct declarations **next)
+{
+	while (adecls) {
+		struct declarations *decls = *next =
+			calloc(1, sizeof(struct declarations));
+		struct declaration *decl = &decls->decl;
+		const struct ast_decl *adecl = &adecls->decl;
+		decl->exported = adecl->exported;
+		switch (adecl->decl_type) {
+		case AST_DECL_FUNC:
+			check_function(ctx, &adecl->function, decl);
+			break;
+		case AST_DECL_TYPE:
+			assert(0); // TODO
+		case AST_DECL_GLOBAL:
+			assert(0); // TODO
+		case AST_DECL_CONST:
+			assert(0); // TODO
+		}
+		adecls = adecls->next;
+		next = &decls->next;
+	}
+}
 
 static void
 scan_function(struct context *ctx, const struct ast_function_decl *decl)
@@ -45,15 +82,17 @@ void
 check(const struct ast_unit *aunit, struct unit *unit)
 {
 	struct context ctx = {0};
-	const struct ast_subunit *su = &aunit->subunits;
-	assert(su); // At least one is required
-
 	// First pass populates the type graph
-	while (su) {
+	for (const struct ast_subunit *su = &aunit->subunits;
+			su; su = su->next) {
 		scan_declarations(&ctx, &su->decls);
-		su = su->next;
 	}
 
 	// Second pass populates the expression graph
-	// TODO
+	for (const struct ast_subunit *su = &aunit->subunits;
+			su; su = su->next) {
+		check_declarations(&ctx, &su->decls, &unit->declarations);
+	}
+
+	assert(unit->declarations);
 }
