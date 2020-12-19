@@ -57,6 +57,7 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_STRING:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_UINTPTR:
@@ -66,7 +67,6 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
