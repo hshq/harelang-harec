@@ -1,5 +1,6 @@
 #ifndef HAREC_EXPR_H
 #define HAREC_EXPR_H
+#include <stdint.h>
 #include "types.h"
 
 enum expr_type {
@@ -37,6 +38,7 @@ union expression_constant {
 	double fval;
 	intmax_t ival;
 	uintmax_t uval;
+	uint32_t rune;
 	// TODO: Array, slice, struct constants
 };
 

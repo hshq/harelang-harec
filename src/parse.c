@@ -362,6 +362,9 @@ parse_simple_expression(struct parser *par, struct ast_expression *exp)
 	case TYPE_STORAGE_INT:
 		exp->constant.ival = (intmax_t)tok.ival;
 		break;
+	case TYPE_STORAGE_RUNE:
+		exp->constant.rune = tok.rune;
+		break;
 	case TYPE_STORAGE_STRING:
 		exp->constant.string.len = tok.string.len;
 		exp->constant.string.value = tok.string.value;

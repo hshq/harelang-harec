@@ -53,7 +53,8 @@ check_expr_constant(struct context *ctx,
 		expr->constant.uval = aexpr->constant.uval;
 		break;
 	case TYPE_STORAGE_RUNE:
-		assert(0); // TODO
+		expr->constant.rune = aexpr->constant.rune;
+		break;
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:

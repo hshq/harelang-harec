@@ -89,6 +89,7 @@ struct ast_constant_expression {
 	union {
 		intmax_t ival;
 		uintmax_t uval;
+		uint32_t rune;
 		struct {
 			size_t len;
 			char *value;
