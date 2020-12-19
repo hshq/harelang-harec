@@ -135,15 +135,15 @@ struct token {
 	enum lexical_token token;
 	enum type_storage storage;
 	union {
-		double _float;
 		char *name;
 		uint32_t rune;
-		intmax_t _signed;
+		intmax_t ival;
+		uintmax_t uval;
+		double fval;
 		struct {
 			size_t len;
 			char *value;
 		} string;
-		uintmax_t _unsigned;
 	};
 };
 

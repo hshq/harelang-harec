@@ -87,8 +87,8 @@ struct ast_type {
 struct ast_constant_expression {
 	enum type_storage storage;
 	union {
-		intmax_t _signed;
-		uintmax_t _unsigned;
+		intmax_t ival;
+		uintmax_t uval;
 		struct {
 			size_t len;
 			char *value;

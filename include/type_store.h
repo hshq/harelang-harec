@@ -20,4 +20,7 @@ unsigned long type_hash(struct type_store *store, const struct type *type);
 const struct type *type_store_lookup_atype(
 	struct type_store *store, const struct ast_type *atype);
 
+const struct type *builtin_type_for_storage(
+	enum type_storage storage, bool is_const);
+
 #endif

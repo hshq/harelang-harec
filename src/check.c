@@ -28,12 +28,88 @@ expect(bool constraint, char *fmt, ...)
 }
 
 static void
+check_expr_constant(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trace(TR_CHECK, "constant");
+	expr->type = EXPR_CONSTANT;
+	expr->result = builtin_type_for_storage(aexpr->constant.storage, false);
+
+	switch (aexpr->constant.storage) {
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+		expr->constant.ival = aexpr->constant.ival;
+		break;
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_SIZE:
+		expr->constant.uval = aexpr->constant.uval;
+		break;
+	case TYPE_STORAGE_RUNE:
+		assert(0); // TODO
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		assert(0); // TODO
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_UNION:
+		assert(0); // Invariant
+	}
+}
+
+static void
 check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
 {
 	trenter(TR_CHECK, "expression");
-	assert(0); // TODO
+
+	switch (aexpr->type) {
+	case EXPR_ACCESS:
+	case EXPR_ASSERT:
+	case EXPR_ASSIGN:
+	case EXPR_BINARITHM:
+	case EXPR_BINDING_LIST:
+	case EXPR_CALL:
+	case EXPR_CAST:
+		assert(0); // TODO
+	case EXPR_CONSTANT:
+		check_expr_constant(ctx, aexpr, expr);
+		break;
+	case EXPR_CONTROL:
+	case EXPR_FOR:
+	case EXPR_FREE:
+	case EXPR_FUNC:
+	case EXPR_IF:
+	case EXPR_INDEX:
+	case EXPR_LIST:
+	case EXPR_MATCH:
+	case EXPR_MEASURE:
+	case EXPR_SLICE:
+	case EXPR_STRUCT:
+	case EXPR_SWITCH:
+	case EXPR_UNARITHM:
+	case EXPR_WHILE:
+		assert(0); // TODO
+	}
+
 	trleave(TR_CHECK, NULL);
 }
 
@@ -43,9 +119,9 @@ check_function(struct context *ctx,
 	struct declaration *decl)
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
+	trenter(TR_CHECK, "function");
 	assert(!afndecl->prototype.params); // TODO
 	assert(!afndecl->symbol); // TODO
-	trenter(TR_CHECK, "function");
 
 	const struct ast_type fn_atype = {
 		.storage = TYPE_STORAGE_FUNCTION,
@@ -61,6 +137,7 @@ check_function(struct context *ctx,
 
 	struct expression *body = calloc(1, sizeof(struct expression));
 	check_expression(ctx, &afndecl->body, body);
+
 	// TODO: Check assignability of expression result to function type
 
 	// TODO: Add function name to errors
@@ -76,7 +153,8 @@ check_function(struct context *ctx,
 	if ((fntype->func.flags & FN_NORETURN)) {
 		expect(!body->terminates, "@noreturn function must not terminate.");
 	} else {
-		expect(body->terminates, "This function never terminates. Add a return statement or @noreturn.");
+		expect(body->type != EXPR_LIST || body->terminates,
+			"This function never terminates. Add a return statement or @noreturn.");
 	}
 	trleave(TR_CHECK, NULL);
 }

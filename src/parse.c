@@ -353,14 +353,14 @@ parse_simple_expression(struct parser *par, struct ast_expression *exp)
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_SIZE:
-		exp->constant._unsigned = (uintmax_t)tok._unsigned;
+		exp->constant.uval = (uintmax_t)tok.uval;
 		break;
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_INT:
-		exp->constant._signed = (intmax_t)tok._signed;
+		exp->constant.ival = (intmax_t)tok.ival;
 		break;
 	case TYPE_STORAGE_STRING:
 		exp->constant.string.len = tok.string.len;

@@ -383,9 +383,9 @@ finalize:
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_U64:
 	case TYPE_STORAGE_SIZE:
-		out->_unsigned = strtoumax(lexer->buf, NULL, strlen(base));
+		out->uval = strtoumax(lexer->buf, NULL, strlen(base));
 		for (uintmax_t i = 0; i < exponent; i++) {
-			out->_unsigned *= 10;
+			out->uval *= 10;
 		}
 		break;
 	case TYPE_STORAGE_I8:
@@ -393,14 +393,14 @@ finalize:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_I64:
-		out->_signed = strtoimax(lexer->buf, NULL, strlen(base));
+		out->ival = strtoimax(lexer->buf, NULL, strlen(base));
 		for (uintmax_t i = 0; i < exponent; i++) {
-			out->_signed *= 10;
+			out->ival *= 10;
 		}
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-		out->_float = strtod(lexer->buf, NULL);
+		out->fval = strtod(lexer->buf, NULL);
 		break;
 	default:
 		assert(0);
@@ -996,18 +996,18 @@ token_str(const struct token *tok)
 		case TYPE_STORAGE_UINT:
 		case TYPE_STORAGE_UINTPTR:
 		case TYPE_STORAGE_SIZE:
-			snprintf(buf, sizeof(buf), "%ju", tok->_unsigned);
+			snprintf(buf, sizeof(buf), "%ju", tok->uval);
 			break;
 		case TYPE_STORAGE_I8:
 		case TYPE_STORAGE_I16:
 		case TYPE_STORAGE_I32:
 		case TYPE_STORAGE_I64:
 		case TYPE_STORAGE_INT:
-			snprintf(buf, sizeof(buf), "%jd", tok->_signed);
+			snprintf(buf, sizeof(buf), "%jd", tok->ival);
 			break;
 		case TYPE_STORAGE_F32:
 		case TYPE_STORAGE_F64:
-			snprintf(buf, sizeof(buf), "%lf", tok->_float);
+			snprintf(buf, sizeof(buf), "%lf", tok->fval);
 			break;
 		case TYPE_STORAGE_RUNE:
 			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
