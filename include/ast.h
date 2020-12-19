@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "check.h"
+#include "expr.h"
 #include "identifier.h"
 #include "types.h"
 
@@ -83,10 +84,6 @@ struct ast_type {
 	};
 };
 
-enum expression_type {
-	EXPR_CONSTANT,
-};
-
 struct ast_constant_expression {
 	enum type_storage storage;
 	union {
@@ -100,7 +97,7 @@ struct ast_constant_expression {
 };
 
 struct ast_expression {
-	enum expression_type type;
+	enum expr_type type;
 	union {
 		struct ast_constant_expression constant;
 	};

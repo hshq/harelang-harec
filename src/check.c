@@ -1,21 +1,80 @@
 #include <assert.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "ast.h"
 #include "check.h"
-#include "types.h"
+#include "expr.h"
+#include "trace.h"
 #include "type_store.h"
+#include "types.h"
 
 struct context {
 	struct type_store store;
 };
 
 static void
+expect(bool constraint, char *fmt, ...)
+{
+	// TODO: Bring along line numbers and such
+	if (!constraint) {
+		va_list ap;
+		va_start(ap, fmt);
+
+		fprintf(stderr, "Error: ");
+		vfprintf(stderr, fmt, ap);
+		fprintf(stderr, "\n");
+	}
+}
+
+static void
+check_expression(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "expression");
+	assert(0); // TODO
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_function(struct context *ctx,
 	const struct ast_function_decl *adecl,
 	struct declaration *decl)
 {
+	assert(!adecl->prototype.params); // TODO
+	trenter(TR_CHECK, "function");
+
+	const struct ast_type fn_atype = {
+		.storage = TYPE_STORAGE_FUNCTION,
+		.flags = TYPE_CONST,
+		.func = adecl->prototype,
+	};
+	const struct type *fntype = type_store_lookup_atype(
+			&ctx->store, &fn_atype);
+	assert(fntype); // Invariant
 	decl->type = DECL_FUNC;
-	assert(0); // TODO
+	decl->func.type = fntype;
+	decl->func.flags = adecl->flags;
+
+	struct expression *body = calloc(1, sizeof(struct expression));
+	check_expression(ctx, &adecl->body, body);
+	// TODO: Check assignability of expression result to function type
+
+	// TODO: Add function name to errors
+	if ((decl->func.flags & FN_INIT)
+			|| (decl->func.flags & FN_FINI)
+			|| (decl->func.flags & FN_TEST)) {
+		const char *flags = "@flags"; // TODO: Unparse flags
+		expect(fntype->func.result == &builtin_type_void,
+				"%s function must return void", flags);
+	}
+	if ((fntype->func.flags & FN_NORETURN)) {
+		expect(!body->terminates, "@noreturn function must not terminate.");
+	} else {
+		expect(body->terminates, "This function never terminates. Add a return statement or @noreturn.");
+	}
+	trleave(TR_CHECK, NULL);
 }
 
 static void
@@ -23,6 +82,7 @@ check_declarations(struct context *ctx,
 		const struct ast_decls *adecls,
 		struct declarations **next)
 {
+	trenter(TR_CHECK, "declarations");
 	while (adecls) {
 		struct declarations *decls = *next =
 			calloc(1, sizeof(struct declarations));
@@ -43,11 +103,13 @@ check_declarations(struct context *ctx,
 		adecls = adecls->next;
 		next = &decls->next;
 	}
+	trleave(TR_CHECK, NULL);
 }
 
 static void
 scan_function(struct context *ctx, const struct ast_function_decl *decl)
 {
+	trenter(TR_SCAN, "function");
 	const struct ast_type fn_atype = {
 		.storage = TYPE_STORAGE_FUNCTION,
 		.flags = TYPE_CONST,
@@ -56,11 +118,16 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	const struct type *fntype = type_store_lookup_atype(
 			&ctx->store, &fn_atype);
 	assert(fntype); // TODO: Forward references
+
+	char buf[1024];
+	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
+	trleave(TR_SCAN, "func %s", buf);
 }
 
 static void
 scan_declarations(struct context *ctx, const struct ast_decls *decls)
 {
+	trenter(TR_SCAN, "declarations");
 	while (decls) {
 		const struct ast_decl *decl = &decls->decl;
 		switch (decl->decl_type) {
@@ -76,6 +143,7 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 		}
 		decls = decls->next;
 	}
+	trleave(TR_SCAN, NULL);
 }
 
 void

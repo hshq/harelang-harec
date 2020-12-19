@@ -139,7 +139,8 @@ builtin_for_atype(const struct ast_type *atype)
 	case TYPE_STORAGE_UINTPTR:
 		return is_const ? &builtin_type_uintptr : &builtin_type_const_uintptr;
 	case TYPE_STORAGE_VOID:
-		return is_const ? &builtin_type_void : &builtin_type_const_void;
+		// const void and void are the same type
+		return is_const ? &builtin_type_void : &builtin_type_void;
 	case TYPE_STORAGE_POINTER:
 		if (atype->pointer.referent->storage == TYPE_STORAGE_CHAR
 				&& atype->pointer.referent->flags == TYPE_CONST) {
@@ -191,7 +192,26 @@ type_eq_atype(struct type_store *store,
 		return true;
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
+		if (!type_eq_atype(store, type->func.result, atype->func.result)
+				|| type->func.variadism != atype->func.variadism
+				|| type->func.flags != atype->func.flags) {
+			return false;
+		}
+		struct ast_function_parameters *aparam;
+		struct type_func_param *param;
+		for (aparam = atype->func.params, param = type->func.params;
+				aparam && param;
+				aparam = aparam->next, param = param->next) {
+			if (!!aparam->next != !!param->next) {
+				return false;
+			}
+			if (!type_eq_atype(store, param->type, aparam->type)) {
+				return false;
+			}
+		}
+		return true;
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:

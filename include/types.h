@@ -126,7 +126,6 @@ extern const struct type
 	builtin_type_const_uintptr,
 	builtin_type_const_rune,
 	builtin_type_const_size,
-	builtin_type_const_void,
 	// Aggregate
 	builtin_type_const_ptr_char;
 

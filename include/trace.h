@@ -4,6 +4,8 @@
 enum trace_sys {
 	TR_LEX,
 	TR_PARSE,
+	TR_SCAN,
+	TR_CHECK,
 	TR_MAX,
 };
 

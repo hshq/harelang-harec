@@ -30,6 +30,9 @@ struct declaration {
 	enum declaration_type type;
 	struct identifier ident;
 	bool exported;
+	union {
+		struct function_decl func;
+	};
 };
 
 struct declarations {

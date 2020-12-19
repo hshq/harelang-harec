@@ -256,12 +256,6 @@ builtin_type_const_size = {
 	.flags = TYPE_CONST,
 	.size = 8, // XXX: ARCH
 	.align = 8,
-},
-builtin_type_const_void = {
-	.storage = TYPE_STORAGE_VOID,
-	.flags = TYPE_CONST,
-	.size = 0,
-	.align = 0,
 };
 
 // Selected aggregate type singletons

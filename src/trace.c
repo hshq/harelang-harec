@@ -8,11 +8,15 @@
 static const char *sysname[] = {
 	[TR_LEX] = "lex",
 	[TR_PARSE] = "parse",
+	[TR_SCAN] = "scan",
+	[TR_CHECK] = "check",
 };
 
 static int depth[] = {
 	[TR_LEX] = 0,
 	[TR_PARSE] = 0,
+	[TR_SCAN] = 0,
+	[TR_CHECK] = 0,
 };
 
 static void
