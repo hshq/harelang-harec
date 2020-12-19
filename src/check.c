@@ -39,26 +39,28 @@ check_expression(struct context *ctx,
 
 static void
 check_function(struct context *ctx,
-	const struct ast_function_decl *adecl,
+	const struct ast_decl *adecl,
 	struct declaration *decl)
 {
-	assert(!adecl->prototype.params); // TODO
+	const struct ast_function_decl *afndecl = &adecl->function;
+	assert(!afndecl->prototype.params); // TODO
+	assert(!afndecl->symbol); // TODO
 	trenter(TR_CHECK, "function");
 
 	const struct ast_type fn_atype = {
 		.storage = TYPE_STORAGE_FUNCTION,
 		.flags = TYPE_CONST,
-		.func = adecl->prototype,
+		.func = afndecl->prototype,
 	};
 	const struct type *fntype = type_store_lookup_atype(
 			&ctx->store, &fn_atype);
 	assert(fntype); // Invariant
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
-	decl->func.flags = adecl->flags;
+	decl->func.flags = afndecl->flags;
 
 	struct expression *body = calloc(1, sizeof(struct expression));
-	check_expression(ctx, &adecl->body, body);
+	check_expression(ctx, &afndecl->body, body);
 	// TODO: Check assignability of expression result to function type
 
 	// TODO: Add function name to errors
@@ -68,6 +70,8 @@ check_function(struct context *ctx,
 		const char *flags = "@flags"; // TODO: Unparse flags
 		expect(fntype->func.result == &builtin_type_void,
 				"%s function must return void", flags);
+		expect(!decl->exported,
+				"%s function cannot be exported", flags);
 	}
 	if ((fntype->func.flags & FN_NORETURN)) {
 		expect(!body->terminates, "@noreturn function must not terminate.");
@@ -91,7 +95,7 @@ check_declarations(struct context *ctx,
 		decl->exported = adecl->exported;
 		switch (adecl->decl_type) {
 		case AST_DECL_FUNC:
-			check_function(ctx, &adecl->function, decl);
+			check_function(ctx, adecl, decl);
 			break;
 		case AST_DECL_TYPE:
 			assert(0); // TODO
