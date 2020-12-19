@@ -133,6 +133,7 @@ check_function(struct context *ctx,
 	assert(fntype); // Invariant
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
+	identifier_dup(&decl->ident, &afndecl->ident);
 	decl->func.flags = afndecl->flags;
 
 	struct expression *body = calloc(1, sizeof(struct expression));

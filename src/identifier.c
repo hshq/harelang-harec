@@ -62,3 +62,14 @@ identifier_unparse_static(const struct identifier *ident, char *buf, size_t len)
 	}
 	return n;
 }
+
+void
+identifier_dup(struct identifier *new, const struct identifier *ident)
+{
+	assert(ident && new);
+	new->name = strdup(ident->name);
+	if (ident->ns) {
+		new->ns = calloc(1, sizeof(struct identifier));
+		identifier_dup(new->ns, ident->ns);
+	}
+}
