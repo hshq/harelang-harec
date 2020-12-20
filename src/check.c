@@ -93,6 +93,7 @@ check_expr_list(struct context *ctx,
 	while (alist) {
 		struct expression *lexpr = calloc(1, sizeof(struct expression));
 		check_expression(ctx, alist->expr, lexpr);
+		list->expr = lexpr;
 
 		alist = alist->next;
 		if (alist) {

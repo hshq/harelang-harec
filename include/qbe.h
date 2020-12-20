@@ -141,6 +141,7 @@ enum qbe_instr {
 extern const char *qbe_instr[Q_LAST_INSTR];
 
 enum qbe_statement_type {
+	Q_COMMENT,
 	Q_INSTR,
 	Q_LABEL,
 };
@@ -159,6 +160,7 @@ struct qbe_statement {
 			struct qbe_arguments *args;
 		};
 		char *label;
+		char *comment;
 	};
 };
 
@@ -195,6 +197,7 @@ void geni(struct qbe_statement *stmt, enum qbe_instr instr, const struct qbe_val
 const char *genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt);
 void pushi(struct qbe_func *func, enum qbe_instr instr, const struct qbe_value *out, ...);
 const char *pushl(struct qbe_func *func, uint64_t *id, const char *fmt);
+void pushc(struct qbe_func *func, const char *text);
 
 void constw(struct qbe_value *val, uint32_t l);
 void constl(struct qbe_value *val, uint64_t l);

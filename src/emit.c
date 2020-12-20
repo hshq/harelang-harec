@@ -67,6 +67,9 @@ static void
 emit_stmt(struct qbe_statement *stmt, FILE *out)
 {
 	switch (stmt->type) {
+	case Q_COMMENT:
+		fprintf(out, "\t# %s\n", stmt->comment);
+		break;
 	case Q_INSTR:
 		fprintf(out, "\t");
 		if (stmt->out != NULL) {

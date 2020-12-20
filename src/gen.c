@@ -90,11 +90,19 @@ gen_loadtemp(struct gen_context *ctx,
 	gen_load(ctx, dest, src, is_signed);
 }
 
+static void gen_expression(struct gen_context *ctx,
+	const struct expression *expr, struct qbe_value *out);
+
 static void
 gen_constant(struct gen_context *ctx,
 	const struct expression *expr,
 	struct qbe_value *out)
 {
+	if (out == NULL) {
+		pushc(ctx->current, "useless constant expression discarded");
+		return;
+	}
+
 	const struct qbe_type *qtype = qtype_for_type(ctx, expr->result, false);
 	struct qbe_value val = {0};
 	switch (qtype->stype) {
@@ -117,7 +125,25 @@ gen_constant(struct gen_context *ctx,
 	case Q__VOID:
 		assert(0); // Invariant
 	}
+
 	gen_store(ctx, out, &val);
+}
+
+static void
+gen_expr_list(struct gen_context *ctx,
+	const struct expression *expr,
+	struct qbe_value *out)
+{
+	const struct expression_list *list = &expr->list;
+	while (list) {
+		struct qbe_value *dest = NULL;
+		if (!list->next) {
+			// Last value determines expression result
+			dest = out;
+		}
+		gen_expression(ctx, list->expr, dest);
+		list = list->next;
+	}
 }
 
 static void
@@ -143,7 +169,10 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_FUNC:
 	case EXPR_IF:
 	case EXPR_INDEX:
+		assert(0); // TODO
 	case EXPR_LIST:
+		gen_expr_list(ctx, expr, out);
+		break;
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
 	case EXPR_SLICE:

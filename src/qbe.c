@@ -239,6 +239,14 @@ pushl(struct qbe_func *func, uint64_t *id, const char *fmt)
 }
 
 void
+pushc(struct qbe_func *func, const char *text)
+{
+	struct qbe_statement stmt = {0};
+	stmt.comment = strdup(text);
+	push(func, &stmt);
+}
+
+void
 constw(struct qbe_value *val, uint32_t w)
 {
 	val->kind = QV_CONST;
