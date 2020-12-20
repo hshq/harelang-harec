@@ -441,37 +441,37 @@ parse_expression_list(struct parser *par, struct ast_expression *exp)
 	while (more) {
 		struct ast_expression *curexp =
 			calloc(1, sizeof(struct ast_expression));
-		parse_scope_expression(par, curexp);
 		cur->expr = curexp;
 
 		struct token tok = {0};
-		want(par, T_SEMICOLON, &tok);
-
 		switch (lex(par->lex, &tok)) {
-		case T_RBRACE:
-			more = false;
-			break;
 		case T_BREAK:
 		case T_CONTINUE:
 		case T_RETURN:
 			unlex(par->lex, &tok);
-			*next = calloc(1, sizeof(struct ast_expression_list));
-			cur = *next;
-
-			curexp = calloc(1, sizeof(struct ast_expression));
 			parse_control_statement(par, curexp);
-			cur->expr = curexp;
-
-			want(par, T_SEMICOLON, &tok);
-			want(par, T_RBRACE, &tok);
 			more = false;
 			break;
 		default:
-			*next = calloc(1, sizeof(struct ast_expression_list));
-			cur = *next;
-			next = &cur->next;
 			unlex(par->lex, &tok);
+			parse_scope_expression(par, curexp);
 			break;
+		}
+
+		want(par, T_SEMICOLON, &tok);
+
+		if (more) {
+			lex(par->lex, &tok);
+			if (tok.token == T_RBRACE) {
+				more = false;
+			} else {
+				unlex(par->lex, &tok);
+				*next = calloc(1, sizeof(struct ast_expression_list));
+				cur = *next;
+				next = &cur->next;
+			}
+		} else {
+			want(par, T_RBRACE, &tok);
 		}
 	}
 
