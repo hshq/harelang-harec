@@ -34,7 +34,7 @@ check_expr_constant(struct context *ctx,
 {
 	trace(TR_CHECK, "constant");
 	expr->type = EXPR_CONSTANT;
-	expr->result = builtin_type_for_storage(aexpr->constant.storage, false);
+	expr->result = builtin_type_for_storage(aexpr->constant.storage, true);
 
 	switch (aexpr->constant.storage) {
 	case TYPE_STORAGE_I8:

@@ -8,39 +8,39 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 {
 	switch (storage) {
 	case TYPE_STORAGE_BOOL:
-		return is_const ? &builtin_type_bool : &builtin_type_const_bool;
+		return is_const ? &builtin_type_const_bool : &builtin_type_bool;
 	case TYPE_STORAGE_CHAR:
-		return is_const ? &builtin_type_char : &builtin_type_const_char;
+		return is_const ? &builtin_type_const_char : &builtin_type_char;
 	case TYPE_STORAGE_F32:
-		return is_const ? &builtin_type_f32 : &builtin_type_const_f32;
+		return is_const ? &builtin_type_const_f32 : &builtin_type_f32;
 	case TYPE_STORAGE_F64:
-		return is_const ? &builtin_type_f64 : &builtin_type_const_f64;
+		return is_const ? &builtin_type_const_f64 : &builtin_type_f64;
 	case TYPE_STORAGE_I8:
-		return is_const ? &builtin_type_i8 : &builtin_type_const_i8;
+		return is_const ? &builtin_type_const_i8 : &builtin_type_i8;
 	case TYPE_STORAGE_I16:
-		return is_const ? &builtin_type_i16 : &builtin_type_const_i16;
+		return is_const ? &builtin_type_const_i16 : &builtin_type_i16;
 	case TYPE_STORAGE_I32:
-		return is_const ? &builtin_type_i32 : &builtin_type_const_i32;
+		return is_const ? &builtin_type_const_i32 : &builtin_type_i32;
 	case TYPE_STORAGE_I64:
-		return is_const ? &builtin_type_i64 : &builtin_type_const_i64;
+		return is_const ? &builtin_type_const_i64 : &builtin_type_i64;
 	case TYPE_STORAGE_INT:
-		return is_const ? &builtin_type_int : &builtin_type_const_int;
+		return is_const ? &builtin_type_const_int : &builtin_type_int;
 	case TYPE_STORAGE_RUNE:
-		return is_const ? &builtin_type_rune : &builtin_type_const_rune;
+		return is_const ? &builtin_type_const_rune : &builtin_type_rune;
 	case TYPE_STORAGE_SIZE:
-		return is_const ? &builtin_type_size : &builtin_type_const_size;
+		return is_const ? &builtin_type_const_size : &builtin_type_size;
 	case TYPE_STORAGE_U8:
-		return is_const ? &builtin_type_u8 : &builtin_type_const_u8;
+		return is_const ? &builtin_type_const_u8 : &builtin_type_u8;
 	case TYPE_STORAGE_U16:
-		return is_const ? &builtin_type_u16 : &builtin_type_const_u16;
+		return is_const ? &builtin_type_const_u16 : &builtin_type_u16;
 	case TYPE_STORAGE_U32:
-		return is_const ? &builtin_type_u32 : &builtin_type_const_u32;
+		return is_const ? &builtin_type_const_u32 : &builtin_type_u32;
 	case TYPE_STORAGE_U64:
-		return is_const ? &builtin_type_u64 : &builtin_type_const_u64;
+		return is_const ? &builtin_type_const_u64 : &builtin_type_u64;
 	case TYPE_STORAGE_UINT:
-		return is_const ? &builtin_type_uint : &builtin_type_const_uint;
+		return is_const ? &builtin_type_const_uint : &builtin_type_uint;
 	case TYPE_STORAGE_UINTPTR:
-		return is_const ? &builtin_type_uintptr : &builtin_type_const_uintptr;
+		return is_const ? &builtin_type_const_uintptr : &builtin_type_uintptr;
 	case TYPE_STORAGE_VOID:
 		// const void and void are the same type
 		return is_const ? &builtin_type_void : &builtin_type_void;
