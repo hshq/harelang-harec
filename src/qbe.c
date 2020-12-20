@@ -239,9 +239,33 @@ pushl(struct qbe_func *func, uint64_t *id, const char *fmt)
 }
 
 void
+constw(struct qbe_value *val, uint32_t w)
+{
+	val->kind = QV_CONST;
+	val->type = &qbe_word;
+	val->wval = w;
+}
+
+void
 constl(struct qbe_value *val, uint64_t l)
 {
 	val->kind = QV_CONST;
 	val->type = &qbe_long;
 	val->lval = l;
+}
+
+void
+consts(struct qbe_value *val, float s)
+{
+	val->kind = QV_CONST;
+	val->type = &qbe_single;
+	val->sval = s;
+}
+
+void
+constd(struct qbe_value *val, double d)
+{
+	val->kind = QV_CONST;
+	val->type = &qbe_double;
+	val->dval = d;
 }

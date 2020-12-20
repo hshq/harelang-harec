@@ -29,16 +29,16 @@ emit_const(struct qbe_value *val, FILE *out)
 	case Q_BYTE:
 	case Q_HALF:
 	case Q_WORD:
-		fprintf(out, "%u ", val->wval);
+		fprintf(out, "%u", val->wval);
 		break;
 	case Q_LONG:
-		fprintf(out, "%lu ", val->lval);
+		fprintf(out, "%lu", val->lval);
 		break;
 	case Q_SINGLE:
-		fprintf(out, "%f ", val->sval);
+		fprintf(out, "%f", val->sval);
 		break;
 	case Q_DOUBLE:
-		fprintf(out, "%f ", val->dval);
+		fprintf(out, "%f", val->dval);
 		break;
 	case Q__VOID:
 	case Q__AGGREGATE:
@@ -75,10 +75,11 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 			assert(stmt->out->type->stype != Q__AGGREGATE); // TODO
 			emit_qtype(stmt->out->type, out);
 		}
-		fprintf(out, "%s", qbe_instr[stmt->instr]);
+		fprintf(out, "%s%s", qbe_instr[stmt->instr],
+				stmt->args ? " " : "");
 		struct qbe_arguments *arg = stmt->args;
 		while (arg) {
-			fprintf(out, " ");
+			fprintf(out, "%s", arg == stmt->args ? "" : ", ");
 			emit_value(&arg->value, out);
 			arg = arg->next;
 		}

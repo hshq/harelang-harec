@@ -1,5 +1,6 @@
 #ifndef HAREC_GEN_H
 #define HAREC_GEN_H
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include "identifier.h"
@@ -25,6 +26,8 @@ const struct qbe_type *qtype_for_type(struct gen_context *ctx,
 		const struct type *type, bool extended);
 
 // qinstr.c
-enum qbe_instr alignment_to_qbe_alloc(size_t align);
+enum qbe_instr alloc_for_align(size_t align);
+enum qbe_instr store_for_type(enum qbe_stype stype);
+enum qbe_instr load_for_type(enum qbe_stype stype, bool is_signed);
 
 #endif

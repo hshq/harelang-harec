@@ -86,6 +86,7 @@ struct type {
 };
 
 const char *type_storage_unparse(enum type_storage storage);
+bool type_is_signed(const struct type *type);
 
 // Built-in type singletons
 extern const struct type
