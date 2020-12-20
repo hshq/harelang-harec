@@ -100,7 +100,29 @@ check_expr_list(struct context *ctx,
 			*next = calloc(1, sizeof(struct expression_list));
 			list = *next;
 			next = &list->next;
+		} else {
+			expr->result = lexpr->result;
 		}
+	}
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
+check_expr_return(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "return");
+	expr->type = EXPR_RETURN;
+	expr->result = &builtin_type_void;
+	expr->terminates = true;
+
+	if (aexpr->_return.value) {
+		struct expression *rval = calloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->_return.value, rval);
+		expr->_return.value = rval;
+		// TODO: Test assignability with function's return type
 	}
 
 	trleave(TR_CHECK, NULL);
@@ -139,6 +161,8 @@ check_expression(struct context *ctx,
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
 	case EXPR_RETURN:
+		check_expr_return(ctx, aexpr, expr);
+		break;
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_SWITCH:

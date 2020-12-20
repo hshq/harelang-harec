@@ -49,6 +49,10 @@ struct expression_list {
 	struct expression_list *next;
 };
 
+struct expression_return {
+	struct expression *value;
+};
+
 struct expression {
 	const struct type *result;
 	enum expr_type type;
@@ -56,6 +60,7 @@ struct expression {
 	union {
 		union expression_constant constant;
 		struct expression_list list;
+		struct expression_return _return;
 	};
 };
 
