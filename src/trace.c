@@ -10,6 +10,7 @@ static const char *sysname[] = {
 	[TR_PARSE] = "parse",
 	[TR_SCAN] = "scan",
 	[TR_CHECK] = "check",
+	[TR_GEN] = "gen",
 };
 
 static int depth[] = {
@@ -17,6 +18,7 @@ static int depth[] = {
 	[TR_PARSE] = 0,
 	[TR_SCAN] = 0,
 	[TR_CHECK] = 0,
+	[TR_GEN] = 0,
 };
 
 static void

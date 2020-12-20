@@ -5,13 +5,13 @@
 #include "check.h"
 #include "lex.h"
 #include "parse.h"
+#include "gen.h"
 
 enum stage {
 	STAGE_LEX,
 	STAGE_PARSE,
 	STAGE_CHECK,
 	STAGE_GEN,
-	STAGE_EMIT,
 };
 
 enum stage
@@ -27,8 +27,6 @@ parse_stage(const char *s)
 		return STAGE_CHECK;
 	} else if (strcmp(s, "gen") == 0) {
 		return STAGE_GEN;
-	} else if (strcmp(s, "emit") == 0) {
-		return STAGE_EMIT;
 	} else {
 		fprintf(stderr, "Unknown HA_STAGE value '%s'\n", s);
 		exit(1);
@@ -61,5 +59,7 @@ main(int argc, char *argv[])
 	if (stage == STAGE_CHECK) {
 		return 0;
 	}
+
+	gen(&unit, stdout);
 	return 0;
 }
