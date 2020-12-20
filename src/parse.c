@@ -394,6 +394,40 @@ parse_scope_expression(struct parser *par, struct ast_expression *exp)
 }
 
 static void
+parse_control_statement(struct parser *par, struct ast_expression *exp)
+{
+	trenter(TR_PARSE, "control-expression");
+
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_BREAK:
+	case T_CONTINUE:
+		assert(0); // TODO
+	case T_RETURN:
+		trace(TR_PARSE, "return");
+		exp->type = EXPR_RETURN;
+		exp->_return.value = NULL;
+		struct token tok;
+		switch (lex(par->lex, &tok)) {
+		case T_SEMICOLON:
+			unlex(par->lex, &tok);
+			break;
+		default:
+			unlex(par->lex, &tok);
+			exp->_return.value =
+				calloc(1, sizeof(struct ast_expression));
+			parse_complex_expression(par, exp->_return.value);
+			break;
+		}
+		break;
+	default:
+		synassert(false, &tok, T_BREAK, T_CONTINUE, T_RETURN, T_EOF);
+	}
+
+	trleave(TR_PARSE, NULL);
+}
+
+static void
 parse_expression_list(struct parser *par, struct ast_expression *exp)
 {
 	trenter(TR_PARSE, "expression-list");
@@ -415,6 +449,21 @@ parse_expression_list(struct parser *par, struct ast_expression *exp)
 
 		switch (lex(par->lex, &tok)) {
 		case T_RBRACE:
+			more = false;
+			break;
+		case T_BREAK:
+		case T_CONTINUE:
+		case T_RETURN:
+			unlex(par->lex, &tok);
+			*next = calloc(1, sizeof(struct ast_expression_list));
+			cur = *next;
+
+			curexp = calloc(1, sizeof(struct ast_expression));
+			parse_control_statement(par, curexp);
+			cur->expr = curexp;
+
+			want(par, T_SEMICOLON, &tok);
+			want(par, T_RBRACE, &tok);
 			more = false;
 			break;
 		default:

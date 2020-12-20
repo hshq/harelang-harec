@@ -157,13 +157,14 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_ASSIGN:
 	case EXPR_BINARITHM:
 	case EXPR_BINDING_LIST:
+	case EXPR_BREAK:
 	case EXPR_CALL:
 	case EXPR_CAST:
 		assert(0); // TODO
 	case EXPR_CONSTANT:
 		gen_constant(ctx, expr, out);
 		break;
-	case EXPR_CONTROL:
+	case EXPR_CONTINUE:
 	case EXPR_FOR:
 	case EXPR_FREE:
 	case EXPR_FUNC:
@@ -175,6 +176,7 @@ gen_expression(struct gen_context *ctx,
 		break;
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
+	case EXPR_RETURN:
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_SWITCH:

@@ -102,11 +102,16 @@ struct ast_expression_list {
 	struct ast_expression_list *next;
 };
 
+struct ast_return_expression {
+	struct ast_expression *value;
+};
+
 struct ast_expression {
 	enum expr_type type;
 	union {
 		struct ast_constant_expression constant;
 		struct ast_expression_list list;
+		struct ast_return_expression _return;
 	};
 };
 
