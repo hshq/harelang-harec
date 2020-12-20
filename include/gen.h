@@ -3,7 +3,8 @@
 #include <stdio.h>
 
 struct unit;
+struct qbe_program;
 
-void gen(const struct unit *unit, FILE *out);
+void gen(const struct unit *unit, struct qbe_program *out);
 
 #endif

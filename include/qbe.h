@@ -1,6 +1,7 @@
 #ifndef HAREC_QBE_H
 #define HAREC_QBE_H
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 enum qbe_stype {
@@ -26,7 +27,10 @@ extern const struct qbe_type
 	qbe_word,
 	qbe_long,
 	qbe_single,
-	qbe_double;
+	qbe_double,
+	qbe_void;
+
+const struct qbe_type *qtype_for_xtype(enum qbe_stype type);
 
 enum qbe_value_kind {
 	QV_CONST,
@@ -155,8 +159,8 @@ struct qbe_statement {
 };
 
 struct qbe_func {
-	char *name;
-	// TODO: Parameters, return type
+	const struct qbe_type *returns;
+	// TODO: Parameters
 	size_t blen, bsiz;
 	struct qbe_statement *body;
 };
@@ -168,7 +172,9 @@ enum qbe_deftype {
 };
 
 struct qbe_def {
+	char *name;
 	enum qbe_deftype type;
+	bool exported;
 	union {
 		struct qbe_func func;
 	};

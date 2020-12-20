@@ -22,7 +22,34 @@ qbe_single = {
 },
 qbe_double = {
 	.stype = Q_DOUBLE,
+},
+qbe_void = {
+	.stype = Q__VOID,
 };
+
+const struct qbe_type *
+qtype_for_xtype(enum qbe_stype type)
+{
+	switch (type) {
+	case Q_BYTE:
+		return &qbe_byte;
+	case Q_HALF:
+		return &qbe_half;
+	case Q_WORD:
+		return &qbe_word;
+	case Q_LONG:
+		return &qbe_long;
+	case Q_SINGLE:
+		return &qbe_single;
+	case Q_DOUBLE:
+		return &qbe_double;
+	case Q__VOID:
+		return &qbe_void;
+	case Q__AGGREGATE:
+		assert(0); // Invariant
+	}
+	assert(0); // Unreachable
+}
 
 const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_ADD] = "add",

@@ -3,9 +3,10 @@
 #include <string.h>
 #include "ast.h"
 #include "check.h"
+#include "gen.h"
 #include "lex.h"
 #include "parse.h"
-#include "gen.h"
+#include "qbe.h"
 
 enum stage {
 	STAGE_LEX,
@@ -60,6 +61,7 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
-	gen(&unit, stdout);
+	struct qbe_program prog = {0};
+	gen(&unit, &prog);
 	return 0;
 }
