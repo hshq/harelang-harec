@@ -178,11 +178,11 @@ va_geni(struct qbe_statement *stmt, enum qbe_instr instr,
 }
 
 void
-geni(struct qbe_statement *stmt, enum qbe_instr instr,
-		const struct qbe_value *out, ...)
+geni(struct qbe_statement *stmt, const struct qbe_value *out,
+		enum qbe_instr instr, ...)
 {
 	va_list ap;
-	va_start(ap, out);
+	va_start(ap, instr);
 	va_geni(stmt, instr, out, ap);
 	va_end(ap);
 }
@@ -218,12 +218,12 @@ push(struct qbe_func *func, struct qbe_statement *stmt)
 }
 
 void
-pushi(struct qbe_func *func, enum qbe_instr instr,
-		const struct qbe_value *out, ...)
+pushi(struct qbe_func *func, const struct qbe_value *out,
+		enum qbe_instr instr, ...)
 {
 	struct qbe_statement stmt = {0};
 	va_list ap;
-	va_start(ap, out);
+	va_start(ap, instr);
 	va_geni(&stmt, instr, out, ap);
 	va_end(ap);
 	push(func, &stmt);

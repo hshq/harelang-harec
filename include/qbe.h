@@ -193,9 +193,9 @@ struct qbe_program {
 
 void qbe_append_def(struct qbe_program *prog, struct qbe_def *def);
 
-void geni(struct qbe_statement *stmt, enum qbe_instr instr, const struct qbe_value *out, ...);
+void geni(struct qbe_statement *stmt, const struct qbe_value *out, enum qbe_instr instr, ...);
 const char *genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt);
-void pushi(struct qbe_func *func, enum qbe_instr instr, const struct qbe_value *out, ...);
+void pushi(struct qbe_func *func, const struct qbe_value *out, enum qbe_instr instr, ...);
 const char *pushl(struct qbe_func *func, uint64_t *id, const char *fmt);
 void pushc(struct qbe_func *func, const char *text);
 void push(struct qbe_func *func, struct qbe_statement *stmt);

@@ -53,7 +53,7 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 
 	struct qbe_value size;
 	constl(&size, type->size);
-	pushi(ctx->current, alloc_for_align(type->align), val, &size, NULL);
+	pushi(ctx->current, val, alloc_for_align(type->align), &size, NULL);
 }
 
 // Given value src of type A, and value dest of type pointer to A, store src in
@@ -66,7 +66,7 @@ gen_store(struct gen_context *ctx,
 	const struct qbe_type *qtype = src->type;
 	assert(qtype->stype != Q__VOID); // Invariant
 	assert(qtype->stype != Q__AGGREGATE); // TODO
-	pushi(ctx->current, store_for_type(qtype->stype), NULL, src, dest, NULL);
+	pushi(ctx->current, NULL, store_for_type(qtype->stype), src, dest, NULL);
 }
 
 // Given value src of type pointer to A, and value dest of type A, load dest
@@ -80,8 +80,8 @@ gen_load(struct gen_context *ctx,
 	const struct qbe_type *qtype = dest->type;
 	assert(qtype->stype != Q__VOID); // Invariant
 	assert(qtype->stype != Q__AGGREGATE); // TODO
-	pushi(ctx->current,
-		load_for_type(qtype->stype, is_signed), dest, src, NULL);
+	pushi(ctx->current, dest,
+		load_for_type(qtype->stype, is_signed), src, NULL);
 }
 
 // Same as gen_load but dest is initialized to a new temporary
@@ -158,7 +158,7 @@ gen_expr_return(struct gen_context *ctx,
 	if (expr->_return.value) {
 		gen_expression(ctx, expr->_return.value, ctx->return_value);
 	}
-	pushi(ctx->current, Q_JMP, NULL, ctx->end_label, NULL);
+	pushi(ctx->current, NULL, Q_JMP, ctx->end_label, NULL);
 }
 
 static void
@@ -244,7 +244,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_value load;
 	gen_loadtemp(ctx, &load, &rval, qdef->func.returns,
 			type_is_signed(fntype->func.result));
-	pushi(&qdef->func, Q_RET, NULL, &load, NULL);
+	pushi(&qdef->func, NULL, Q_RET, &load, NULL);
 
 	qbe_append_def(ctx->out, qdef);
 	ctx->current = NULL;
