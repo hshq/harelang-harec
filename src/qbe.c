@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 #include "qbe.h"
 
 // Simple type singletons
@@ -143,10 +144,46 @@ qbe_append_def(struct qbe_program *prog, struct qbe_def *def)
 	prog->defs = def;
 }
 
-void
-geni(struct qbe_statement *stmt, enum qbe_instr instr, ...)
+static struct qbe_value *
+qval_dup(const struct qbe_value *val)
 {
-	assert(0); // TODO
+	struct qbe_value *new = calloc(1, sizeof(struct qbe_value));
+	*new = *val;
+	if (val->kind != QV_CONST) {
+		new->name = strdup(val->name);
+	}
+	return new;
+}
+
+static void
+va_geni(struct qbe_statement *stmt, enum qbe_instr instr,
+		const struct qbe_value *out, va_list ap)
+{
+	stmt->type = Q_INSTR;
+	stmt->instr = instr;
+
+	if (out) {
+		stmt->out = qval_dup(out);
+	}
+
+	struct qbe_arguments **next = &stmt->args;
+	struct qbe_value *val;
+	while ((val = va_arg(ap, struct qbe_value *))) {
+		struct qbe_arguments *arg = calloc(1, sizeof(struct qbe_arguments));
+		arg->value = *val;
+		*next = arg;
+		next = &arg->next;
+	}
+}
+
+void
+geni(struct qbe_statement *stmt, enum qbe_instr instr,
+		const struct qbe_value *out, ...)
+{
+	va_list ap;
+	va_start(ap, out);
+	va_geni(stmt, instr, out, ap);
+	va_end(ap);
 }
 
 void
@@ -155,14 +192,46 @@ genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt, ...)
 	assert(0); // TODO
 }
 
-void
-pushi(struct qbe_func *func, enum qbe_instr instr, ...)
+static void
+push(struct qbe_func *func, struct qbe_statement *stmt)
 {
-	assert(0); // TODO
+	if (!func->body) {
+		func->bsiz = 256;
+		func->blen = 0;
+		func->body = calloc(1, sizeof(struct qbe_statement) * func->bsiz);
+		assert(func->body);
+	}
+	if (func->blen + 1 < func->bsiz) {
+		func->bsiz *= 2;
+		struct qbe_statement *new = realloc(func->body, func->bsiz);
+		func->body = new;
+		assert(func->body);
+	}
+	func->body[func->blen++] = *stmt;
+}
+
+void
+pushi(struct qbe_func *func, enum qbe_instr instr,
+		const struct qbe_value *out, ...)
+{
+	struct qbe_statement stmt = {0};
+	va_list ap;
+	va_start(ap, out);
+	va_geni(&stmt, instr, out, ap);
+	va_end(ap);
+	push(func, &stmt);
 }
 
 void
 pushl(struct qbe_func *func, uint64_t *id, const char *fmt, ...)
 {
 	assert(0); // TODO
+}
+
+void
+constl(struct qbe_value *val, uint64_t l)
+{
+	val->kind = QV_CONST;
+	val->type = &qbe_long;
+	val->lval = l;
 }

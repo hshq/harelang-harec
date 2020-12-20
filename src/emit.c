@@ -23,6 +23,73 @@ emit_qtype(const struct qbe_type *type, FILE *out)
 }
 
 static void
+emit_const(struct qbe_value *val, FILE *out)
+{
+	switch (val->type->stype) {
+	case Q_BYTE:
+	case Q_HALF:
+	case Q_WORD:
+		fprintf(out, "%u ", val->wval);
+		break;
+	case Q_LONG:
+		fprintf(out, "%lu ", val->lval);
+		break;
+	case Q_SINGLE:
+		fprintf(out, "%f ", val->sval);
+		break;
+	case Q_DOUBLE:
+		fprintf(out, "%f ", val->dval);
+		break;
+	case Q__VOID:
+	case Q__AGGREGATE:
+		assert(0); // Invariant
+	}
+}
+
+static void
+emit_value(struct qbe_value *val, FILE *out)
+{
+	switch (val->kind) {
+	case QV_CONST:
+		emit_const(val, out);
+		break;
+	case QV_GLOBAL:
+		assert(0); // TODO
+	case QV_LABEL:
+		assert(0); // TODO
+	case QV_TEMPORARY:
+		fprintf(out, "%%%s", val->name);
+		break;
+	}
+}
+
+static void
+emit_stmt(struct qbe_statement *stmt, FILE *out)
+{
+	switch (stmt->type) {
+	case Q_INSTR:
+		fprintf(out, "\t");
+		if (stmt->out != NULL) {
+			emit_value(stmt->out, out);
+			fprintf(out, " =");
+			assert(stmt->out->type->stype != Q__AGGREGATE); // TODO
+			emit_qtype(stmt->out->type, out);
+		}
+		fprintf(out, "%s", qbe_instr[stmt->instr]);
+		struct qbe_arguments *arg = stmt->args;
+		while (arg) {
+			fprintf(out, " ");
+			emit_value(&arg->value, out);
+			arg = arg->next;
+		}
+		fprintf(out, "\n");
+		break;
+	case Q_LABEL:
+		assert(0); // TODO
+	}
+}
+
+static void
 emit_func(struct qbe_def *def, FILE *out)
 {
 	assert(def->type == Q_FUNC);
@@ -30,7 +97,12 @@ emit_func(struct qbe_def *def, FILE *out)
 	fprintf(out, "%sfunction ", def->exported ? "export " : "");
 	emit_qtype(def->func.returns, out);
 	fprintf(out, "$%s() {\n", def->name); // TODO: Parameters
-	// TODO: Body
+
+	for (size_t i = 0; i < def->func.blen; ++i) {
+		struct qbe_statement *stmt = &def->func.body[i];
+		emit_stmt(stmt, out);
+	}
+
 	fprintf(out, "}\n\n");
 }
 

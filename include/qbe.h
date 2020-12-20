@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 enum qbe_stype {
+	Q__VOID = 0,
 	Q_BYTE = 'b',
 	Q_HALF = 'h',
 	Q_WORD = 'w',
@@ -12,7 +13,6 @@ enum qbe_stype {
 	Q_SINGLE = 's',
 	Q_DOUBLE = 'd',
 	Q__AGGREGATE,
-	Q__VOID,
 };
 
 struct qbe_type {
@@ -44,7 +44,10 @@ struct qbe_value {
 	const struct qbe_type *type;
 	union {
 		char *name;
-		// TODO: const storage
+		uint32_t wval;
+		uint64_t lval;
+		float sval;
+		double dval;
 	};
 };
 
@@ -152,6 +155,7 @@ struct qbe_statement {
 	union {
 		struct {
 			enum qbe_instr instr;
+			struct qbe_value *out;
 			struct qbe_arguments *args;
 		};
 		char *label;
@@ -191,9 +195,11 @@ void qbe_append_def(struct qbe_program *prog, struct qbe_def *def);
 // provide to the given instruction. The "l" family takes a printf-compatible
 // set of values to match with fmt to produce a label (plus the ID postfix,
 // which is added for you).
-void geni(struct qbe_statement *stmt, enum qbe_instr instr, ...);
+void geni(struct qbe_statement *stmt, enum qbe_instr instr, const struct qbe_value *out, ...);
 void genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt, ...);
-void pushi(struct qbe_func *func, enum qbe_instr instr, ...);
+void pushi(struct qbe_func *func, enum qbe_instr instr, const struct qbe_value *out, ...);
 void pushl(struct qbe_func *func, uint64_t *id, const char *fmt, ...);
+
+void constl(struct qbe_value *val, uint64_t l);
 
 #endif

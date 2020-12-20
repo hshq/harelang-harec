@@ -31,6 +31,43 @@ ident_to_sym(const struct identifier *ident)
 }
 
 static void
+gen_temp(struct gen_context *ctx, struct qbe_value *val,
+		const struct qbe_type *type, char *fmt)
+{
+	val->kind = QV_TEMPORARY;
+	val->type = type;
+
+	int n = snprintf(NULL, 0, fmt, ctx->id);
+	char *str = calloc(1, n + 1);
+	snprintf(str, n + 1, fmt, ctx->id);
+	++ctx->id;
+
+	val->name = str;
+}
+
+static void
+alloc_temp(struct gen_context *ctx, struct qbe_value *val,
+		const struct type *type, char *fmt)
+{
+	const struct qbe_type *qtype = qtype_for_type(ctx, type, false);
+	gen_temp(ctx, val, qtype, fmt);
+
+	struct qbe_value size;
+	constl(&size, type->size);
+	pushi(ctx->current, alignment_to_qbe_alloc(type->align),
+		val, &size, NULL);
+}
+
+static void
+gen_expression(struct gen_context *ctx,
+	struct qbe_func *body,
+	const struct expression *expr,
+	struct qbe_value *out)
+{
+	//assert(0); // TODO
+}
+
+static void
 gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 {
 	assert(decl->type == DECL_FUNC);
@@ -44,12 +81,18 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	qdef->name = func->symbol ? strdup(func->symbol)
 		: ident_to_sym(&decl->ident);
 	qdef->func.returns = qtype_for_type(ctx, fntype->func.result, true);
+	ctx->current = &qdef->func;
 
 	assert(fntype->func.params == NULL); // TODO
 
-	// TODO: Gen function body
+	// TODO: Update for void type
+	struct qbe_value rval;
+	alloc_temp(ctx, &rval, fntype->func.result, "return.%d");
+	gen_expression(ctx, &qdef->func, func->body, &rval);
+	pushi(&qdef->func, Q_RET, NULL, &rval, NULL);
 
 	qbe_append_def(ctx->out, qdef);
+	ctx->current = NULL;
 }
 
 static void
