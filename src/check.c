@@ -188,13 +188,6 @@ check_function(struct context *ctx,
 		expect(!decl->exported,
 				"%s function cannot be exported", flags);
 	}
-	if ((fntype->func.flags & FN_NORETURN)) {
-		expect(!body->terminates, "@noreturn function must not terminate.");
-	} else {
-		expect(body->type != EXPR_LIST || body->terminates,
-			"This function never terminates. Add a return statement or @noreturn.");
-	}
-
 	trleave(TR_CHECK, NULL);
 }
 
