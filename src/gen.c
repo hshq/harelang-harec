@@ -178,6 +178,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	assert(fntype->func.params == NULL); // TODO
 
 	// TODO: Gen function body
+
+	qbe_append_def(ctx->out, qdef);
 }
 
 static void

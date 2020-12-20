@@ -137,6 +137,13 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 };
 
 void
+qbe_append_def(struct qbe_program *prog, struct qbe_def *def)
+{
+	def->next = prog->defs;
+	prog->defs = def;
+}
+
+void
 geni(struct qbe_statement *stmt, enum qbe_instr instr, ...)
 {
 	assert(0); // TODO

@@ -185,10 +185,12 @@ struct qbe_program {
 	struct qbe_def *defs;
 };
 
+void qbe_append_def(struct qbe_program *prog, struct qbe_def *def);
+
 // The "i" family of functions take a list of qbe_values as the parameters to
 // provide to the given instruction. The "l" family takes a printf-compatible
-// set of values to match with fmt to produce the label name (plus the ID
-// postfix, which is added for you).
+// set of values to match with fmt to produce a label (plus the ID postfix,
+// which is added for you).
 void geni(struct qbe_statement *stmt, enum qbe_instr instr, ...);
 void genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt, ...);
 void pushi(struct qbe_func *func, enum qbe_instr instr, ...);

@@ -3,6 +3,7 @@
 #include <string.h>
 #include "ast.h"
 #include "check.h"
+#include "emit.h"
 #include "gen.h"
 #include "lex.h"
 #include "parse.h"
@@ -13,13 +14,14 @@ enum stage {
 	STAGE_PARSE,
 	STAGE_CHECK,
 	STAGE_GEN,
+	STAGE_EMIT,
 };
 
 enum stage
 parse_stage(const char *s)
 {
 	if (s == NULL) {
-		return STAGE_GEN;
+		return STAGE_EMIT;
 	} else if (strcmp(s, "lex") == 0) {
 		return STAGE_LEX;
 	} else if (strcmp(s, "parse") == 0) {
@@ -28,6 +30,8 @@ parse_stage(const char *s)
 		return STAGE_CHECK;
 	} else if (strcmp(s, "gen") == 0) {
 		return STAGE_GEN;
+	} else if (strcmp(s, "emit") == 0) {
+		return STAGE_EMIT;
 	} else {
 		fprintf(stderr, "Unknown HA_STAGE value '%s'\n", s);
 		exit(1);
@@ -63,5 +67,10 @@ main(int argc, char *argv[])
 
 	struct qbe_program prog = {0};
 	gen(&unit, &prog);
+	if (stage == STAGE_GEN) {
+		return 0;
+	}
+
+	emit(&prog, stdout);
 	return 0;
 }
