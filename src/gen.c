@@ -49,8 +49,7 @@ static void
 alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 		const struct type *type, char *fmt)
 {
-	const struct qbe_type *qtype = qtype_for_type(ctx, type, false);
-	gen_temp(ctx, val, qtype, fmt);
+	gen_temp(ctx, val, &qbe_long, fmt); // XXX: Architecture dependent
 
 	struct qbe_value size;
 	constl(&size, type->size);
@@ -64,7 +63,7 @@ gen_expression(struct gen_context *ctx,
 	const struct expression *expr,
 	struct qbe_value *out)
 {
-	//assert(0); // TODO
+	assert(0); // TODO
 }
 
 static void
@@ -84,6 +83,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	ctx->current = &qdef->func;
 
 	assert(fntype->func.params == NULL); // TODO
+
+	pushl(&qdef->func, &ctx->id, "start.%d");
 
 	// TODO: Update for void type
 	struct qbe_value rval;

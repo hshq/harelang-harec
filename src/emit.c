@@ -85,7 +85,8 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 		fprintf(out, "\n");
 		break;
 	case Q_LABEL:
-		assert(0); // TODO
+		fprintf(out, "@%s\n", stmt->label);
+		break;
 	}
 }
 

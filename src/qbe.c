@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "qbe.h"
@@ -186,10 +187,16 @@ geni(struct qbe_statement *stmt, enum qbe_instr instr,
 	va_end(ap);
 }
 
-void
-genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt, ...)
+const char *
+genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt)
 {
-	assert(0); // TODO
+	stmt->type = Q_LABEL;
+	int n = snprintf(NULL, 0, fmt, *id);
+	char *l = calloc(1, n + 1);
+	snprintf(l, n + 1, fmt, *id);
+	stmt->label = l;
+	*id = *id + 1;
+	return l;
 }
 
 static void
@@ -222,10 +229,13 @@ pushi(struct qbe_func *func, enum qbe_instr instr,
 	push(func, &stmt);
 }
 
-void
-pushl(struct qbe_func *func, uint64_t *id, const char *fmt, ...)
+const char *
+pushl(struct qbe_func *func, uint64_t *id, const char *fmt)
 {
-	assert(0); // TODO
+	struct qbe_statement stmt = {0};
+	const char *l = genl(&stmt, id, fmt);
+	push(func, &stmt);
+	return l;
 }
 
 void
