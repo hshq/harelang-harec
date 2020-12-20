@@ -240,7 +240,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	struct qbe_value load;
 	gen_loadtemp(ctx, &load, &rval, qdef->func.returns,
-			type_is_signed(fntype->func.result));
+		type_is_signed(fntype->func.result));
 	pushi(&qdef->func, NULL, Q_RET, &load, NULL);
 
 	qbe_append_def(ctx->out, qdef);

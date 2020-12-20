@@ -292,6 +292,7 @@ check(const struct ast_unit *aunit, struct unit *unit)
 	// First pass populates the type graph
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
+		assert(!su->imports); // TODO
 		scan_declarations(&ctx, &su->decls);
 	}
 
