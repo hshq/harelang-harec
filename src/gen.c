@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,12 +7,14 @@
 #include "expr.h"
 #include "gen.h"
 #include "identifier.h"
+#include "qbe.h"
 #include "trace.h"
 #include "types.h"
 
 struct gen_context {
 	FILE *out;
 	struct identifier *ns;
+	uint64_t id;
 };
 
 static char *
