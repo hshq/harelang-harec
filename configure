@@ -12,6 +12,7 @@ harec() {
 		src/main.c \
 		src/parse.c \
 		src/qbe.c \
+		src/qtype.c \
 		src/trace.c \
 		src/type_store.c \
 		src/types.c \

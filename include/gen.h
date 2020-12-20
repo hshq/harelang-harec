@@ -1,10 +1,25 @@
 #ifndef HAREC_GEN_H
 #define HAREC_GEN_H
 #include <stdio.h>
+#include <stdint.h>
+#include "identifier.h"
+#include "qbe.h"
 
 struct unit;
-struct qbe_program;
 
 void gen(const struct unit *unit, struct qbe_program *out);
+
+struct gen_context {
+	struct qbe_program *out;
+	struct identifier *ns;
+	uint64_t id;
+};
+
+struct type;
+
+enum qbe_stype qstype_for_type(const struct type *type);
+enum qbe_stype qxtype_for_type(const struct type *type);
+const struct qbe_type *qtype_for_type(struct gen_context *ctx,
+		const struct type *type, bool extended);
 
 #endif
