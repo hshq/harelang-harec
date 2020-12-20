@@ -59,7 +59,9 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 // Given value src of type A, and value dest of type pointer to A, store src in
 // dest.
 static void
-gen_store(struct gen_context *ctx, struct qbe_value *dest, struct qbe_value *src)
+gen_store(struct gen_context *ctx,
+	const struct qbe_value *dest,
+	const struct qbe_value *src)
 {
 	const struct qbe_type *qtype = src->type;
 	assert(qtype->stype != Q__VOID); // Invariant
@@ -70,8 +72,10 @@ gen_store(struct gen_context *ctx, struct qbe_value *dest, struct qbe_value *src
 // Given value src of type pointer to A, and value dest of type A, load dest
 // from src.
 static void
-gen_load(struct gen_context *ctx, struct qbe_value *dest,
-		struct qbe_value *src, bool is_signed)
+gen_load(struct gen_context *ctx,
+	const struct qbe_value *dest,
+	const struct qbe_value *src,
+	bool is_signed)
 {
 	const struct qbe_type *qtype = dest->type;
 	assert(qtype->stype != Q__VOID); // Invariant
@@ -83,7 +87,7 @@ gen_load(struct gen_context *ctx, struct qbe_value *dest,
 // Same as gen_load but dest is initialized to a new temporary
 static void
 gen_loadtemp(struct gen_context *ctx,
-		struct qbe_value *dest, struct qbe_value *src,
+		struct qbe_value *dest, const struct qbe_value *src,
 		const struct qbe_type *type, bool is_signed)
 {
 	gen_temp(ctx, dest, type, "load.%d");
@@ -91,12 +95,12 @@ gen_loadtemp(struct gen_context *ctx,
 }
 
 static void gen_expression(struct gen_context *ctx,
-	const struct expression *expr, struct qbe_value *out);
+	const struct expression *expr, const struct qbe_value *out);
 
 static void
 gen_constant(struct gen_context *ctx,
 	const struct expression *expr,
-	struct qbe_value *out)
+	const struct qbe_value *out)
 {
 	if (out == NULL) {
 		pushc(ctx->current, "useless constant expression discarded");
@@ -132,11 +136,11 @@ gen_constant(struct gen_context *ctx,
 static void
 gen_expr_list(struct gen_context *ctx,
 	const struct expression *expr,
-	struct qbe_value *out)
+	const struct qbe_value *out)
 {
 	const struct expression_list *list = &expr->list;
 	while (list) {
-		struct qbe_value *dest = NULL;
+		const struct qbe_value *dest = NULL;
 		if (!list->next) {
 			// Last value determines expression result
 			dest = out;
@@ -147,9 +151,20 @@ gen_expr_list(struct gen_context *ctx,
 }
 
 static void
+gen_expr_return(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	if (expr->_return.value) {
+		gen_expression(ctx, expr->_return.value, ctx->return_value);
+	}
+	pushi(ctx->current, Q_JMP, NULL, ctx->end_label, NULL);
+}
+
+static void
 gen_expression(struct gen_context *ctx,
 	const struct expression *expr,
-	struct qbe_value *out)
+	const struct qbe_value *out)
 {
 	switch (expr->type) {
 	case EXPR_ACCESS:
@@ -177,6 +192,8 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
 	case EXPR_RETURN:
+		gen_expr_return(ctx, expr, out);
+		break;
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_SWITCH:
@@ -206,15 +223,23 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	pushl(&qdef->func, &ctx->id, "start.%d");
 
+	struct qbe_statement end_label = {0};
+	struct qbe_value end_label_v = {
+		.kind = QV_LABEL,
+		.name = strdup(genl(&end_label, &ctx->id, "end.%d")),
+	};
+	ctx->end_label = &end_label_v;
+
 	// TODO: Update for void type
 	struct qbe_value rval;
 	alloc_temp(ctx, &rval, fntype->func.result, "return.%d");
+	ctx->return_value = &rval;
 
 	// XXX: Does this change if we have an expression list (with an explicit
 	// return statement) here?
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	gen_expression(ctx, func->body, &rval);
-	pushl(&qdef->func, &ctx->id, "end.%d");
+	push(&qdef->func, &end_label);
 
 	struct qbe_value load;
 	gen_loadtemp(ctx, &load, &rval, qdef->func.returns,

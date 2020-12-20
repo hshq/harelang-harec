@@ -56,7 +56,8 @@ emit_value(struct qbe_value *val, FILE *out)
 	case QV_GLOBAL:
 		assert(0); // TODO
 	case QV_LABEL:
-		assert(0); // TODO
+		fprintf(out, "@%s", val->name);
+		break;
 	case QV_TEMPORARY:
 		fprintf(out, "%%%s", val->name);
 		break;

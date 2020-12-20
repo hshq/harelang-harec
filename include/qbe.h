@@ -198,6 +198,7 @@ const char *genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt);
 void pushi(struct qbe_func *func, enum qbe_instr instr, const struct qbe_value *out, ...);
 const char *pushl(struct qbe_func *func, uint64_t *id, const char *fmt);
 void pushc(struct qbe_func *func, const char *text);
+void push(struct qbe_func *func, struct qbe_statement *stmt);
 
 void constw(struct qbe_value *val, uint32_t l);
 void constl(struct qbe_value *val, uint64_t l);

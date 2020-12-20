@@ -14,6 +14,8 @@ struct gen_context {
 	struct qbe_program *out;
 	struct identifier *ns;
 	struct qbe_func *current;
+	const struct qbe_value *end_label;
+	const struct qbe_value *return_value;
 	uint64_t id;
 };
 

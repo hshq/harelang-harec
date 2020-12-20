@@ -199,7 +199,7 @@ genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt)
 	return l;
 }
 
-static void
+void
 push(struct qbe_func *func, struct qbe_statement *stmt)
 {
 	if (!func->body) {
