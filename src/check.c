@@ -134,6 +134,7 @@ check_function(struct context *ctx,
 	assert(fntype); // Invariant
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
+	// TODO: Rewrite ident to be a member of the unit's namespace
 	identifier_dup(&decl->ident, &afndecl->ident);
 	decl->func.flags = afndecl->flags;
 
