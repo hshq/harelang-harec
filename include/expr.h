@@ -16,7 +16,6 @@ enum expr_type {
 	EXPR_CONTINUE,
 	EXPR_FOR,
 	EXPR_FREE,
-	EXPR_FUNC,
 	EXPR_IF,
 	EXPR_INDEX,
 	EXPR_LIST,

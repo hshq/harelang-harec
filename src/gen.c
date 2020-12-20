@@ -182,7 +182,6 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_CONTINUE:
 	case EXPR_FOR:
 	case EXPR_FREE:
-	case EXPR_FUNC:
 	case EXPR_IF:
 	case EXPR_INDEX:
 		assert(0); // TODO
