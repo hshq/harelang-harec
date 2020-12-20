@@ -408,7 +408,7 @@ parse_expression_list(struct parser *par, struct ast_expression *exp)
 		struct ast_expression *curexp =
 			calloc(1, sizeof(struct ast_expression));
 		parse_scope_expression(par, curexp);
-		cur->exp = curexp;
+		cur->expr = curexp;
 
 		struct token tok = {0};
 		want(par, T_SEMICOLON, &tok);

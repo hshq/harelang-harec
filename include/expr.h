@@ -42,12 +42,18 @@ union expression_constant {
 	// TODO: Array, slice, struct constants
 };
 
+struct expression_list {
+	struct expression *expr;
+	struct expression_list *next;
+};
+
 struct expression {
 	const struct type *result;
 	enum expr_type type;
 	bool terminates;
 	union {
 		union expression_constant constant;
+		struct expression_list list;
 	};
 };
 

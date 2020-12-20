@@ -98,7 +98,7 @@ struct ast_constant_expression {
 };
 
 struct ast_expression_list {
-	struct ast_expression *exp;
+	struct ast_expression *expr;
 	struct ast_expression_list *next;
 };
 

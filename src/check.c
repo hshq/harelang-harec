@@ -27,6 +27,9 @@ expect(bool constraint, char *fmt, ...)
 	}
 }
 
+static void check_expression(struct context *ctx,
+	const struct ast_expression *aexpr, struct expression *expr);
+
 static void
 check_expr_constant(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -76,6 +79,33 @@ check_expr_constant(struct context *ctx,
 }
 
 static void
+check_expr_list(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "expression-list");
+	expr->type = EXPR_LIST;
+
+	struct expression_list *list = &expr->list;
+	struct expression_list **next = &list->next;
+
+	const struct ast_expression_list *alist = &aexpr->list;
+	while (alist) {
+		struct expression *lexpr = calloc(1, sizeof(struct expression));
+		check_expression(ctx, alist->expr, lexpr);
+
+		alist = alist->next;
+		if (alist) {
+			*next = calloc(1, sizeof(struct expression_list));
+			list = *next;
+			next = &list->next;
+		}
+	}
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -100,7 +130,10 @@ check_expression(struct context *ctx,
 	case EXPR_FUNC:
 	case EXPR_IF:
 	case EXPR_INDEX:
+		assert(0); // TODO
 	case EXPR_LIST:
+		check_expr_list(ctx, aexpr, expr);
+		break;
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
 	case EXPR_SLICE:
