@@ -339,8 +339,7 @@ parse_simple_expression(struct parser *par, struct ast_expression *exp)
 {
 	trenter(TR_PARSE, "simple-expression");
 	struct token tok = {0};
-	lex(par->lex, &tok);
-	assert(tok.token == T_LITERAL); // TODO: other simple expressions
+	want(par, T_LITERAL, &tok); // TODO: other simple expressions
 	trenter(TR_PARSE, "constant");
 	exp->type = EXPR_CONSTANT;
 	exp->constant.storage = tok.storage;
@@ -382,6 +381,69 @@ parse_complex_expression(struct parser *par, struct ast_expression *exp)
 	// TODO: other complex expressions
 	trenter(TR_PARSE, "complex-expression");
 	parse_simple_expression(par, exp);
+	trleave(TR_PARSE, NULL);
+}
+
+static void
+parse_scope_expression(struct parser *par, struct ast_expression *exp)
+{
+	// TODO: other scope expressions
+	trenter(TR_PARSE, "scope-expression");
+	parse_complex_expression(par, exp);
+	trleave(TR_PARSE, NULL);
+}
+
+static void
+parse_expression_list(struct parser *par, struct ast_expression *exp)
+{
+	trenter(TR_PARSE, "expression-list");
+	want(par, T_LBRACE, NULL);
+
+	exp->type = EXPR_LIST;
+	struct ast_expression_list *cur = &exp->list;
+	struct ast_expression_list **next = &cur->next;
+
+	bool more = true;
+	while (more) {
+		struct ast_expression *curexp =
+			calloc(1, sizeof(struct ast_expression));
+		parse_scope_expression(par, curexp);
+		cur->exp = curexp;
+
+		struct token tok = {0};
+		want(par, T_SEMICOLON, &tok);
+
+		switch (lex(par->lex, &tok)) {
+		case T_RBRACE:
+			more = false;
+			break;
+		default:
+			*next = calloc(1, sizeof(struct ast_expression_list));
+			cur = *next;
+			next = &cur->next;
+			unlex(par->lex, &tok);
+			break;
+		}
+	}
+
+	trleave(TR_PARSE, NULL);
+}
+
+static void
+parse_compound_expression(struct parser *par, struct ast_expression *exp)
+{
+	trenter(TR_PARSE, "compound-expression");
+	struct token tok = {0};
+	switch (lex(par->lex, &tok)) {
+	case T_LBRACE:
+		unlex(par->lex, &tok);
+		parse_expression_list(par, exp);
+		break;
+	default:
+		unlex(par->lex, &tok);
+		parse_simple_expression(par, exp);
+		break;
+	}
 	trleave(TR_PARSE, NULL);
 }
 
@@ -533,7 +595,7 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 	parse_identifier(par, &decl->ident);
 	parse_prototype(par, &decl->prototype);
 	want(par, T_EQUAL, NULL);
-	parse_complex_expression(par, &decl->body);
+	parse_compound_expression(par, &decl->body);
 
 	char symbol[1024], buf[1024];
 	if (decl->symbol) {

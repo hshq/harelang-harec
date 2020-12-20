@@ -97,10 +97,16 @@ struct ast_constant_expression {
 	};
 };
 
+struct ast_expression_list {
+	struct ast_expression *exp;
+	struct ast_expression_list *next;
+};
+
 struct ast_expression {
 	enum expr_type type;
 	union {
 		struct ast_constant_expression constant;
+		struct ast_expression_list list;
 	};
 };
 
