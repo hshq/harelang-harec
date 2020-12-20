@@ -56,14 +56,46 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 	pushi(ctx->current, alloc_for_align(type->align), val, &size, NULL);
 }
 
+// Given value src of type A, and value dest of type pointer to A, store src in
+// dest.
+static void
+gen_store(struct gen_context *ctx, struct qbe_value *dest, struct qbe_value *src)
+{
+	const struct qbe_type *qtype = src->type;
+	assert(qtype->stype != Q__VOID); // Invariant
+	assert(qtype->stype != Q__AGGREGATE); // TODO
+	pushi(ctx->current, store_for_type(qtype->stype), NULL, src, dest, NULL);
+}
+
+// Given value src of type pointer to A, and value dest of type A, load dest
+// from src.
+static void
+gen_load(struct gen_context *ctx, struct qbe_value *dest,
+		struct qbe_value *src, bool is_signed)
+{
+	const struct qbe_type *qtype = dest->type;
+	assert(qtype->stype != Q__VOID); // Invariant
+	assert(qtype->stype != Q__AGGREGATE); // TODO
+	pushi(ctx->current,
+		load_for_type(qtype->stype, is_signed), dest, src, NULL);
+}
+
+// Same as gen_load but dest is initialized to a new temporary
+static void
+gen_loadtemp(struct gen_context *ctx,
+		struct qbe_value *dest, struct qbe_value *src,
+		const struct qbe_type *type, bool is_signed)
+{
+	gen_temp(ctx, dest, type, "load.%d");
+	gen_load(ctx, dest, src, is_signed);
+}
+
 static void
 gen_constant(struct gen_context *ctx,
-	struct qbe_func *body,
 	const struct expression *expr,
 	struct qbe_value *out)
 {
 	const struct qbe_type *qtype = qtype_for_type(ctx, expr->result, false);
-
 	struct qbe_value val = {0};
 	switch (qtype->stype) {
 	case Q_BYTE:
@@ -85,13 +117,11 @@ gen_constant(struct gen_context *ctx,
 	case Q__VOID:
 		assert(0); // Invariant
 	}
-
-	pushi(ctx->current, store_for_type(qtype->stype), NULL, &val, out, NULL);
+	gen_store(ctx, out, &val);
 }
 
 static void
 gen_expression(struct gen_context *ctx,
-	struct qbe_func *body,
 	const struct expression *expr,
 	struct qbe_value *out)
 {
@@ -105,7 +135,7 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_CAST:
 		assert(0); // TODO
 	case EXPR_CONSTANT:
-		gen_constant(ctx, body, expr, out);
+		gen_constant(ctx, expr, out);
 		break;
 	case EXPR_CONTROL:
 	case EXPR_FOR:
@@ -152,15 +182,12 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	// XXX: Does this change if we have an expression list (with an explicit
 	// return statement) here?
 	pushl(&qdef->func, &ctx->id, "body.%d");
-	gen_expression(ctx, &qdef->func, func->body, &rval);
+	gen_expression(ctx, func->body, &rval);
 	pushl(&qdef->func, &ctx->id, "end.%d");
 
 	struct qbe_value load;
-	gen_temp(ctx, &load, qdef->func.returns, "return.%d");
-	pushi(&qdef->func,
-		// TODO: Update for aggregate types
-		load_for_type(qdef->func.returns->stype, type_is_signed(fntype->func.result)),
-		&load, &rval, NULL);
+	gen_loadtemp(ctx, &load, &rval, qdef->func.returns,
+			type_is_signed(fntype->func.result));
 	pushi(&qdef->func, Q_RET, NULL, &load, NULL);
 
 	qbe_append_def(ctx->out, qdef);
