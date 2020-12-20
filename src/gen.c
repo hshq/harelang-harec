@@ -234,8 +234,6 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	alloc_temp(ctx, &rval, fntype->func.result, "return.%d");
 	ctx->return_value = &rval;
 
-	// XXX: Does this change if we have an expression list (with an explicit
-	// return statement) here?
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	gen_expression(ctx, func->body, &rval);
 	push(&qdef->func, &end_label);
