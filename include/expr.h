@@ -5,6 +5,7 @@
 #include "types.h"
 
 struct scope;
+struct scope_object;
 
 enum expr_type {
 	EXPR_ACCESS,
@@ -30,6 +31,10 @@ enum expr_type {
 	EXPR_SWITCH,
 	EXPR_UNARITHM,
 	EXPR_WHILE,
+};
+
+struct expression_access {
+	const struct scope_object *object;
 };
 
 // TODO: Stretchy constants
@@ -65,6 +70,7 @@ struct expression {
 	enum expr_type type;
 	bool terminates;
 	union {
+		struct expression_access access;
 		union expression_constant constant;
 		struct expression_list list;
 		struct expression_return _return;

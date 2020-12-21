@@ -27,11 +27,30 @@ expect(bool constraint, char *fmt, ...)
 		fprintf(stderr, "Error: ");
 		vfprintf(stderr, fmt, ap);
 		fprintf(stderr, "\n");
+		abort();
 	}
 }
 
 static void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr, struct expression *expr);
+
+static void
+check_expr_access(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trace(TR_CHECK, "access");
+	expr->type = EXPR_ACCESS;
+
+	const struct scope_object *obj = scope_lookup(
+		ctx->scope, &aexpr->access.ident);
+	char buf[1024];
+	identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
+	expect(obj, "Unknown object %s", buf);
+
+	expr->result = obj->type;
+	expr->access.object = obj;
+}
 
 static void
 check_expr_constant(struct context *ctx,
@@ -140,6 +159,8 @@ check_expression(struct context *ctx,
 
 	switch (aexpr->type) {
 	case EXPR_ACCESS:
+		check_expr_access(ctx, aexpr, expr);
+		break;
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINARITHM:

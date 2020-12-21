@@ -74,5 +74,15 @@ scope_insert(struct scope *scope,
 const struct scope_object *
 scope_lookup(struct scope *scope, const struct identifier *ident)
 {
-	assert(0); // TODO
+	struct scope_object *o = scope->objects;
+	while (o) {
+		if (identifier_eq(&o->ident, ident)) {
+			return o;
+		}
+		o = o->next;
+	}
+	if (scope->parent) {
+		return scope_lookup(scope->parent, ident);
+	}
+	return NULL;
 }

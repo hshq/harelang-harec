@@ -73,3 +73,17 @@ identifier_dup(struct identifier *new, const struct identifier *ident)
 		identifier_dup(new->ns, ident->ns);
 	}
 }
+
+bool
+identifier_eq(const struct identifier *a, const struct identifier *b)
+{
+	if (!a && !b) {
+		return true;
+	} else if ((!a && b) || (a && !b)) {
+		return false;
+	}
+	if (strcmp(a->name, b->name) != 0) {
+		return false;
+	}
+	return identifier_eq(a->ns, b->ns);
+}
