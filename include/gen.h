@@ -26,6 +26,7 @@ enum qbe_stype qstype_for_type(const struct type *type);
 enum qbe_stype qxtype_for_type(const struct type *type);
 const struct qbe_type *qtype_for_type(struct gen_context *ctx,
 		const struct type *type, bool extended);
+bool type_is_aggregate(const struct type *type);
 
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);

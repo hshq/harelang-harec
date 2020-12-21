@@ -71,7 +71,7 @@ scope_insert(struct scope *scope,
 	scope->next = &o->next;
 }
 
-const struct type *
+const struct scope_object *
 scope_lookup(struct scope *scope, const struct identifier *ident)
 {
 	assert(0); // TODO

@@ -224,11 +224,26 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_func_param *param, **next = &qdef->func.params;
 	struct scope_object *obj = decl->func.scope->objects;
 	while (obj) {
-		// TODO: Copy params to the stack (for non-aggregate types)
 		param = *next = calloc(1, sizeof(struct qbe_func_param));
 		assert(!obj->ident.ns); // Invariant
 		param->name = strdup(obj->ident.name);
 		param->type = qtype_for_type(ctx, obj->type, true);
+
+		if (type_is_aggregate(obj->type)) {
+			assert(0); // TODO
+		} else {
+			struct qbe_value val;
+			alloc_temp(ctx, &val, obj->type, "copy.%d");
+			struct qbe_value src = {
+				.kind = QV_TEMPORARY,
+				.type = param->type,
+				.name = param->name,
+			};
+			gen_store(ctx, &val, &src);
+			free(obj->ident.name);
+			obj->alias = strdup(val.name);
+		}
+
 		obj = obj->next;
 		next = &param->next;
 	}
@@ -242,7 +257,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	// TODO: Update for void type
 	struct qbe_value rval;
-	alloc_temp(ctx, &rval, fntype->func.result, "return.%d");
+	alloc_temp(ctx, &rval, fntype->func.result, "ret.%d");
 	ctx->return_value = &rval;
 
 	pushl(&qdef->func, &ctx->id, "body.%d");
