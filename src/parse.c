@@ -335,12 +335,21 @@ parse_type(struct parser *par, struct ast_type *type)
 }
 
 static void
-parse_simple_expression(struct parser *par, struct ast_expression *exp)
+parse_access(struct parser *par, struct ast_expression *exp)
 {
-	trenter(TR_PARSE, "simple-expression");
-	struct token tok = {0};
-	want(par, T_LITERAL, &tok); // TODO: other simple expressions
+	trenter(TR_PARSE, "access");
+	exp->type = EXPR_ACCESS;
+	parse_identifier(par, &exp->access.ident);
+	trleave(TR_PARSE, NULL);
+}
+
+static void
+parse_constant(struct parser *par, struct ast_expression *exp)
+{
 	trenter(TR_PARSE, "constant");
+
+	struct token tok = {0};
+	want(par, T_LITERAL, &tok);
 	exp->type = EXPR_CONSTANT;
 	exp->constant.storage = tok.storage;
 	switch (tok.storage) {
@@ -372,6 +381,42 @@ parse_simple_expression(struct parser *par, struct ast_expression *exp)
 		assert(0); // TODO
 	}
 	trleave(TR_PARSE, "%s", token_str(&tok));
+
+	trleave(TR_PARSE, NULL);
+}
+
+static void
+parse_simple_expression(struct parser *par, struct ast_expression *exp)
+{
+	trenter(TR_PARSE, "simple-expression");
+
+	// TODO: This will need to be refactored once we finish the grammar
+	// connecting postfix-expression to logical-or-expression
+	struct token tok = {0};
+	lex(par->lex, &tok);
+	switch (tok.token) {
+	// plain-expression
+	case T_NAME:
+		unlex(par->lex, &tok);
+		parse_access(par, exp);
+		break;
+	case T_LITERAL:
+		unlex(par->lex, &tok);
+		parse_constant(par, exp);
+		break;
+	case T_LBRACKET:
+		assert(0); // TODO: array/slice literal
+	case T_LBRACE:
+		assert(0); // TODO: array/slice literal
+	// nested-expression
+	case T_LPAREN:
+		assert(0); // TODO: nested-expression
+	// syntax error
+	default:
+		synassert(false, &tok, T_LITERAL, T_NAME, T_EOF);
+		break;
+	}
+
 	trleave(TR_PARSE, NULL);
 }
 
