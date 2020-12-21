@@ -203,7 +203,7 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINARITHM:
-	case EXPR_BINDING_LIST:
+	case EXPR_BINDING:
 	case EXPR_BREAK:
 	case EXPR_CALL:
 	case EXPR_CAST:

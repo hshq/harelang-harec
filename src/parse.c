@@ -334,12 +334,73 @@ parse_type(struct parser *par, struct ast_type *type)
 		type_storage_unparse(type->storage));
 }
 
+static void parse_complex_expression(struct parser *par,
+		struct ast_expression *exp);
+
 static void
 parse_access(struct parser *par, struct ast_expression *exp)
 {
 	trenter(TR_PARSE, "access");
 	exp->type = EXPR_ACCESS;
 	parse_identifier(par, &exp->access.ident);
+	trleave(TR_PARSE, NULL);
+}
+
+static void
+parse_binding_list(struct parser *par, struct ast_expression *exp)
+{
+	trenter(TR_PARSE, "binding-list");
+	exp->type = EXPR_BINDING;
+	unsigned int flags = 0;
+
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_CONST:
+		flags = TYPE_CONST;
+		// fallthrough
+	case T_LET:
+		// no-op
+		break;
+	default:
+		synassert(false, &tok, T_LET, T_CONST, T_EOF);
+	}
+
+	struct ast_expression_binding *binding = &exp->binding;
+	struct ast_expression_binding **next = &exp->binding.next;
+
+	bool more = true;
+	while (more) {
+		want(par, T_NAME, &tok);
+		binding->name = tok.name;
+		binding->initializer = calloc(1, sizeof(struct ast_expression));
+
+		switch (lex(par->lex, &tok)) {
+		case T_COLON:
+			binding->type = calloc(1, sizeof(struct ast_type));
+			parse_type(par, binding->type);
+			binding->type->flags |= flags;
+			want(par, T_EQUAL, &tok);
+			parse_complex_expression(par, binding->initializer);
+			break;
+		case T_EQUAL:
+			break;
+		default:
+			synassert(false, &tok, T_COLON, T_COMMA, T_EOF);
+		}
+
+		switch (lex(par->lex, &tok)) {
+		case T_COMMA:
+			*next = calloc(1, sizeof(struct ast_expression_binding));
+			binding = *next;
+			next = &binding->next;
+			break;
+		default:
+			unlex(par->lex, &tok);
+			more = false;
+			break;
+		}
+	}
+
 	trleave(TR_PARSE, NULL);
 }
 
@@ -432,9 +493,22 @@ parse_complex_expression(struct parser *par, struct ast_expression *exp)
 static void
 parse_scope_expression(struct parser *par, struct ast_expression *exp)
 {
-	// TODO: other scope expressions
 	trenter(TR_PARSE, "scope-expression");
-	parse_complex_expression(par, exp);
+
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_LET:
+	case T_CONST:
+		unlex(par->lex, &tok);
+		parse_binding_list(par, exp);
+		break;
+	default:
+		unlex(par->lex, &tok);
+		parse_complex_expression(par, exp);
+		break;
+	// TODO: allocations, assignments
+	}
+
 	trleave(TR_PARSE, NULL);
 }
 

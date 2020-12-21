@@ -88,6 +88,13 @@ struct ast_expression_access {
 	struct identifier ident;
 };
 
+struct ast_expression_binding {
+	char *name;
+	struct ast_type *type;
+	struct ast_expression *initializer;
+	struct ast_expression_binding *next;
+};
+
 struct ast_expression_constant {
 	enum type_storage storage;
 	union {
@@ -114,6 +121,7 @@ struct ast_expression {
 	enum expr_type type;
 	union {
 		struct ast_expression_access access;
+		struct ast_expression_binding binding;
 		struct ast_expression_constant constant;
 		struct ast_expression_list list;
 		struct ast_return_expression _return;
