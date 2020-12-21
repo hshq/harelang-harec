@@ -5,12 +5,15 @@
 #include "ast.h"
 #include "check.h"
 #include "expr.h"
+#include "scope.h"
 #include "trace.h"
 #include "type_store.h"
 #include "types.h"
 
 struct context {
 	struct type_store store;
+	struct scope *unit;
+	struct scope *scope;
 };
 
 static void
@@ -86,8 +89,8 @@ check_expr_list(struct context *ctx,
 	trenter(TR_CHECK, "expression-list");
 	expr->type = EXPR_LIST;
 
-	struct expression_list *list = &expr->list;
-	struct expression_list **next = &list->next;
+	struct expressions *list = &expr->list.exprs;
+	struct expressions **next = &list->next;
 
 	const struct ast_expression_list *alist = &aexpr->list;
 	while (alist) {
@@ -97,7 +100,7 @@ check_expr_list(struct context *ctx,
 
 		alist = alist->next;
 		if (alist) {
-			*next = calloc(1, sizeof(struct expression_list));
+			*next = calloc(1, sizeof(struct expressions));
 			list = *next;
 			next = &list->next;
 		} else {
@@ -289,18 +292,45 @@ void
 check(const struct ast_unit *aunit, struct unit *unit)
 {
 	struct context ctx = {0};
+
+	// Top-level scope management involves:
+	//
+	// - Creating a top-level scope for the whole unit, to which
+	//   declarations are added.
+	// - Creating a scope for each sub-unit, and populating it with imports.
+	// 
+	// Further down the call frame, subsequent functions will create
+	// sub-scopes for each declaration, expression-list, etc.
+	ctx.unit = scope_push(&ctx.scope, TR_MAX);
+
+	struct scopes *subunit_scopes;
+	struct scopes **next = &subunit_scopes;
+
 	// First pass populates the type graph
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
+		scope_push(&ctx.scope, TR_SCAN);
+
 		assert(!su->imports); // TODO
 		scan_declarations(&ctx, &su->decls);
+
+		*next = calloc(1, sizeof(struct scopes));
+		(*next)->scope = scope_pop(&ctx.scope, TR_SCAN);
+		next = &(*next)->next;
 	}
 
 	// Second pass populates the expression graph
+	struct scopes *scope = subunit_scopes;
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
+		ctx.scope = scope->scope;
+		trenter(TR_CHECK, "scope %p", ctx.scope);
 		check_declarations(&ctx, &su->decls, &unit->declarations);
+		trleave(TR_CHECK, NULL);
+		scope = scope->next;
 	}
 
 	assert(unit->declarations);
+	scope_free_all(subunit_scopes);
+	scope_free(ctx.unit);
 }

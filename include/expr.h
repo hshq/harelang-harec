@@ -1,7 +1,10 @@
 #ifndef HAREC_EXPR_H
 #define HAREC_EXPR_H
 #include <stdint.h>
+#include "identifier.h"
 #include "types.h"
+
+struct scope;
 
 enum expr_type {
 	EXPR_ACCESS,
@@ -43,9 +46,14 @@ union expression_constant {
 	// TODO: Array, slice, struct constants
 };
 
-struct expression_list {
+struct expressions {
 	struct expression *expr;
-	struct expression_list *next;
+	struct expressions *next;
+};
+
+struct expression_list {
+	struct scope *scope;
+	struct expressions exprs;
 };
 
 struct expression_return {

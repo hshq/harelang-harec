@@ -138,15 +138,15 @@ gen_expr_list(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	const struct expression_list *list = &expr->list;
-	while (list) {
+	const struct expressions *exprs = &expr->list.exprs;
+	while (exprs) {
 		const struct qbe_value *dest = NULL;
-		if (!list->next) {
+		if (!exprs->next) {
 			// Last value determines expression result
 			dest = out;
 		}
-		gen_expression(ctx, list->expr, dest);
-		list = list->next;
+		gen_expression(ctx, exprs->expr, dest);
+		exprs = exprs->next;
 	}
 }
 
