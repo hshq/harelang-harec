@@ -32,6 +32,16 @@ ident_to_sym(const struct identifier *ident)
 }
 
 static void
+qval_for_object(struct gen_context *ctx,
+	struct qbe_value *val,
+	const struct scope_object *obj)
+{
+	val->kind = QV_TEMPORARY; // XXX: Is this always the case?
+	val->type = qtype_for_type(ctx, obj->type, false);
+	val->name = obj->alias ? obj->alias : ident_to_sym(&obj->ident);
+}
+
+static void
 gen_temp(struct gen_context *ctx, struct qbe_value *val,
 		const struct qbe_type *type, char *fmt)
 {
@@ -97,6 +107,25 @@ gen_loadtemp(struct gen_context *ctx,
 
 static void gen_expression(struct gen_context *ctx,
 	const struct expression *expr, const struct qbe_value *out);
+
+static void
+gen_access(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	if (out == NULL) {
+		pushc(ctx->current, "useless access expression discarded");
+		return;
+	}
+
+	const struct scope_object *obj = expr->access.object;
+	struct qbe_value src;
+	qval_for_object(ctx, &src, obj);
+
+	struct qbe_value temp;
+	gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
+	gen_store(ctx, out, &temp);
+}
 
 static void
 gen_constant(struct gen_context *ctx,
@@ -169,6 +198,8 @@ gen_expression(struct gen_context *ctx,
 {
 	switch (expr->type) {
 	case EXPR_ACCESS:
+		gen_access(ctx, expr, out);
+		break;
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINARITHM:
