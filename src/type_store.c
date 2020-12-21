@@ -260,7 +260,13 @@ type_init_from_atype(struct type_store *store,
 			type_store_lookup_atype(store, atype->func.result);
 		type->func.variadism = atype->func.variadism;
 		type->func.flags = atype->func.flags;
-		assert(!atype->func.params); // TODO
+		struct type_func_param *param, **next = &type->func.params;
+		for (struct ast_function_parameters *aparam = atype->func.params;
+				aparam; aparam = aparam->next) {
+			param = *next = calloc(1, sizeof(struct type_func_param));
+			param->type = type_store_lookup_atype(store, aparam->type);
+			next = &param->next;
+		}
 		break;
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:

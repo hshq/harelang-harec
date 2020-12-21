@@ -183,7 +183,6 @@ check_function(struct context *ctx,
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
 	trenter(TR_CHECK, "function");
-	assert(!afndecl->prototype.params); // TODO
 	assert(!afndecl->symbol); // TODO
 
 	const struct ast_type fn_atype = {
@@ -199,6 +198,18 @@ check_function(struct context *ctx,
 	// TODO: Rewrite ident to be a member of the unit's namespace
 	identifier_dup(&decl->ident, &afndecl->ident);
 	decl->func.flags = afndecl->flags;
+
+	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+	struct ast_function_parameters *params = afndecl->prototype.params;
+	while (params) {
+		struct identifier ident = {
+			.name = params->name,
+		};
+		const struct type *type = type_store_lookup_atype(
+				&ctx->store, params->type);
+		scope_insert(scope, &ident, type);
+		params = params->next;
+	}
 
 	struct expression *body = calloc(1, sizeof(struct expression));
 	check_expression(ctx, &afndecl->body, body);
@@ -216,6 +227,10 @@ check_function(struct context *ctx,
 		expect(!decl->exported,
 				"%s function cannot be exported", flags);
 	}
+
+	// TODO: Add declaration to unit scope
+
+	scope_pop(&ctx->scope, TR_CHECK);
 	trleave(TR_CHECK, NULL);
 }
 

@@ -12,6 +12,7 @@ struct scope_object {
 
 struct scope {
 	struct scope_object *objects;
+	struct scope_object **next; // List order matters for functions
 	struct scope *parent;
 };
 
@@ -26,7 +27,9 @@ struct scope *scope_pop(struct scope **stack, enum trace_sys sys);
 void scope_free(struct scope *scope);
 void scope_free_all(struct scopes *scopes);
 
-void scope_insert(const struct identifier *ident, const struct type *type);
-const struct type *scope_lookup(const struct identifier *ident);
+void scope_insert(struct scope *scope,
+	const struct identifier *ident, const struct type *type);
+const struct type *scope_lookup(struct scope *scope,
+	const struct identifier *ident);
 
 #endif

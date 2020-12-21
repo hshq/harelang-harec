@@ -8,6 +8,7 @@ struct scope *
 scope_push(struct scope **stack, enum trace_sys sys)
 {
 	struct scope *new = calloc(1, sizeof(struct scope));
+	new->next = &new->objects;
 	if (*stack) {
 		new->parent = *stack;
 	}
@@ -59,13 +60,19 @@ scope_free_all(struct scopes *scopes)
 }
 
 void
-scope_insert(const struct identifier *ident, const struct type *type)
+scope_insert(struct scope *scope,
+	const struct identifier *ident,
+	const struct type *type)
 {
-	assert(0); // TODO
+	struct scope_object *o = calloc(1, sizeof(struct scope_object));
+	identifier_dup(&o->ident, ident);
+	o->type = type;
+	*scope->next = o;
+	scope->next = &o->next;
 }
 
 const struct type *
-scope_lookup(const struct identifier *ident)
+scope_lookup(struct scope *scope, const struct identifier *ident)
 {
 	assert(0); // TODO
 }
