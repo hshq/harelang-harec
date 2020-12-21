@@ -9,6 +9,7 @@
 #include "gen.h"
 #include "identifier.h"
 #include "qbe.h"
+#include "scope.h"
 #include "trace.h"
 #include "types.h"
 
@@ -218,9 +219,19 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	qdef->func.returns = qtype_for_type(ctx, fntype->func.result, true);
 	ctx->current = &qdef->func;
 
-	assert(fntype->func.params == NULL); // TODO
-
 	pushl(&qdef->func, &ctx->id, "start.%d");
+
+	struct qbe_func_param *param, **next = &qdef->func.params;
+	struct scope_object *obj = decl->func.scope->objects;
+	while (obj) {
+		// TODO: Copy params to the stack (for non-aggregate types)
+		param = *next = calloc(1, sizeof(struct qbe_func_param));
+		assert(!obj->ident.ns); // Invariant
+		param->name = strdup(obj->ident.name);
+		param->type = qtype_for_type(ctx, obj->type, true);
+		obj = obj->next;
+		next = &param->next;
+	}
 
 	struct qbe_statement end_label = {0};
 	struct qbe_value end_label_v = {

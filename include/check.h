@@ -5,6 +5,7 @@
 #include "types.h"
 
 struct expression;
+struct scope;
 
 enum func_decl_flags {
 	FN_FINI = 1 << 0,
@@ -15,6 +16,7 @@ enum func_decl_flags {
 struct function_decl {
 	const struct type *type;
 	struct expression *body;
+	struct scope *scope;
 	char *symbol;
 	unsigned int flags; // enum function_flags
 };

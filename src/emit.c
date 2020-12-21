@@ -13,7 +13,7 @@ emit_qtype(const struct qbe_type *type, FILE *out)
 	case Q_LONG:
 	case Q_SINGLE:
 	case Q_DOUBLE:
-		fprintf(out, "%c ", (char)type->stype);
+		fprintf(out, "%c", (char)type->stype);
 		break;
 	case Q__VOID:
 		break; // no-op
@@ -78,6 +78,7 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 			fprintf(out, " =");
 			assert(stmt->out->type->stype != Q__AGGREGATE); // TODO
 			emit_qtype(stmt->out->type, out);
+			fprintf(out, " ");
 		}
 		fprintf(out, "%s%s", qbe_instr[stmt->instr],
 				stmt->args ? " " : "");
@@ -99,10 +100,19 @@ static void
 emit_func(struct qbe_def *def, FILE *out)
 {
 	assert(def->type == Q_FUNC);
-	// TODO: Parameters
 	fprintf(out, "%sfunction ", def->exported ? "export " : "");
 	emit_qtype(def->func.returns, out);
-	fprintf(out, "$%s() {\n", def->name); // TODO: Parameters
+	fprintf(out, " $%s(", def->name);
+	struct qbe_func_param *param = def->func.params;
+	while (param) {
+		emit_qtype(param->type, out);
+		fprintf(out, " %%%s", param->name);
+		if (param->next) {
+			fprintf(out, ", ");
+		}
+		param = param->next;
+	}
+	fprintf(out, ") {\n");
 
 	for (size_t i = 0; i < def->func.blen; ++i) {
 		struct qbe_statement *stmt = &def->func.body[i];

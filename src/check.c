@@ -199,7 +199,7 @@ check_function(struct context *ctx,
 	identifier_dup(&decl->ident, &afndecl->ident);
 	decl->func.flags = afndecl->flags;
 
-	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+	decl->func.scope = scope_push(&ctx->scope, TR_CHECK);
 	struct ast_function_parameters *params = afndecl->prototype.params;
 	while (params) {
 		struct identifier ident = {
@@ -207,7 +207,7 @@ check_function(struct context *ctx,
 		};
 		const struct type *type = type_store_lookup_atype(
 				&ctx->store, params->type);
-		scope_insert(scope, &ident, type);
+		scope_insert(decl->func.scope, &ident, type);
 		params = params->next;
 	}
 

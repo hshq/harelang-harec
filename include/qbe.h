@@ -164,9 +164,15 @@ struct qbe_statement {
 	};
 };
 
+struct qbe_func_param {
+	char *name;
+	const struct qbe_type *type;
+	struct qbe_func_param *next;
+};
+
 struct qbe_func {
 	const struct qbe_type *returns;
-	// TODO: Parameters
+	struct qbe_func_param *params;
 	size_t blen, bsiz;
 	struct qbe_statement *body;
 };
