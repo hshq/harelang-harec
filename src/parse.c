@@ -336,6 +336,8 @@ parse_type(struct parser *par, struct ast_type *type)
 
 static void parse_complex_expression(struct parser *par,
 		struct ast_expression *exp);
+static void parse_simple_expression(struct parser *par,
+		struct ast_expression *exp);
 
 static void
 parse_access(struct parser *par, struct ast_expression *exp)
@@ -383,6 +385,7 @@ parse_binding_list(struct parser *par, struct ast_expression *exp)
 			parse_complex_expression(par, binding->initializer);
 			break;
 		case T_EQUAL:
+			parse_simple_expression(par, binding->initializer);
 			break;
 		default:
 			synassert(false, &tok, T_COLON, T_COMMA, T_EOF);
