@@ -107,9 +107,9 @@ enum lexical_token {
 	T_SLICE,
 	T_TIMES,
 	T_TIMESEQ,
-	T_XOR,
-	T_XOREQ,
-	T_LAST_OPERATOR = T_XOREQ,
+	T_BXOR,
+	T_BXOREQ,
+	T_LAST_OPERATOR = T_BXOREQ,
 
 	// Tokens with additional information
 	T_LABEL,

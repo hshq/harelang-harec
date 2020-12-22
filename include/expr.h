@@ -37,6 +37,34 @@ struct expression_access {
 	const struct scope_object *object;
 };
 
+enum binarithm_operator {
+	BIN_BAND,
+	BIN_BNOT,
+	BIN_BOR,
+	BIN_DIV,
+	BIN_GREATER,
+	BIN_GREATEREQ,
+	BIN_LAND,
+	BIN_LEQUAL,
+	BIN_LESS,
+	BIN_LESSEQ,
+	BIN_LOR,
+	BIN_LSHIFT,
+	BIN_LXOR,
+	BIN_MINUS,
+	BIN_MODULO,
+	BIN_NEQUAL,
+	BIN_PLUS,
+	BIN_RSHIFT,
+	BIN_TIMES,
+	BIN_BXOR,
+};
+
+struct expression_binarithm {
+	enum binarithm_operator op;
+	struct expression *lvalue, *rvalue;
+};
+
 struct expression_binding {
 	const struct scope_object *object;
 	struct expression *initializer;

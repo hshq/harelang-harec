@@ -115,8 +115,8 @@ static const char *tokens[] = {
 	[T_SLICE] = "..",
 	[T_TIMES] = "*",
 	[T_TIMESEQ] = "*=",
-	[T_XOR] = "^",
-	[T_XOREQ] = "^=",
+	[T_BXOR] = "^",
+	[T_BXOREQ] = "^=",
 };
 
 void
@@ -625,11 +625,11 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			out->token = T_LXOR;
 			break;
 		case '=':
-			out->token = T_XOREQ;
+			out->token = T_BXOREQ;
 			break;
 		default:
 			push(lexer, c, false);
-			out->token = T_XOR;
+			out->token = T_BXOR;
 			break;
 		}
 		break;

@@ -212,6 +212,7 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
+		assert(0); // TODO
 	case EXPR_BINARITHM:
 		assert(0); // TODO
 	case EXPR_BINDING:

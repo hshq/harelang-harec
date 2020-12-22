@@ -65,6 +65,43 @@ want(struct parser *par, enum lexical_token ltok, struct token *tok)
 	}
 }
 
+// Returns true if this token may be the first token of a complex-expression
+/*
+static bool
+is_expr_start(struct token *tok)
+{
+	switch (tok->token) {
+	case T_ABORT:
+	case T_ASSERT:
+	case T_FALSE:
+	case T_FOR:
+	case T_IF:
+	case T_LEN:
+	case T_MATCH:
+	case T_NULL:
+	case T_RUNE:
+	case T_STRUCT:
+	case T_SWITCH:
+	case T_TRUE:
+	case T_UNION:
+	case T_VOID:
+	case T_WHILE:
+	case T_LNOT:
+	case T_LPAREN:
+	case T_MINUS:
+	case T_PLUS:
+	case T_TIMES:
+	case T_LABEL:
+	case T_LITERAL:
+	case T_NAME:
+		return true;
+	default:
+		return false;
+	}
+	assert(0); // Unreachable
+}
+*/
+
 static void
 parse_identifier(struct parser *par, struct identifier *ident)
 {
@@ -339,6 +376,7 @@ static void parse_complex_expression(struct parser *par,
 static void parse_simple_expression(struct parser *par,
 		struct ast_expression *exp);
 
+/*
 static void
 parse_access(struct parser *par, struct ast_expression *exp)
 {
@@ -347,6 +385,7 @@ parse_access(struct parser *par, struct ast_expression *exp)
 	parse_identifier(par, &exp->access.ident);
 	trleave(TR_PARSE, NULL);
 }
+*/
 
 static void
 parse_binding_list(struct parser *par, struct ast_expression *exp)
@@ -363,6 +402,8 @@ parse_binding_list(struct parser *par, struct ast_expression *exp)
 	case T_LET:
 		// no-op
 		break;
+	case T_STATIC:
+		assert(0); // TODO
 	default:
 		synassert(false, &tok, T_LET, T_CONST, T_EOF);
 	}
@@ -450,46 +491,168 @@ parse_constant(struct parser *par, struct ast_expression *exp)
 }
 
 static void
-parse_simple_expression(struct parser *par, struct ast_expression *exp)
+parse_cast_expression(struct parser *par, struct ast_expression *exp)
 {
-	trenter(TR_PARSE, "simple-expression");
+	parse_constant(par, exp); // TODO
+}
 
-	// TODO: This will need to be refactored once we finish the grammar
-	// connecting postfix-expression to logical-or-expression
-	struct token tok = {0};
-	lex(par->lex, &tok);
-	switch (tok.token) {
-	// plain-expression
-	case T_NAME:
-		unlex(par->lex, &tok);
-		parse_access(par, exp);
-		break;
-	case T_LITERAL:
-		unlex(par->lex, &tok);
-		parse_constant(par, exp);
-		break;
-	case T_LBRACKET:
-		assert(0); // TODO: array/slice literal
-	case T_LBRACE:
-		assert(0); // TODO: array/slice literal
-	// nested-expression
-	case T_LPAREN:
-		assert(0); // TODO: nested-expression
-	// syntax error
+static int
+precedence(enum lexical_token token)
+{
+	switch (token) {
+	case T_LOR:
+		return 0;
+	case T_LAND:
+		return 1;
+	case T_BOR:
+		return 2;
+	case T_BXOR:
+		return 3;
+	case T_BAND:
+		return 4;
+	case T_LEQUAL:
+	case T_NEQUAL:
+		return 5;
+	case T_LESS:
+	case T_LESSEQ:
+	case T_GREATER:
+	case T_GREATEREQ:
+		return 6;
+	case T_LSHIFT:
+	case T_RSHIFT:
+		return 7;
+	case T_PLUS:
+	case T_MINUS:
+		return 8;
+	case T_TIMES:
+	case T_DIV:
+	case T_MODULO:
+		return 9;
 	default:
-		synassert(false, &tok, T_LITERAL, T_NAME, T_EOF);
-		break;
+		return -1;
+	}
+	assert(0); // Unreachable
+}
+
+static enum binarithm_operator
+binop_for_token(enum lexical_token tok)
+{
+	switch (tok) {
+	case T_LOR:
+		return BIN_LOR;
+	case T_LAND:
+		return BIN_LAND;
+	case T_BOR:
+		return BIN_BOR;
+	case T_BXOR:
+		return BIN_BXOR;
+	case T_BAND:
+		return BIN_BAND;
+	case T_LEQUAL:
+		return BIN_LEQUAL;
+	case T_NEQUAL:
+		return BIN_NEQUAL;
+	case T_LESS:
+		return BIN_LESS;
+	case T_LESSEQ:
+		return BIN_LESSEQ;
+	case T_GREATER:
+		return BIN_GREATER;
+	case T_GREATEREQ:
+		return BIN_GREATEREQ;
+	case T_LSHIFT:
+		return BIN_LSHIFT;
+	case T_RSHIFT:
+		return BIN_RSHIFT;
+	case T_PLUS:
+		return BIN_PLUS;
+	case T_MINUS:
+		return BIN_MINUS;
+	case T_TIMES:
+		return BIN_TIMES;
+	case T_DIV:
+		return BIN_DIV;
+	case T_MODULO:
+		return BIN_MODULO;
+	default:
+		assert(0); // Invariant
+	}
+	assert(0); // Unreachable
+}
+
+static void
+parse_bin_expression2(struct parser *par, struct ast_expression *exp,
+		struct ast_expression *lvalue, int i)
+{
+	if (!lvalue) {
+		// XXX: This probably creates a memory leak
+		lvalue = calloc(1, sizeof(struct ast_expression));
+		parse_cast_expression(par, lvalue);
 	}
 
-	trleave(TR_PARSE, NULL);
+	struct token tok;
+	lex(par->lex, &tok);
+
+	int j;
+	while ((j = precedence(tok.token)) >= i) {
+		exp->type = EXPR_BINARITHM;
+		exp->binarithm.op = binop_for_token(tok.token);
+
+		struct ast_expression *rvalue =
+			calloc(1, sizeof(struct ast_expression));
+		parse_cast_expression(par, rvalue);
+
+		lex(par->lex, &tok);
+
+		int k;
+		while ((k = precedence(tok.token)) > j) {
+			struct ast_expression *rvalue2 =
+				calloc(1, sizeof(struct ast_expression));
+			unlex(par->lex, &tok);
+			parse_bin_expression2(par, rvalue2, rvalue, k);
+			rvalue = rvalue2;
+			lex(par->lex, &tok);
+		}
+
+		exp->binarithm.lvalue = lvalue;
+		exp->binarithm.rvalue = rvalue;
+		lvalue = exp;
+	}
+
+	unlex(par->lex, &tok);
+	*exp = *lvalue;
+}
+
+static void
+parse_bin_expression(struct parser *par, struct ast_expression *exp)
+{
+	parse_bin_expression2(par, exp, NULL, 0);
+}
+
+static void
+parse_simple_expression(struct parser *par, struct ast_expression *exp)
+{
+	parse_bin_expression(par, exp);
 }
 
 static void
 parse_complex_expression(struct parser *par, struct ast_expression *exp)
 {
-	// TODO: other complex expressions
 	trenter(TR_PARSE, "complex-expression");
-	parse_simple_expression(par, exp);
+
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_IF:
+	case T_FOR:
+	case T_MATCH:
+	case T_SWITCH:
+		assert(0); // TODO
+	default:
+		unlex(par->lex, &tok);
+		parse_simple_expression(par, exp);
+		break;
+	}
+
 	trleave(TR_PARSE, NULL);
 }
 
@@ -505,6 +668,8 @@ parse_scope_expression(struct parser *par, struct ast_expression *exp)
 		unlex(par->lex, &tok);
 		parse_binding_list(par, exp);
 		break;
+	case T_STATIC:
+		assert(0); // Binding list or assert
 	default:
 		unlex(par->lex, &tok);
 		parse_complex_expression(par, exp);
