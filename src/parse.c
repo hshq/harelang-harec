@@ -371,10 +371,8 @@ parse_type(struct parser *par, struct ast_type *type)
 		type_storage_unparse(type->storage));
 }
 
-static void parse_complex_expression(struct parser *par,
-		struct ast_expression *exp);
-static void parse_simple_expression(struct parser *par,
-		struct ast_expression *exp);
+static struct ast_expression *parse_complex_expression(struct parser *par);
+static struct ast_expression *parse_simple_expression(struct parser *par);
 
 /*
 static void
@@ -387,10 +385,11 @@ parse_access(struct parser *par, struct ast_expression *exp)
 }
 */
 
-static void
-parse_binding_list(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_binding_list(struct parser *par)
 {
 	trenter(TR_PARSE, "binding-list");
+	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_BINDING;
 	unsigned int flags = 0;
 
@@ -423,10 +422,10 @@ parse_binding_list(struct parser *par, struct ast_expression *exp)
 			parse_type(par, binding->type);
 			binding->type->flags |= flags;
 			want(par, T_EQUAL, &tok);
-			parse_complex_expression(par, binding->initializer);
+			binding->initializer = parse_complex_expression(par);
 			break;
 		case T_EQUAL:
-			parse_simple_expression(par, binding->initializer);
+			binding->initializer = parse_simple_expression(par);
 			break;
 		default:
 			synassert(false, &tok, T_COLON, T_COMMA, T_EOF);
@@ -446,17 +445,21 @@ parse_binding_list(struct parser *par, struct ast_expression *exp)
 	}
 
 	trleave(TR_PARSE, NULL);
+	return exp;
 }
 
-static void
-parse_constant(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_constant(struct parser *par)
 {
 	trenter(TR_PARSE, "constant");
 
 	struct token tok = {0};
 	want(par, T_LITERAL, &tok);
+
+	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_CONSTANT;
 	exp->constant.storage = tok.storage;
+
 	switch (tok.storage) {
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_U8:
@@ -486,14 +489,13 @@ parse_constant(struct parser *par, struct ast_expression *exp)
 		assert(0); // TODO
 	}
 	trleave(TR_PARSE, "%s", token_str(&tok));
-
-	trleave(TR_PARSE, NULL);
+	return exp;
 }
 
-static void
-parse_cast_expression(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_cast_expression(struct parser *par)
 {
-	parse_constant(par, exp); // TODO
+	return parse_constant(par); // TODO
 }
 
 static int
@@ -582,14 +584,11 @@ binop_for_token(enum lexical_token tok)
 	assert(0); // Unreachable
 }
 
-static void
-parse_bin_expression2(struct parser *par, struct ast_expression *exp,
-		struct ast_expression *lvalue, int i)
+static struct ast_expression *
+parse_bin_expression(struct parser *par, struct ast_expression *lvalue, int i)
 {
 	if (!lvalue) {
-		// XXX: This probably creates a memory leak
-		lvalue = calloc(1, sizeof(struct ast_expression));
-		parse_cast_expression(par, lvalue);
+		lvalue = parse_cast_expression(par);
 	}
 
 	struct token tok;
@@ -597,51 +596,36 @@ parse_bin_expression2(struct parser *par, struct ast_expression *exp,
 
 	int j;
 	while ((j = precedence(tok.token)) >= i) {
-		exp->type = EXPR_BINARITHM;
-		exp->binarithm.op = binop_for_token(tok.token);
+		lvalue->type = EXPR_BINARITHM;
+		lvalue->binarithm.op = binop_for_token(tok.token);
 
-		struct ast_expression *rvalue =
-			calloc(1, sizeof(struct ast_expression));
-		parse_cast_expression(par, rvalue);
-
+		struct ast_expression *rvalue = parse_cast_expression(par);
 		lex(par->lex, &tok);
 
 		int k;
 		while ((k = precedence(tok.token)) > j) {
-			struct ast_expression *rvalue2 =
-				calloc(1, sizeof(struct ast_expression));
 			unlex(par->lex, &tok);
-			parse_bin_expression2(par, rvalue2, rvalue, k);
-			rvalue = rvalue2;
+			rvalue = parse_bin_expression(par, rvalue, k);
 			lex(par->lex, &tok);
 		}
 
-		exp->binarithm.lvalue = lvalue;
-		exp->binarithm.rvalue = rvalue;
-		lvalue = exp;
+		lvalue->binarithm.lvalue = lvalue;
+		lvalue->binarithm.rvalue = rvalue;
 	}
 
 	unlex(par->lex, &tok);
-	*exp = *lvalue;
+	return lvalue;
 }
 
-static void
-parse_bin_expression(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_simple_expression(struct parser *par)
 {
-	parse_bin_expression2(par, exp, NULL, 0);
+	return parse_bin_expression(par, NULL, 0);
 }
 
-static void
-parse_simple_expression(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_complex_expression(struct parser *par)
 {
-	parse_bin_expression(par, exp);
-}
-
-static void
-parse_complex_expression(struct parser *par, struct ast_expression *exp)
-{
-	trenter(TR_PARSE, "complex-expression");
-
 	struct token tok;
 	switch (lex(par->lex, &tok)) {
 	case T_IF:
@@ -651,41 +635,34 @@ parse_complex_expression(struct parser *par, struct ast_expression *exp)
 		assert(0); // TODO
 	default:
 		unlex(par->lex, &tok);
-		parse_simple_expression(par, exp);
-		break;
+		return parse_simple_expression(par);
 	}
-
-	trleave(TR_PARSE, NULL);
 }
 
-static void
-parse_scope_expression(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_scope_expression(struct parser *par)
 {
-	trenter(TR_PARSE, "scope-expression");
-
 	struct token tok;
 	switch (lex(par->lex, &tok)) {
 	case T_LET:
 	case T_CONST:
 		unlex(par->lex, &tok);
-		parse_binding_list(par, exp);
-		break;
+		return parse_binding_list(par);
 	case T_STATIC:
 		assert(0); // Binding list or assert
 	default:
 		unlex(par->lex, &tok);
-		parse_complex_expression(par, exp);
-		break;
+		return parse_complex_expression(par);
 	// TODO: allocations, assignments
 	}
-
-	trleave(TR_PARSE, NULL);
 }
 
-static void
-parse_control_statement(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_control_statement(struct parser *par)
 {
 	trenter(TR_PARSE, "control-expression");
+
+	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
 
 	struct token tok;
 	switch (lex(par->lex, &tok)) {
@@ -703,9 +680,7 @@ parse_control_statement(struct parser *par, struct ast_expression *exp)
 			break;
 		default:
 			unlex(par->lex, &tok);
-			exp->_return.value =
-				calloc(1, sizeof(struct ast_expression));
-			parse_complex_expression(par, exp->_return.value);
+			exp->_return.value = parse_complex_expression(par);
 			break;
 		}
 		break;
@@ -714,36 +689,34 @@ parse_control_statement(struct parser *par, struct ast_expression *exp)
 	}
 
 	trleave(TR_PARSE, NULL);
+	return exp;
 }
 
-static void
-parse_expression_list(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_expression_list(struct parser *par)
 {
 	trenter(TR_PARSE, "expression-list");
 	want(par, T_LBRACE, NULL);
 
-	exp->type = EXPR_LIST;
+	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
 	struct ast_expression_list *cur = &exp->list;
 	struct ast_expression_list **next = &cur->next;
+	exp->type = EXPR_LIST;
 
 	bool more = true;
 	while (more) {
-		struct ast_expression *curexp =
-			calloc(1, sizeof(struct ast_expression));
-		cur->expr = curexp;
-
 		struct token tok = {0};
 		switch (lex(par->lex, &tok)) {
 		case T_BREAK:
 		case T_CONTINUE:
 		case T_RETURN:
 			unlex(par->lex, &tok);
-			parse_control_statement(par, curexp);
+			cur->expr = parse_control_statement(par);
 			more = false;
 			break;
 		default:
 			unlex(par->lex, &tok);
-			parse_scope_expression(par, curexp);
+			cur->expr = parse_scope_expression(par);
 			break;
 		}
 
@@ -765,24 +738,21 @@ parse_expression_list(struct parser *par, struct ast_expression *exp)
 	}
 
 	trleave(TR_PARSE, NULL);
+	return exp;
 }
 
-static void
-parse_compound_expression(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_compound_expression(struct parser *par)
 {
-	trenter(TR_PARSE, "compound-expression");
 	struct token tok = {0};
 	switch (lex(par->lex, &tok)) {
 	case T_LBRACE:
 		unlex(par->lex, &tok);
-		parse_expression_list(par, exp);
-		break;
+		return parse_expression_list(par);
 	default:
 		unlex(par->lex, &tok);
-		parse_simple_expression(par, exp);
-		break;
+		return parse_simple_expression(par);
 	}
-	trleave(TR_PARSE, NULL);
 }
 
 static char *
@@ -831,7 +801,7 @@ parse_global_decl(struct parser *par, enum lexical_token mode,
 			i->type.flags |= TYPE_CONST;
 		}
 		want(par, T_EQUAL, NULL);
-		parse_simple_expression(par, &i->init);
+		i->init = parse_simple_expression(par);
 		switch (lex(par->lex, &tok)) {
 		case T_COMMA:
 			lex(par->lex, &tok);
@@ -933,7 +903,7 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 	parse_identifier(par, &decl->ident);
 	parse_prototype(par, &decl->prototype);
 	want(par, T_EQUAL, NULL);
-	parse_compound_expression(par, &decl->body);
+	decl->body = parse_compound_expression(par);
 
 	char symbol[1024], buf[1024];
 	if (decl->symbol) {

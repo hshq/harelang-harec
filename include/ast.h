@@ -138,7 +138,7 @@ struct ast_global_decl {
 	char *symbol;
 	struct identifier ident;
 	struct ast_type type;
-	struct ast_expression init;
+	struct ast_expression *init;
 	struct ast_global_decl *next;
 };
 
@@ -152,7 +152,7 @@ struct ast_function_decl {
 	char *symbol;
 	struct identifier ident;
 	struct ast_function_type prototype;
-	struct ast_expression body;
+	struct ast_expression *body;
 	unsigned int flags; // enum func_decl_flags (check.h)
 };
 

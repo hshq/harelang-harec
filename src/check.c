@@ -286,7 +286,7 @@ check_function(struct context *ctx,
 	}
 
 	struct expression *body = calloc(1, sizeof(struct expression));
-	check_expression(ctx, &afndecl->body, body);
+	check_expression(ctx, afndecl->body, body);
 	decl->func.body = body;
 
 	// TODO: Check assignability of expression result to function type
