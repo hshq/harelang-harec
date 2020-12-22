@@ -504,6 +504,8 @@ precedence(enum lexical_token token)
 		return 0;
 	case T_LAND:
 		return 1;
+	// TODO: Consider moving binary operator precedence after ==/!=, this is
+	// a long standing design flaw in C
 	case T_BOR:
 		return 2;
 	case T_BXOR:
