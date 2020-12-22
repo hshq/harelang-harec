@@ -82,7 +82,8 @@ check_expr_binding(struct context *ctx,
 			type = initializer->result;
 		}
 
-		struct scope_object *obj = scope_insert(ctx->scope, &ident, type);
+		const struct scope_object *obj = scope_insert(
+				ctx->scope, &ident, type);
 		binding->object = obj;
 		binding->initializer = initializer;
 
@@ -152,6 +153,9 @@ check_expr_list(struct context *ctx,
 	trenter(TR_CHECK, "expression-list");
 	expr->type = EXPR_LIST;
 
+	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+	expr->list.scope = scope;
+
 	struct expressions *list = &expr->list.exprs;
 	struct expressions **next = &list->next;
 
@@ -171,6 +175,7 @@ check_expr_list(struct context *ctx,
 		}
 	}
 
+	scope_pop(&ctx->scope, TR_CHECK);
 	trleave(TR_CHECK, NULL);
 }
 
