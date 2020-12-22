@@ -2,6 +2,8 @@ highest priorities, unordered except where there are obvious dependencies:
 
 - variable assignment
 - simple binary and unary arithmetic
+- refactor parser (and AST) to have each parse_* function return a heap
+  allocated expression, rather than accept a pointer to one
 - aggregate types
 	- in parameters
 	- in variables
