@@ -53,6 +53,50 @@ check_expr_access(struct context *ctx,
 }
 
 static void
+check_expr_binding(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trace(TR_CHECK, "binding");
+	expr->type = EXPR_BINDING;
+	expr->result = &builtin_type_void;
+
+	struct expression_binding *binding = &expr->binding;
+	struct expression_binding **next = &expr->binding.next;
+
+	const struct ast_expression_binding *abinding = &aexpr->binding;
+	while (abinding) {
+		struct identifier ident = {
+			.name = abinding->name,
+		};
+		struct expression *initializer =
+			calloc(1, sizeof(struct expression));
+		check_expression(ctx, abinding->initializer, initializer);
+
+		const struct type *type;
+		if (abinding->type) {
+			type = type_store_lookup_atype(
+				&ctx->store, abinding->type);
+			// TODO: Check assignability of initializer
+		} else {
+			type = initializer->result;
+		}
+
+		struct scope_object *obj = scope_insert(ctx->scope, &ident, type);
+		binding->object = obj;
+		binding->initializer = initializer;
+
+		if (abinding->next) {
+			binding = *next =
+				calloc(1, sizeof(struct expression_binding));
+			next = &binding->next;
+		}
+
+		abinding = abinding->next;
+	}
+}
+
+static void
 check_expr_constant(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -164,7 +208,10 @@ check_expression(struct context *ctx,
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINARITHM:
+		assert(0); // TODO
 	case EXPR_BINDING:
+		check_expr_binding(ctx, aexpr, expr);
+		break;
 	case EXPR_BREAK:
 	case EXPR_CALL:
 	case EXPR_CAST:

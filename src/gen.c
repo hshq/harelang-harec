@@ -32,18 +32,8 @@ ident_to_sym(const struct identifier *ident)
 }
 
 static void
-qval_for_object(struct gen_context *ctx,
-	struct qbe_value *val,
-	const struct scope_object *obj)
-{
-	val->kind = QV_TEMPORARY; // XXX: Is this always the case?
-	val->type = qtype_for_type(ctx, obj->type, false);
-	val->name = obj->alias ? obj->alias : ident_to_sym(&obj->ident);
-}
-
-static void
 gen_temp(struct gen_context *ctx, struct qbe_value *val,
-		const struct qbe_type *type, char *fmt)
+		const struct qbe_type *type, const char *fmt)
 {
 	val->kind = QV_TEMPORARY;
 	val->type = type;
@@ -58,13 +48,52 @@ gen_temp(struct gen_context *ctx, struct qbe_value *val,
 
 static void
 alloc_temp(struct gen_context *ctx, struct qbe_value *val,
-		const struct type *type, char *fmt)
+		const struct type *type, const char *fmt)
 {
 	gen_temp(ctx, val, &qbe_long, fmt); // XXX: Architecture dependent
 
 	struct qbe_value size;
 	constl(&size, type->size);
 	pushi(ctx->current, val, alloc_for_align(type->align), &size, NULL);
+}
+
+static struct gen_binding *
+binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
+		struct qbe_value *val, const char *fmt)
+{
+	alloc_temp(ctx, val, obj->type, fmt);
+
+	struct gen_binding *binding = calloc(1, sizeof(struct gen_binding));
+	binding->name = strdup(val->name);
+	binding->object = obj;
+	binding->next = ctx->bindings;
+	ctx->bindings = binding;
+
+	return binding;
+}
+
+static const struct gen_binding *
+binding_lookup(const struct gen_context *ctx, const struct scope_object *obj)
+{
+	struct gen_binding *binding = ctx->bindings;
+	while (binding) {
+		if (binding->object == obj) {
+			return binding;
+		}
+		binding = binding->next;
+	}
+	return NULL;
+}
+
+static void
+qval_for_object(struct gen_context *ctx,
+	struct qbe_value *val,
+	const struct scope_object *obj)
+{
+	const struct gen_binding *binding = binding_lookup(ctx, obj);
+	val->kind = QV_TEMPORARY; // XXX: Is this always the case?
+	val->type = qtype_for_type(ctx, obj->type, false);
+	val->name = binding ? strdup(binding->name) : ident_to_sym(&obj->ident);
 }
 
 // Given value src of type A, and value dest of type pointer to A, store src in
@@ -107,6 +136,26 @@ gen_loadtemp(struct gen_context *ctx,
 
 static void gen_expression(struct gen_context *ctx,
 	const struct expression *expr, const struct qbe_value *out);
+
+static void
+gen_binding(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(out == NULL);
+
+	const struct expression_binding *binding = &expr->binding;
+	while (binding) {
+		const struct type *type = binding->object->type;
+		assert(!type_is_aggregate(type)); // TODO
+
+		struct qbe_value temp;
+		binding_alloc(ctx, binding->object, &temp, "binding.%d");
+		gen_expression(ctx, binding->initializer, &temp);
+
+		binding = binding->next;
+	}
+}
 
 static void
 gen_access(struct gen_context *ctx,
@@ -203,7 +252,10 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINARITHM:
+		assert(0); // TODO
 	case EXPR_BINDING:
+		gen_binding(ctx, expr, out);
+		break;
 	case EXPR_BREAK:
 	case EXPR_CALL:
 	case EXPR_CAST:
@@ -264,7 +316,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			assert(0); // TODO
 		} else {
 			struct qbe_value val;
-			alloc_temp(ctx, &val, obj->type, "copy.%d");
+			binding_alloc(ctx, obj, &val, "param.%d");
 			struct qbe_value src = {
 				.kind = QV_TEMPORARY,
 				.type = param->type,
@@ -272,7 +324,6 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			};
 			gen_store(ctx, &val, &src);
 			free(obj->ident.name);
-			obj->alias = strdup(val.name);
 		}
 
 		obj = obj->next;
@@ -299,6 +350,16 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	gen_loadtemp(ctx, &load, &rval, qdef->func.returns,
 		type_is_signed(fntype->func.result));
 	pushi(&qdef->func, NULL, Q_RET, &load, NULL);
+
+	// Free bindings
+	struct gen_binding *binding = ctx->bindings;
+	while (binding) {
+		struct gen_binding *next = binding->next;
+		free(binding->name);
+		free(binding);
+		binding = next;
+	}
+	ctx->bindings = NULL;
 
 	qbe_append_def(ctx->out, qdef);
 	ctx->current = NULL;

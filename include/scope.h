@@ -7,7 +7,6 @@
 struct scope_object {
 	struct identifier ident;
 	const struct type *type;
-	char *alias; // Used during gen
 	struct scope_object *next;
 };
 
@@ -28,7 +27,7 @@ struct scope *scope_pop(struct scope **stack, enum trace_sys sys);
 void scope_free(struct scope *scope);
 void scope_free_all(struct scopes *scopes);
 
-void scope_insert(struct scope *scope,
+const struct scope_object *scope_insert(struct scope *scope,
 	const struct identifier *ident, const struct type *type);
 const struct scope_object *scope_lookup(struct scope *scope,
 	const struct identifier *ident);

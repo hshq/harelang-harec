@@ -10,12 +10,19 @@ struct unit;
 
 void gen(const struct unit *unit, struct qbe_program *out);
 
+struct gen_binding {
+	const struct scope_object *object;
+	char *name;
+	struct gen_binding *next;
+};
+
 struct gen_context {
 	struct qbe_program *out;
 	struct identifier *ns;
 	struct qbe_func *current;
 	const struct qbe_value *end_label;
 	const struct qbe_value *return_value;
+	struct gen_binding *bindings;
 	uint64_t id;
 };
 

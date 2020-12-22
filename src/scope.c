@@ -59,7 +59,7 @@ scope_free_all(struct scopes *scopes)
 	}
 }
 
-void
+const struct scope_object *
 scope_insert(struct scope *scope,
 	const struct identifier *ident,
 	const struct type *type)
@@ -69,6 +69,7 @@ scope_insert(struct scope *scope,
 	o->type = type;
 	*scope->next = o;
 	scope->next = &o->next;
+	return o;
 }
 
 const struct scope_object *

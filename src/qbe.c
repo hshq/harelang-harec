@@ -241,10 +241,21 @@ pushl(struct qbe_func *func, uint64_t *id, const char *fmt)
 }
 
 void
-pushc(struct qbe_func *func, const char *text)
+pushc(struct qbe_func *func, const char *fmt, ...)
 {
 	struct qbe_statement stmt = {0};
-	stmt.comment = strdup(text);
+
+	va_list ap;
+	va_start(ap, fmt);
+	int n = vsnprintf(NULL, 0, fmt, ap);
+	va_end(ap);
+
+	char *str = calloc(1, n + 1);
+	va_start(ap, fmt);
+	vsnprintf(str, n + 1, fmt, ap);
+	va_end(ap);
+
+	stmt.comment = str;
 	push(func, &stmt);
 }
 
