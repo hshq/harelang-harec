@@ -1,0 +1,16 @@
+highest priorities, unordered except where there are obvious dependencies:
+
+- variable assignment
+- simple binary and unary arithmetic
+- aggregate types
+	- in parameters
+	- in variables
+	- in return values
+- field access, indexing
+- function calls
+- static let
+- pointers
+
+This subset of features should allow us to address most of the problems with gen
+that v1 suffered from, and end up with a solid basis from which we can
+confidently implement the remainder of the features.
