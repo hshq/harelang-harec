@@ -504,34 +504,34 @@ precedence(enum lexical_token token)
 	switch (token) {
 	case T_LOR:
 		return 0;
-	case T_LAND:
+	case T_LXOR:
 		return 1;
-	// TODO: Consider moving binary operator precedence after ==/!=, this is
-	// a long standing design flaw in C
-	case T_BOR:
+	case T_LAND:
 		return 2;
-	case T_BXOR:
-		return 3;
-	case T_BAND:
-		return 4;
 	case T_LEQUAL:
 	case T_NEQUAL:
-		return 5;
+		return 3;
 	case T_LESS:
 	case T_LESSEQ:
 	case T_GREATER:
 	case T_GREATEREQ:
+		return 4;
+	case T_BOR:
+		return 5;
+	case T_BXOR:
 		return 6;
+	case T_BAND:
+		return 7;
 	case T_LSHIFT:
 	case T_RSHIFT:
-		return 7;
+		return 8;
 	case T_PLUS:
 	case T_MINUS:
-		return 8;
+		return 9;
 	case T_TIMES:
 	case T_DIV:
 	case T_MODULO:
-		return 9;
+		return 10;
 	default:
 		return -1;
 	}
