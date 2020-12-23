@@ -296,6 +296,53 @@ gen_expr_return(struct gen_context *ctx,
 }
 
 static void
+gen_expr_unarithm(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	const struct qbe_type *otype =
+		qtype_for_type(ctx, expr->unarithm.operand->result, false);
+	const struct qbe_type *rtype = qtype_for_type(ctx, expr->result, false);
+
+	struct qbe_value operand = {0}, result = {0};
+	gen_temp(ctx, &operand, otype, "operand.%d");
+	gen_temp(ctx, &result, rtype, "result.%d");
+
+	gen_expression(ctx, expr->unarithm.operand, &operand);
+
+	struct qbe_value temp = {0};
+	switch (expr->unarithm.op) {
+	case UN_LNOT:
+		temp.kind = QV_CONST;
+		temp.type = otype;
+		temp.lval = 1;
+		pushi(ctx->current, &result, Q_XOR, &temp, &operand, NULL);
+		break;
+	case UN_BNOT:
+		temp.kind = QV_CONST;
+		temp.type = otype;
+		temp.lval = (uint64_t)-1;
+		pushi(ctx->current, &result, Q_XOR, &temp, &operand, NULL);
+		break;
+	case UN_MINUS:
+		temp.kind = QV_CONST;
+		temp.type = otype;
+		temp.lval = 0;
+		pushi(ctx->current, &result, Q_SUB, &temp, &operand, NULL);
+		break;
+	case UN_PLUS:
+		// no-op
+		result = operand;
+		break;
+	case UN_ADDRESS:
+	case UN_DEREF:
+		assert(0); // TODO
+	}
+
+	gen_store(ctx, out, &result);
+}
+
+static void
 gen_expression(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -338,7 +385,10 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_SWITCH:
+		assert(0); // TODO
 	case EXPR_UNARITHM:
+		gen_expr_unarithm(ctx, expr, out);
+		break;
 	case EXPR_WHILE:
 		assert(0); // TODO
 	}
