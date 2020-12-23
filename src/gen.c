@@ -311,22 +311,18 @@ gen_expr_unarithm(struct gen_context *ctx,
 	gen_expression(ctx, expr->unarithm.operand, &operand);
 
 	struct qbe_value temp = {0};
+	temp.kind = QV_CONST;
+	temp.type = otype;
 	switch (expr->unarithm.op) {
 	case UN_LNOT:
-		temp.kind = QV_CONST;
-		temp.type = otype;
 		temp.lval = 1;
 		pushi(ctx->current, &result, Q_XOR, &temp, &operand, NULL);
 		break;
 	case UN_BNOT:
-		temp.kind = QV_CONST;
-		temp.type = otype;
 		temp.lval = (uint64_t)-1;
 		pushi(ctx->current, &result, Q_XOR, &temp, &operand, NULL);
 		break;
 	case UN_MINUS:
-		temp.kind = QV_CONST;
-		temp.type = otype;
 		temp.lval = 0;
 		pushi(ctx->current, &result, Q_SUB, &temp, &operand, NULL);
 		break;
