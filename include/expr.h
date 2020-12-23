@@ -105,6 +105,7 @@ struct expression {
 	bool terminates;
 	union {
 		struct expression_access access;
+		struct expression_binarithm binarithm;
 		struct expression_binding binding;
 		union expression_constant constant;
 		struct expression_list list;

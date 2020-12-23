@@ -596,8 +596,7 @@ parse_bin_expression(struct parser *par, struct ast_expression *lvalue, int i)
 
 	int j;
 	while ((j = precedence(tok.token)) >= i) {
-		lvalue->type = EXPR_BINARITHM;
-		lvalue->binarithm.op = binop_for_token(tok.token);
+		enum binarithm_operator op = binop_for_token(tok.token);
 
 		struct ast_expression *rvalue = parse_cast_expression(par);
 		lex(par->lex, &tok);
@@ -609,8 +608,12 @@ parse_bin_expression(struct parser *par, struct ast_expression *lvalue, int i)
 			lex(par->lex, &tok);
 		}
 
-		lvalue->binarithm.lvalue = lvalue;
-		lvalue->binarithm.rvalue = rvalue;
+		struct ast_expression *e = calloc(1, sizeof(struct ast_expression));
+		e->type = EXPR_BINARITHM;
+		e->binarithm.op = op;
+		e->binarithm.lvalue = lvalue;
+		e->binarithm.rvalue = rvalue;
+		lvalue = e;
 	}
 
 	unlex(par->lex, &tok);

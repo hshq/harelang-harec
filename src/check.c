@@ -53,6 +53,55 @@ check_expr_access(struct context *ctx,
 }
 
 static void
+check_expr_binarithm(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trace(TR_CHECK, "binarithm");
+	expr->type = EXPR_BINARITHM;
+	expr->binarithm.op = aexpr->binarithm.op;
+
+	struct expression *lvalue = calloc(1, sizeof(struct expression *)),
+		*rvalue = calloc(1, sizeof(struct expression *));
+	check_expression(ctx, aexpr->binarithm.lvalue, lvalue);
+	check_expression(ctx, aexpr->binarithm.rvalue, rvalue);
+	expr->binarithm.lvalue = lvalue;
+	expr->binarithm.rvalue = rvalue;
+
+	switch (expr->binarithm.op) {
+	// Numeric arithmetic
+	case BIN_BAND:
+	case BIN_BNOT:
+	case BIN_BOR:
+	case BIN_DIV:
+	case BIN_LSHIFT:
+	case BIN_MINUS:
+	case BIN_MODULO:
+	case BIN_PLUS:
+	case BIN_RSHIFT:
+	case BIN_TIMES:
+	case BIN_BXOR:
+		assert(lvalue->result == rvalue->result); // TODO: Promotion
+		expr->result = lvalue->result;
+		break;
+	// Logical arithmetic
+	case BIN_GREATER:
+	case BIN_GREATEREQ:
+	case BIN_LAND:
+	case BIN_LEQUAL:
+	case BIN_LESS:
+	case BIN_LESSEQ:
+	case BIN_LOR:
+	case BIN_LXOR:
+	case BIN_NEQUAL:
+		expect(lvalue->result == &builtin_type_bool
+				&& rvalue->result == &builtin_type_bool,
+			"Logical expressions must have boolean operands");
+		assert(0); // TODO
+	}
+}
+
+static void
 check_expr_binding(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -214,7 +263,8 @@ check_expression(struct context *ctx,
 	case EXPR_ASSIGN:
 		assert(0); // TODO
 	case EXPR_BINARITHM:
-		assert(0); // TODO
+		check_expr_binarithm(ctx, aexpr, expr);
+		break;
 	case EXPR_BINDING:
 		check_expr_binding(ctx, aexpr, expr);
 		break;
