@@ -435,10 +435,13 @@ parse_type(struct parser *par, struct ast_type *type)
 		type->storage = TYPE_STORAGE_FUNCTION;
 		parse_prototype(par, &type->func);
 		break;
-	default:
+	case T_NAME:
 		unlex(par->lex, &tok);
 		type->storage = TYPE_STORAGE_ALIAS;
 		parse_identifier(par, &type->alias);
+		break;
+	default:
+		synassert_msg(false, "expected type", &tok);
 		break;
 	}
 	trleave(TR_PARSE, "%s%s", type->flags & TYPE_CONST ? "const " : "",
