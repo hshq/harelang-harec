@@ -165,6 +165,13 @@ builtin_for_atype(const struct ast_type *atype)
 	return builtin_type_for_storage(atype->storage, is_const);
 }
 
+static const struct type *
+builtin_for_type(const struct type *type)
+{
+	bool is_const = (type->flags & TYPE_CONST) != 0;
+	return builtin_type_for_storage(type->storage, is_const);
+}
+
 static bool
 type_eq_atype(struct type_store *store,
 	const struct type *type,
@@ -229,6 +236,13 @@ type_eq_atype(struct type_store *store,
 	assert(0); // Unreachable
 }
 
+static bool
+type_eq_type(struct type_store *store,
+	const struct type *a, const struct type *b)
+{
+	assert(0); // TODO
+}
+
 static void
 type_init_from_atype(struct type_store *store,
 	struct type *type,
@@ -284,6 +298,14 @@ type_init_from_atype(struct type_store *store,
 	}
 }
 
+static void
+type_init_from_type(struct type_store *store,
+	struct type *type,
+	const struct type *atype)
+{
+	assert(0); // TODO
+}
+
 const struct type *
 type_store_lookup_atype(struct type_store *store, const struct ast_type *atype)
 {
@@ -307,4 +329,42 @@ type_store_lookup_atype(struct type_store *store, const struct ast_type *atype)
 	bucket = *next = calloc(1, sizeof(struct type_bucket));
 	type_init_from_atype(store, &bucket->type, atype);
 	return &bucket->type;
+}
+
+// Used internally for looking up modified forms of other types
+static const struct type *
+type_store_lookup_type(struct type_store *store, const struct type *type)
+{
+	const struct type *builtin = builtin_for_type(type);
+	if (builtin) {
+		return builtin;
+	}
+
+	unsigned long hash = type_hash(store, type);
+	struct type_bucket **next = &store->buckets[hash % TYPE_STORE_BUCKETS];
+
+	struct type_bucket *bucket;
+	while (*next) {
+		bucket = *next;
+		if (type_eq_type(store, &bucket->type, type)) {
+			return &bucket->type;
+		}
+		next = &bucket->next;
+	}
+
+	bucket = *next = calloc(1, sizeof(struct type_bucket));
+	type_init_from_type(store, &bucket->type, type);
+	return &bucket->type;
+}
+
+const struct type *
+type_store_lookup_with_flags(struct type_store *store,
+	const struct type *type, unsigned int flags)
+{
+	if ((type->flags & ~flags) == flags) {
+		return type;
+	}
+	struct type new = *type;
+	new.flags |= flags;
+	return type_store_lookup_type(store, &new);
 }

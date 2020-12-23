@@ -744,6 +744,7 @@ parse_binding_list(struct parser *par)
 		want(par, T_NAME, &tok);
 		binding->name = tok.name;
 		binding->initializer = calloc(1, sizeof(struct ast_expression));
+		binding->flags = flags;
 
 		switch (lex(par->lex, &tok)) {
 		case T_COLON:

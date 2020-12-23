@@ -71,8 +71,11 @@ check_expr_assign(struct context *ctx,
 		assert(0); // TODO
 	} else {
 		assert(expr->assign.object->type == EXPR_ACCESS); // Invariant
+		const struct scope_object *object =
+			expr->assign.object->access.object;
+		expect(!(object->type->flags & TYPE_CONST), "Cannot assign to const object");
 		// TODO: Test assignability rules:
-		assert(expr->assign.object->result->storage == expr->assign.value->result->storage);
+		assert(object->type->storage == expr->assign.value->result->storage);
 	}
 }
 
@@ -153,7 +156,8 @@ check_expr_binding(struct context *ctx,
 				&ctx->store, abinding->type);
 			// TODO: Check assignability of initializer
 		} else {
-			type = initializer->result;
+			type = type_store_lookup_with_flags(&ctx->store,
+				initializer->result, abinding->flags);
 		}
 
 		const struct scope_object *obj = scope_insert(
@@ -178,7 +182,7 @@ check_expr_constant(struct context *ctx,
 {
 	trace(TR_CHECK, "constant");
 	expr->type = EXPR_CONSTANT;
-	expr->result = builtin_type_for_storage(aexpr->constant.storage, true);
+	expr->result = builtin_type_for_storage(aexpr->constant.storage, false);
 
 	switch (aexpr->constant.storage) {
 	case TYPE_STORAGE_I8:

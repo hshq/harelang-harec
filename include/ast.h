@@ -103,6 +103,7 @@ struct ast_expression_binarithm {
 struct ast_expression_binding {
 	char *name;
 	struct ast_type *type;
+	unsigned int flags;
 	struct ast_expression *initializer;
 	struct ast_expression_binding *next;
 };

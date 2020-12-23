@@ -23,4 +23,7 @@ const struct type *type_store_lookup_atype(
 const struct type *builtin_type_for_storage(
 	enum type_storage storage, bool is_const);
 
+const struct type *type_store_lookup_with_flags(struct type_store *store,
+	const struct type *type, unsigned int flags);
+
 #endif
