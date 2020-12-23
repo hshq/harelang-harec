@@ -35,6 +35,7 @@ qstype_for_type(const struct type *type)
 	case TYPE_STORAGE_VOID:
 		return Q__VOID;
 	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_SLICE:
@@ -82,6 +83,8 @@ qxtype_for_type(const struct type *type)
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_FUNCTION:
 		return qstype_for_type(type);
+	case TYPE_STORAGE_ENUM:
+		assert(0); // TODO
 	}
 	assert(0);
 }
@@ -116,6 +119,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 		return qtype_for_xtype(qstype_for_type(type));
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
@@ -134,6 +138,7 @@ type_is_aggregate(const struct type *type)
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_I16:

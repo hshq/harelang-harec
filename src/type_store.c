@@ -44,16 +44,18 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	case TYPE_STORAGE_VOID:
 		// const void and void are the same type
 		return is_const ? &builtin_type_void : &builtin_type_void;
-	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
 		return NULL;
+	case TYPE_STORAGE_ENUM:
+		assert(0); // TODO
 	}
 	assert(0); // Unreachable
 }
@@ -95,6 +97,7 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 			hash = djb2(hash, atype_hash(store, param->type));
 		}
 		break;
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
@@ -143,6 +146,7 @@ type_hash(struct type_store *store, const struct type *type)
 			hash = djb2(hash, type_hash(store, param->type));
 		}
 		break;
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
@@ -192,6 +196,7 @@ type_eq_atype(struct type_store *store,
 		return true;
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
 		if (!type_eq_atype(store, type->func.result, atype->func.result)
@@ -254,6 +259,7 @@ type_init_from_atype(struct type_store *store,
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
 		type->func.result =

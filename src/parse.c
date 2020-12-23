@@ -264,6 +264,101 @@ parse_prototype(struct parser *par, struct ast_function_type *type)
 }
 
 static void
+parse_integer_type(struct parser *par, enum type_storage *storage) {
+	trenter(TR_PARSE, "integer");
+	struct token tok = {0};
+	switch (lex(par->lex, &tok)) {
+	case T_I8:
+		*storage = TYPE_STORAGE_I8;
+		break;
+	case T_I16:
+		*storage = TYPE_STORAGE_I16;
+		break;
+	case T_I32:
+		*storage = TYPE_STORAGE_I32;
+		break;
+	case T_I64:
+		*storage = TYPE_STORAGE_I64;
+		break;
+	case T_U8:
+		*storage = TYPE_STORAGE_U8;
+		break;
+	case T_U16:
+		*storage = TYPE_STORAGE_U16;
+		break;
+	case T_U32:
+		*storage = TYPE_STORAGE_U32;
+		break;
+	case T_U64:
+		*storage = TYPE_STORAGE_U64;
+		break;
+	case T_INT:
+		*storage = TYPE_STORAGE_INT;
+		break;
+	case T_UINT:
+		*storage = TYPE_STORAGE_UINT;
+		break;
+	case T_SIZE:
+		*storage = TYPE_STORAGE_SIZE;
+		break;
+	case T_UINTPTR:
+		*storage = TYPE_STORAGE_UINTPTR;
+		break;
+	case T_CHAR:
+		*storage = TYPE_STORAGE_CHAR;
+		break;
+	default:
+		assert(0);
+	}
+	trleave(TR_PARSE, "%s", type_storage_unparse(*storage));
+}
+
+static struct ast_expression *parse_simple_expression(struct parser *par);
+
+static void
+parse_enum_type(struct parser *par, struct ast_enum_type *type)
+{
+	trenter(TR_PARSE, "enum");
+	struct token tok = {0};
+	switch (lex(par->lex, &tok)) {
+	case T_LBRACE:
+		type->storage = TYPE_STORAGE_INT;
+		unlex(par->lex, &tok);
+		break;
+	default:
+		unlex(par->lex, &tok);
+		parse_integer_type(par, &type->storage);
+		break;
+	}
+	want(par, T_LBRACE, NULL);
+	struct ast_enum_field **next = &type->values;
+	while (tok.token != T_RBRACE) {
+		*next = calloc(1, sizeof(struct ast_enum_field));
+		want(par, T_NAME, &tok);
+		(*next)->name = tok.name;
+		if (lex(par->lex, &tok) == T_EQUAL) {
+			(*next)->value = parse_simple_expression(par);
+			trace(TR_PARSE, "%s = [expr]", (*next)->name);
+		} else {
+			unlex(par->lex, &tok);
+			trace(TR_PARSE, "%s = [generated]", (*next)->name);
+		}
+		next = &(*next)->next;
+		switch (lex(par->lex, &tok)) {
+		case T_COMMA:
+			if (lex(par->lex, &tok) != T_RBRACE) {
+				unlex(par->lex, &tok);
+			}
+		case T_RBRACE:
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+		}
+	}
+	trleave(TR_PARSE, NULL);
+}
+
+static void
 parse_type(struct parser *par, struct ast_type *type)
 {
 	trenter(TR_PARSE, "type");
@@ -278,43 +373,20 @@ parse_type(struct parser *par, struct ast_type *type)
 	}
 	switch (lex(par->lex, &tok)) {
 	case T_I8:
-		type->storage = TYPE_STORAGE_I8;
-		break;
 	case T_I16:
-		type->storage = TYPE_STORAGE_I16;
-		break;
 	case T_I32:
-		type->storage = TYPE_STORAGE_I32;
-		break;
 	case T_I64:
-		type->storage = TYPE_STORAGE_I64;
-		break;
 	case T_U8:
-		type->storage = TYPE_STORAGE_U8;
-		break;
 	case T_U16:
-		type->storage = TYPE_STORAGE_U16;
-		break;
 	case T_U32:
-		type->storage = TYPE_STORAGE_U32;
-		break;
 	case T_U64:
-		type->storage = TYPE_STORAGE_U64;
-		break;
 	case T_INT:
-		type->storage = TYPE_STORAGE_INT;
-		break;
 	case T_UINT:
-		type->storage = TYPE_STORAGE_UINT;
-		break;
 	case T_SIZE:
-		type->storage = TYPE_STORAGE_SIZE;
-		break;
 	case T_UINTPTR:
-		type->storage = TYPE_STORAGE_UINTPTR;
-		break;
 	case T_CHAR:
-		type->storage = TYPE_STORAGE_CHAR;
+		unlex(par->lex, &tok);
+		parse_integer_type(par, &type->storage);
 		break;
 	case T_RUNE:
 		type->storage = TYPE_STORAGE_RUNE;
@@ -335,7 +407,9 @@ parse_type(struct parser *par, struct ast_type *type)
 		type->storage = TYPE_STORAGE_VOID;
 		break;
 	case T_ENUM:
-		assert(0); // TODO: Enums
+		type->storage = TYPE_STORAGE_ENUM;
+		parse_enum_type(par, &type->_enum);
+		break;
 	case T_NULLABLE:
 		type->pointer.flags |= PTR_NULLABLE;
 		want(par, T_TIMES, NULL);
@@ -372,7 +446,6 @@ parse_type(struct parser *par, struct ast_type *type)
 }
 
 static struct ast_expression *parse_complex_expression(struct parser *par);
-static struct ast_expression *parse_simple_expression(struct parser *par);
 
 static struct ast_expression *
 parse_access(struct parser *par)

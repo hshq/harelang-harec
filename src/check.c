@@ -180,6 +180,7 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_STRING:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_VOID:
 	case TYPE_STORAGE_ALIAS:

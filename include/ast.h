@@ -31,7 +31,7 @@ struct ast_list_type {
 struct ast_enum_field {
 	const char *name;
 	struct ast_expression *value;
-	struct enum_field *next;
+	struct ast_enum_field *next;
 };
 
 struct ast_enum_type {

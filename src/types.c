@@ -14,6 +14,8 @@ type_storage_unparse(enum type_storage storage)
 		return "bool";
 	case TYPE_STORAGE_CHAR:
 		return "char";
+	case TYPE_STORAGE_ENUM:
+		return "enum";
 	case TYPE_STORAGE_F32:
 		return "f32";
 	case TYPE_STORAGE_F64:
@@ -97,6 +99,8 @@ type_is_signed(const struct type *type)
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 		return true;
+	case TYPE_STORAGE_ENUM:
+		assert(0); // TODO
 	}
 	assert(0); // Unreachable
 }

@@ -1022,6 +1022,7 @@ token_str(const struct token *tok)
 		case TYPE_STORAGE_ARRAY:
 		case TYPE_STORAGE_BOOL:
 		case TYPE_STORAGE_CHAR:
+		case TYPE_STORAGE_ENUM:
 		case TYPE_STORAGE_FUNCTION:
 		case TYPE_STORAGE_POINTER:
 		case TYPE_STORAGE_SLICE:
