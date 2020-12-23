@@ -869,7 +869,7 @@ parse_scope_expression(struct parser *par)
 	case T_MINUS:
 	case T_BNOT:
 	case T_LNOT:
-	case T_BAND:	// unary-expression
+	case T_BAND:	// unary-expression, w/o pointer dereference
 		unlex(par->lex, &tok);
 		value = parse_complex_expression(par);
 		if (indirect) {
