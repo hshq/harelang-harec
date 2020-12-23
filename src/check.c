@@ -81,7 +81,8 @@ check_expr_binarithm(struct context *ctx,
 	case BIN_RSHIFT:
 	case BIN_TIMES:
 	case BIN_BXOR:
-		assert(lvalue->result == rvalue->result); // TODO: Promotion
+		// TODO: Promotion
+		assert(lvalue->result->storage == rvalue->result->storage);
 		expr->result = lvalue->result;
 		break;
 	// Logical arithmetic
