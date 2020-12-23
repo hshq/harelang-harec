@@ -301,11 +301,14 @@ check_expr_unarithm(struct context *ctx,
 			"Cannot perform binary NOT (~) on non-integer type");
 		expect(!type_is_signed(operand->result),
 			"Cannot perform binary NOT (~) on signed type");
-		// Fallthrough
+		expr->result = operand->result;
+		break;
 	case UN_MINUS:
 	case UN_PLUS:
 		expect(type_is_numeric(operand->result),
 			"Cannot perform operation on non-numeric type");
+		expect(type_is_signed(operand->result),
+			"Cannot perform operation on unsigned type");
 		expr->result = operand->result;
 		break;
 	case UN_ADDRESS:
