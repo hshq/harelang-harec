@@ -820,6 +820,9 @@ parse_scope_expression(struct parser *par)
 		case T_LNOT:
 		case T_TIMES:
 		case T_BAND:	// unary-expression
+			if (indirect) {
+				assert(0); // TODO: Wrap in unary dereference
+			}
 			return parse_complex_expression(par);
 		default:	// postfix-expression
 			value = parse_postfix_expression(par);
