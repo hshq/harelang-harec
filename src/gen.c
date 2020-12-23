@@ -304,7 +304,6 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_FOR:
 	case EXPR_FREE:
 	case EXPR_IF:
-	case EXPR_INDEX:
 		assert(0); // TODO
 	case EXPR_LIST:
 		gen_expr_list(ctx, expr, out);

@@ -21,7 +21,6 @@ enum expr_type {
 	EXPR_FOR,
 	EXPR_FREE,
 	EXPR_IF,
-	EXPR_INDEX,
 	EXPR_LIST,
 	EXPR_MATCH,
 	EXPR_MEASURE,
@@ -33,8 +32,16 @@ enum expr_type {
 	EXPR_WHILE,
 };
 
+enum access_type {
+	ACCESS_IDENTIFIER,
+	ACCESS_INDEX,
+	ACCESS_FIELD,
+};
+
 struct expression_access {
 	const struct scope_object *object;
+	enum access_type type;
+	// TODO: Details for index, field selection
 };
 
 enum binarithm_operator {

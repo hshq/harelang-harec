@@ -86,6 +86,8 @@ struct ast_type {
 
 struct ast_expression_access {
 	struct identifier ident;
+	enum access_type type;
+	// TODO: Details for index, field selection
 };
 
 struct ast_expression_assign {

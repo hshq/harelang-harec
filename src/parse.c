@@ -780,67 +780,82 @@ parse_binding_list(struct parser *par)
 static struct ast_expression *
 parse_assignment(struct parser *par, struct ast_expression *lvalue, bool indirect)
 {
+	trenter(TR_PARSE, "assign");
 	struct ast_expression *rvalue = parse_complex_expression(par);
 	struct ast_expression *expr = calloc(1, sizeof(struct ast_expression));
 	expr->type = EXPR_ASSIGN;
 	expr->assign.lvalue = lvalue;
 	expr->assign.rvalue = rvalue;
 	expr->assign.indirect = indirect;
+	trleave(TR_PARSE, NULL);
 	return expr;
 }
 
 static struct ast_expression *
 parse_scope_expression(struct parser *par)
 {
-	struct ast_expression *value;
-
-	bool indirect = false;
+	// This is one of the more complicated non-terminals to parse.
 	struct token tok;
+	bool indirect = false;
+	switch (lex(par->lex, &tok)) {
+	case T_TIMES: // *ptr = value (or unary-expression)
+		// TODO: indirect access is untested (pending support for
+		// dereferencing in unary-expression)
+		indirect = true;
+		break;
+	default:
+		unlex(par->lex, &tok);
+		break;
+	}
+
+	struct ast_expression *value;
 	switch (lex(par->lex, &tok)) {
 	case T_LET:
 	case T_CONST:
 		unlex(par->lex, &tok);
 		return parse_binding_list(par);
 	case T_STATIC:
-		assert(0); // TODO: Binding list or assert
-	case T_TIMES:	// *ptr = val
-		indirect = true;
-		lex(par->lex, &tok);
-		// fallthrough
-	default:
+		assert(0); // TODO: This is a static binding list or assert
+	case T_IF:
+	case T_FOR:
+	case T_MATCH:
+	case T_SWITCH:	// complex-expression
+	case T_PLUS:
+	case T_MINUS:
+	case T_BNOT:
+	case T_LNOT:
+	case T_BAND:
+	case T_TIMES:	// unary-expression
 		unlex(par->lex, &tok);
-		switch (tok.token) {
-		case T_IF:
-		case T_FOR:
-		case T_MATCH:
-		case T_SWITCH:	// complex-expression
-		case T_PLUS:
-		case T_MINUS:
-		case T_BNOT:
-		case T_LNOT:
-		case T_TIMES:
-		case T_BAND:	// unary-expression
-			if (indirect) {
-				assert(0); // TODO: Wrap in unary dereference
-			}
-			return parse_complex_expression(par);
-		default:	// postfix-expression
-			value = parse_postfix_expression(par);
+		value = parse_complex_expression(par);
+		if (indirect) {
+			assert(0); // TODO: Wrap value in unary dereference
+		}
+		return value;
+	default:	// postfix-expression
+		unlex(par->lex, &tok);
+		if (indirect) {
+			value = parse_unary_expression(par);
 			break;
 		}
+		value = parse_postfix_expression(par);
+		if (value->type != EXPR_ACCESS) {
+			return value;
+		}
+		// Is possible object-selector, try for assignment
 		break;
 	}
 
 	switch (lex(par->lex, &tok)) {
 	case T_EQUAL:
-		return parse_assignment(par, value, false);
+		return parse_assignment(par, value, indirect);
 	default:
-		if (indirect) {
-			assert(0); // TODO: Wrap in unary dereference
-		}
 		unlex(par->lex, &tok);
-		// Fall back to simple-expression
-		return parse_bin_expression(par, value, 0);
+		value = parse_bin_expression(par, value, 0);
+		if (indirect) {
+			assert(0); // TODO: Wrap value in unary dereference
+		}
+		return value;
 	}
 }
 

@@ -281,7 +281,6 @@ check_expression(struct context *ctx,
 	case EXPR_FOR:
 	case EXPR_FREE:
 	case EXPR_IF:
-	case EXPR_INDEX:
 		assert(0); // TODO
 	case EXPR_LIST:
 		check_expr_list(ctx, aexpr, expr);
