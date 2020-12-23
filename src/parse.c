@@ -778,14 +778,14 @@ parse_binding_list(struct parser *par)
 }
 
 static struct ast_expression *
-parse_assignment(struct parser *par, struct ast_expression *lvalue, bool indirect)
+parse_assignment(struct parser *par, struct ast_expression *object, bool indirect)
 {
 	trenter(TR_PARSE, "assign");
-	struct ast_expression *rvalue = parse_complex_expression(par);
+	struct ast_expression *value = parse_complex_expression(par);
 	struct ast_expression *expr = calloc(1, sizeof(struct ast_expression));
 	expr->type = EXPR_ASSIGN;
-	expr->assign.lvalue = lvalue;
-	expr->assign.rvalue = rvalue;
+	expr->assign.object = object;
+	expr->assign.value = value;
 	expr->assign.indirect = indirect;
 	trleave(TR_PARSE, NULL);
 	return expr;

@@ -53,6 +53,29 @@ check_expr_access(struct context *ctx,
 }
 
 static void
+check_expr_assign(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trace(TR_CHECK, "assign");
+	expr->type = EXPR_ASSIGN;
+	expr->assign.indirect = aexpr->assign.indirect;
+	expr->assign.object = calloc(1, sizeof(struct expression));
+	expr->assign.value = calloc(1, sizeof(struct expression));
+
+	check_expression(ctx, aexpr->assign.object, expr->assign.object);
+	check_expression(ctx, aexpr->assign.value, expr->assign.value);
+
+	if (aexpr->assign.indirect) {
+		assert(0); // TODO
+	} else {
+		assert(expr->assign.object->type == EXPR_ACCESS); // Invariant
+		// TODO: Test assignability rules:
+		assert(expr->assign.object->result->storage == expr->assign.value->result->storage);
+	}
+}
+
+static void
 check_expr_binarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -262,8 +285,10 @@ check_expression(struct context *ctx,
 		check_expr_access(ctx, aexpr, expr);
 		break;
 	case EXPR_ASSERT:
-	case EXPR_ASSIGN:
 		assert(0); // TODO
+	case EXPR_ASSIGN:
+		check_expr_assign(ctx, aexpr, expr);
+		break;
 	case EXPR_BINARITHM:
 		check_expr_binarithm(ctx, aexpr, expr);
 		break;

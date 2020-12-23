@@ -91,7 +91,7 @@ struct ast_expression_access {
 };
 
 struct ast_expression_assign {
-	struct ast_expression *lvalue, *rvalue;
+	struct ast_expression *object, *value;
 	bool indirect;
 };
 

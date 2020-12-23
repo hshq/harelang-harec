@@ -44,6 +44,11 @@ struct expression_access {
 	// TODO: Details for index, field selection
 };
 
+struct expression_assign {
+	struct expression *object, *value;
+	bool indirect;
+};
+
 enum binarithm_operator {
 	BIN_BAND,
 	BIN_BNOT,
@@ -112,6 +117,7 @@ struct expression {
 	bool terminates;
 	union {
 		struct expression_access access;
+		struct expression_assign assign;
 		struct expression_binarithm binarithm;
 		struct expression_binding binding;
 		union expression_constant constant;
