@@ -278,6 +278,45 @@ check_expr_return(struct context *ctx,
 }
 
 static void
+check_expr_unarithm(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "unarithm");
+	expr->type = EXPR_UNARITHM;
+
+	struct expression *operand = calloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->unarithm.operand, operand);
+	expr->unarithm.operand = operand;
+	expr->unarithm.op = aexpr->unarithm.op;
+
+	switch (expr->unarithm.op) {
+	case UN_LNOT:
+		expect(operand->result->storage == TYPE_STORAGE_BOOL,
+			"Cannot perform logical NOT (!) on non-boolean type");
+		expr->result = &builtin_type_bool;
+		break;
+	case UN_BNOT:
+		expect(type_is_integer(operand->result),
+			"Cannot perform binary NOT (~) on non-integer type");
+		expect(!type_is_signed(operand->result),
+			"Cannot perform binary NOT (~) on signed type");
+		// Fallthrough
+	case UN_MINUS:
+	case UN_PLUS:
+		expect(type_is_numeric(operand->result),
+			"Cannot perform operation on non-numeric type");
+		expr->result = operand->result;
+		break;
+	case UN_ADDRESS:
+	case UN_DEREF:
+		assert(0); // TODO
+	}
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -322,7 +361,10 @@ check_expression(struct context *ctx,
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_SWITCH:
+		assert(0); // TODO
 	case EXPR_UNARITHM:
+		check_expr_unarithm(ctx, aexpr, expr);
+		break;
 	case EXPR_WHILE:
 		assert(0); // TODO
 	}

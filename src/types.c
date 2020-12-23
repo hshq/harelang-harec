@@ -67,6 +67,82 @@ type_storage_unparse(enum type_storage storage)
 }
 
 bool
+type_is_integer(const struct type *type)
+{
+	switch (type->storage) {
+	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_UNION:
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		return false;
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_UINTPTR:
+		return true;
+	}
+	assert(0); // Unreachable
+}
+
+bool
+type_is_numeric(const struct type *type)
+{
+	switch (type->storage) {
+	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_UNION:
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_ENUM:
+		return false;
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_UINTPTR:
+		return true;
+	}
+	assert(0); // Unreachable
+}
+
+bool
 type_is_signed(const struct type *type)
 {
 	switch (type->storage) {
