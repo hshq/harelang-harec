@@ -110,7 +110,6 @@ gen_store(struct gen_context *ctx,
 
 	if (dest->indirect) {
 		assert(!src->indirect); // XXX: Correct?
-		assert(dest->type == &qbe_long); // XXX: ARCH
 		pushi(ctx->current, NULL, store_for_type(qtype->stype), src, dest, NULL);
 	} else {
 		pushi(ctx->current, dest, Q_COPY, src, NULL);
@@ -162,6 +161,27 @@ gen_access(struct gen_context *ctx,
 	struct qbe_value temp;
 	gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
 	gen_store(ctx, out, &temp);
+}
+
+static void
+gen_assign(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(out == NULL); // Invariant
+	assert(!expr->assign.indirect); // TODO
+
+	const struct expression *object = expr->assign.object;
+	const struct expression *value = expr->assign.value;
+	assert(object->type == EXPR_ACCESS); // Invariant
+
+	// TODO: When this grows to support e.g. indexing expressions, we need
+	// to ensure that the side-effects of the lvalue occur before the
+	// side-effects of the rvalue.
+	const struct scope_object *obj = object->access.object;
+	struct qbe_value src;
+	qval_for_object(ctx, &src, obj);
+	gen_expression(ctx, value, &src);
 }
 
 static void
@@ -285,8 +305,10 @@ gen_expression(struct gen_context *ctx,
 		gen_access(ctx, expr, out);
 		break;
 	case EXPR_ASSERT:
-	case EXPR_ASSIGN:
 		assert(0); // TODO
+	case EXPR_ASSIGN:
+		gen_assign(ctx, expr, out);
+		break;
 	case EXPR_BINARITHM:
 		gen_binarithm(ctx, expr, out);
 		break;

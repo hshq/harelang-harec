@@ -59,6 +59,7 @@ check_expr_assign(struct context *ctx,
 {
 	trace(TR_CHECK, "assign");
 	expr->type = EXPR_ASSIGN;
+	expr->result = &builtin_type_void;
 	expr->assign.indirect = aexpr->assign.indirect;
 	expr->assign.object = calloc(1, sizeof(struct expression));
 	expr->assign.value = calloc(1, sizeof(struct expression));
