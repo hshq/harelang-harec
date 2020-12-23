@@ -43,6 +43,7 @@ static const char *tokens[] = {
 	[T_MATCH] = "match",
 	[T_NULL] = "null",
 	[T_NULLABLE] = "nullable",
+	[T_OFFSET] = "offset",
 	[T_RETURN] = "return",
 	[T_RUNE] = "rune",
 	[T_SIZE] = "size",

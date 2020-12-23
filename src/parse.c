@@ -374,77 +374,13 @@ parse_type(struct parser *par, struct ast_type *type)
 static struct ast_expression *parse_complex_expression(struct parser *par);
 static struct ast_expression *parse_simple_expression(struct parser *par);
 
-/*
-static void
-parse_access(struct parser *par, struct ast_expression *exp)
+static struct ast_expression *
+parse_access(struct parser *par)
 {
-	trenter(TR_PARSE, "access");
+	trace(TR_PARSE, "access");
+	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_ACCESS;
 	parse_identifier(par, &exp->access.ident);
-	trleave(TR_PARSE, NULL);
-}
-*/
-
-static struct ast_expression *
-parse_binding_list(struct parser *par)
-{
-	trenter(TR_PARSE, "binding-list");
-	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
-	exp->type = EXPR_BINDING;
-	unsigned int flags = 0;
-
-	struct token tok;
-	switch (lex(par->lex, &tok)) {
-	case T_CONST:
-		flags = TYPE_CONST;
-		// fallthrough
-	case T_LET:
-		// no-op
-		break;
-	case T_STATIC:
-		assert(0); // TODO
-	default:
-		synassert(false, &tok, T_LET, T_CONST, T_EOF);
-	}
-
-	struct ast_expression_binding *binding = &exp->binding;
-	struct ast_expression_binding **next = &exp->binding.next;
-
-	bool more = true;
-	while (more) {
-		want(par, T_NAME, &tok);
-		binding->name = tok.name;
-		binding->initializer = calloc(1, sizeof(struct ast_expression));
-
-		switch (lex(par->lex, &tok)) {
-		case T_COLON:
-			binding->type = calloc(1, sizeof(struct ast_type));
-			parse_type(par, binding->type);
-			binding->type->flags |= flags;
-			want(par, T_EQUAL, &tok);
-			binding->initializer = parse_complex_expression(par);
-			break;
-		case T_EQUAL:
-			binding->initializer = parse_simple_expression(par);
-			break;
-		default:
-			synassert(false, &tok, T_COLON, T_COMMA, T_EOF);
-		}
-
-		switch (lex(par->lex, &tok)) {
-		case T_COMMA:
-			*next = calloc(1, sizeof(struct ast_expression_binding));
-			binding = *next;
-			next = &binding->next;
-			break;
-		default:
-			unlex(par->lex, &tok);
-			more = false;
-			break;
-		}
-	}
-
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
@@ -493,9 +429,105 @@ parse_constant(struct parser *par)
 }
 
 static struct ast_expression *
+parse_plain_expression(struct parser *par)
+{
+	trace(TR_PARSE, "plain");
+
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_LITERAL:
+		unlex(par->lex, &tok);
+		return parse_constant(par);
+	case T_NAME:
+		unlex(par->lex, &tok);
+		return parse_access(par);
+	case T_LBRACKET:
+		assert(0); // TODO: Array literal
+	case T_STRUCT:
+		assert(0); // TODO: Struct literal
+	default:
+		synassert(false, &tok, T_LITERAL, T_NAME,
+			T_LBRACKET, T_STRUCT, T_EOF);
+	}
+	assert(0); // Unreachable
+}
+
+static struct ast_expression *
+parse_postfix_expression(struct parser *par)
+{
+	trace(TR_PARSE, "postfix");
+	struct ast_expression *lvalue;
+
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_ABORT:
+	case T_ASSERT:
+	case T_STATIC:
+		assert(0); // TODO: assertion expression
+	case T_SIZE:
+	case T_LEN:
+	case T_OFFSET:
+		assert(0); // TODO: measurement expression
+	case T_LPAREN:
+		lvalue = parse_complex_expression(par);
+		want(par, T_LPAREN, &tok);
+		break;
+	default:
+		unlex(par->lex, &tok);
+		lvalue = parse_plain_expression(par);
+		break;
+	}
+
+	switch (lex(par->lex, &tok)) {
+	case T_LPAREN:
+		assert(0); // TODO: call expression
+	case T_DOT:
+		assert(0); // TODO: field access expression
+	case T_LBRACKET:
+		assert(0); // TODO: indexing/slicing expression
+	default:
+		unlex(par->lex, &tok);
+		return lvalue;
+	}
+
+	assert(0); // Unreachable
+}
+
+static struct ast_expression *
+parse_unary_expression(struct parser *par)
+{
+	trace(TR_PARSE, "unary-arithmetic");
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_PLUS:	// +
+	case T_MINUS:	// -
+	case T_BNOT:	// ~
+	case T_LNOT:	// !
+	case T_TIMES:	// *
+	case T_BAND:	// &
+		assert(0); // TODO
+	default:
+		unlex(par->lex, &tok);
+		return parse_postfix_expression(par);
+	}
+}
+
+static struct ast_expression *
 parse_cast_expression(struct parser *par)
 {
-	return parse_constant(par); // TODO
+	trace(TR_PARSE, "cast");
+	struct ast_expression *value = parse_unary_expression(par);
+
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_COLON:
+	case T_AS:
+	case T_IS:
+		assert(0); // TODO
+	default:
+		unlex(par->lex, &tok);
+		return value;
+	}
 }
 
 static int
@@ -641,6 +673,69 @@ parse_complex_expression(struct parser *par)
 		unlex(par->lex, &tok);
 		return parse_simple_expression(par);
 	}
+}
+
+static struct ast_expression *
+parse_binding_list(struct parser *par)
+{
+	trenter(TR_PARSE, "binding-list");
+	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
+	exp->type = EXPR_BINDING;
+	unsigned int flags = 0;
+
+	struct token tok;
+	switch (lex(par->lex, &tok)) {
+	case T_CONST:
+		flags = TYPE_CONST;
+		// fallthrough
+	case T_LET:
+		// no-op
+		break;
+	case T_STATIC:
+		assert(0); // TODO
+	default:
+		synassert(false, &tok, T_LET, T_CONST, T_EOF);
+	}
+
+	struct ast_expression_binding *binding = &exp->binding;
+	struct ast_expression_binding **next = &exp->binding.next;
+
+	bool more = true;
+	while (more) {
+		want(par, T_NAME, &tok);
+		binding->name = tok.name;
+		binding->initializer = calloc(1, sizeof(struct ast_expression));
+
+		switch (lex(par->lex, &tok)) {
+		case T_COLON:
+			binding->type = calloc(1, sizeof(struct ast_type));
+			parse_type(par, binding->type);
+			binding->type->flags |= flags;
+			want(par, T_EQUAL, &tok);
+			binding->initializer = parse_complex_expression(par);
+			break;
+		case T_EQUAL:
+			binding->initializer = parse_simple_expression(par);
+			break;
+		default:
+			synassert(false, &tok, T_COLON, T_COMMA, T_EOF);
+		}
+
+		switch (lex(par->lex, &tok)) {
+		case T_COMMA:
+			*next = calloc(1, sizeof(struct ast_expression_binding));
+			binding = *next;
+			next = &binding->next;
+			break;
+		default:
+			unlex(par->lex, &tok);
+			more = false;
+			break;
+		}
+	}
+
+	trleave(TR_PARSE, NULL);
+	return exp;
 }
 
 static struct ast_expression *
