@@ -42,6 +42,7 @@ enum qbe_value_kind {
 struct qbe_value {
 	enum qbe_value_kind kind;
 	const struct qbe_type *type;
+	bool indirect;
 	union {
 		char *name;
 		uint32_t wval;

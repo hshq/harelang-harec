@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include "expr.h"
 #include "identifier.h"
 #include "qbe.h"
 
@@ -39,5 +40,6 @@ bool type_is_aggregate(const struct type *type);
 enum qbe_instr alloc_for_align(size_t align);
 enum qbe_instr store_for_type(enum qbe_stype stype);
 enum qbe_instr load_for_type(enum qbe_stype stype, bool is_signed);
+enum qbe_instr binarithm_for_op(enum binarithm_operator op);
 
 #endif

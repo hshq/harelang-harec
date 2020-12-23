@@ -62,6 +62,7 @@ binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
 		struct qbe_value *val, const char *fmt)
 {
 	alloc_temp(ctx, val, obj->type, fmt);
+	val->indirect = true;
 
 	struct gen_binding *binding = calloc(1, sizeof(struct gen_binding));
 	binding->name = strdup(val->name);
@@ -106,7 +107,14 @@ gen_store(struct gen_context *ctx,
 	const struct qbe_type *qtype = src->type;
 	assert(qtype->stype != Q__VOID); // Invariant
 	assert(qtype->stype != Q__AGGREGATE); // TODO
-	pushi(ctx->current, NULL, store_for_type(qtype->stype), src, dest, NULL);
+
+	if (dest->indirect) {
+		assert(!src->indirect); // XXX: Correct?
+		assert(dest->type == &qbe_long); // XXX: ARCH
+		pushi(ctx->current, NULL, store_for_type(qtype->stype), src, dest, NULL);
+	} else {
+		pushi(ctx->current, dest, Q_COPY, src, NULL);
+	}
 }
 
 // Given value src of type pointer to A, and value dest of type A, load dest
@@ -138,6 +146,25 @@ static void gen_expression(struct gen_context *ctx,
 	const struct expression *expr, const struct qbe_value *out);
 
 static void
+gen_access(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	if (out == NULL) {
+		pushc(ctx->current, "useless access expression discarded");
+		return;
+	}
+
+	const struct scope_object *obj = expr->access.object;
+	struct qbe_value src;
+	qval_for_object(ctx, &src, obj);
+
+	struct qbe_value temp;
+	gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
+	gen_store(ctx, out, &temp);
+}
+
+static void
 gen_binding(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -158,22 +185,30 @@ gen_binding(struct gen_context *ctx,
 }
 
 static void
-gen_access(struct gen_context *ctx,
+gen_binarithm(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	if (out == NULL) {
-		pushc(ctx->current, "useless access expression discarded");
-		return;
-	}
+	const struct qbe_type *ltype =
+		qtype_for_type(ctx, expr->binarithm.lvalue->result, false);
+	const struct qbe_type *rtype =
+		qtype_for_type(ctx, expr->binarithm.rvalue->result, false);
+	const struct qbe_type *etype = qtype_for_type(ctx, expr->result, false);
+	assert(etype == ltype && ltype == rtype); // TODO: Type promotion
 
-	const struct scope_object *obj = expr->access.object;
-	struct qbe_value src;
-	qval_for_object(ctx, &src, obj);
+	assert(expr->result != &builtin_type_bool); // TODO: Logical arithmetic
 
-	struct qbe_value temp;
-	gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
-	gen_store(ctx, out, &temp);
+	struct qbe_value lvalue = {0}, rvalue = {0}, result = {0};
+	gen_temp(ctx, &lvalue, ltype, "lvalue.%d");
+	gen_temp(ctx, &rvalue, rtype, "rvalue.%d");
+	gen_temp(ctx, &result, etype, "result.%d");
+
+	gen_expression(ctx, expr->binarithm.lvalue, &lvalue);
+	gen_expression(ctx, expr->binarithm.rvalue, &rvalue);
+
+	pushi(ctx->current, &result, binarithm_for_op(expr->binarithm.op),
+			&lvalue, &rvalue, NULL);
+	gen_store(ctx, out, &result);
 }
 
 static void
@@ -251,8 +286,10 @@ gen_expression(struct gen_context *ctx,
 		break;
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
-	case EXPR_BINARITHM:
 		assert(0); // TODO
+	case EXPR_BINARITHM:
+		gen_binarithm(ctx, expr, out);
+		break;
 	case EXPR_BINDING:
 		gen_binding(ctx, expr, out);
 		break;
@@ -340,6 +377,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	// TODO: Update for void type
 	struct qbe_value rval;
 	alloc_temp(ctx, &rval, fntype->func.result, "ret.%d");
+	rval.indirect = true;
 	ctx->return_value = &rval;
 
 	pushl(&qdef->func, &ctx->id, "body.%d");

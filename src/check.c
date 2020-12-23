@@ -61,8 +61,8 @@ check_expr_binarithm(struct context *ctx,
 	expr->type = EXPR_BINARITHM;
 	expr->binarithm.op = aexpr->binarithm.op;
 
-	struct expression *lvalue = calloc(1, sizeof(struct expression *)),
-		*rvalue = calloc(1, sizeof(struct expression *));
+	struct expression *lvalue = calloc(1, sizeof(struct expression)),
+		*rvalue = calloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->binarithm.lvalue, lvalue);
 	check_expression(ctx, aexpr->binarithm.rvalue, rvalue);
 	expr->binarithm.lvalue = lvalue;

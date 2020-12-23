@@ -587,6 +587,7 @@ binop_for_token(enum lexical_token tok)
 static struct ast_expression *
 parse_bin_expression(struct parser *par, struct ast_expression *lvalue, int i)
 {
+	trace(TR_PARSE, "bin-arithm");
 	if (!lvalue) {
 		lvalue = parse_cast_expression(par);
 	}

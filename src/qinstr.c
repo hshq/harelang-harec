@@ -1,4 +1,5 @@
 #include <assert.h>
+#include "expr.h"
 #include "gen.h"
 #include "qbe.h"
 
@@ -59,4 +60,44 @@ load_for_type(enum qbe_stype stype, bool is_signed)
 		assert(0); // Invariant
 	}
 	assert(0);
+}
+
+enum qbe_instr
+binarithm_for_op(enum binarithm_operator op)
+{
+	// TODO: udiv et al
+	switch (op) {
+	case BIN_PLUS:
+		return Q_ADD;
+	case BIN_BAND:
+		return Q_AND;
+	case BIN_DIV:
+		return Q_DIV;
+	case BIN_MINUS:
+		return Q_SUB;
+	case BIN_TIMES:
+		return Q_MUL;
+	case BIN_MODULO:
+		return Q_REM;
+	case BIN_BOR:
+		return Q_OR;
+	case BIN_BXOR:
+		return Q_XOR;
+	case BIN_LSHIFT:
+		return Q_SHL;
+	case BIN_RSHIFT:
+		return Q_SHR;
+	case BIN_BNOT:
+	case BIN_GREATER:
+	case BIN_GREATEREQ:
+	case BIN_LAND:
+	case BIN_LEQUAL:
+	case BIN_LESS:
+	case BIN_LESSEQ:
+	case BIN_LOR:
+	case BIN_LXOR:
+	case BIN_NEQUAL:
+		assert(0); // Invariant
+	}
+	assert(0); // Unreachable
 }
