@@ -50,26 +50,25 @@ struct expression_assign {
 };
 
 enum binarithm_operator {
-	BIN_BAND,
-	BIN_BNOT,
-	BIN_BOR,
-	BIN_DIV,
-	BIN_GREATER,
-	BIN_GREATEREQ,
-	BIN_LAND,
-	BIN_LEQUAL,
-	BIN_LESS,
-	BIN_LESSEQ,
-	BIN_LOR,
-	BIN_LSHIFT,
-	BIN_LXOR,
-	BIN_MINUS,
-	BIN_MODULO,
-	BIN_NEQUAL,
-	BIN_PLUS,
-	BIN_RSHIFT,
-	BIN_TIMES,
-	BIN_BXOR,
+	BIN_BAND,	// &
+	BIN_BOR,	// |
+	BIN_DIV,	// /
+	BIN_GREATER,	// >
+	BIN_GREATEREQ,	// >=
+	BIN_LAND,	// &&
+	BIN_LEQUAL,	// ==
+	BIN_LESS,	// <
+	BIN_LESSEQ,	// <=
+	BIN_LOR,	// ||
+	BIN_LSHIFT,	// <<
+	BIN_LXOR,	// ^^
+	BIN_MINUS,	// -
+	BIN_MODULO,	// %
+	BIN_NEQUAL,	// !=
+	BIN_PLUS,	// +
+	BIN_RSHIFT,	// >>
+	BIN_TIMES,	// *
+	BIN_BXOR,	// ^
 };
 
 struct expression_binarithm {
@@ -110,6 +109,20 @@ struct expression_return {
 	struct expression *value;
 };
 
+enum unarithm_operator {
+	UN_ADDRESS,	// &
+	UN_BNOT,	// ~
+	UN_DEREF,	// *
+	UN_LNOT,	// !
+	UN_MINUS,	// -
+	UN_PLUS,	// +
+};
+
+struct expression_unarithm {
+	enum unarithm_operator op;
+	struct expression *operand;
+};
+
 struct expression {
 	const struct type *result;
 	enum expr_type type;
@@ -122,6 +135,7 @@ struct expression {
 		union expression_constant constant;
 		struct expression_list list;
 		struct expression_return _return;
+		struct expression_unarithm unarithm;
 	};
 };
 

@@ -532,11 +532,35 @@ parse_postfix_expression(struct parser *par)
 	assert(0); // Unreachable
 }
 
+static enum unarithm_operator
+unop_for_token(enum lexical_token tok)
+{
+	switch (tok) {
+	case T_PLUS:	// +
+		return UN_PLUS;
+	case T_MINUS:	// -
+		return UN_MINUS;
+	case T_BNOT:	// ~
+		return UN_BNOT;
+	case T_LNOT:	// !
+		return UN_LNOT;
+	case T_TIMES:	// *
+		return UN_DEREF;
+	case T_BAND:	// &
+		return UN_ADDRESS;
+	default:
+		assert(0); // Invariant
+	}
+	assert(0); // Unreachable
+}
+
 static struct ast_expression *
 parse_unary_expression(struct parser *par)
 {
 	trace(TR_PARSE, "unary-arithmetic");
+
 	struct token tok;
+	struct ast_expression *exp;
 	switch (lex(par->lex, &tok)) {
 	case T_PLUS:	// +
 	case T_MINUS:	// -
@@ -544,7 +568,11 @@ parse_unary_expression(struct parser *par)
 	case T_LNOT:	// !
 	case T_TIMES:	// *
 	case T_BAND:	// &
-		assert(0); // TODO
+		exp = calloc(1, sizeof(struct ast_expression));
+		exp->type = EXPR_UNARITHM;
+		exp->unarithm.op = unop_for_token(tok.token);
+		exp->unarithm.operand = parse_unary_expression(par);
+		return exp;
 	default:
 		unlex(par->lex, &tok);
 		return parse_postfix_expression(par);
