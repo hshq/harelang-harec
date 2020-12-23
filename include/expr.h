@@ -83,7 +83,6 @@ struct expression_binding {
 	struct expression_binding *next;
 };
 
-// TODO: Stretchy constants
 union expression_constant {
 	bool bval;
 	struct {
