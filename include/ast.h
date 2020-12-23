@@ -88,6 +88,11 @@ struct ast_expression_access {
 	struct identifier ident;
 };
 
+struct ast_expression_assign {
+	struct ast_expression *lvalue, *rvalue;
+	bool indirect;
+};
+
 struct ast_expression_binarithm {
 	enum binarithm_operator op;
 	struct ast_expression *lvalue, *rvalue;
@@ -126,6 +131,7 @@ struct ast_expression {
 	enum expr_type type;
 	union {
 		struct ast_expression_access access;
+		struct ast_expression_assign assign;
 		struct ast_expression_binarithm binarithm;
 		struct ast_expression_binding binding;
 		struct ast_expression_constant constant;
