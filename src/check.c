@@ -98,7 +98,6 @@ check_expr_binarithm(struct context *ctx,
 	switch (expr->binarithm.op) {
 	// Numeric arithmetic
 	case BIN_BAND:
-	case BIN_BNOT:
 	case BIN_BOR:
 	case BIN_DIV:
 	case BIN_LSHIFT:

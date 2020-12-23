@@ -21,7 +21,7 @@ static void
 synassert_msg(bool cond, const char *msg, struct token *tok)
 {
 	if (!cond) {
-		fprintf(stderr, "Syntax error: %s at %s:%d:%d ('%s')\n", msg,
+		fprintf(stderr, "Syntax error: %s at %s:%d:%d (found '%s')\n", msg,
 			tok->loc.path, tok->loc.lineno, tok->loc.colno,
 			token_str(tok));
 		exit(1);
@@ -555,6 +555,18 @@ unop_for_token(enum lexical_token tok)
 }
 
 static struct ast_expression *
+parse_object_selector(struct parser *par)
+{
+	trace(TR_PARSE, "object-selector");
+	struct token tok;
+	lex(par->lex, &tok);
+	unlex(par->lex, &tok);
+	struct ast_expression *exp = parse_postfix_expression(par);
+	synassert_msg(exp->type == EXPR_ACCESS, "expected object", &tok);
+	return exp;
+}
+
+static struct ast_expression *
 parse_unary_expression(struct parser *par)
 {
 	trace(TR_PARSE, "unary-arithmetic");
@@ -571,7 +583,11 @@ parse_unary_expression(struct parser *par)
 		exp = calloc(1, sizeof(struct ast_expression));
 		exp->type = EXPR_UNARITHM;
 		exp->unarithm.op = unop_for_token(tok.token);
-		exp->unarithm.operand = parse_unary_expression(par);
+		if (tok.token == T_BAND) {
+			exp->unarithm.operand = parse_object_selector(par);
+		} else {
+			exp->unarithm.operand = parse_unary_expression(par);
+		}
 		return exp;
 	default:
 		unlex(par->lex, &tok);

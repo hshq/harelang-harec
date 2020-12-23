@@ -87,7 +87,6 @@ binarithm_for_op(enum binarithm_operator op)
 		return Q_SHL;
 	case BIN_RSHIFT:
 		return Q_SHR;
-	case BIN_BNOT:
 	case BIN_GREATER:
 	case BIN_GREATEREQ:
 	case BIN_LAND:
