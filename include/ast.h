@@ -108,6 +108,17 @@ struct ast_expression_binding {
 	struct ast_expression_binding *next;
 };
 
+struct ast_call_argument {
+	bool variadic;
+	struct ast_expression *value;
+	struct ast_call_argument *next;
+};
+
+struct ast_expression_call {
+	struct ast_expression *lvalue;
+	struct ast_call_argument *args;
+};
+
 struct ast_expression_constant {
 	enum type_storage storage;
 	union {
@@ -151,6 +162,7 @@ struct ast_expression {
 		struct ast_expression_assign assign;
 		struct ast_expression_binarithm binarithm;
 		struct ast_expression_binding binding;
+		struct ast_expression_call call;
 		struct ast_expression_constant constant;
 		struct ast_expression_list list;
 		struct ast_expression_measure measure;

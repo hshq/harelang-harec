@@ -527,6 +527,46 @@ parse_measurement_expression(struct parser *par)
 }
 
 static struct ast_expression *
+parse_call_expression(struct parser *par, struct ast_expression *lvalue)
+{
+	trenter(TR_PARSE, "call");
+
+	struct ast_expression *expr = calloc(1, sizeof(struct ast_expression));
+	expr->type = EXPR_CALL;
+	expr->call.lvalue = lvalue;
+
+	struct token tok;
+	struct ast_call_argument *arg, **next = &expr->call.args;
+	while (lex(par->lex, &tok) != T_RPAREN) {
+		unlex(par->lex, &tok);
+
+		arg = *next = calloc(1, sizeof(struct ast_call_argument));
+		arg->value = parse_complex_expression(par);
+
+		if (lex(par->lex, &tok) == T_ELLIPSIS) {
+			arg->variadic = true;
+		} else {
+			unlex(par->lex, &tok);
+		}
+
+		switch (lex(par->lex, &tok)) {
+		case T_COMMA:
+			break;
+		case T_RPAREN:
+			unlex(par->lex, &tok);
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
+		}
+
+		next = &arg->next;
+	}
+
+	trleave(TR_PARSE, NULL);
+	return expr;
+}
+
+static struct ast_expression *
 parse_postfix_expression(struct parser *par)
 {
 	trace(TR_PARSE, "postfix");
@@ -555,7 +595,7 @@ parse_postfix_expression(struct parser *par)
 
 	switch (lex(par->lex, &tok)) {
 	case T_LPAREN:
-		assert(0); // TODO: call expression
+		return parse_call_expression(par, lvalue);
 	case T_DOT:
 		assert(0); // TODO: field access expression
 	case T_LBRACKET:
