@@ -321,7 +321,10 @@ check_expr_unarithm(struct context *ctx,
 			&ctx->store, operand->result, 0);
 		break;
 	case UN_DEREF:
-		assert(0); // TODO
+		expect(operand->result->storage == TYPE_STORAGE_POINTER,
+				"Cannot de-reference non-pointer type");
+		expr->result = operand->result->pointer.referent;
+		break;
 	}
 
 	trleave(TR_CHECK, NULL);

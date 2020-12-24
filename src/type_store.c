@@ -250,7 +250,47 @@ static bool
 type_eq_type(struct type_store *store,
 	const struct type *a, const struct type *b)
 {
-	assert(0); // TODO
+	if (a->storage != b->storage || a->flags != b->flags) {
+		return false;
+	}
+
+	switch (a->storage) {
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_VOID:
+		return true;
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_FUNCTION:
+		assert(0); // TODO
+	case TYPE_STORAGE_POINTER:
+		return a->pointer.flags == b->pointer.flags &&
+			type_eq_type(store, a->pointer.referent, b->pointer.referent);
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_UNION:
+		assert(0); // TODO
+	}
+
+	assert(0); // Unreachable
 }
 
 static void

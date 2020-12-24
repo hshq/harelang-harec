@@ -98,6 +98,25 @@ qval_for_object(struct gen_context *ctx,
 	val->name = binding ? strdup(binding->name) : ident_to_sym(&obj->ident);
 }
 
+// Given a pointer temporary, convert it to a dereferenced pointer for the given
+// secondary type
+static void
+qval_deref(struct gen_context *ctx,
+	struct qbe_value *val, const struct type *type)
+{
+	assert(val->type == &qbe_long); // Invariant // XXX: ARCH
+	val->indirect = true;
+	val->type = qtype_for_type(ctx, type, false);
+}
+
+// Given a non-pointer temporary, convert it to a pointer
+static void
+qval_address(struct qbe_value *val)
+{
+	val->type = &qbe_long; // XXX: ARCH
+	val->indirect = false;
+}
+
 // Given value src of type A, and value dest of type pointer to A, store src in
 // dest.
 static void
@@ -178,9 +197,7 @@ gen_assign(struct gen_context *ctx,
 		struct qbe_value dest = {0};
 		gen_temp(ctx, &dest, &qbe_long, "indirect.%d"); // XXX: ARCH
 		gen_expression(ctx, object, &dest);
-		// TODO: We might want a helper to dereference a qval
-		dest.indirect = true;
-		dest.type = qtype_for_type(ctx, value->result, false);
+		qval_deref(ctx, &dest, value->result);
 		gen_expression(ctx, value, &dest);
 	} else {
 		assert(object->type == EXPR_ACCESS); // Invariant
@@ -321,7 +338,7 @@ gen_expr_unarithm(struct gen_context *ctx,
 
 		struct qbe_value src = {0};
 		qval_for_object(ctx, &src, obj);
-		src.type = &qbe_long; // XXX: ARCH
+		qval_address(&src);
 		gen_store(ctx, out, &src);
 		return;
 	}
@@ -353,7 +370,9 @@ gen_expr_unarithm(struct gen_context *ctx,
 		result = operand;
 		break;
 	case UN_DEREF:
-		assert(0); // TODO
+		qval_deref(ctx, &operand, expr->result);
+		gen_load(ctx, &result, &operand, type_is_signed(expr->result));
+		break;
 	case UN_ADDRESS:
 		assert(0); // Invariant
 	}
