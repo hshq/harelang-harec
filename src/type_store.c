@@ -277,8 +277,24 @@ type_eq_type(struct type_store *store,
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_FUNCTION:
 		assert(0); // TODO
+	case TYPE_STORAGE_FUNCTION:
+		if (a->func.variadism != b->func.variadism
+				|| a->func.flags != b->func.flags
+				|| !type_eq_type(store, a->func.result, b->func.result)) {
+			return false;
+		}
+		struct type_func_param *aparam = a->func.params;
+		struct type_func_param *bparam = b->func.params;
+		while (aparam && bparam) {
+			if (!type_eq_type(store, aparam->type, bparam->type)) {
+				return false;
+			}
+
+			aparam = aparam->next;
+			bparam = bparam->next;
+		}
+		return !aparam && !bparam;
 	case TYPE_STORAGE_POINTER:
 		return a->pointer.flags == b->pointer.flags &&
 			type_eq_type(store, a->pointer.referent, b->pointer.referent);
