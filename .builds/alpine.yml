@@ -1,0 +1,11 @@
+image: alpine/latest
+sources:
+- https://git.sr.ht/~sircmpwn/harec
+tasks:
+- prepare: |
+    mkdir harec/build
+    cd harec/build
+    ../configure
+- build: |
+    cd harec/build
+    make -j2
