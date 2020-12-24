@@ -124,6 +124,11 @@ gen_store(struct gen_context *ctx,
 	const struct qbe_value *dest,
 	const struct qbe_value *src)
 {
+	if (!dest) {
+		// no-op
+		return;
+	}
+
 	const struct qbe_type *qtype = src->type;
 	assert(qtype->stype != Q__VOID); // Invariant
 	assert(qtype->stype != Q__AGGREGATE); // TODO
@@ -312,6 +317,27 @@ gen_expr_list(struct gen_context *ctx,
 }
 
 static void
+gen_expr_measure(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	struct qbe_value temp = {0};
+	switch (expr->measure.op) {
+	case M_LEN:
+		assert(0); // TODO
+	case M_SIZE:
+		gen_temp(ctx, &temp,
+			qtype_for_type(ctx, expr->result, false),
+			"size.%d");
+		constl(&temp, expr->measure.type->size);
+		gen_store(ctx, out, &temp);
+		break;
+	case M_OFFSET:
+		assert(0); // TODO
+	}
+}
+
+static void
 gen_expr_return(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -416,8 +442,10 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_list(ctx, expr, out);
 		break;
 	case EXPR_MATCH:
-	case EXPR_MEASURE:
 		assert(0); // TODO
+	case EXPR_MEASURE:
+		gen_expr_measure(ctx, expr, out);
+		break;
 	case EXPR_RETURN:
 		gen_expr_return(ctx, expr, out);
 		break;
