@@ -105,6 +105,21 @@ struct expression_list {
 	struct expressions exprs;
 };
 
+enum measure_operator {
+	M_LEN,
+	M_SIZE,
+	M_OFFSET,
+};
+
+struct expression_measure {
+	enum measure_operator op;
+	union {
+		struct expression *value;
+		const struct type *type;
+		// TODO: Field selection
+	};
+};
+
 struct expression_return {
 	struct expression *value;
 };

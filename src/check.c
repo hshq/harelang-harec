@@ -369,6 +369,7 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
+		assert(0); // TODO
 	case EXPR_RETURN:
 		check_expr_return(ctx, aexpr, expr);
 		break;

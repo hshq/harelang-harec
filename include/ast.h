@@ -126,6 +126,15 @@ struct ast_expression_list {
 	struct ast_expression_list *next;
 };
 
+struct ast_expression_measure {
+	enum measure_operator op;
+	union {
+		struct ast_expression *value;
+		struct ast_type *type;
+		// TODO: Field selection
+	};
+};
+
 struct ast_expression_return {
 	struct ast_expression *value;
 };
@@ -144,6 +153,7 @@ struct ast_expression {
 		struct ast_expression_binding binding;
 		struct ast_expression_constant constant;
 		struct ast_expression_list list;
+		struct ast_expression_measure measure;
 		struct ast_expression_return _return;
 		struct ast_expression_unarithm unarithm;
 	};

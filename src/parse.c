@@ -491,6 +491,41 @@ parse_plain_expression(struct parser *par)
 	assert(0); // Unreachable
 }
 
+static struct ast_expression *parse_postfix_expression(struct parser *par);
+
+static struct ast_expression *
+parse_measurement_expression(struct parser *par)
+{
+	trace(TR_PARSE, "measurement");
+
+	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
+	exp->type = EXPR_MEASURE;
+
+	struct token tok;
+	lex(par->lex, &tok);
+
+	want(par, T_LPAREN, NULL);
+	switch (tok.token) {
+	case T_SIZE:
+		exp->measure.op = M_SIZE;
+		exp->measure.type = calloc(1, sizeof(struct ast_type));
+		parse_type(par, exp->measure.type);
+		break;
+	case T_LEN:
+		exp->measure.op = M_LEN;
+		exp->measure.value = parse_postfix_expression(par);
+		break;
+	case T_OFFSET:
+		exp->measure.op = M_OFFSET;
+		assert(0); // TODO
+	default:
+		synassert(false, &tok, T_SIZE, T_LEN, T_OFFSET, T_EOF);
+	}
+
+	want(par, T_RPAREN, NULL);
+	return exp;
+}
+
 static struct ast_expression *
 parse_postfix_expression(struct parser *par)
 {
@@ -506,7 +541,8 @@ parse_postfix_expression(struct parser *par)
 	case T_SIZE:
 	case T_LEN:
 	case T_OFFSET:
-		assert(0); // TODO: measurement expression
+		unlex(par->lex, &tok);
+		return parse_measurement_expression(par);
 	case T_LPAREN:
 		lvalue = parse_complex_expression(par);
 		want(par, T_LPAREN, &tok);
