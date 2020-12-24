@@ -26,4 +26,7 @@ const struct type *builtin_type_for_storage(
 const struct type *type_store_lookup_with_flags(struct type_store *store,
 	const struct type *type, unsigned int flags);
 
+const struct type *type_store_lookup_pointer(struct type_store *store,
+	const struct type *referent, unsigned int ptrflags);
+
 #endif

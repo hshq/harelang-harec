@@ -98,7 +98,11 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 		}
 		break;
 	case TYPE_STORAGE_ENUM:
+		assert(0); // TODO
 	case TYPE_STORAGE_POINTER:
+		hash = djb2(hash, type->pointer.flags);
+		hash = atype_hash(store, type->pointer.referent);
+		break;
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
@@ -147,7 +151,11 @@ type_hash(struct type_store *store, const struct type *type)
 		}
 		break;
 	case TYPE_STORAGE_ENUM:
+		assert(0); // TODO
 	case TYPE_STORAGE_POINTER:
+		hash = djb2(hash, type->pointer.flags);
+		hash = type_hash(store, type->pointer.referent);
+		break;
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
@@ -298,12 +306,53 @@ type_init_from_atype(struct type_store *store,
 	}
 }
 
+static const struct type *type_store_lookup_type(
+		struct type_store *store, const struct type *type);
+
 static void
 type_init_from_type(struct type_store *store,
-	struct type *type,
-	const struct type *atype)
+	struct type *new, const struct type *old)
 {
-	assert(0); // TODO
+	new->storage = old->storage;
+	new->flags = old->flags;
+
+	switch (old->storage) {
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_VOID:
+		assert(0); // Invariant
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_FUNCTION:
+		assert(0); // TODO
+	case TYPE_STORAGE_POINTER:
+		new->pointer.flags = old->pointer.flags;
+		new->pointer.referent = type_store_lookup_type(
+			store, old->pointer.referent);
+		break;
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_UNION:
+		assert(0); // TODO
+	}
 }
 
 const struct type *
@@ -367,4 +416,18 @@ type_store_lookup_with_flags(struct type_store *store,
 	struct type new = *type;
 	new.flags |= flags;
 	return type_store_lookup_type(store, &new);
+}
+
+const struct type *
+type_store_lookup_pointer(struct type_store *store,
+	const struct type *referent, unsigned int ptrflags)
+{
+	struct type ptr = {
+		.storage = TYPE_STORAGE_POINTER,
+		.pointer = {
+			.referent = referent,
+			.flags = ptrflags,
+		},
+	};
+	return type_store_lookup_type(store, &ptr);
 }

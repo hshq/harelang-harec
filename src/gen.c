@@ -93,6 +93,7 @@ qval_for_object(struct gen_context *ctx,
 {
 	const struct gen_binding *binding = binding_lookup(ctx, obj);
 	val->kind = QV_TEMPORARY; // XXX: Is this always the case?
+	val->indirect = true; // XXX: Is this always the case?
 	val->type = qtype_for_type(ctx, obj->type, false);
 	val->name = binding ? strdup(binding->name) : ident_to_sym(&obj->ident);
 }
@@ -109,7 +110,6 @@ gen_store(struct gen_context *ctx,
 	assert(qtype->stype != Q__AGGREGATE); // TODO
 
 	if (dest->indirect) {
-		assert(!src->indirect); // XXX: Correct?
 		pushi(ctx->current, NULL, store_for_type(qtype->stype), src, dest, NULL);
 	} else {
 		pushi(ctx->current, dest, Q_COPY, src, NULL);
@@ -154,6 +154,7 @@ gen_access(struct gen_context *ctx,
 		return;
 	}
 
+	assert(expr->access.type == ACCESS_IDENTIFIER); // TODO
 	const struct scope_object *obj = expr->access.object;
 	struct qbe_value src;
 	qval_for_object(ctx, &src, obj);
@@ -303,6 +304,18 @@ gen_expr_unarithm(struct gen_context *ctx,
 	const struct qbe_type *otype =
 		qtype_for_type(ctx, expr->unarithm.operand->result, false);
 	const struct qbe_type *rtype = qtype_for_type(ctx, expr->result, false);
+	if (expr->unarithm.op == UN_ADDRESS) { // Special case
+		const struct expression *operand = expr->unarithm.operand;
+		assert(operand->type == EXPR_ACCESS); // Invariant
+		assert(operand->access.type == ACCESS_IDENTIFIER); // TODO
+		const struct scope_object *obj = operand->access.object;
+
+		struct qbe_value src = {0};
+		qval_for_object(ctx, &src, obj);
+		src.type = &qbe_long; // XXX: ARCH
+		gen_store(ctx, out, &src);
+		return;
+	}
 
 	struct qbe_value operand = {0}, result = {0};
 	gen_temp(ctx, &operand, otype, "operand.%d");
@@ -330,9 +343,10 @@ gen_expr_unarithm(struct gen_context *ctx,
 		// no-op
 		result = operand;
 		break;
-	case UN_ADDRESS:
 	case UN_DEREF:
 		assert(0); // TODO
+	case UN_ADDRESS:
+		assert(0); // Invariant
 	}
 
 	gen_store(ctx, out, &result);
@@ -444,7 +458,6 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	// TODO: Update for void type
 	struct qbe_value rval;
 	alloc_temp(ctx, &rval, fntype->func.result, "ret.%d");
-	rval.indirect = true;
 	ctx->return_value = &rval;
 
 	pushl(&qdef->func, &ctx->id, "body.%d");

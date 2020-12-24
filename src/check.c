@@ -312,6 +312,9 @@ check_expr_unarithm(struct context *ctx,
 		expr->result = operand->result;
 		break;
 	case UN_ADDRESS:
+		expr->result = type_store_lookup_pointer(
+			&ctx->store, operand->result, 0);
+		break;
 	case UN_DEREF:
 		assert(0); // TODO
 	}
