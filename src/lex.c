@@ -484,7 +484,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		while ((c = next(lexer, NULL, false)) != UTF8_INVALID) {
 			switch (c) {
 			case '"':;
-				char *buf = malloc(lexer->buflen);
+				char *buf = xcalloc(lexer->buflen, sizeof(char));
 				memcpy(buf, lexer->buf, lexer->buflen);
 				out->token = T_LITERAL;
 				out->storage = TYPE_STORAGE_STRING;
