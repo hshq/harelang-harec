@@ -51,6 +51,7 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 		const struct type *type, const char *fmt)
 {
 	gen_temp(ctx, val, &qbe_long, fmt); // XXX: Architecture dependent
+	val->indirect = true;
 
 	struct qbe_value size;
 	constl(&size, type->size);
@@ -512,7 +513,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	};
 	ctx->end_label = &end_label_v;
 
-	struct qbe_value rval;
+	struct qbe_value rval = {0};
 	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
 		alloc_temp(ctx, &rval, fntype->func.result, "ret.%d");
 		ctx->return_value = &rval;
