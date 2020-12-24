@@ -182,6 +182,48 @@ check_expr_binding(struct context *ctx,
 }
 
 static void
+check_expr_call(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "call");
+	expr->type = EXPR_CALL;
+
+	struct expression *lvalue = calloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->call.lvalue, lvalue);
+	expr->call.lvalue = lvalue;
+
+	const struct type *fntype = type_dereference(lvalue->result);
+	expect(fntype->storage == TYPE_STORAGE_FUNCTION,
+		"Cannot call non-function type");
+	expr->result = fntype->func.result;
+	assert(fntype->func.variadism == VARIADISM_NONE); // TODO
+
+	struct call_argument *arg, **next = &expr->call.args;
+	struct ast_call_argument *aarg = aexpr->call.args;
+	struct type_func_param *param = fntype->func.params;
+	while (param && aarg) {
+		assert(!aarg->variadic); // TODO
+		arg = *next = calloc(1, sizeof(struct call_argument));
+		arg->value = calloc(1, sizeof(struct expression));
+		check_expression(ctx, aarg->value, arg->value);
+
+		// TODO: Test for assignability
+		expect(arg->value->result->storage == param->type->storage,
+				"Invalid type for parameter");
+
+		aarg = aarg->next;
+		param = param->next;
+		next = &arg->next;
+	}
+
+	expect(!aarg, "Too many parameters for function call");
+	expect(!param, "Not enough parameters for function call");
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expr_constant(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -385,7 +427,10 @@ check_expression(struct context *ctx,
 		check_expr_binding(ctx, aexpr, expr);
 		break;
 	case EXPR_BREAK:
+		assert(0); // TODO
 	case EXPR_CALL:
+		check_expr_call(ctx, aexpr, expr);
+		break;
 	case EXPR_CAST:
 		assert(0); // TODO
 	case EXPR_CONSTANT:

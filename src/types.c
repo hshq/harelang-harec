@@ -181,6 +181,15 @@ type_is_signed(const struct type *type)
 	assert(0); // Unreachable
 }
 
+const struct type *
+type_dereference(const struct type *type)
+{
+	if (type->storage != TYPE_STORAGE_POINTER) {
+		return type;
+	}
+	return type_dereference(type->pointer.referent);
+}
+
 // Built-in type singletons
 const struct type builtin_type_bool = {
 	.storage = TYPE_STORAGE_BOOL,

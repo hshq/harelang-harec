@@ -91,6 +91,8 @@ bool type_is_signed(const struct type *type);
 bool type_is_integer(const struct type *type);
 bool type_is_numeric(const struct type *type);
 
+const struct type *type_dereference(const struct type *type);
+
 // Built-in type singletons
 extern const struct type
 	// Primitive

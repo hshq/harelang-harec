@@ -82,6 +82,17 @@ struct expression_binding {
 	struct expression_binding *next;
 };
 
+struct call_argument {
+	bool variadic;
+	struct expression *value;
+	struct call_argument *next;
+};
+
+struct expression_call {
+	struct expression *lvalue;
+	struct call_argument *args;
+};
+
 union expression_constant {
 	bool bval;
 	struct {
@@ -147,6 +158,7 @@ struct expression {
 		struct expression_assign assign;
 		struct expression_binarithm binarithm;
 		struct expression_binding binding;
+		struct expression_call call;
 		union expression_constant constant;
 		struct expression_list list;
 		struct expression_measure measure;
