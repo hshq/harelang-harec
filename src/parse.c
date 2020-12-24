@@ -12,6 +12,7 @@
 #include "trace.h"
 #include "types.h"
 #include "utf8.h"
+#include "util.h"
 
 struct parser {
 	struct lexer *lex;
@@ -80,7 +81,7 @@ parse_identifier(struct parser *par, struct identifier *ident)
 		struct identifier *ns;
 		switch (lex(par->lex, &tok)) {
 		case T_DOUBLE_COLON:
-			ns = calloc(1, sizeof(struct identifier));
+			ns = xcalloc(1, sizeof(struct identifier));
 			*ns = *i;
 			i->ns = ns;
 			i->name = NULL;
@@ -133,7 +134,7 @@ parse_imports(struct parser *par, struct ast_subunit *subunit)
 		struct ast_imports *imports;
 		switch (lex(par->lex, &tok)) {
 		case T_USE:
-			imports = calloc(1, sizeof(struct ast_imports));
+			imports = xcalloc(1, sizeof(struct ast_imports));
 			parse_import(par, imports);
 			*next = imports;
 			next = &imports->next;
@@ -163,8 +164,8 @@ parse_parameter_list(struct parser *par, struct ast_function_type *type)
 	bool more = true;
 	struct ast_function_parameters **next = &type->params;
 	while (more) {
-		*next = calloc(1, sizeof(struct ast_function_parameters));
-		(*next)->type = calloc(1, sizeof(struct ast_type));
+		*next = xcalloc(1, sizeof(struct ast_function_parameters));
+		(*next)->type = xcalloc(1, sizeof(struct ast_type));
 		want(par, T_NAME, &tok);
 		(*next)->name = tok.name;
 		want(par, T_COLON, NULL);
@@ -215,7 +216,7 @@ parse_prototype(struct parser *par, struct ast_function_type *type)
 		parse_parameter_list(par, type);
 		want(par, T_RPAREN, NULL);
 	}
-	type->result = calloc(1, sizeof(struct ast_type));
+	type->result = xcalloc(1, sizeof(struct ast_type));
 	parse_type(par, type->result);
 	size_t ctr = 0;
 	for (struct ast_function_parameters *param = type->params;
@@ -296,7 +297,7 @@ parse_enum_type(struct parser *par, struct ast_enum_type *type)
 	want(par, T_LBRACE, NULL);
 	struct ast_enum_field **next = &type->values;
 	while (tok.token != T_RBRACE) {
-		*next = calloc(1, sizeof(struct ast_enum_field));
+		*next = xcalloc(1, sizeof(struct ast_enum_field));
 		want(par, T_NAME, &tok);
 		(*next)->name = tok.name;
 		if (lex(par->lex, &tok) == T_EQUAL) {
@@ -380,7 +381,7 @@ parse_type(struct parser *par, struct ast_type *type)
 		/* fallthrough */
 	case T_TIMES:
 		type->storage = TYPE_STORAGE_POINTER;
-		type->pointer.referent = calloc(1, sizeof(struct ast_type));
+		type->pointer.referent = xcalloc(1, sizeof(struct ast_type));
 		parse_type(par, type->pointer.referent);
 		break;
 	case T_STRUCT:
@@ -417,7 +418,7 @@ static struct ast_expression *
 parse_access(struct parser *par)
 {
 	trace(TR_PARSE, "access");
-	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_ACCESS;
 	parse_identifier(par, &exp->access.ident);
 	return exp;
@@ -431,7 +432,7 @@ parse_constant(struct parser *par)
 	struct token tok = {0};
 	want(par, T_LITERAL, &tok);
 
-	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_CONSTANT;
 	exp->constant.storage = tok.storage;
 
@@ -498,7 +499,7 @@ parse_measurement_expression(struct parser *par)
 {
 	trace(TR_PARSE, "measurement");
 
-	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_MEASURE;
 
 	struct token tok;
@@ -508,7 +509,7 @@ parse_measurement_expression(struct parser *par)
 	switch (tok.token) {
 	case T_SIZE:
 		exp->measure.op = M_SIZE;
-		exp->measure.type = calloc(1, sizeof(struct ast_type));
+		exp->measure.type = xcalloc(1, sizeof(struct ast_type));
 		parse_type(par, exp->measure.type);
 		break;
 	case T_LEN:
@@ -531,7 +532,7 @@ parse_call_expression(struct parser *par, struct ast_expression *lvalue)
 {
 	trenter(TR_PARSE, "call");
 
-	struct ast_expression *expr = calloc(1, sizeof(struct ast_expression));
+	struct ast_expression *expr = xcalloc(1, sizeof(struct ast_expression));
 	expr->type = EXPR_CALL;
 	expr->call.lvalue = lvalue;
 
@@ -541,7 +542,7 @@ parse_call_expression(struct parser *par, struct ast_expression *lvalue)
 		unlex(par->lex, &tok);
 		trenter(TR_PARSE, "arg");
 
-		arg = *next = calloc(1, sizeof(struct ast_call_argument));
+		arg = *next = xcalloc(1, sizeof(struct ast_call_argument));
 		arg->value = parse_complex_expression(par);
 
 		if (lex(par->lex, &tok) == T_ELLIPSIS) {
@@ -658,7 +659,7 @@ parse_unary_expression(struct parser *par)
 	case T_LNOT:	// !
 	case T_TIMES:	// *
 	case T_BAND:	// &
-		exp = calloc(1, sizeof(struct ast_expression));
+		exp = xcalloc(1, sizeof(struct ast_expression));
 		exp->type = EXPR_UNARITHM;
 		exp->unarithm.op = unop_for_token(tok.token);
 		if (tok.token == T_BAND) {
@@ -802,7 +803,7 @@ parse_bin_expression(struct parser *par, struct ast_expression *lvalue, int i)
 			lex(par->lex, &tok);
 		}
 
-		struct ast_expression *e = calloc(1, sizeof(struct ast_expression));
+		struct ast_expression *e = xcalloc(1, sizeof(struct ast_expression));
 		e->type = EXPR_BINARITHM;
 		e->binarithm.op = op;
 		e->binarithm.lvalue = lvalue;
@@ -840,7 +841,7 @@ static struct ast_expression *
 parse_binding_list(struct parser *par)
 {
 	trenter(TR_PARSE, "binding-list");
-	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_BINDING;
 	unsigned int flags = 0;
 
@@ -865,12 +866,12 @@ parse_binding_list(struct parser *par)
 	while (more) {
 		want(par, T_NAME, &tok);
 		binding->name = tok.name;
-		binding->initializer = calloc(1, sizeof(struct ast_expression));
+		binding->initializer = xcalloc(1, sizeof(struct ast_expression));
 		binding->flags = flags;
 
 		switch (lex(par->lex, &tok)) {
 		case T_COLON:
-			binding->type = calloc(1, sizeof(struct ast_type));
+			binding->type = xcalloc(1, sizeof(struct ast_type));
 			parse_type(par, binding->type);
 			binding->type->flags |= flags;
 			want(par, T_EQUAL, &tok);
@@ -885,7 +886,7 @@ parse_binding_list(struct parser *par)
 
 		switch (lex(par->lex, &tok)) {
 		case T_COMMA:
-			*next = calloc(1, sizeof(struct ast_expression_binding));
+			*next = xcalloc(1, sizeof(struct ast_expression_binding));
 			binding = *next;
 			next = &binding->next;
 			break;
@@ -905,7 +906,7 @@ parse_assignment(struct parser *par, struct ast_expression *object, bool indirec
 {
 	trenter(TR_PARSE, "assign");
 	struct ast_expression *value = parse_complex_expression(par);
-	struct ast_expression *expr = calloc(1, sizeof(struct ast_expression));
+	struct ast_expression *expr = xcalloc(1, sizeof(struct ast_expression));
 	expr->type = EXPR_ASSIGN;
 	expr->assign.object = object;
 	expr->assign.value = value;
@@ -977,7 +978,7 @@ parse_control_statement(struct parser *par)
 {
 	trenter(TR_PARSE, "control-expression");
 
-	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 
 	struct token tok;
 	switch (lex(par->lex, &tok)) {
@@ -1013,7 +1014,7 @@ parse_expression_list(struct parser *par)
 	trenter(TR_PARSE, "expression-list");
 	want(par, T_LBRACE, NULL);
 
-	struct ast_expression *exp = calloc(1, sizeof(struct ast_expression));
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	struct ast_expression_list *cur = &exp->list;
 	struct ast_expression_list **next = &cur->next;
 	exp->type = EXPR_LIST;
@@ -1043,7 +1044,7 @@ parse_expression_list(struct parser *par)
 				more = false;
 			} else {
 				unlex(par->lex, &tok);
-				*next = calloc(1, sizeof(struct ast_expression_list));
+				*next = xcalloc(1, sizeof(struct ast_expression_list));
 				cur = *next;
 				next = &cur->next;
 			}
@@ -1121,7 +1122,7 @@ parse_global_decl(struct parser *par, enum lexical_token mode,
 		case T_COMMA:
 			lex(par->lex, &tok);
 			if (tok.token == T_NAME || tok.token == T_ATTR_SYMBOL) {
-				i->next = calloc(1, sizeof(struct ast_global_decl));
+				i->next = xcalloc(1, sizeof(struct ast_global_decl));
 				i = i->next;
 				unlex(par->lex, &tok);
 				break;
@@ -1163,7 +1164,7 @@ parse_type_decl(struct parser *par, struct ast_type_decl *decl)
 		case T_COMMA:
 			lex(par->lex, &tok);
 			if (lex(par->lex, &tok) == T_NAME) {
-				i->next = calloc(1, sizeof(struct ast_type_decl));
+				i->next = xcalloc(1, sizeof(struct ast_type_decl));
 				i = i->next;
 				unlex(par->lex, &tok);
 				break;
@@ -1288,7 +1289,7 @@ parse_decls(struct parser *par, struct ast_decls *decls)
 		}
 		parse_decl(par, &(*next)->decl);
 		next = &(*next)->next;
-		*next = calloc(1, sizeof(struct ast_decls));
+		*next = xcalloc(1, sizeof(struct ast_decls));
 		want(par, T_SEMICOLON, NULL);
 		if (lex(par->lex, &tok) != T_EOF) {
 			unlex(par->lex, &tok);

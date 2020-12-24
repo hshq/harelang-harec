@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "qbe.h"
+#include "util.h"
 
 // Simple type singletons
 const struct qbe_type
@@ -156,7 +157,7 @@ qbe_append_def(struct qbe_program *prog, struct qbe_def *def)
 struct qbe_value *
 qval_dup(const struct qbe_value *val)
 {
-	struct qbe_value *new = calloc(1, sizeof(struct qbe_value));
+	struct qbe_value *new = xcalloc(1, sizeof(struct qbe_value));
 	*new = *val;
 	if (val->kind != QV_CONST) {
 		new->name = strdup(val->name);
@@ -178,7 +179,7 @@ va_geni(struct qbe_statement *stmt, enum qbe_instr instr,
 	struct qbe_arguments **next = &stmt->args;
 	struct qbe_value *val;
 	while ((val = va_arg(ap, struct qbe_value *))) {
-		struct qbe_arguments *arg = calloc(1, sizeof(struct qbe_arguments));
+		struct qbe_arguments *arg = xcalloc(1, sizeof(struct qbe_arguments));
 		arg->value = *val;
 		*next = arg;
 		next = &arg->next;
@@ -200,7 +201,7 @@ genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt)
 {
 	stmt->type = Q_LABEL;
 	int n = snprintf(NULL, 0, fmt, *id);
-	char *l = calloc(1, n + 1);
+	char *l = xcalloc(1, n + 1);
 	snprintf(l, n + 1, fmt, *id);
 	stmt->label = l;
 	*id = *id + 1;
@@ -213,14 +214,11 @@ push(struct qbe_func *func, struct qbe_statement *stmt)
 	if (!func->body) {
 		func->bsiz = 256;
 		func->blen = 0;
-		func->body = calloc(1, sizeof(struct qbe_statement) * func->bsiz);
-		assert(func->body);
+		func->body = xcalloc(1, sizeof(struct qbe_statement) * func->bsiz);
 	}
 	if (func->blen + 1 < func->bsiz) {
 		func->bsiz *= 2;
-		struct qbe_statement *new = realloc(func->body, func->bsiz);
-		func->body = new;
-		assert(func->body);
+		func->body = xrealloc(func->body, func->bsiz);
 	}
 	func->body[func->blen++] = *stmt;
 }
@@ -256,7 +254,7 @@ pushc(struct qbe_func *func, const char *fmt, ...)
 	int n = vsnprintf(NULL, 0, fmt, ap);
 	va_end(ap);
 
-	char *str = calloc(1, n + 1);
+	char *str = xcalloc(1, n + 1);
 	va_start(ap, fmt);
 	vsnprintf(str, n + 1, fmt, ap);
 	va_end(ap);

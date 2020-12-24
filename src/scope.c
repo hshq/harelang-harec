@@ -3,11 +3,12 @@
 #include "identifier.h"
 #include "scope.h"
 #include "trace.h"
+#include "util.h"
 
 struct scope *
 scope_push(struct scope **stack, enum trace_sys sys)
 {
-	struct scope *new = calloc(1, sizeof(struct scope));
+	struct scope *new = xcalloc(1, sizeof(struct scope));
 	new->next = &new->objects;
 	if (*stack) {
 		new->parent = *stack;
@@ -65,7 +66,7 @@ scope_insert(struct scope *scope,
 	const struct identifier *ident,
 	const struct type *type)
 {
-	struct scope_object *o = calloc(1, sizeof(struct scope_object));
+	struct scope_object *o = xcalloc(1, sizeof(struct scope_object));
 	identifier_dup(&o->ident, ident);
 	o->otype = otype;
 	o->type = type;

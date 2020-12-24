@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "identifier.h"
+#include "util.h"
 
 static int
 _asprintf(char **strp, const char *fmt, ...)
@@ -15,11 +16,7 @@ _asprintf(char **strp, const char *fmt, ...)
 	int n = vsnprintf(NULL, 0, fmt, ap);
 	va_end(ap);
 
-	*strp = calloc(n + 1, 1);
-	if (!*strp) {
-		errno = ENOMEM;
-		return -1;
-	}
+	*strp = xcalloc(n + 1, 1);
 
 	va_start(ap, fmt);
 	n = vsnprintf(*strp, n + 1, fmt, ap);
@@ -69,7 +66,7 @@ identifier_dup(struct identifier *new, const struct identifier *ident)
 	assert(ident && new);
 	new->name = strdup(ident->name);
 	if (ident->ns) {
-		new->ns = calloc(1, sizeof(struct identifier));
+		new->ns = xcalloc(1, sizeof(struct identifier));
 		identifier_dup(new->ns, ident->ns);
 	}
 }

@@ -9,6 +9,7 @@
 #include "trace.h"
 #include "type_store.h"
 #include "types.h"
+#include "util.h"
 
 struct context {
 	struct type_store store;
@@ -62,8 +63,8 @@ check_expr_assign(struct context *ctx,
 	expr->type = EXPR_ASSIGN;
 	expr->result = &builtin_type_void;
 	expr->assign.indirect = aexpr->assign.indirect;
-	struct expression *object = calloc(1, sizeof(struct expression));
-	struct expression *value = calloc(1, sizeof(struct expression));
+	struct expression *object = xcalloc(1, sizeof(struct expression));
+	struct expression *value = xcalloc(1, sizeof(struct expression));
 
 	check_expression(ctx, aexpr->assign.object, object);
 	check_expression(ctx, aexpr->assign.value, value);
@@ -96,8 +97,8 @@ check_expr_binarithm(struct context *ctx,
 	expr->type = EXPR_BINARITHM;
 	expr->binarithm.op = aexpr->binarithm.op;
 
-	struct expression *lvalue = calloc(1, sizeof(struct expression)),
-		*rvalue = calloc(1, sizeof(struct expression));
+	struct expression *lvalue = xcalloc(1, sizeof(struct expression)),
+		*rvalue = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->binarithm.lvalue, lvalue);
 	check_expression(ctx, aexpr->binarithm.rvalue, rvalue);
 	expr->binarithm.lvalue = lvalue;
@@ -154,7 +155,7 @@ check_expr_binding(struct context *ctx,
 			.name = abinding->name,
 		};
 		struct expression *initializer =
-			calloc(1, sizeof(struct expression));
+			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, abinding->initializer, initializer);
 
 		const struct type *type;
@@ -174,7 +175,7 @@ check_expr_binding(struct context *ctx,
 
 		if (abinding->next) {
 			binding = *next =
-				calloc(1, sizeof(struct expression_binding));
+				xcalloc(1, sizeof(struct expression_binding));
 			next = &binding->next;
 		}
 
@@ -190,7 +191,7 @@ check_expr_call(struct context *ctx,
 	trenter(TR_CHECK, "call");
 	expr->type = EXPR_CALL;
 
-	struct expression *lvalue = calloc(1, sizeof(struct expression));
+	struct expression *lvalue = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->call.lvalue, lvalue);
 	expr->call.lvalue = lvalue;
 
@@ -206,8 +207,8 @@ check_expr_call(struct context *ctx,
 	while (param && aarg) {
 		trenter(TR_CHECK, "arg");
 		assert(!aarg->variadic); // TODO
-		arg = *next = calloc(1, sizeof(struct call_argument));
-		arg->value = calloc(1, sizeof(struct expression));
+		arg = *next = xcalloc(1, sizeof(struct call_argument));
+		arg->value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aarg->value, arg->value);
 
 		// TODO: Test for assignability
@@ -291,13 +292,13 @@ check_expr_list(struct context *ctx,
 
 	const struct ast_expression_list *alist = &aexpr->list;
 	while (alist) {
-		struct expression *lexpr = calloc(1, sizeof(struct expression));
+		struct expression *lexpr = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, alist->expr, lexpr);
 		list->expr = lexpr;
 
 		alist = alist->next;
 		if (alist) {
-			*next = calloc(1, sizeof(struct expressions));
+			*next = xcalloc(1, sizeof(struct expressions));
 			list = *next;
 			next = &list->next;
 		} else {
@@ -321,7 +322,7 @@ check_expr_measure(struct context *ctx,
 
 	switch (expr->measure.op) {
 	case M_LEN:
-		expr->measure.value = calloc(1, sizeof(struct expression));
+		expr->measure.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->measure.value);
 		enum type_storage vstor = expr->measure.value->result->storage;
 		expect(vstor == TYPE_STORAGE_ARRAY || vstor == TYPE_STORAGE_SLICE,
@@ -348,7 +349,7 @@ check_expr_return(struct context *ctx,
 	expr->terminates = true;
 
 	if (aexpr->_return.value) {
-		struct expression *rval = calloc(1, sizeof(struct expression));
+		struct expression *rval = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_return.value, rval);
 		expr->_return.value = rval;
 		// TODO: Test assignability with function's return type
@@ -365,7 +366,7 @@ check_expr_unarithm(struct context *ctx,
 	trenter(TR_CHECK, "unarithm");
 	expr->type = EXPR_UNARITHM;
 
-	struct expression *operand = calloc(1, sizeof(struct expression));
+	struct expression *operand = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->unarithm.operand, operand);
 	expr->unarithm.operand = operand;
 	expr->unarithm.op = aexpr->unarithm.op;
@@ -490,7 +491,7 @@ check_function(struct context *ctx,
 			&ctx->store, &fn_atype);
 	assert(fntype); // Invariant
 
-	struct declaration *decl = calloc(1, sizeof(struct declaration));
+	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
 	// TODO: Rewrite ident to be a member of the unit's namespace
@@ -509,7 +510,7 @@ check_function(struct context *ctx,
 		params = params->next;
 	}
 
-	struct expression *body = calloc(1, sizeof(struct expression));
+	struct expression *body = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, afndecl->body, body);
 	decl->func.body = body;
 
@@ -555,7 +556,7 @@ check_declarations(struct context *ctx,
 
 		if (decl) {
 			struct declarations *decls = *next =
-				calloc(1, sizeof(struct declarations));
+				xcalloc(1, sizeof(struct declarations));
 			decl->exported = adecl->exported;
 			decls->decl = decl;
 			next = &decls->next;
@@ -636,7 +637,7 @@ check(const struct ast_unit *aunit, struct unit *unit)
 		assert(!su->imports); // TODO
 		scan_declarations(&ctx, &su->decls);
 
-		*next = calloc(1, sizeof(struct scopes));
+		*next = xcalloc(1, sizeof(struct scopes));
 		(*next)->scope = scope_pop(&ctx.scope, TR_SCAN);
 		next = &(*next)->next;
 	}

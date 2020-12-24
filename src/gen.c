@@ -12,6 +12,7 @@
 #include "scope.h"
 #include "trace.h"
 #include "types.h"
+#include "util.h"
 
 static char *
 ident_to_sym(const struct identifier *ident)
@@ -22,8 +23,7 @@ ident_to_sym(const struct identifier *ident)
 			return NULL;
 		}
 		int n = snprintf(NULL, 0, "%s.%s", ns, ident->name);
-		char *str = calloc(1, n + 1);
-		assert(str);
+		char *str = xcalloc(1, n + 1);
 		snprintf(str, n + 1, "%s.%s", ns, ident->name);
 		free(ns);
 		return str;
@@ -39,7 +39,7 @@ gen_temp(struct gen_context *ctx, struct qbe_value *val,
 	val->type = type;
 
 	int n = snprintf(NULL, 0, fmt, ctx->id);
-	char *str = calloc(1, n + 1);
+	char *str = xcalloc(1, n + 1);
 	snprintf(str, n + 1, fmt, ctx->id);
 	++ctx->id;
 
@@ -66,7 +66,7 @@ binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
 	alloc_temp(ctx, val, obj->type, fmt);
 	val->indirect = true;
 
-	struct gen_binding *binding = calloc(1, sizeof(struct gen_binding));
+	struct gen_binding *binding = xcalloc(1, sizeof(struct gen_binding));
 	binding->name = strdup(val->name);
 	binding->object = obj;
 	binding->next = ctx->bindings;
@@ -299,14 +299,14 @@ gen_call(struct gen_context *ctx,
 
 	struct qbe_arguments *arg, **next = &call.args;
 	struct call_argument *carg = expr->call.args;
-	arg = *next = calloc(1, sizeof(struct qbe_arguments));
+	arg = *next = xcalloc(1, sizeof(struct qbe_arguments));
 	gen_temp(ctx, &arg->value, &qbe_long, "func.%d");
 	gen_expression(ctx, expr->call.lvalue, &arg->value);
 	next = &arg->next;
 
 	while (carg) {
 		assert(!carg->variadic); // TODO
-		arg = *next = calloc(1, sizeof(struct qbe_arguments));
+		arg = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		gen_temp(ctx, &arg->value,
 			qtype_for_type(ctx, carg->value->result, false),
 			"arg.%d");
@@ -527,7 +527,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	const struct type *fntype = func->type;
 	assert(func->flags == 0); // TODO
 
-	struct qbe_def *qdef = calloc(1, sizeof(struct qbe_def));
+	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->type = Q_FUNC;
 	qdef->exported = decl->exported;
 	qdef->name = func->symbol ? strdup(func->symbol)
@@ -540,7 +540,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_func_param *param, **next = &qdef->func.params;
 	struct scope_object *obj = decl->func.scope->objects;
 	while (obj) {
-		param = *next = calloc(1, sizeof(struct qbe_func_param));
+		param = *next = xcalloc(1, sizeof(struct qbe_func_param));
 		assert(!obj->ident.ns); // Invariant
 		param->name = strdup(obj->ident.name);
 		param->type = qtype_for_type(ctx, obj->type, true);

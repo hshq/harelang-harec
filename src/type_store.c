@@ -349,7 +349,7 @@ type_init_from_atype(struct type_store *store,
 		struct type_func_param *param, **next = &type->func.params;
 		for (struct ast_function_parameters *aparam = atype->func.params;
 				aparam; aparam = aparam->next) {
-			param = *next = calloc(1, sizeof(struct type_func_param));
+			param = *next = xcalloc(1, sizeof(struct type_func_param));
 			param->type = type_store_lookup_atype(store, aparam->type);
 			next = &param->next;
 		}
@@ -437,7 +437,7 @@ type_store_lookup_atype(struct type_store *store, const struct ast_type *atype)
 		next = &bucket->next;
 	}
 
-	bucket = *next = calloc(1, sizeof(struct type_bucket));
+	bucket = *next = xcalloc(1, sizeof(struct type_bucket));
 	type_init_from_atype(store, &bucket->type, atype);
 	return &bucket->type;
 }
@@ -463,7 +463,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 		next = &bucket->next;
 	}
 
-	bucket = *next = calloc(1, sizeof(struct type_bucket));
+	bucket = *next = xcalloc(1, sizeof(struct type_bucket));
 	type_init_from_type(store, &bucket->type, type);
 	return &bucket->type;
 }

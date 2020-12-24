@@ -11,6 +11,7 @@
 #include "lex.h"
 #include "trace.h"
 #include "utf8.h"
+#include "util.h"
 
 static const char *tokens[] = {
 	// Must be alpha sorted
@@ -126,7 +127,7 @@ lex_init(struct lexer *lexer, FILE *f)
 	memset(lexer, 0, sizeof(*lexer));
 	lexer->in = f;
 	lexer->bufsz = 256;
-	lexer->buf = calloc(1, lexer->bufsz);
+	lexer->buf = xcalloc(1, lexer->bufsz);
 	lexer->un.token = T_ERROR;
 	lexer->loc.lineno = 1;
 	lexer->loc.colno = 0;
@@ -178,8 +179,7 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 	}
 	if (lexer->buflen + utf8_chsize(c) >= lexer->bufsz) {
 		lexer->bufsz *= 2;
-		lexer->buf = realloc(lexer->buf, lexer->bufsz);
-		assert(lexer->buf);
+		lexer->buf = xrealloc(lexer->buf, lexer->bufsz);
 	}
 	char buf[UTF8_MAX_SIZE];
 	size_t sz = utf8_encode(&buf[0], c);
