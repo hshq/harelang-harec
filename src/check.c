@@ -421,11 +421,14 @@ check_expression(struct context *ctx,
 	trleave(TR_CHECK, NULL);
 }
 
-static void
+static struct declaration *
 check_function(struct context *ctx,
-	const struct ast_decl *adecl,
-	struct declaration *decl)
+	const struct ast_decl *adecl)
 {
+	if (!adecl->function.body) {
+		return NULL; // Prototype
+	}
+
 	const struct ast_function_decl *afndecl = &adecl->function;
 	trenter(TR_CHECK, "function");
 	assert(!afndecl->symbol); // TODO
@@ -438,6 +441,8 @@ check_function(struct context *ctx,
 	const struct type *fntype = type_store_lookup_atype(
 			&ctx->store, &fn_atype);
 	assert(fntype); // Invariant
+
+	struct declaration *decl = calloc(1, sizeof(struct declaration));
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
 	// TODO: Rewrite ident to be a member of the unit's namespace
@@ -473,10 +478,10 @@ check_function(struct context *ctx,
 				"%s function cannot be exported", flags);
 	}
 
-	// TODO: Add declaration to unit scope
-
+	scope_insert(ctx->unit, &decl->ident, decl->func.type);
 	scope_pop(&ctx->scope, TR_CHECK);
 	trleave(TR_CHECK, NULL);
+	return decl;
 }
 
 static void
@@ -486,14 +491,11 @@ check_declarations(struct context *ctx,
 {
 	trenter(TR_CHECK, "declarations");
 	while (adecls) {
-		struct declarations *decls = *next =
-			calloc(1, sizeof(struct declarations));
-		struct declaration *decl = &decls->decl;
+		struct declaration *decl;
 		const struct ast_decl *adecl = &adecls->decl;
-		decl->exported = adecl->exported;
 		switch (adecl->decl_type) {
 		case AST_DECL_FUNC:
-			check_function(ctx, adecl, decl);
+			decl = check_function(ctx, adecl);
 			break;
 		case AST_DECL_TYPE:
 			assert(0); // TODO
@@ -502,8 +504,16 @@ check_declarations(struct context *ctx,
 		case AST_DECL_CONST:
 			assert(0); // TODO
 		}
+
+		if (decl) {
+			struct declarations *decls = *next =
+				calloc(1, sizeof(struct declarations));
+			decl->exported = adecl->exported;
+			decls->decl = decl;
+			next = &decls->next;
+		}
+
 		adecls = adecls->next;
-		next = &decls->next;
 	}
 	trleave(TR_CHECK, NULL);
 }
@@ -524,6 +534,10 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	char buf[1024];
 	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
 	trleave(TR_SCAN, "func %s", buf);
+
+	if (!decl->body) {
+		scope_insert(ctx->unit, &decl->ident, fntype);
+	}
 }
 
 static void

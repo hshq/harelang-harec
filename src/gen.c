@@ -574,7 +574,7 @@ gen(const struct unit *unit, struct qbe_program *out)
 	assert(decls); // At least one is required
 	trenter(TR_GEN, "gen");
 	while (decls) {
-		gen_decl(&ctx, &decls->decl);
+		gen_decl(&ctx, decls->decl);
 		decls = decls->next;
 	}
 	trleave(TR_GEN, NULL);

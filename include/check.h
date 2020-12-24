@@ -38,7 +38,7 @@ struct declaration {
 };
 
 struct declarations {
-	struct declaration decl;
+	struct declaration *decl;
 	struct declarations *next;
 };
 

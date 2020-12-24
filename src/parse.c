@@ -1175,8 +1175,18 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 	want(par, T_FN, NULL);
 	parse_identifier(par, &decl->ident);
 	parse_prototype(par, &decl->prototype);
-	want(par, T_EQUAL, NULL);
-	decl->body = parse_compound_expression(par);
+
+	switch (lex(par->lex, &tok)) {
+	case T_EQUAL:
+		decl->body = parse_compound_expression(par);
+		break;
+	case T_SEMICOLON:
+		unlex(par->lex, &tok);
+		decl->body = NULL; // Prototype
+		break;
+	default:
+		synassert(false, &tok, T_EQUAL, T_SEMICOLON, T_EOF);
+	}
 
 	char symbol[1024], buf[1024];
 	if (decl->symbol) {
