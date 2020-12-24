@@ -149,6 +149,7 @@ struct expression {
 		struct expression_binding binding;
 		union expression_constant constant;
 		struct expression_list list;
+		struct expression_measure measure;
 		struct expression_return _return;
 		struct expression_unarithm unarithm;
 	};

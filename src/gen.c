@@ -417,6 +417,7 @@ gen_expression(struct gen_context *ctx,
 		break;
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
+		assert(0); // TODO
 	case EXPR_RETURN:
 		gen_expr_return(ctx, expr, out);
 		break;

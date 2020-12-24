@@ -263,6 +263,34 @@ check_expr_list(struct context *ctx,
 }
 
 static void
+check_expr_measure(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "measure");
+	expr->type = EXPR_MEASURE;
+	expr->result = &builtin_type_size;
+	expr->measure.op = aexpr->measure.op;
+
+	switch (expr->measure.op) {
+	case M_LEN:
+		expr->measure.value = calloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->measure.value, expr->measure.value);
+		enum type_storage vstor = expr->measure.value->result->storage;
+		expect(vstor == TYPE_STORAGE_ARRAY || vstor == TYPE_STORAGE_SLICE,
+			"len argument must be of an array or slice type");
+		// TODO: Check that array type is not unbounded
+		break;
+	case M_SIZE:
+		expr->measure.type = type_store_lookup_atype(
+			&ctx->store, aexpr->measure.type);
+		break;
+	case M_OFFSET:
+		assert(0); // TODO
+	}
+}
+
+static void
 check_expr_return(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -368,8 +396,10 @@ check_expression(struct context *ctx,
 		check_expr_list(ctx, aexpr, expr);
 		break;
 	case EXPR_MATCH:
-	case EXPR_MEASURE:
 		assert(0); // TODO
+	case EXPR_MEASURE:
+		check_expr_measure(ctx, aexpr, expr);
+		break;
 	case EXPR_RETURN:
 		check_expr_return(ctx, aexpr, expr);
 		break;
