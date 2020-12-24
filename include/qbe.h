@@ -28,7 +28,8 @@ extern const struct qbe_type
 	qbe_long,
 	qbe_single,
 	qbe_double,
-	qbe_void;
+	qbe_void,
+	qbe_aggregate;
 
 const struct qbe_type *qtype_for_xtype(enum qbe_stype type);
 
@@ -58,6 +59,7 @@ enum qbe_instr {
 	Q_ALLOC4,
 	Q_ALLOC8,
 	Q_AND,
+	Q_CALL,
 	Q_CAST,
 	Q_CEQD,
 	Q_CEQL,
@@ -208,6 +210,8 @@ void pushi(struct qbe_func *func, const struct qbe_value *out, enum qbe_instr in
 const char *pushl(struct qbe_func *func, uint64_t *id, const char *fmt);
 void pushc(struct qbe_func *func, const char *fmt, ...);
 void push(struct qbe_func *func, struct qbe_statement *stmt);
+
+struct qbe_value *qval_dup(const struct qbe_value *val);
 
 void constw(struct qbe_value *val, uint32_t l);
 void constl(struct qbe_value *val, uint64_t l);

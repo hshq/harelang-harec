@@ -3,8 +3,14 @@
 #include "identifier.h"
 #include "trace.h"
 
+enum object_type {
+	O_BIND,
+	O_DECL,
+};
+
 // XXX: This might be better as a hash map
 struct scope_object {
+	enum object_type otype;
 	struct identifier ident;
 	const struct type *type;
 	struct scope_object *next;
@@ -28,7 +34,8 @@ void scope_free(struct scope *scope);
 void scope_free_all(struct scopes *scopes);
 
 const struct scope_object *scope_insert(struct scope *scope,
-	const struct identifier *ident, const struct type *type);
+	enum object_type otype, const struct identifier *ident,
+	const struct type *type);
 const struct scope_object *scope_lookup(struct scope *scope,
 	const struct identifier *ident);
 

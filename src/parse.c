@@ -539,6 +539,7 @@ parse_call_expression(struct parser *par, struct ast_expression *lvalue)
 	struct ast_call_argument *arg, **next = &expr->call.args;
 	while (lex(par->lex, &tok) != T_RPAREN) {
 		unlex(par->lex, &tok);
+		trenter(TR_PARSE, "arg");
 
 		arg = *next = calloc(1, sizeof(struct ast_call_argument));
 		arg->value = parse_complex_expression(par);
@@ -560,6 +561,7 @@ parse_call_expression(struct parser *par, struct ast_expression *lvalue)
 		}
 
 		next = &arg->next;
+		trleave(TR_PARSE, NULL);
 	}
 
 	trleave(TR_PARSE, NULL);

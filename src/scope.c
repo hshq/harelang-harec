@@ -61,11 +61,13 @@ scope_free_all(struct scopes *scopes)
 
 const struct scope_object *
 scope_insert(struct scope *scope,
+	enum object_type otype,
 	const struct identifier *ident,
 	const struct type *type)
 {
 	struct scope_object *o = calloc(1, sizeof(struct scope_object));
 	identifier_dup(&o->ident, ident);
+	o->otype = otype;
 	o->type = type;
 	*scope->next = o;
 	scope->next = &o->next;

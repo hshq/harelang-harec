@@ -18,7 +18,8 @@ emit_qtype(const struct qbe_type *type, FILE *out)
 	case Q__VOID:
 		break; // no-op
 	case Q__AGGREGATE:
-		assert(0); // TODO
+		fprintf(out, "l"); // XXX: ARCH
+		break;
 	}
 }
 
@@ -54,7 +55,8 @@ emit_value(struct qbe_value *val, FILE *out)
 		emit_const(val, out);
 		break;
 	case QV_GLOBAL:
-		assert(0); // TODO
+		fprintf(out, "$%s", val->name);
+		break;
 	case QV_LABEL:
 		fprintf(out, "@%s", val->name);
 		break;
@@ -62,6 +64,30 @@ emit_value(struct qbe_value *val, FILE *out)
 		fprintf(out, "%%%s", val->name);
 		break;
 	}
+}
+
+static void
+emit_call(struct qbe_statement *stmt, FILE *out)
+{
+	fprintf(out, "%s ", qbe_instr[stmt->instr]);
+
+	struct qbe_arguments *arg = stmt->args;
+	assert(arg);
+	emit_value(&arg->value, out);
+	fprintf(out, "(");
+	arg = arg->next;
+
+	bool comma = false;
+	while (arg) {
+		fprintf(out, "%s", comma ? ", " : "");
+		emit_qtype(arg->value.type, out);
+		fprintf(out, " ");
+		emit_value(&arg->value, out);
+		arg = arg->next;
+		comma = true;
+	}
+
+	fprintf(out, ")\n");
 }
 
 static void
@@ -76,13 +102,16 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 		if (stmt->out != NULL) {
 			emit_value(stmt->out, out);
 			fprintf(out, " =");
-			assert(stmt->out->type->stype != Q__AGGREGATE); // TODO
 			if (stmt->out->indirect) {
 				emit_qtype(&qbe_long, out); // XXX: ARCH
 			} else {
 				emit_qtype(stmt->out->type, out);
 			}
 			fprintf(out, " ");
+		}
+		if (stmt->instr == Q_CALL) {
+			emit_call(stmt, out);
+			break;
 		}
 		fprintf(out, "%s%s", qbe_instr[stmt->instr],
 				stmt->args ? " " : "");

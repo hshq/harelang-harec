@@ -93,9 +93,18 @@ qval_for_object(struct gen_context *ctx,
 	struct qbe_value *val,
 	const struct scope_object *obj)
 {
-	const struct gen_binding *binding = binding_lookup(ctx, obj);
-	val->kind = QV_TEMPORARY; // XXX: Is this always the case?
-	val->indirect = true; // XXX: Is this always the case?
+	const struct gen_binding *binding = NULL;
+	switch (obj->otype) {
+	case O_BIND:
+		binding = binding_lookup(ctx, obj);
+		val->kind = QV_TEMPORARY;
+		val->indirect = true;
+		break;
+	case O_DECL:
+		val->kind = QV_GLOBAL;
+		val->indirect = false;
+		break;
+	}
 	val->type = qtype_for_type(ctx, obj->type, false);
 	val->name = binding ? strdup(binding->name) : ident_to_sym(&obj->ident);
 }
@@ -133,7 +142,6 @@ gen_store(struct gen_context *ctx,
 
 	const struct qbe_type *qtype = src->type;
 	assert(qtype->stype != Q__VOID); // Invariant
-	assert(qtype->stype != Q__AGGREGATE); // TODO
 
 	if (dest->indirect) {
 		pushi(ctx->current, NULL, store_for_type(qtype->stype), src, dest, NULL);
@@ -152,9 +160,13 @@ gen_load(struct gen_context *ctx,
 {
 	const struct qbe_type *qtype = dest->type;
 	assert(qtype->stype != Q__VOID); // Invariant
-	assert(qtype->stype != Q__AGGREGATE); // TODO
-	pushi(ctx->current, dest,
-		load_for_type(qtype->stype, is_signed), src, NULL);
+
+	if (src->indirect) {
+		pushi(ctx->current, dest,
+			load_for_type(qtype->stype, is_signed), src, NULL);
+	} else {
+		pushi(ctx->current, dest, Q_COPY, src, NULL);
+	}
 }
 
 // Same as gen_load but dest is initialized to a new temporary
@@ -182,12 +194,21 @@ gen_access(struct gen_context *ctx,
 
 	assert(expr->access.type == ACCESS_IDENTIFIER); // TODO
 	const struct scope_object *obj = expr->access.object;
-	struct qbe_value src;
+	struct qbe_value src = {0};
 	qval_for_object(ctx, &src, obj);
 
-	struct qbe_value temp;
-	gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
-	gen_store(ctx, out, &temp);
+	struct qbe_value temp = {0};
+	switch (obj->otype) {
+	case O_BIND:
+		gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
+		gen_store(ctx, out, &temp);
+		break;
+	case O_DECL:
+		// Skip the extra load
+		gen_store(ctx, out, &src);
+		break;
+	}
+
 }
 
 static void
@@ -263,6 +284,38 @@ gen_binarithm(struct gen_context *ctx,
 	pushi(ctx->current, &result, binarithm_for_op(expr->binarithm.op),
 			&lvalue, &rvalue, NULL);
 	gen_store(ctx, out, &result);
+}
+
+static void
+gen_call(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	struct qbe_statement call = {
+		.type = Q_INSTR,
+		.instr = Q_CALL,
+		.out = out ? qval_dup(out) : NULL,
+	};
+
+	struct qbe_arguments *arg, **next = &call.args;
+	struct call_argument *carg = expr->call.args;
+	arg = *next = calloc(1, sizeof(struct qbe_arguments));
+	gen_temp(ctx, &arg->value, &qbe_long, "func.%d");
+	gen_expression(ctx, expr->call.lvalue, &arg->value);
+	next = &arg->next;
+
+	while (carg) {
+		assert(!carg->variadic); // TODO
+		arg = *next = calloc(1, sizeof(struct qbe_arguments));
+		gen_temp(ctx, &arg->value,
+			qtype_for_type(ctx, carg->value->result, false),
+			"arg.%d");
+		gen_expression(ctx, carg->value, &arg->value);
+		carg = carg->next;
+		next = &arg->next;
+	}
+
+	push(ctx->current, &call);
 }
 
 static void
@@ -429,7 +482,10 @@ gen_expression(struct gen_context *ctx,
 		gen_binding(ctx, expr, out);
 		break;
 	case EXPR_BREAK:
+		assert(0); // TODO
 	case EXPR_CALL:
+		gen_call(ctx, expr, out);
+		break;
 	case EXPR_CAST:
 		assert(0); // TODO
 	case EXPR_CONSTANT:

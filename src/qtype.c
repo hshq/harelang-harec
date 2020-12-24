@@ -127,7 +127,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
-		assert(0); // Invariant
+		return qtype_for_xtype(Q__AGGREGATE);
 	}
 	assert(0); // Unreachable
 }

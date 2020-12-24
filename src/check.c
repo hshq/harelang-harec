@@ -39,13 +39,14 @@ check_expr_access(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
 {
-	trace(TR_CHECK, "access");
+	char buf[1024];
+	identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
+
+	trace(TR_CHECK, "access %s", buf);
 	expr->type = EXPR_ACCESS;
 
 	const struct scope_object *obj = scope_lookup(
 		ctx->scope, &aexpr->access.ident);
-	char buf[1024];
-	identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
 	expect(obj, "Unknown object %s", buf);
 
 	expr->result = obj->type;
@@ -166,8 +167,8 @@ check_expr_binding(struct context *ctx,
 				initializer->result, abinding->flags);
 		}
 
-		const struct scope_object *obj = scope_insert(
-				ctx->scope, &ident, type);
+		const struct scope_object *obj = scope_insert(ctx->scope,
+				O_BIND, &ident, type);
 		binding->object = obj;
 		binding->initializer = initializer;
 
@@ -203,6 +204,7 @@ check_expr_call(struct context *ctx,
 	struct ast_call_argument *aarg = aexpr->call.args;
 	struct type_func_param *param = fntype->func.params;
 	while (param && aarg) {
+		trenter(TR_CHECK, "arg");
 		assert(!aarg->variadic); // TODO
 		arg = *next = calloc(1, sizeof(struct call_argument));
 		arg->value = calloc(1, sizeof(struct expression));
@@ -215,6 +217,7 @@ check_expr_call(struct context *ctx,
 		aarg = aarg->next;
 		param = param->next;
 		next = &arg->next;
+		trleave(TR_CHECK, NULL);
 	}
 
 	expect(!aarg, "Too many parameters for function call");
@@ -502,7 +505,7 @@ check_function(struct context *ctx,
 		};
 		const struct type *type = type_store_lookup_atype(
 				&ctx->store, params->type);
-		scope_insert(decl->func.scope, &ident, type);
+		scope_insert(decl->func.scope, O_BIND, &ident, type);
 		params = params->next;
 	}
 
@@ -523,7 +526,7 @@ check_function(struct context *ctx,
 				"%s function cannot be exported", flags);
 	}
 
-	scope_insert(ctx->unit, &decl->ident, decl->func.type);
+	scope_insert(ctx->unit, O_DECL, &decl->ident, decl->func.type);
 	scope_pop(&ctx->scope, TR_CHECK);
 	trleave(TR_CHECK, NULL);
 	return decl;
@@ -581,7 +584,7 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	trleave(TR_SCAN, "func %s", buf);
 
 	if (!decl->body) {
-		scope_insert(ctx->unit, &decl->ident, fntype);
+		scope_insert(ctx->unit, O_DECL, &decl->ident, fntype);
 	}
 }
 
@@ -650,6 +653,4 @@ check(const struct ast_unit *aunit, struct unit *unit)
 	}
 
 	assert(unit->declarations);
-	scope_free_all(subunit_scopes);
-	scope_free(ctx.unit);
 }

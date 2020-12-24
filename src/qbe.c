@@ -27,6 +27,11 @@ qbe_double = {
 },
 qbe_void = {
 	.stype = Q__VOID,
+},
+// Used for some types which are unrepresentible in the qbe type system, but
+// still representable as values (e.g. functions)
+qbe_aggregate = {
+	.stype = Q__AGGREGATE,
 };
 
 const struct qbe_type *
@@ -48,7 +53,7 @@ qtype_for_xtype(enum qbe_stype type)
 	case Q__VOID:
 		return &qbe_void;
 	case Q__AGGREGATE:
-		assert(0); // Invariant
+		return &qbe_aggregate;
 	}
 	assert(0); // Unreachable
 }
@@ -59,6 +64,7 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_ALLOC4] = "alloc4",
 	[Q_ALLOC8] = "alloc8",
 	[Q_AND] = "and",
+	[Q_CALL] = "call",
 	[Q_CAST] = "cast",
 	[Q_CEQD] = "ceqd",
 	[Q_CEQL] = "ceql",
@@ -147,7 +153,7 @@ qbe_append_def(struct qbe_program *prog, struct qbe_def *def)
 	prog->defs = def;
 }
 
-static struct qbe_value *
+struct qbe_value *
 qval_dup(const struct qbe_value *val)
 {
 	struct qbe_value *new = calloc(1, sizeof(struct qbe_value));
