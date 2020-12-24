@@ -73,6 +73,8 @@ check_expr_assign(struct context *ctx,
 	if (aexpr->assign.indirect) {
 		expect(object->result->storage == TYPE_STORAGE_POINTER,
 			"Cannot dereference non-pointer type for assignment");
+		expect(!(object->result->pointer.flags & PTR_NULLABLE),
+			"Cannot dereference nullable pointer type");
 		// TODO: Test assignability rules
 		assert(object->result->pointer.referent->storage == value->result->storage);
 	} else {
@@ -350,7 +352,9 @@ check_expr_unarithm(struct context *ctx,
 		break;
 	case UN_DEREF:
 		expect(operand->result->storage == TYPE_STORAGE_POINTER,
-				"Cannot de-reference non-pointer type");
+			"Cannot de-reference non-pointer type");
+		expect(!(operand->result->pointer.flags & PTR_NULLABLE),
+			"Cannot dereference nullable pointer type");
 		expr->result = operand->result->pointer.referent;
 		break;
 	}
