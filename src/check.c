@@ -61,21 +61,26 @@ check_expr_assign(struct context *ctx,
 	expr->type = EXPR_ASSIGN;
 	expr->result = &builtin_type_void;
 	expr->assign.indirect = aexpr->assign.indirect;
-	expr->assign.object = calloc(1, sizeof(struct expression));
-	expr->assign.value = calloc(1, sizeof(struct expression));
+	struct expression *object = calloc(1, sizeof(struct expression));
+	struct expression *value = calloc(1, sizeof(struct expression));
 
-	check_expression(ctx, aexpr->assign.object, expr->assign.object);
-	check_expression(ctx, aexpr->assign.value, expr->assign.value);
+	check_expression(ctx, aexpr->assign.object, object);
+	check_expression(ctx, aexpr->assign.value, value);
+
+	expr->assign.object = object;
+	expr->assign.object = value;
 
 	if (aexpr->assign.indirect) {
-		assert(0); // TODO
+		expect(object->result->storage == TYPE_STORAGE_POINTER,
+			"Cannot dereference non-pointer type for assignment");
+		// TODO: Test assignability rules
+		assert(object->result->pointer.referent->storage == value->result->storage);
 	} else {
-		assert(expr->assign.object->type == EXPR_ACCESS); // Invariant
-		const struct scope_object *object =
-			expr->assign.object->access.object;
-		expect(!(object->type->flags & TYPE_CONST), "Cannot assign to const object");
+		assert(object->type == EXPR_ACCESS); // Invariant
+		const struct scope_object *obj = object->access.object;
+		expect(!(obj->type->flags & TYPE_CONST), "Cannot assign to const object");
 		// TODO: Test assignability rules:
-		assert(object->type->storage == expr->assign.value->result->storage);
+		assert(obj->type->storage == value->result->storage);
 	}
 }
 
