@@ -464,19 +464,26 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	};
 	ctx->end_label = &end_label_v;
 
-	// TODO: Update for void type
 	struct qbe_value rval;
-	alloc_temp(ctx, &rval, fntype->func.result, "ret.%d");
-	ctx->return_value = &rval;
+	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
+		alloc_temp(ctx, &rval, fntype->func.result, "ret.%d");
+		ctx->return_value = &rval;
+	} else {
+		ctx->return_value = NULL;
+	}
 
 	pushl(&qdef->func, &ctx->id, "body.%d");
-	gen_expression(ctx, func->body, &rval);
+	gen_expression(ctx, func->body, ctx->return_value);
 	push(&qdef->func, &end_label);
 
-	struct qbe_value load;
-	gen_loadtemp(ctx, &load, &rval, qdef->func.returns,
-		type_is_signed(fntype->func.result));
-	pushi(&qdef->func, NULL, Q_RET, &load, NULL);
+	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
+		struct qbe_value load;
+		gen_loadtemp(ctx, &load, ctx->return_value, qdef->func.returns,
+			type_is_signed(fntype->func.result));
+		pushi(&qdef->func, NULL, Q_RET, &load, NULL);
+	} else {
+		pushi(&qdef->func, NULL, Q_RET, NULL);
+	}
 
 	// Free bindings
 	struct gen_binding *binding = ctx->bindings;
