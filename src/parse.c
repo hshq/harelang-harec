@@ -864,26 +864,17 @@ parse_scope_expression(struct parser *par)
 	case T_IF:
 	case T_FOR:
 	case T_MATCH:
-	case T_SWITCH:	// complex-expression
-	case T_PLUS:
-	case T_MINUS:
-	case T_BNOT:
-	case T_LNOT:
-	case T_BAND:	// unary-expression, w/o pointer dereference
+	case T_SWITCH:
 		unlex(par->lex, &tok);
 		value = parse_complex_expression(par);
 		if (indirect) {
 			assert(0); // TODO: Wrap value in unary dereference
 		}
 		return value;
-	default:	// postfix-expression
+	default:
 		unlex(par->lex, &tok);
-		if (indirect) {
-			value = parse_unary_expression(par);
-			break;
-		}
-		value = parse_postfix_expression(par);
-		if (value->type != EXPR_ACCESS) {
+		value = parse_unary_expression(par);
+		if (!indirect && value->type != EXPR_ACCESS) {
 			return value;
 		}
 		// Is possible object-selector, try for assignment
