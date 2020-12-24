@@ -170,19 +170,28 @@ gen_assign(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(out == NULL); // Invariant
-	assert(!expr->assign.indirect); // TODO
 
 	const struct expression *object = expr->assign.object;
 	const struct expression *value = expr->assign.value;
-	assert(object->type == EXPR_ACCESS); // Invariant
 
-	// TODO: When this grows to support e.g. indexing expressions, we need
-	// to ensure that the side-effects of the lvalue occur before the
-	// side-effects of the rvalue.
-	const struct scope_object *obj = object->access.object;
-	struct qbe_value src;
-	qval_for_object(ctx, &src, obj);
-	gen_expression(ctx, value, &src);
+	if (expr->assign.indirect) {
+		struct qbe_value dest = {0};
+		gen_temp(ctx, &dest, &qbe_long, "indirect.%d"); // XXX: ARCH
+		gen_expression(ctx, object, &dest);
+		// TODO: We might want a helper to dereference a qval
+		dest.indirect = true;
+		dest.type = qtype_for_type(ctx, value->result, false);
+		gen_expression(ctx, value, &dest);
+	} else {
+		assert(object->type == EXPR_ACCESS); // Invariant
+		// TODO: When this grows to support e.g. indexing expressions,
+		// we need to ensure that the side-effects of the lvalue occur
+		// before the side-effects of the rvalue.
+		const struct scope_object *obj = object->access.object;
+		struct qbe_value src;
+		qval_for_object(ctx, &src, obj);
+		gen_expression(ctx, value, &src);
+	}
 }
 
 static void

@@ -68,7 +68,7 @@ check_expr_assign(struct context *ctx,
 	check_expression(ctx, aexpr->assign.value, value);
 
 	expr->assign.object = object;
-	expr->assign.object = value;
+	expr->assign.value = value;
 
 	if (aexpr->assign.indirect) {
 		expect(object->result->storage == TYPE_STORAGE_POINTER,
