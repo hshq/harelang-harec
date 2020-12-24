@@ -1,7 +1,5 @@
 highest priorities, unordered except where there are obvious dependencies:
 
-- simple unary arithmetic
-- pointers
 - aggregate types
 	- in parameters
 	- in variables
