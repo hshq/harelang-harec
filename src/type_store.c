@@ -233,6 +233,8 @@ type_eq_atype(struct type_store *store,
 		}
 		return true;
 	case TYPE_STORAGE_POINTER:
+		return type->pointer.flags == atype->pointer.flags &&
+			type_eq_atype(store, type->pointer.referent, atype->pointer.referent);
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
@@ -297,6 +299,10 @@ type_init_from_atype(struct type_store *store,
 		}
 		break;
 	case TYPE_STORAGE_POINTER:
+		type->pointer.flags = atype->pointer.flags;
+		type->pointer.referent = type_store_lookup_atype(
+			store, atype->pointer.referent);
+		break;
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
