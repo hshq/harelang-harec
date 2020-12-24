@@ -52,6 +52,7 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 {
 	gen_temp(ctx, val, &qbe_long, fmt); // XXX: Architecture dependent
 	val->indirect = true;
+	val->type = qtype_for_type(ctx, type, false);
 
 	struct qbe_value size;
 	constl(&size, type->size);

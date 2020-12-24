@@ -77,7 +77,11 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 			emit_value(stmt->out, out);
 			fprintf(out, " =");
 			assert(stmt->out->type->stype != Q__AGGREGATE); // TODO
-			emit_qtype(stmt->out->type, out);
+			if (stmt->out->indirect) {
+				emit_qtype(&qbe_long, out); // XXX: ARCH
+			} else {
+				emit_qtype(stmt->out->type, out);
+			}
 			fprintf(out, " ");
 		}
 		fprintf(out, "%s%s", qbe_instr[stmt->instr],
