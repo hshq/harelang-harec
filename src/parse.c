@@ -614,7 +614,7 @@ parse_postfix_expression(struct parser *par)
 		return parse_measurement_expression(par);
 	case T_LPAREN:
 		lvalue = parse_complex_expression(par);
-		want(par, T_LPAREN, &tok);
+		want(par, T_RPAREN, &tok);
 		break;
 	default:
 		unlex(par->lex, &tok);
