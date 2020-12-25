@@ -52,7 +52,7 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 {
 	gen_temp(ctx, val, &qbe_long, fmt); // XXX: Architecture dependent
 	val->indirect = true;
-	val->type = qtype_for_type(ctx, type, false);
+	val->type = qtype_for_type(ctx, type, true);
 
 	struct qbe_value size;
 	constl(&size, type->size);
@@ -140,7 +140,7 @@ gen_store(struct gen_context *ctx,
 		return;
 	}
 
-	const struct qbe_type *qtype = src->type;
+	const struct qbe_type *qtype = dest->type;
 	assert(qtype->stype != Q__VOID); // Invariant
 
 	if (dest->indirect) {
@@ -158,12 +158,12 @@ gen_load(struct gen_context *ctx,
 	const struct qbe_value *src,
 	bool is_signed)
 {
-	const struct qbe_type *qtype = dest->type;
+	const struct qbe_type *qtype = src->type;
 	assert(qtype->stype != Q__VOID); // Invariant
 
 	if (src->indirect) {
-		pushi(ctx->current, dest,
-			load_for_type(qtype->stype, is_signed), src, NULL);
+		pushi(ctx->current, dest, load_for_type(
+			qtype->stype, is_signed), src, NULL);
 	} else {
 		pushi(ctx->current, dest, Q_COPY, src, NULL);
 	}
@@ -172,8 +172,8 @@ gen_load(struct gen_context *ctx,
 // Same as gen_load but dest is initialized to a new temporary
 static void
 gen_loadtemp(struct gen_context *ctx,
-		struct qbe_value *dest, const struct qbe_value *src,
-		const struct qbe_type *type, bool is_signed)
+	struct qbe_value *dest, const struct qbe_value *src,
+	const struct qbe_type *type, bool is_signed)
 {
 	gen_temp(ctx, dest, type, "load.%d");
 	gen_load(ctx, dest, src, is_signed);
@@ -251,7 +251,7 @@ gen_binding(struct gen_context *ctx,
 		const struct type *type = binding->object->type;
 		assert(!type_is_aggregate(type)); // TODO
 
-		struct qbe_value temp;
+		struct qbe_value temp = {0};
 		binding_alloc(ctx, binding->object, &temp, "binding.%d");
 		gen_expression(ctx, binding->initializer, &temp);
 
@@ -552,7 +552,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	qdef->exported = decl->exported;
 	qdef->name = func->symbol ? strdup(func->symbol)
 		: ident_to_sym(&decl->ident);
-	qdef->func.returns = qtype_for_type(ctx, fntype->func.result, true);
+	qdef->func.returns = qtype_for_type(ctx, fntype->func.result, false);
 	ctx->current = &qdef->func;
 
 	pushl(&qdef->func, &ctx->id, "start.%d");
@@ -603,8 +603,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	push(&qdef->func, &end_label);
 
 	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
-		struct qbe_value load;
-		gen_loadtemp(ctx, &load, ctx->return_value, qdef->func.returns,
+		struct qbe_value load = {0};
+		gen_loadtemp(ctx, &load, ctx->return_value,
+			qdef->func.returns,
 			type_is_signed(fntype->func.result));
 		pushi(&qdef->func, NULL, Q_RET, &load, NULL);
 	} else {

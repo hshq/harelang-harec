@@ -1,13 +1,10 @@
 highest priorities, unordered except where there are obvious dependencies:
 
-- double check integers <32 bits in gen
-- named constants (true, false, null, void)
 - aggregate types
 	- in parameters
 	- in variables
 	- in return values
 - field access, indexing
-- function calls
 - static let
 
 This subset of features should allow us to address most of the problems with gen
