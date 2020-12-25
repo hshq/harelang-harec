@@ -133,10 +133,10 @@ check_expr_binarithm(struct context *ctx,
 	case BIN_LOR:
 	case BIN_LXOR:
 	case BIN_NEQUAL:
-		expect(lvalue->result == &builtin_type_bool
-				&& rvalue->result == &builtin_type_bool,
-			"Logical expressions must have boolean operands");
-		assert(0); // TODO
+		// TODO: Promotion, comparibility rules
+		assert(lvalue->result->storage == rvalue->result->storage);
+		expr->result = &builtin_type_bool;
+		break;
 	}
 }
 

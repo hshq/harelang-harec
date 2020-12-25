@@ -271,8 +271,6 @@ gen_binarithm(struct gen_context *ctx,
 	const struct qbe_type *etype = qtype_for_type(ctx, expr->result, false);
 	assert(etype == ltype && ltype == rtype); // TODO: Type promotion
 
-	assert(expr->result != &builtin_type_bool); // TODO: Logical arithmetic
-
 	struct qbe_value lvalue = {0}, rvalue = {0}, result = {0};
 	gen_temp(ctx, &lvalue, ltype, "lvalue.%d");
 	gen_temp(ctx, &rvalue, rtype, "rvalue.%d");
@@ -281,8 +279,10 @@ gen_binarithm(struct gen_context *ctx,
 	gen_expression(ctx, expr->binarithm.lvalue, &lvalue);
 	gen_expression(ctx, expr->binarithm.rvalue, &rvalue);
 
-	pushi(ctx->current, &result, binarithm_for_op(expr->binarithm.op),
-			&lvalue, &rvalue, NULL);
+	pushi(ctx->current, &result,
+		binarithm_for_op(expr->binarithm.op, ltype,
+			type_is_signed(expr->binarithm.lvalue->result)),
+		&lvalue, &rvalue, NULL);
 	gen_store(ctx, out, &result);
 }
 

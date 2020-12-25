@@ -766,6 +766,8 @@ binop_for_token(enum lexical_token tok)
 		return BIN_LOR;
 	case T_LAND:
 		return BIN_LAND;
+	case T_LXOR:
+		return BIN_LXOR;
 	case T_BOR:
 		return BIN_BOR;
 	case T_BXOR:
