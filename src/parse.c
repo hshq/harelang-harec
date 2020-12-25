@@ -462,6 +462,36 @@ parse_struct_union_type(struct parser *par)
 }
 
 static struct ast_type *
+parse_tagged_union_type(struct parser *par)
+{
+	trenter(TR_PARSE, "tagged union");
+	struct ast_type *type = xcalloc(sizeof(struct ast_type), 1);
+	type->storage = TYPE_STORAGE_TAGGED_UNION;
+	struct ast_tagged_union_type *next = &type->tagged_union;
+	next->type = parse_type(par);
+	struct token tok = {0};
+	want(par, T_BOR, &tok);
+	while (tok.token != T_RPAREN) {
+		next->next = xcalloc(sizeof(struct ast_tagged_union_type), 1);
+		next = next->next;
+		next->type = parse_type(par);
+		switch (lex(par->lex, &tok)) {
+		case T_BOR:
+			if (lex(par->lex, &tok) != T_RPAREN) {
+				unlex(par->lex, &tok);
+			}
+			break;
+		case T_RPAREN:
+			break;
+		default:
+			synassert(false, &tok, T_BOR, T_RPAREN, T_EOF);
+		}
+	}
+	trleave(TR_PARSE, NULL);
+	return type;
+}
+
+static struct ast_type *
 parse_type(struct parser *par)
 {
 	trenter(TR_PARSE, "type");
@@ -523,7 +553,8 @@ parse_type(struct parser *par)
 		type = parse_struct_union_type(par);
 		break;
 	case T_LPAREN:
-		assert(0); // TODO: Tagged unions
+		type = parse_tagged_union_type(par);
+		break;
 	case T_LBRACKET:
 		assert(0); // TODO: Slices/arrays
 	case T_ATTR_NORETURN:
