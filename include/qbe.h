@@ -217,5 +217,6 @@ void constw(struct qbe_value *val, uint32_t l);
 void constl(struct qbe_value *val, uint64_t l);
 void consts(struct qbe_value *val, float l);
 void constd(struct qbe_value *val, double l);
+void const_void(struct qbe_value *val);
 
 #endif

@@ -94,11 +94,11 @@ struct expression_call {
 };
 
 union expression_constant {
-	bool bval;
 	struct {
 		char *sval;
 		size_t ssz;
 	};
+	bool bval;
 	double fval;
 	intmax_t ival;
 	uintmax_t uval;

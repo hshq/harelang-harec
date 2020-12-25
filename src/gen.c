@@ -328,8 +328,28 @@ gen_constant(struct gen_context *ctx,
 		return;
 	}
 
-	const struct qbe_type *qtype = qtype_for_type(ctx, expr->result, false);
 	struct qbe_value val = {0};
+
+	// Special cases
+	switch (expr->result->storage) {
+	case TYPE_STORAGE_BOOL:
+		constw(&val, expr->constant.bval ? 1 : 0);
+		gen_store(ctx, out, &val);
+		return;
+	case TYPE_STORAGE_VOID:
+		const_void(&val);
+		gen_store(ctx, out, &val);
+		return;
+	case TYPE_STORAGE_NULL:
+		constl(&val, 0);
+		gen_store(ctx, out, &val);
+		return;
+	default:
+		// Moving right along
+		break;
+	}
+
+	const struct qbe_type *qtype = qtype_for_type(ctx, expr->result, false);
 	switch (qtype->stype) {
 	case Q_BYTE:
 	case Q_HALF:

@@ -264,11 +264,15 @@ check_expr_constant(struct context *ctx,
 		expr->constant.rune = aexpr->constant.rune;
 		break;
 	case TYPE_STORAGE_BOOL:
+		expr->constant.bval = aexpr->constant.bval;
+		break;
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_VOID:
+		// No storage
+		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_VOID:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_ENUM:

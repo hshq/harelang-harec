@@ -294,3 +294,10 @@ constd(struct qbe_value *val, double d)
 	val->type = &qbe_double;
 	val->dval = d;
 }
+
+void
+const_void(struct qbe_value *val)
+{
+	val->kind = QV_CONST;
+	val->type = &qbe_void;
+}

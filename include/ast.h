@@ -125,6 +125,7 @@ struct ast_expression_constant {
 		intmax_t ival;
 		uintmax_t uval;
 		uint32_t rune;
+		bool bval;
 		struct {
 			size_t len;
 			char *value;

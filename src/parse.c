@@ -429,12 +429,33 @@ parse_constant(struct parser *par)
 {
 	trenter(TR_PARSE, "constant");
 
-	struct token tok = {0};
-	want(par, T_LITERAL, &tok);
-
 	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_CONSTANT;
-	exp->constant.storage = tok.storage;
+
+	struct token tok = {0};
+	switch (lex(par->lex, &tok)) {
+	case T_TRUE:
+		exp->constant.storage = TYPE_STORAGE_BOOL;
+		exp->constant.bval = true;
+		return exp;
+	case T_FALSE:
+		exp->constant.storage = TYPE_STORAGE_BOOL;
+		exp->constant.bval = false;
+		return exp;
+	case T_NULL:
+		exp->constant.storage = TYPE_STORAGE_NULL;
+		return exp;
+	case T_VOID:
+		exp->constant.storage = TYPE_STORAGE_VOID;
+		return exp;
+	case T_LITERAL:
+		exp->constant.storage = tok.storage;
+		break;
+	default:
+		synassert(false, &tok, T_LITERAL, T_TRUE,
+			T_FALSE, T_NULL, T_VOID, T_EOF);
+		break;
+	}
 
 	switch (tok.storage) {
 	case TYPE_STORAGE_CHAR:
@@ -464,6 +485,7 @@ parse_constant(struct parser *par)
 	default:
 		assert(0); // TODO
 	}
+
 	trleave(TR_PARSE, "%s", token_str(&tok));
 	return exp;
 }
@@ -476,6 +498,10 @@ parse_plain_expression(struct parser *par)
 	struct token tok;
 	switch (lex(par->lex, &tok)) {
 	case T_LITERAL:
+	case T_TRUE:
+	case T_FALSE:
+	case T_NULL:
+	case T_VOID:
 		unlex(par->lex, &tok);
 		return parse_constant(par);
 	case T_NAME:
