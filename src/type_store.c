@@ -342,6 +342,8 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
+		type->size = SIZE_UNDEFINED;
+		type->align = SIZE_UNDEFINED;
 		type->func.result =
 			type_store_lookup_atype(store, atype->func.result);
 		type->func.variadism = atype->func.variadism;
@@ -355,6 +357,8 @@ type_init_from_atype(struct type_store *store,
 		}
 		break;
 	case TYPE_STORAGE_POINTER:
+		type->size = 8; // XXX: ARCH
+		type->align = 8;
 		type->pointer.flags = atype->pointer.flags;
 		type->pointer.referent = type_store_lookup_atype(
 			store, atype->pointer.referent);
@@ -404,6 +408,8 @@ type_init_from_type(struct type_store *store,
 	case TYPE_STORAGE_FUNCTION:
 		assert(0); // TODO
 	case TYPE_STORAGE_POINTER:
+		new->size = 8; // XXX: ARCH
+		new->align = 8;
 		new->pointer.flags = old->pointer.flags;
 		new->pointer.referent = type_store_lookup_type(
 			store, old->pointer.referent);

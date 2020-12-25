@@ -37,8 +37,6 @@ enum type_storage {
 	TYPE_STORAGE_UNION,
 };
 
-#define SIZE_UNDEFINED ((size_t)-1)
-
 struct type;
 
 enum variadism {
@@ -75,6 +73,9 @@ struct type_pointer {
 enum type_flags {
 	TYPE_CONST = 1 << 0,
 };
+
+#define SIZE_UNDEFINED ((size_t)-1)
+#define ALIGN_UNDEFINED ((size_t)-1)
 
 struct type {
 	enum type_storage storage;

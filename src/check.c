@@ -168,6 +168,8 @@ check_expr_binding(struct context *ctx,
 			type = type_store_lookup_with_flags(&ctx->store,
 				initializer->result, abinding->flags);
 		}
+		expect(type->size != 0 && type->size != SIZE_UNDEFINED,
+			"Cannot create binding for type of zero or undefined size");
 
 		// TODO: Check assignability of initializer
 
