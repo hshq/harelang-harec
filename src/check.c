@@ -162,11 +162,14 @@ check_expr_binding(struct context *ctx,
 		if (abinding->type) {
 			type = type_store_lookup_atype(
 				&ctx->store, abinding->type);
-			// TODO: Check assignability of initializer
+			type = type_store_lookup_with_flags(&ctx->store,
+				type, type->flags | abinding->flags);
 		} else {
 			type = type_store_lookup_with_flags(&ctx->store,
 				initializer->result, abinding->flags);
 		}
+
+		// TODO: Check assignability of initializer
 
 		const struct scope_object *obj = scope_insert(ctx->scope,
 				O_BIND, &ident, type);

@@ -472,11 +472,11 @@ const struct type *
 type_store_lookup_with_flags(struct type_store *store,
 	const struct type *type, unsigned int flags)
 {
-	if ((type->flags & ~flags) == flags) {
+	if (type->flags == flags) {
 		return type;
 	}
 	struct type new = *type;
-	new.flags |= flags;
+	new.flags = flags;
 	return type_store_lookup_type(store, &new);
 }
 
