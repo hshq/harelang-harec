@@ -62,10 +62,23 @@ struct ast_tagged_union_type {
 	struct ast_tagged_union_type *next;
 };
 
+enum struct_union_member_type {
+	MEMBER_TYPE_FIELD,
+	MEMBER_TYPE_EMBEDDED,
+	MEMBER_TYPE_ALIAS,
+};
+
 struct ast_struct_union_type {
-	const char *name;
-	struct ast_type *type;
+	enum struct_union_member_type member_type;
 	struct ast_struct_union_type *next;
+	union {
+		struct {
+			char *name;
+			struct ast_type *type;
+		} field;
+		struct ast_type *embedded;
+		struct identifier alias;
+	};
 };
 
 struct ast_type {

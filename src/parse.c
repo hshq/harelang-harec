@@ -367,6 +367,90 @@ parse_enum_type(struct parser *par)
 			if (lex(par->lex, &tok) != T_RBRACE) {
 				unlex(par->lex, &tok);
 			}
+			break;
+		case T_RBRACE:
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+		}
+	}
+	trleave(TR_PARSE, NULL);
+	return type;
+}
+
+static struct ast_type *
+parse_struct_union_type(struct parser *par)
+{
+	struct token tok = {0};
+	struct ast_type *type = xcalloc(sizeof(struct ast_type), 1);
+	struct ast_struct_union_type *next;
+	switch (lex(par->lex, &tok)) {
+	case T_STRUCT:
+		trenter(TR_PARSE, "struct");
+		type->storage = TYPE_STORAGE_STRUCT;
+		next = &type->_struct;
+		break;
+	case T_UNION:
+		trenter(TR_PARSE, "union");
+		type->storage = TYPE_STORAGE_UNION;
+		next = &type->_union;
+		break;
+	default:
+		synassert(false, &tok, T_STRUCT, T_UNION, T_EOF);
+		break;
+	}
+	want(par, T_LBRACE, NULL);
+	while (tok.token != T_RBRACE) {
+		char *name;
+		switch (lex(par->lex, &tok)) {
+		case T_NAME:
+			name = tok.name;
+			struct identifier *i;
+			switch (lex(par->lex, &tok)) {
+			case T_COLON:
+				next->member_type = MEMBER_TYPE_FIELD;
+				next->field.name = name;
+				next->field.type = parse_type(par);
+				trace(TR_PARSE, "%s: [type]", name);
+				break;
+			case T_DOUBLE_COLON:
+				next->member_type = MEMBER_TYPE_ALIAS;
+				i = &next->alias;
+				parse_identifier(par, i);
+				while (i->ns != NULL) {
+					i = i->ns;
+				}
+				i->ns = xcalloc(sizeof(struct identifier), 1);
+				i->ns->name = name;
+				trace(TR_PARSE, "[embedded alias %s]",
+					identifier_unparse(&next->alias));
+				break;
+			default:
+				unlex(par->lex, &tok);
+				next->member_type = MEMBER_TYPE_ALIAS;
+				next->alias.name = name;
+				trace(TR_PARSE, "[embedded alias %s]", name);
+				break;
+			}
+			break;
+		case T_STRUCT:
+		case T_UNION:
+			unlex(par->lex, &tok);
+			next->embedded = parse_struct_union_type(par);
+			trace(TR_PARSE, "[embedded struct/union]");
+			break;
+		default:
+			synassert(false, &tok, T_NAME, T_STRUCT, T_UNION, T_EOF);
+		}
+		switch (lex(par->lex, &tok)) {
+		case T_COMMA:
+			if (lex(par->lex, &tok) != T_RBRACE) {
+				unlex(par->lex, &tok);
+				next->next = xcalloc(1,
+					sizeof(struct ast_struct_union_type));
+				next = next->next;
+			}
+			break;
 		case T_RBRACE:
 			break;
 		default:
@@ -435,7 +519,9 @@ parse_type(struct parser *par)
 		break;
 	case T_STRUCT:
 	case T_UNION:
-		assert(0); // TODO: Structs/unions
+		unlex(par->lex, &tok);
+		type = parse_struct_union_type(par);
+		break;
 	case T_LPAREN:
 		assert(0); // TODO: Tagged unions
 	case T_LBRACKET:
