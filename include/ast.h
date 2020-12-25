@@ -175,14 +175,14 @@ struct ast_expression {
 struct ast_global_decl {
 	char *symbol;
 	struct identifier ident;
-	struct ast_type type;
+	struct ast_type *type;
 	struct ast_expression *init;
 	struct ast_global_decl *next;
 };
 
 struct ast_type_decl {
 	struct identifier ident;
-	struct ast_type type;
+	struct ast_type *type;
 	struct ast_type_decl *next;
 };
 

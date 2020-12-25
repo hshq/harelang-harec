@@ -154,7 +154,7 @@ parse_imports(struct parser *par, struct ast_subunit *subunit)
 	trleave(TR_PARSE, NULL);
 }
 
-static void parse_type(struct parser *par, struct ast_type *type);
+static struct ast_type *parse_type(struct parser *par);
 
 static void
 parse_parameter_list(struct parser *par, struct ast_function_type *type)
@@ -162,15 +162,15 @@ parse_parameter_list(struct parser *par, struct ast_function_type *type)
 	trenter(TR_PARSE, "parameter-list");
 	struct token tok = {0};
 	bool more = true;
-	struct ast_function_parameters **next = &type->params;
+	type->params = xcalloc(sizeof(struct ast_function_parameters), 1);
+	struct ast_function_parameters *next = type->params;
 	while (more) {
-		*next = xcalloc(1, sizeof(struct ast_function_parameters));
-		(*next)->type = xcalloc(1, sizeof(struct ast_type));
 		want(par, T_NAME, &tok);
-		(*next)->name = tok.name;
+		next->name = strdup(tok.name);
+		token_finish(&tok);
 		want(par, T_COLON, NULL);
-		parse_type(par, (*next)->type);
-		trace(TR_PARSE, "%s: [type]", (*next)->name);
+		next->type = parse_type(par);
+		trace(TR_PARSE, "%s: [type]", next->name);
 		switch (lex(par->lex, &tok)) {
 		case T_COMMA:
 			switch (lex(par->lex, &tok)) {
@@ -184,7 +184,9 @@ parse_parameter_list(struct parser *par, struct ast_function_type *type)
 				break;
 			default:
 				unlex(par->lex, &tok);
-				next = &(*next)->next;
+				next->next =
+					xcalloc(sizeof(struct ast_function_parameters), 1);
+				next = next->next;
 				break;
 			}
 			break;
@@ -216,8 +218,7 @@ parse_prototype(struct parser *par, struct ast_function_type *type)
 		parse_parameter_list(par, type);
 		want(par, T_RPAREN, NULL);
 	}
-	type->result = xcalloc(1, sizeof(struct ast_type));
-	parse_type(par, type->result);
+	type->result = parse_type(par);
 	size_t ctr = 0;
 	for (struct ast_function_parameters *param = type->params;
 			param; param = param->next) {
@@ -227,75 +228,128 @@ parse_prototype(struct parser *par, struct ast_function_type *type)
 	trleave(TR_PARSE, NULL);
 }
 
-static void
-parse_integer_type(struct parser *par, enum type_storage *storage) {
+static enum type_storage
+parse_integer_type(struct parser *par)
+{
 	trenter(TR_PARSE, "integer");
+	enum type_storage storage;
 	struct token tok = {0};
 	switch (lex(par->lex, &tok)) {
 	case T_I8:
-		*storage = TYPE_STORAGE_I8;
+		storage = TYPE_STORAGE_I8;
 		break;
 	case T_I16:
-		*storage = TYPE_STORAGE_I16;
+		storage = TYPE_STORAGE_I16;
 		break;
 	case T_I32:
-		*storage = TYPE_STORAGE_I32;
+		storage = TYPE_STORAGE_I32;
 		break;
 	case T_I64:
-		*storage = TYPE_STORAGE_I64;
+		storage = TYPE_STORAGE_I64;
 		break;
 	case T_U8:
-		*storage = TYPE_STORAGE_U8;
+		storage = TYPE_STORAGE_U8;
 		break;
 	case T_U16:
-		*storage = TYPE_STORAGE_U16;
+		storage = TYPE_STORAGE_U16;
 		break;
 	case T_U32:
-		*storage = TYPE_STORAGE_U32;
+		storage = TYPE_STORAGE_U32;
 		break;
 	case T_U64:
-		*storage = TYPE_STORAGE_U64;
+		storage = TYPE_STORAGE_U64;
 		break;
 	case T_INT:
-		*storage = TYPE_STORAGE_INT;
+		storage = TYPE_STORAGE_INT;
 		break;
 	case T_UINT:
-		*storage = TYPE_STORAGE_UINT;
+		storage = TYPE_STORAGE_UINT;
 		break;
 	case T_SIZE:
-		*storage = TYPE_STORAGE_SIZE;
+		storage = TYPE_STORAGE_SIZE;
 		break;
 	case T_UINTPTR:
-		*storage = TYPE_STORAGE_UINTPTR;
+		storage = TYPE_STORAGE_UINTPTR;
 		break;
 	case T_CHAR:
-		*storage = TYPE_STORAGE_CHAR;
+		storage = TYPE_STORAGE_CHAR;
 		break;
 	default:
 		assert(0);
 	}
-	trleave(TR_PARSE, "%s", type_storage_unparse(*storage));
+	trleave(TR_PARSE, "%s", type_storage_unparse(storage));
+	return storage;
+}
+
+static struct ast_type *
+parse_primitive_type(struct parser *par)
+{
+	trenter(TR_PARSE, "primitive");
+	struct token tok = {0};
+	struct ast_type *type = xcalloc(sizeof(struct ast_type), 1);
+	switch (lex(par->lex, &tok)) {
+	case T_I8:
+	case T_I16:
+	case T_I32:
+	case T_I64:
+	case T_U8:
+	case T_U16:
+	case T_U32:
+	case T_U64:
+	case T_INT:
+	case T_UINT:
+	case T_SIZE:
+	case T_UINTPTR:
+	case T_CHAR:
+		unlex(par->lex, &tok);
+		type->storage = parse_integer_type(par);
+		break;
+	case T_RUNE:
+		type->storage = TYPE_STORAGE_RUNE;
+		break;
+	case T_STR:
+		type->storage = TYPE_STORAGE_STRING;
+		break;
+	case T_F32:
+		type->storage = TYPE_STORAGE_F32;
+		break;
+	case T_F64:
+		type->storage = TYPE_STORAGE_F64;
+		break;
+	case T_BOOL:
+		type->storage = TYPE_STORAGE_BOOL;
+		break;
+	case T_VOID:
+		type->storage = TYPE_STORAGE_VOID;
+		break;
+	default:
+		assert(0);
+	}
+	trleave(TR_PARSE, "%s", type_storage_unparse(type->storage));
+	return type;
 }
 
 static struct ast_expression *parse_simple_expression(struct parser *par);
 
-static void
-parse_enum_type(struct parser *par, struct ast_enum_type *type)
+static struct ast_type *
+parse_enum_type(struct parser *par)
 {
 	trenter(TR_PARSE, "enum");
 	struct token tok = {0};
+	struct ast_type *type = xcalloc(sizeof(struct ast_type), 1);
+	type->storage = TYPE_STORAGE_ENUM;
+	struct ast_enum_field **next = &type->_enum.values;
 	switch (lex(par->lex, &tok)) {
 	case T_LBRACE:
-		type->storage = TYPE_STORAGE_INT;
+		type->_enum.storage = TYPE_STORAGE_INT;
 		unlex(par->lex, &tok);
 		break;
 	default:
 		unlex(par->lex, &tok);
-		parse_integer_type(par, &type->storage);
+		type->_enum.storage = parse_integer_type(par);
 		break;
 	}
 	want(par, T_LBRACE, NULL);
-	struct ast_enum_field **next = &type->values;
 	while (tok.token != T_RBRACE) {
 		*next = xcalloc(1, sizeof(struct ast_enum_field));
 		want(par, T_NAME, &tok);
@@ -320,21 +374,26 @@ parse_enum_type(struct parser *par, struct ast_enum_type *type)
 		}
 	}
 	trleave(TR_PARSE, NULL);
+	return type;
 }
 
-static void
-parse_type(struct parser *par, struct ast_type *type)
+static struct ast_type *
+parse_type(struct parser *par)
 {
 	trenter(TR_PARSE, "type");
 	struct token tok = {0};
+	uint32_t flags = 0;
 	switch (lex(par->lex, &tok)) {
 	case T_CONST:
-		type->flags |= TYPE_CONST;
+		flags |= TYPE_CONST;
 		break;
 	default:
 		unlex(par->lex, &tok);
 		break;
 	}
+	struct ast_type *type = NULL;
+	bool noreturn = false;
+	bool nullable = false;
 	switch (lex(par->lex, &tok)) {
 	case T_I8:
 	case T_I16:
@@ -349,40 +408,30 @@ parse_type(struct parser *par, struct ast_type *type)
 	case T_SIZE:
 	case T_UINTPTR:
 	case T_CHAR:
-		unlex(par->lex, &tok);
-		parse_integer_type(par, &type->storage);
-		break;
 	case T_RUNE:
-		type->storage = TYPE_STORAGE_RUNE;
-		break;
 	case T_STR:
-		type->storage = TYPE_STORAGE_STRING;
-		break;
 	case T_F32:
-		type->storage = TYPE_STORAGE_F32;
-		break;
 	case T_F64:
-		type->storage = TYPE_STORAGE_F64;
-		break;
 	case T_BOOL:
-		type->storage = TYPE_STORAGE_BOOL;
-		break;
 	case T_VOID:
-		type->storage = TYPE_STORAGE_VOID;
+		unlex(par->lex, &tok);
+		type = parse_primitive_type(par);
 		break;
 	case T_ENUM:
-		type->storage = TYPE_STORAGE_ENUM;
-		parse_enum_type(par, &type->_enum);
+		type = parse_enum_type(par);
 		break;
 	case T_NULLABLE:
-		type->pointer.flags |= PTR_NULLABLE;
+		nullable = true;
 		want(par, T_TIMES, NULL);
 		trace(TR_PARSE, "nullable");
 		/* fallthrough */
 	case T_TIMES:
+		type = xcalloc(sizeof(struct ast_type), 1);
 		type->storage = TYPE_STORAGE_POINTER;
-		type->pointer.referent = xcalloc(1, sizeof(struct ast_type));
-		parse_type(par, type->pointer.referent);
+		type->pointer.referent = parse_type(par);
+		if (nullable) {
+			type->pointer.flags |= PTR_NULLABLE;
+		}
 		break;
 	case T_STRUCT:
 	case T_UNION:
@@ -392,15 +441,19 @@ parse_type(struct parser *par, struct ast_type *type)
 	case T_LBRACKET:
 		assert(0); // TODO: Slices/arrays
 	case T_ATTR_NORETURN:
-		type->func.flags |= FN_NORETURN;
+		noreturn = true;
 		want(par, T_FN, NULL);
-		/* fallthrough */
+		// fallthrough
 	case T_FN:
 		type->storage = TYPE_STORAGE_FUNCTION;
 		parse_prototype(par, &type->func);
+		if (noreturn) {
+			type->func.flags |= FN_NORETURN;
+		}
 		break;
 	case T_NAME:
 		unlex(par->lex, &tok);
+		type = xcalloc(sizeof(struct ast_type), 1);
 		type->storage = TYPE_STORAGE_ALIAS;
 		parse_identifier(par, &type->alias);
 		break;
@@ -408,8 +461,10 @@ parse_type(struct parser *par, struct ast_type *type)
 		synassert_msg(false, "expected type", &tok);
 		break;
 	}
+	type->flags |= flags;
 	trleave(TR_PARSE, "%s%s", type->flags & TYPE_CONST ? "const " : "",
 		type_storage_unparse(type->storage));
+	return type;
 }
 
 static struct ast_expression *parse_complex_expression(struct parser *par);
@@ -535,8 +590,7 @@ parse_measurement_expression(struct parser *par)
 	switch (tok.token) {
 	case T_SIZE:
 		exp->measure.op = M_SIZE;
-		exp->measure.type = xcalloc(1, sizeof(struct ast_type));
-		parse_type(par, exp->measure.type);
+		exp->measure.type = parse_type(par);
 		break;
 	case T_LEN:
 		exp->measure.op = M_LEN;
@@ -899,8 +953,7 @@ parse_binding_list(struct parser *par)
 
 		switch (lex(par->lex, &tok)) {
 		case T_COLON:
-			binding->type = xcalloc(1, sizeof(struct ast_type));
-			parse_type(par, binding->type);
+			binding->type = parse_type(par);
 			binding->type->flags |= flags;
 			want(par, T_EQUAL, &tok);
 			binding->initializer = parse_complex_expression(par);
@@ -1140,9 +1193,9 @@ parse_global_decl(struct parser *par, enum lexical_token mode,
 		}
 		parse_identifier(par, &i->ident);
 		want(par, T_COLON, NULL);
-		parse_type(par, &i->type);
+		i->type = parse_type(par);
 		if (mode == T_CONST) {
-			i->type.flags |= TYPE_CONST;
+			i->type->flags |= TYPE_CONST;
 		}
 		want(par, T_EQUAL, NULL);
 		i->init = parse_simple_expression(par);
@@ -1187,7 +1240,7 @@ parse_type_decl(struct parser *par, struct ast_type_decl *decl)
 	while (more) {
 		parse_identifier(par, &i->ident);
 		want(par, T_EQUAL, NULL);
-		parse_type(par, &i->type);
+		i->type = parse_type(par);
 		switch (lex(par->lex, &tok)) {
 		case T_COMMA:
 			lex(par->lex, &tok);
@@ -1220,6 +1273,7 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 	trenter(TR_PARSE, "fn");
 	struct token tok = {0};
 	bool more = true;
+	bool noreturn = false;
 	while (more) {
 		switch (lex(par->lex, &tok)) {
 		case T_ATTR_FINI:
@@ -1235,7 +1289,7 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 			decl->flags |= FN_TEST;
 			break;
 		case T_ATTR_NORETURN:
-			decl->prototype.flags |= FN_NORETURN;
+			noreturn = true;
 			break;
 		default:
 			more = false;
@@ -1246,6 +1300,9 @@ parse_fn_decl(struct parser *par, struct ast_function_decl *decl)
 	want(par, T_FN, NULL);
 	parse_identifier(par, &decl->ident);
 	parse_prototype(par, &decl->prototype);
+	if (noreturn) {
+		decl->prototype.flags |= FN_NORETURN;
+	}
 
 	switch (lex(par->lex, &tok)) {
 	case T_EQUAL:
