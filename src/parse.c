@@ -556,7 +556,21 @@ parse_type(struct parser *par)
 		type = parse_tagged_union_type(par);
 		break;
 	case T_LBRACKET:
-		assert(0); // TODO: Slices/arrays
+		type = xcalloc(sizeof(struct ast_type), 1);
+		switch (lex(par->lex, &tok)) {
+		case T_RBRACKET:
+			type->storage = TYPE_STORAGE_SLICE;
+			type->slice.members = parse_type(par);
+			break;
+		default:
+			type->storage = TYPE_STORAGE_ARRAY;
+			unlex(par->lex, &tok);
+			type->array.length = parse_simple_expression(par);
+			want(par, T_RBRACKET, NULL);
+			type->array.members = parse_type(par);
+			break;
+		}
+		break;
 	case T_ATTR_NORETURN:
 		noreturn = true;
 		want(par, T_FN, NULL);
