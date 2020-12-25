@@ -209,18 +209,18 @@ genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt)
 }
 
 void
-push(struct qbe_func *func, struct qbe_statement *stmt)
+push(struct qbe_statements *stmts, struct qbe_statement *stmt)
 {
-	if (!func->body) {
-		func->bsiz = 256;
-		func->blen = 0;
-		func->body = xcalloc(1, sizeof(struct qbe_statement) * func->bsiz);
+	if (!stmts->stmts) {
+		stmts->sz = 256;
+		stmts->ln = 0;
+		stmts->stmts = xcalloc(1, sizeof(struct qbe_statement) * stmts->sz);
 	}
-	if (func->blen + 1 < func->bsiz) {
-		func->bsiz *= 2;
-		func->body = xrealloc(func->body, func->bsiz);
+	if (stmts->ln + 1 < stmts->sz) {
+		stmts->sz *= 2;
+		stmts->stmts = xrealloc(stmts->stmts, stmts->sz);
 	}
-	func->body[func->blen++] = *stmt;
+	stmts->stmts[stmts->ln++] = *stmt;
 }
 
 void
@@ -232,7 +232,19 @@ pushi(struct qbe_func *func, const struct qbe_value *out,
 	va_start(ap, instr);
 	va_geni(&stmt, instr, out, ap);
 	va_end(ap);
-	push(func, &stmt);
+	push(&func->body, &stmt);
+}
+
+void
+pushprei(struct qbe_func *func, const struct qbe_value *out,
+		enum qbe_instr instr, ...)
+{
+	struct qbe_statement stmt = {0};
+	va_list ap;
+	va_start(ap, instr);
+	va_geni(&stmt, instr, out, ap);
+	va_end(ap);
+	push(&func->prelude, &stmt);
 }
 
 const char *
@@ -240,7 +252,7 @@ pushl(struct qbe_func *func, uint64_t *id, const char *fmt)
 {
 	struct qbe_statement stmt = {0};
 	const char *l = genl(&stmt, id, fmt);
-	push(func, &stmt);
+	push(&func->body, &stmt);
 	return l;
 }
 
@@ -260,7 +272,7 @@ pushc(struct qbe_func *func, const char *fmt, ...)
 	va_end(ap);
 
 	stmt.comment = str;
-	push(func, &stmt);
+	push(&func->body, &stmt);
 }
 
 void

@@ -147,8 +147,13 @@ emit_func(struct qbe_def *def, FILE *out)
 	}
 	fprintf(out, ") {\n");
 
-	for (size_t i = 0; i < def->func.blen; ++i) {
-		struct qbe_statement *stmt = &def->func.body[i];
+	for (size_t i = 0; i < def->func.prelude.ln; ++i) {
+		struct qbe_statement *stmt = &def->func.prelude.stmts[i];
+		emit_stmt(stmt, out);
+	}
+
+	for (size_t i = 0; i < def->func.body.ln; ++i) {
+		struct qbe_statement *stmt = &def->func.body.stmts[i];
 		emit_stmt(stmt, out);
 	}
 

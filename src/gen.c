@@ -56,7 +56,7 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 
 	struct qbe_value size;
 	constl(&size, type->size);
-	pushi(ctx->current, val, alloc_for_align(type->align), &size, NULL);
+	pushprei(ctx->current, val, alloc_for_align(type->align), &size, NULL);
 }
 
 static struct gen_binding *
@@ -315,7 +315,7 @@ gen_call(struct gen_context *ctx,
 		next = &arg->next;
 	}
 
-	push(ctx->current, &call);
+	push(&ctx->current->body, &call);
 }
 
 static void
@@ -555,7 +555,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	qdef->func.returns = qtype_for_type(ctx, fntype->func.result, false);
 	ctx->current = &qdef->func;
 
-	pushl(&qdef->func, &ctx->id, "start.%d");
+	struct qbe_statement start_label = {0};
+	genl(&start_label, &ctx->id, "start.%d");
+	push(&qdef->func.prelude, &start_label);
 
 	struct qbe_func_param *param, **next = &qdef->func.params;
 	struct scope_object *obj = decl->func.scope->objects;
@@ -600,7 +602,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	gen_expression(ctx, func->body, ctx->return_value);
-	push(&qdef->func, &end_label);
+	push(&qdef->func.body, &end_label);
 
 	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
 		struct qbe_value load = {0};

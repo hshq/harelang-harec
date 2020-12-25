@@ -175,11 +175,15 @@ struct qbe_func_param {
 	struct qbe_func_param *next;
 };
 
+struct qbe_statements {
+	size_t ln, sz;
+	struct qbe_statement *stmts;
+};
+
 struct qbe_func {
 	const struct qbe_type *returns;
 	struct qbe_func_param *params;
-	size_t blen, bsiz;
-	struct qbe_statement *body;
+	struct qbe_statements prelude, body;
 };
 
 enum qbe_deftype {
@@ -207,9 +211,10 @@ void qbe_append_def(struct qbe_program *prog, struct qbe_def *def);
 void geni(struct qbe_statement *stmt, const struct qbe_value *out, enum qbe_instr instr, ...);
 const char *genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt);
 void pushi(struct qbe_func *func, const struct qbe_value *out, enum qbe_instr instr, ...);
+void pushprei(struct qbe_func *func, const struct qbe_value *out, enum qbe_instr instr, ...);
 const char *pushl(struct qbe_func *func, uint64_t *id, const char *fmt);
 void pushc(struct qbe_func *func, const char *fmt, ...);
-void push(struct qbe_func *func, struct qbe_statement *stmt);
+void push(struct qbe_statements *stmts, struct qbe_statement *stmt);
 
 struct qbe_value *qval_dup(const struct qbe_value *val);
 
