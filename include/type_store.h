@@ -14,6 +14,9 @@ struct type_store {
 	struct type_bucket *buckets[TYPE_STORE_BUCKETS];
 };
 
+bool type_is_assignable(struct type_store *store,
+	const struct type *to, const struct type *from);
+
 unsigned long atype_hash(struct type_store *store, const struct ast_type *type);
 unsigned long type_hash(struct type_store *store, const struct type *type);
 

@@ -13,6 +13,7 @@
 
 struct context {
 	struct type_store store;
+	const struct type *current_fntype;
 	struct scope *unit;
 	struct scope *scope;
 };
@@ -77,14 +78,16 @@ check_expr_assign(struct context *ctx,
 			"Cannot dereference non-pointer type for assignment");
 		expect(!(object->result->pointer.flags & PTR_NULLABLE),
 			"Cannot dereference nullable pointer type");
-		// TODO: Test assignability rules
-		assert(object->result->pointer.referent->storage == value->result->storage);
+		expect(type_is_assignable(&ctx->store,
+				object->result->pointer.referent,
+				value->result),
+			"Value type is not assignable to pointer type");
 	} else {
 		assert(object->type == EXPR_ACCESS); // Invariant
 		const struct scope_object *obj = object->access.object;
 		expect(!(obj->type->flags & TYPE_CONST), "Cannot assign to const object");
-		// TODO: Test assignability rules:
-		assert(obj->type->storage == value->result->storage);
+		expect(type_is_assignable(&ctx->store, obj->type, value->result),
+			"rvalue type is not assignable to lvalue");
 	}
 }
 
@@ -170,8 +173,8 @@ check_expr_binding(struct context *ctx,
 		}
 		expect(type->size != 0 && type->size != SIZE_UNDEFINED,
 			"Cannot create binding for type of zero or undefined size");
-
-		// TODO: Check assignability of initializer
+		expect(type_is_assignable(&ctx->store, type, initializer->result),
+			"Initializer is not assignable to binding type");
 
 		const struct scope_object *obj = scope_insert(ctx->scope,
 				O_BIND, &ident, type);
@@ -216,9 +219,9 @@ check_expr_call(struct context *ctx,
 		arg->value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aarg->value, arg->value);
 
-		// TODO: Test for assignability
-		expect(arg->value->result->storage == param->type->storage,
-				"Invalid type for parameter");
+		expect(type_is_assignable(&ctx->store,
+				param->type, arg->value->result),
+			"Argument is not assignable to parameter type");
 
 		aarg = aarg->next;
 		param = param->next;
@@ -264,11 +267,12 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_VOID:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_VOID:
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
@@ -308,6 +312,7 @@ check_expr_list(struct context *ctx,
 			next = &list->next;
 		} else {
 			expr->result = lexpr->result;
+			expr->terminates = lexpr->terminates;
 		}
 	}
 
@@ -357,7 +362,9 @@ check_expr_return(struct context *ctx,
 		struct expression *rval = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_return.value, rval);
 		expr->_return.value = rval;
-		// TODO: Test assignability with function's return type
+		expect(type_is_assignable(&ctx->store,
+				ctx->current_fntype->func.result, rval->result),
+			"Return value is not assignable to function result type");
 	}
 
 	trleave(TR_CHECK, NULL);
@@ -495,6 +502,7 @@ check_function(struct context *ctx,
 	const struct type *fntype = type_store_lookup_atype(
 			&ctx->store, &fn_atype);
 	assert(fntype); // Invariant
+	ctx->current_fntype = fntype;
 
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_FUNC;
@@ -519,7 +527,8 @@ check_function(struct context *ctx,
 	check_expression(ctx, afndecl->body, body);
 	decl->func.body = body;
 
-	// TODO: Check assignability of expression result to function type
+	expect(body->terminates || type_is_assignable(&ctx->store, fntype->func.result, body->result),
+		"Result value is not assignable to function result type");
 
 	// TODO: Add function name to errors
 	if ((decl->func.flags & FN_INIT)
@@ -534,6 +543,7 @@ check_function(struct context *ctx,
 
 	scope_insert(ctx->unit, O_DECL, &decl->ident, decl->func.type);
 	scope_pop(&ctx->scope, TR_CHECK);
+	ctx->current_fntype = NULL;
 	trleave(TR_CHECK, NULL);
 	return decl;
 }

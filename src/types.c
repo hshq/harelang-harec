@@ -2,6 +2,15 @@
 #include <stdbool.h>
 #include "types.h"
 
+const struct type *
+type_dereference(const struct type *type)
+{
+	if (type->storage != TYPE_STORAGE_POINTER) {
+		return type;
+	}
+	return type_dereference(type->pointer.referent);
+}
+
 const char *
 type_storage_unparse(enum type_storage storage)
 {
@@ -34,6 +43,8 @@ type_storage_unparse(enum type_storage storage)
 		return "int";
 	case TYPE_STORAGE_POINTER:
 		return "pointer";
+	case TYPE_STORAGE_NULL:
+		return "rune";
 	case TYPE_STORAGE_RUNE:
 		return "rune";
 	case TYPE_STORAGE_SIZE:
@@ -82,6 +93,7 @@ type_is_integer(const struct type *type)
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_F32:
@@ -121,6 +133,7 @@ type_is_numeric(const struct type *type)
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_ENUM:
 		return false;
 	case TYPE_STORAGE_I8:
@@ -143,6 +156,12 @@ type_is_numeric(const struct type *type)
 }
 
 bool
+type_is_float(const struct type *type)
+{
+	return type->storage == TYPE_STORAGE_F32 || type->storage == TYPE_STORAGE_F64;
+}
+
+bool
 type_is_signed(const struct type *type)
 {
 	switch (type->storage) {
@@ -159,6 +178,7 @@ type_is_signed(const struct type *type)
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_U16:
@@ -179,15 +199,6 @@ type_is_signed(const struct type *type)
 		assert(0); // TODO
 	}
 	assert(0); // Unreachable
-}
-
-const struct type *
-type_dereference(const struct type *type)
-{
-	if (type->storage != TYPE_STORAGE_POINTER) {
-		return type;
-	}
-	return type_dereference(type->pointer.referent);
 }
 
 // Built-in type singletons
@@ -263,6 +274,11 @@ builtin_type_uint = {
 },
 builtin_type_uintptr = {
 	.storage = TYPE_STORAGE_UINTPTR,
+	.size = 8, // XXX: ARCH
+	.align = 8,
+},
+builtin_type_null = {
+	.storage = TYPE_STORAGE_NULL,
 	.size = 8, // XXX: ARCH
 	.align = 8,
 },

@@ -27,6 +27,7 @@ qstype_for_type(const struct type *type)
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_UINTPTR:	// XXX: Architecture dependent
 	case TYPE_STORAGE_POINTER:	// XXX: Architecture dependent
+	case TYPE_STORAGE_NULL:		// XXX: Architecture dependent
 		return Q_LONG;
 	case TYPE_STORAGE_F32:
 		return Q_SINGLE;
@@ -71,6 +72,7 @@ qxtype_for_type(const struct type *type)
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_UINTPTR:	// XXX: Architecture dependent
 	case TYPE_STORAGE_POINTER:	// XXX: Architecture dependent
+	case TYPE_STORAGE_NULL:		// XXX: Architecture dependent
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_VOID:
@@ -113,6 +115,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_VOID:
@@ -147,6 +150,7 @@ type_is_aggregate(const struct type *type)
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_U16:

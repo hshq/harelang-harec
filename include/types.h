@@ -11,17 +11,18 @@ enum type_storage {
 	TYPE_STORAGE_ENUM,
 	TYPE_STORAGE_F32,
 	TYPE_STORAGE_F64,
-	TYPE_STORAGE_I8,
 	TYPE_STORAGE_I16,
 	TYPE_STORAGE_I32,
 	TYPE_STORAGE_I64,
+	TYPE_STORAGE_I8,
 	TYPE_STORAGE_INT,
+	TYPE_STORAGE_NULL,
 	TYPE_STORAGE_RUNE,
 	TYPE_STORAGE_SIZE,
-	TYPE_STORAGE_U8,
 	TYPE_STORAGE_U16,
 	TYPE_STORAGE_U32,
 	TYPE_STORAGE_U64,
+	TYPE_STORAGE_U8,
 	TYPE_STORAGE_UINT,
 	TYPE_STORAGE_UINTPTR,
 	TYPE_STORAGE_VOID,
@@ -87,12 +88,13 @@ struct type {
 	};
 };
 
+const struct type *type_dereference(const struct type *type);
+
 const char *type_storage_unparse(enum type_storage storage);
 bool type_is_signed(const struct type *type);
 bool type_is_integer(const struct type *type);
 bool type_is_numeric(const struct type *type);
-
-const struct type *type_dereference(const struct type *type);
+bool type_is_float(const struct type *type);
 
 // Built-in type singletons
 extern const struct type
@@ -112,6 +114,7 @@ extern const struct type
 	builtin_type_u64,
 	builtin_type_uint,
 	builtin_type_uintptr,
+	builtin_type_null,
 	builtin_type_rune,
 	builtin_type_size,
 	builtin_type_void,
