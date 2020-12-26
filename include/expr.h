@@ -38,9 +38,15 @@ enum access_type {
 };
 
 struct expression_access {
-	const struct scope_object *object;
 	enum access_type type;
-	// TODO: Details for index, field selection
+	union {
+		const struct scope_object *object;
+		struct {
+			struct expression *array;
+			struct expression *index;
+		};
+		// TODO: Field selection
+	};
 };
 
 struct expression_assign {

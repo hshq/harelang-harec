@@ -41,18 +41,36 @@ check_expr_access(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
 {
-	char buf[1024];
-	identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
-
-	trace(TR_CHECK, "access %s", buf);
+	trace(TR_CHECK, "access");
 	expr->type = EXPR_ACCESS;
+	expr->access.type = aexpr->access.type;
 
-	const struct scope_object *obj = scope_lookup(
-		ctx->scope, &aexpr->access.ident);
-	expect(obj, "Unknown object %s", buf);
-
-	expr->result = obj->type;
-	expr->access.object = obj;
+	const struct scope_object *obj;
+	switch (expr->access.type) {
+	case ACCESS_IDENTIFIER:
+		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
+		char buf[1024];
+		identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
+		expect(obj, "Unknown object", buf);
+		expr->result = obj->type;
+		expr->access.object = obj;
+		break;
+	case ACCESS_INDEX:
+		expr->access.array = xcalloc(1, sizeof(struct expression));
+		expr->access.index = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->access.array, expr->access.array);
+		check_expression(ctx, aexpr->access.index, expr->access.index);
+		const struct type *atype = expr->access.array->result;
+		const struct type *itype = expr->access.index->result;
+		expect(atype->storage == TYPE_STORAGE_ARRAY
+				|| atype->storage == TYPE_STORAGE_SLICE,
+			"Cannot index non-array, non-slice object");
+		expect(type_is_integer(itype), "Cannot use non-integer type as slice/array index");
+		expr->result = atype->array.members;
+		break;
+	case ACCESS_FIELD:
+		assert(0); // TODO
+	}
 }
 
 static void

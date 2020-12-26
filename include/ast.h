@@ -102,7 +102,7 @@ struct ast_expression_access {
 	union {
 		struct identifier ident;
 		struct {
-			struct ast_expression *object;
+			struct ast_expression *array;
 			struct ast_expression *index;
 		};
 		// TODO: Field selection

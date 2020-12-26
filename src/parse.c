@@ -876,7 +876,7 @@ parse_index_slice_expression(struct parser *par, struct ast_expression *lvalue)
 	if (!is_slice) {
 		exp->type = EXPR_ACCESS;
 		exp->access.type = ACCESS_INDEX;
-		exp->access.object = lvalue;
+		exp->access.array = lvalue;
 		exp->access.index = start;
 		trleave(TR_PARSE, "slice-index (index)");
 		return exp;
