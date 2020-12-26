@@ -1,8 +1,28 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "check.h"
+#include "eval.h"
 #include "type_store.h"
 #include "util.h"
+
+static size_t
+ast_array_len(struct type_store *store, const struct ast_type *atype)
+{
+	// TODO: Maybe we should cache these
+	struct expression in, out;
+	if (atype->array.length == NULL) {
+		return SIZE_UNDEFINED;
+	}
+	check_expression(store->check_context, atype->array.length, &in);
+	enum eval_result r = eval_expr(store->check_context, &in, &out);
+	// TODO: Bubble up these errors:
+	assert(r == EVAL_OK);
+	assert(type_is_integer(out.result));
+	if (type_is_signed(out.result)) {
+		assert(out.constant.ival > 0);
+	}
+	return (size_t)out.constant.uval;
+}
 
 bool
 type_is_assignable(struct type_store *store,
@@ -154,6 +174,7 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 	unsigned long hash = DJB2_INIT;
 	hash = djb2(hash, type->storage);
 	hash = djb2(hash, type->flags);
+
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -176,8 +197,11 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 	case TYPE_STORAGE_VOID:
 		break; // built-ins
 	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_ARRAY:
 		assert(0); // TODO
+	case TYPE_STORAGE_ARRAY:
+		hash = djb2(hash, atype_hash(store, type->array.members));
+		hash = djb2(hash, ast_array_len(store, type));
+		break;
 	case TYPE_STORAGE_FUNCTION:
 		hash = djb2(hash, atype_hash(store, type->func.result));
 		hash = djb2(hash, type->func.variadism);
@@ -303,7 +327,10 @@ type_eq_atype(struct type_store *store,
 	case TYPE_STORAGE_VOID:
 		return true;
 	case TYPE_STORAGE_ALIAS:
+		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
+		return type->array.length == ast_array_len(store, atype)
+			&& type_eq_atype(store, type->array.members, atype->array.members);
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
@@ -433,7 +460,21 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_VOID:
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
+		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
+		type->array.length = ast_array_len(store, atype);
+		type->array.members = type_store_lookup_atype(
+				store, atype->array.members);
+		// TODO: Bubble this up:
+		assert(type->array.members->size != SIZE_UNDEFINED);
+
+		type->align = type->array.members->align;
+		if (type->array.length == SIZE_UNDEFINED) {
+			type->size = SIZE_UNDEFINED;
+		} else {
+			type->size = type->array.members->size * type->array.length;
+		}
+		break;
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:

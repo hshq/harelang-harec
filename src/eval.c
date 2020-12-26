@@ -7,13 +7,24 @@
 #include "types.h"
 
 enum eval_result
+eval_const(struct context *ctx, struct expression *in, struct expression *out)
+{
+	out->type = EXPR_CONSTANT;
+	out->result = in->result;
+	out->constant = in->constant;
+	return EVAL_OK;
+}
+
+enum eval_result
 eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 {
 	switch (in->type) {
 	case EXPR_ACCESS:
 	case EXPR_BINARITHM:
 	case EXPR_CAST:
+		assert(0); // TODO
 	case EXPR_CONSTANT:
+		return eval_const(ctx, in, out);
 	case EXPR_CONTINUE:
 	case EXPR_FOR:
 	case EXPR_MEASURE:

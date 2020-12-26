@@ -40,6 +40,15 @@ enum type_storage {
 
 struct type;
 
+#define SIZE_UNDEFINED ((size_t)-1)
+#define ALIGN_UNDEFINED ((size_t)-1)
+
+struct type_array {
+	size_t length; // SIZE_UNDEFINED for [*] or slices
+	const struct type *members;
+	bool extensible;
+};
+
 enum variadism {
 	VARIADISM_NONE,
 	VARIADISM_C,
@@ -75,14 +84,12 @@ enum type_flags {
 	TYPE_CONST = 1 << 0,
 };
 
-#define SIZE_UNDEFINED ((size_t)-1)
-#define ALIGN_UNDEFINED ((size_t)-1)
-
 struct type {
 	enum type_storage storage;
 	unsigned int flags;
 	size_t size, align;
 	union {
+		struct type_array array;
 		struct type_func func;
 		struct type_pointer pointer;
 	};

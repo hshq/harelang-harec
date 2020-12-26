@@ -92,6 +92,12 @@ struct expression_call {
 	struct call_argument *args;
 };
 
+struct array_constant {
+	struct expression *expr;
+	struct array_constant *next;
+	bool expand;
+};
+
 union expression_constant {
 	struct {
 		char *sval;
@@ -102,7 +108,8 @@ union expression_constant {
 	intmax_t ival;
 	uintmax_t uval;
 	uint32_t rune;
-	// TODO: Array, slice, struct constants
+	struct array_constant *array;
+	// TODO: Struct constants
 };
 
 struct expressions {
