@@ -677,6 +677,55 @@ parse_constant(struct parser *par)
 }
 
 static struct ast_expression *
+parse_array_literal(struct parser *par)
+{
+	trenter(TR_PARSE, "array-literal");
+
+	struct token tok;
+	want(par, T_LBRACKET, &tok);
+
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
+	exp->type = EXPR_CONSTANT;
+	exp->constant.storage = TYPE_STORAGE_ARRAY;
+
+	struct ast_array_constant *item, **next = &exp->constant.array;
+
+	while (lex(par->lex, &tok) != T_RBRACKET) {
+		unlex(par->lex, &tok);
+
+		item = *next = xcalloc(1, sizeof(struct ast_expression));
+		item->value = parse_simple_expression(par);
+		next = &item->next;
+
+		switch (lex(par->lex, &tok)) {
+		case T_ELLIPSIS:
+			item->expand = true;
+			lex(par->lex, &tok);
+			if (tok.token == T_COMMA) {
+				want(par, T_RBRACKET, &tok);
+				unlex(par->lex, &tok);
+			} else if (tok.token == T_RBRACKET) {
+				unlex(par->lex, &tok);
+			} else {
+				synassert(false, &tok, T_COMMA, T_RBRACKET, T_EOF);
+			}
+			break;
+		case T_COMMA:
+			// Move on
+			break;
+		case T_RBRACKET:
+			unlex(par->lex, &tok);
+			break;
+		default:
+			synassert(false, &tok, T_ELLIPSIS, T_COMMA, T_RBRACKET, T_EOF);
+		}
+	}
+
+	trleave(TR_PARSE, NULL);
+	return exp;
+}
+
+static struct ast_expression *
 parse_plain_expression(struct parser *par)
 {
 	trace(TR_PARSE, "plain");
@@ -694,7 +743,8 @@ parse_plain_expression(struct parser *par)
 		unlex(par->lex, &tok);
 		return parse_access(par);
 	case T_LBRACKET:
-		assert(0); // TODO: Array literal
+		unlex(par->lex, &tok);
+		return parse_array_literal(par);
 	case T_STRUCT:
 		assert(0); // TODO: Struct literal
 	default:

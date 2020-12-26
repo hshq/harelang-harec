@@ -132,6 +132,12 @@ struct ast_expression_call {
 	struct ast_call_argument *args;
 };
 
+struct ast_array_constant {
+	struct ast_expression *value;
+	struct ast_array_constant *next;
+	bool expand;
+};
+
 struct ast_expression_constant {
 	enum type_storage storage;
 	union {
@@ -143,6 +149,7 @@ struct ast_expression_constant {
 			size_t len;
 			char *value;
 		} string;
+		struct ast_array_constant *array;
 	};
 };
 
