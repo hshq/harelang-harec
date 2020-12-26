@@ -120,8 +120,9 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_VOID:
 		return qtype_for_xtype(qstype_for_type(type));
-	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+		return qtype_for_xtype(Q__AGGREGATE);
+	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:

@@ -398,7 +398,11 @@ type_eq_type(struct type_store *store,
 	case TYPE_STORAGE_VOID:
 		return true;
 	case TYPE_STORAGE_ALIAS:
+		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
+		return a->array.length == b->array.length
+			&& a->array.expandable == b->array.expandable
+			&& type_eq_type(store, a->array.members, b->array.members);
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:

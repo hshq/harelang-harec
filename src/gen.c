@@ -254,9 +254,6 @@ gen_binding(struct gen_context *ctx,
 
 	const struct expression_binding *binding = &expr->binding;
 	while (binding) {
-		const struct type *type = binding->object->type;
-		assert(!type_is_aggregate(type)); // TODO
-
 		struct qbe_value temp = {0};
 		binding_alloc(ctx, binding->object, &temp, "binding.%d");
 		gen_expression(ctx, binding->initializer, &temp);
@@ -325,6 +322,33 @@ gen_call(struct gen_context *ctx,
 }
 
 static void
+gen_array(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(!expr->result->array.expandable); // TODO
+
+	struct qbe_value offs = {0}, size = {0};
+	gen_temp(ctx, &offs,
+		qtype_for_type(ctx, &builtin_type_size, false),
+		"offset.%d");
+	constl(&size, 0); // XXX: ARCH
+	pushi(ctx->current, &offs, Q_COPY, out, NULL);
+	constl(&size, expr->result->array.members->size); // XXX: ARCH
+	offs.indirect = true;
+	offs.type = qtype_for_type(ctx, expr->result->array.members, true);
+
+	struct array_constant *item = expr->constant.array;
+	while (item) {
+		gen_expression(ctx, item->value, &offs);
+		if (item->next) {
+			pushi(ctx->current, &offs, Q_ADD, &offs, &size, NULL);
+		}
+		item = item->next;
+	}
+}
+
+static void
 gen_constant(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -349,6 +373,9 @@ gen_constant(struct gen_context *ctx,
 	case TYPE_STORAGE_NULL:
 		constl(&val, 0);
 		gen_store(ctx, out, &val);
+		return;
+	case TYPE_STORAGE_ARRAY:
+		gen_array(ctx, expr, out);
 		return;
 	default:
 		// Moving right along

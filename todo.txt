@@ -10,3 +10,7 @@ highest priorities, unordered except where there are obvious dependencies:
 This subset of features should allow us to address most of the problems with gen
 that v1 suffered from, and end up with a solid basis from which we can
 confidently implement the remainder of the features.
+
+general todos, includes spec updates:
+- zero-length arrays & slice initializers
+- allocations
