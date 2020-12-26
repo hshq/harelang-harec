@@ -1,5 +1,6 @@
 #include <stdlib.h>
-#include "util.h"
+// Do not include this header:
+//#include "util.h"
 
 unsigned long
 djb2(unsigned long hash, char c)
