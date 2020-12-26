@@ -116,6 +116,9 @@ qval_deref(struct gen_context *ctx,
 	struct qbe_value *val, const struct type *type)
 {
 	assert(val->type == &qbe_long); // Invariant // XXX: ARCH
+	// Because we stack-allocate all variables and store a pointer to them
+	// in qbe_value, this is generally as easy as changing the
+	// interpretation of the value from direct to indirect.
 	val->indirect = true;
 	val->type = qtype_for_type(ctx, type, false);
 }
@@ -124,6 +127,9 @@ qval_deref(struct gen_context *ctx,
 static void
 qval_address(struct qbe_value *val)
 {
+	// Because we stack-allocate all variables and store a pointer to them
+	// in qbe_value, this is generally as easy as changing the
+	// interpretation of the value from indirect to direct.
 	val->type = &qbe_long; // XXX: ARCH
 	val->indirect = false;
 }

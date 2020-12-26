@@ -40,6 +40,11 @@ enum qbe_value_kind {
 	QV_TEMPORARY,
 };
 
+// Represents a value which can be an argument to a QBE instruction.
+//
+// If indirect, this value is a pointer to the actual value, which is allocated
+// elsewhere (e.g. the stack). This is usually true unless we have temporarily
+// loaded a value as an input into an instruction.
 struct qbe_value {
 	enum qbe_value_kind kind;
 	const struct qbe_type *type;
