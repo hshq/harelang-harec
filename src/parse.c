@@ -606,6 +606,7 @@ parse_access(struct parser *par)
 	trace(TR_PARSE, "access");
 	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_ACCESS;
+	exp->access.type = ACCESS_IDENTIFIER;
 	parse_identifier(par, &exp->access.ident);
 	return exp;
 }
@@ -731,7 +732,9 @@ parse_plain_expression(struct parser *par)
 	trace(TR_PARSE, "plain");
 
 	struct token tok;
+	struct ast_expression *exp;
 	switch (lex(par->lex, &tok)) {
+	// plain-expression
 	case T_LITERAL:
 	case T_TRUE:
 	case T_FALSE:
@@ -747,14 +750,20 @@ parse_plain_expression(struct parser *par)
 		return parse_array_literal(par);
 	case T_STRUCT:
 		assert(0); // TODO: Struct literal
+	// nested-expression
+	case T_LPAREN:
+		exp = parse_complex_expression(par);
+		want(par, T_RPAREN, &tok);
+		return exp;
 	default:
 		synassert(false, &tok, T_LITERAL, T_NAME,
-			T_LBRACKET, T_STRUCT, T_EOF);
+			T_LBRACKET, T_STRUCT, T_LPAREN, T_EOF);
 	}
 	assert(0); // Unreachable
 }
 
-static struct ast_expression *parse_postfix_expression(struct parser *par);
+static struct ast_expression *parse_postfix_expression(struct parser *par,
+		struct ast_expression *exp);
 
 static struct ast_expression *
 parse_measurement_expression(struct parser *par)
@@ -775,7 +784,7 @@ parse_measurement_expression(struct parser *par)
 		break;
 	case T_LEN:
 		exp->measure.op = M_LEN;
-		exp->measure.value = parse_postfix_expression(par);
+		exp->measure.value = parse_postfix_expression(par, NULL);
 		break;
 	case T_OFFSET:
 		exp->measure.op = M_OFFSET;
@@ -793,11 +802,13 @@ parse_call_expression(struct parser *par, struct ast_expression *lvalue)
 {
 	trenter(TR_PARSE, "call");
 
+	struct token tok;
+	want(par, T_LPAREN, &tok);
+
 	struct ast_expression *expr = xcalloc(1, sizeof(struct ast_expression));
 	expr->type = EXPR_CALL;
 	expr->call.lvalue = lvalue;
 
-	struct token tok;
 	struct ast_call_argument *arg, **next = &expr->call.args;
 	while (lex(par->lex, &tok) != T_RPAREN) {
 		unlex(par->lex, &tok);
@@ -831,11 +842,69 @@ parse_call_expression(struct parser *par, struct ast_expression *lvalue)
 }
 
 static struct ast_expression *
-parse_postfix_expression(struct parser *par)
+parse_index_slice_expression(struct parser *par, struct ast_expression *lvalue)
+{
+	trenter(TR_PARSE, "slice-index");
+
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
+	struct ast_expression *start = NULL, *end = NULL;
+	struct token tok;
+	want(par, T_LBRACKET, &tok);
+
+	bool is_slice = false;
+	switch (lex(par->lex, &tok)) {
+	case T_SLICE:
+		is_slice = true;
+		break;
+	default:
+		unlex(par->lex, &tok);
+		start = parse_simple_expression(par);
+		break;
+	}
+
+	switch (lex(par->lex, &tok)) {
+	case T_SLICE:
+		is_slice = true;
+		break;
+	case T_RBRACKET:
+		break;
+	default:
+		synassert(false, &tok, T_SLICE, T_RBRACKET, T_EOF);
+		break;
+	}
+
+	if (!is_slice) {
+		exp->type = EXPR_ACCESS;
+		exp->access.type = ACCESS_INDEX;
+		exp->access.object = lvalue;
+		exp->access.index = start;
+		trleave(TR_PARSE, "slice-index (index)");
+		return exp;
+	}
+
+	switch (lex(par->lex, &tok)) {
+	case T_RBRACKET:
+		break;
+	default:
+		end = parse_simple_expression(par);
+		break;
+	}
+
+	exp->type = EXPR_SLICE;
+	exp->slice.object = lvalue;
+	exp->slice.start = start;
+	exp->slice.end = end;
+	trleave(TR_PARSE, "slice-index (slice)");
+	return exp;
+}
+
+static struct ast_expression *
+parse_postfix_expression(struct parser *par, struct ast_expression *lvalue)
 {
 	trace(TR_PARSE, "postfix");
-	struct ast_expression *lvalue;
 
+	// TODO: The builtins should probably be moved outside of
+	// postfix-expression in the specification
 	struct token tok;
 	switch (lex(par->lex, &tok)) {
 	case T_ABORT:
@@ -847,29 +916,32 @@ parse_postfix_expression(struct parser *par)
 	case T_OFFSET:
 		unlex(par->lex, &tok);
 		return parse_measurement_expression(par);
-	case T_LPAREN:
-		lvalue = parse_complex_expression(par);
-		want(par, T_RPAREN, &tok);
-		break;
 	default:
 		unlex(par->lex, &tok);
-		lvalue = parse_plain_expression(par);
 		break;
+	}
+
+	if (lvalue == NULL) {
+		lvalue = parse_plain_expression(par);
 	}
 
 	switch (lex(par->lex, &tok)) {
 	case T_LPAREN:
-		return parse_call_expression(par, lvalue);
+		unlex(par->lex, &tok);
+		lvalue = parse_call_expression(par, lvalue);
+		break;
 	case T_DOT:
 		assert(0); // TODO: field access expression
 	case T_LBRACKET:
-		assert(0); // TODO: indexing/slicing expression
+		unlex(par->lex, &tok);
+		lvalue = parse_index_slice_expression(par, lvalue);
+		break;
 	default:
 		unlex(par->lex, &tok);
 		return lvalue;
 	}
 
-	assert(0); // Unreachable
+	return parse_postfix_expression(par, lvalue);
 }
 
 static enum unarithm_operator
@@ -901,7 +973,7 @@ parse_object_selector(struct parser *par)
 	struct token tok;
 	lex(par->lex, &tok);
 	unlex(par->lex, &tok);
-	struct ast_expression *exp = parse_postfix_expression(par);
+	struct ast_expression *exp = parse_postfix_expression(par, NULL);
 	synassert_msg(exp->type == EXPR_ACCESS, "expected object", &tok);
 	return exp;
 }
@@ -931,7 +1003,7 @@ parse_unary_expression(struct parser *par)
 		return exp;
 	default:
 		unlex(par->lex, &tok);
-		return parse_postfix_expression(par);
+		return parse_postfix_expression(par, NULL);
 	}
 }
 

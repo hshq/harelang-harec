@@ -98,9 +98,15 @@ struct ast_type {
 };
 
 struct ast_expression_access {
-	struct identifier ident;
 	enum access_type type;
-	// TODO: Details for index, field selection
+	union {
+		struct identifier ident;
+		struct {
+			struct ast_expression *object;
+			struct ast_expression *index;
+		};
+		// TODO: Field selection
+	};
 };
 
 struct ast_expression_assign {
@@ -171,6 +177,11 @@ struct ast_expression_return {
 	struct ast_expression *value;
 };
 
+struct ast_expression_slice {
+	struct ast_expression *object;
+	struct ast_expression *start, *end;
+};
+
 struct ast_expression_unarithm {
 	enum unarithm_operator op;
 	struct ast_expression *operand;
@@ -188,6 +199,7 @@ struct ast_expression {
 		struct ast_expression_list list;
 		struct ast_expression_measure measure;
 		struct ast_expression_return _return;
+		struct ast_expression_slice slice;
 		struct ast_expression_unarithm unarithm;
 	};
 };
