@@ -161,9 +161,8 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
-		return NULL;
 	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
+		return NULL;
 	}
 	assert(0); // Unreachable
 }
@@ -255,8 +254,11 @@ type_hash(struct type_store *store, const struct type *type)
 	case TYPE_STORAGE_VOID:
 		break; // built-ins
 	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_ARRAY:
 		assert(0); // TODO
+	case TYPE_STORAGE_ARRAY:
+		hash = djb2(hash, type_hash(store, type->array.members));
+		hash = djb2(hash, type->array.length);
+		break;
 	case TYPE_STORAGE_FUNCTION:
 		hash = djb2(hash, type_hash(store, type->func.result));
 		hash = djb2(hash, type->func.variadism);
@@ -540,7 +542,18 @@ type_init_from_type(struct type_store *store,
 	case TYPE_STORAGE_VOID:
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
+		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
+		new->array.members = old->array.members;
+		new->array.length = old->array.length;
+		new->array.expandable = old->array.expandable;
+		new->align = new->array.members->align;
+		if (new->array.length == SIZE_UNDEFINED) {
+			new->size = SIZE_UNDEFINED;
+		} else {
+			new->size = new->array.members->size * new->array.length;
+		}
+		break;
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_FUNCTION:
 		assert(0); // TODO
@@ -635,4 +648,19 @@ type_store_lookup_pointer(struct type_store *store,
 		},
 	};
 	return type_store_lookup_type(store, &ptr);
+}
+
+const struct type *
+type_store_lookup_array(struct type_store *store,
+	const struct type *members, size_t len, bool expandable)
+{
+	struct type array = {
+		.storage = TYPE_STORAGE_ARRAY,
+		.array = {
+			.members = members,
+			.length = len,
+			.expandable = expandable,
+		},
+	};
+	return type_store_lookup_type(store, &array);
 }

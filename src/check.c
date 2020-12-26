@@ -236,6 +236,45 @@ check_expr_call(struct context *ctx,
 }
 
 static void
+check_expr_array(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	size_t len = 0;
+	bool expandable = false;
+	const struct type *type = NULL;
+	struct ast_array_constant *item = aexpr->constant.array;
+	struct array_constant *cur, **next = &expr->constant.array;
+
+	while (item) {
+		struct expression *value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, item->value, value);
+		cur = *next = xcalloc(1, sizeof(struct array_constant));
+		cur->value = value;
+
+		if (!type) {
+			type = value->result;
+		} else {
+			// TODO: Assignable? Requires spec update if so
+			expect(value->result == type,
+				"Array members must be of a uniform type");
+		}
+
+		if (item->expand) {
+			expandable = true;
+			cur->expand = true;
+			assert(!item->next);
+		}
+
+		item = item->next;
+		next = &cur->next;
+		++len;
+	}
+
+	expr->result = type_store_lookup_array(&ctx->store, type, len, expandable);
+}
+
+static void
 check_expr_constant(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -270,19 +309,21 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_VOID:
 		// No storage
 		break;
+	case TYPE_STORAGE_ARRAY:
+		check_expr_array(ctx, aexpr, expr);
+		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
 		assert(0); // Invariant

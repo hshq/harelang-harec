@@ -46,7 +46,7 @@ struct type;
 struct type_array {
 	size_t length; // SIZE_UNDEFINED for [*] or slices
 	const struct type *members;
-	bool extensible;
+	bool expandable;
 };
 
 enum variadism {

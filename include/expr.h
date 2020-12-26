@@ -93,7 +93,7 @@ struct expression_call {
 };
 
 struct array_constant {
-	struct expression *expr;
+	struct expression *value;
 	struct array_constant *next;
 	bool expand;
 };
