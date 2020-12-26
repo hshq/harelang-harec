@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <stdlib.h>
+#include "check.h"
 #include "type_store.h"
 #include "util.h"
-#include <stdio.h>
 
 bool
 type_is_assignable(struct type_store *store,
@@ -177,6 +177,7 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 		break; // built-ins
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
 		hash = djb2(hash, atype_hash(store, type->func.result));
 		hash = djb2(hash, type->func.variadism);
@@ -231,6 +232,7 @@ type_hash(struct type_store *store, const struct type *type)
 		break; // built-ins
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
 		hash = djb2(hash, type_hash(store, type->func.result));
 		hash = djb2(hash, type->func.variadism);

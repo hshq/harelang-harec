@@ -6,6 +6,7 @@ harec() {
 	genrules harec \
 		src/check.c \
 		src/emit.c \
+		src/eval.c \
 		src/gen.c \
 		src/identifier.c \
 		src/lex.c \

@@ -33,7 +33,7 @@ expect(bool constraint, char *fmt, ...)
 	}
 }
 
-static void check_expression(struct context *ctx,
+void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr, struct expression *expr);
 
 static void
@@ -425,7 +425,7 @@ check_expr_unarithm(struct context *ctx,
 	trleave(TR_CHECK, NULL);
 }
 
-static void
+void
 check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -459,7 +459,6 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_CONTINUE:
 	case EXPR_FOR:
-	case EXPR_FREE:
 	case EXPR_IF:
 		assert(0); // TODO
 	case EXPR_LIST:
@@ -635,6 +634,7 @@ void
 check(const struct ast_unit *aunit, struct unit *unit)
 {
 	struct context ctx = {0};
+	ctx.store.check_context = &ctx;
 
 	// Top-level scope management involves:
 	//

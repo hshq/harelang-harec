@@ -4,6 +4,7 @@
 #include "identifier.h"
 #include "types.h"
 
+struct context;
 struct expression;
 struct scope;
 
@@ -47,8 +48,12 @@ struct unit {
 	struct declarations *declarations;
 };
 
+struct ast_expression;
 struct ast_unit;
 
 void check(const struct ast_unit *aunit, struct unit *unit);
+
+void check_expression(struct context *ctx,
+	const struct ast_expression *aexpr, struct expression *expr);
 
 #endif

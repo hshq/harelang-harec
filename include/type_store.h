@@ -10,8 +10,11 @@ struct type_bucket {
 	struct type_bucket *next;
 };
 
+struct context;
+
 struct type_store {
 	struct type_bucket *buckets[TYPE_STORE_BUCKETS];
+	struct context *check_context;
 };
 
 bool type_is_assignable(struct type_store *store,
