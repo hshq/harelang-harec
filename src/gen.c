@@ -50,9 +50,8 @@ static void
 alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 		const struct type *type, const char *fmt)
 {
-	gen_temp(ctx, val, &qbe_long, fmt); // XXX: Architecture dependent
+	gen_temp(ctx, val, qtype_for_type(ctx, type, true), fmt);
 	val->indirect = true;
-	val->type = qtype_for_type(ctx, type, true);
 
 	struct qbe_value size;
 	constl(&size, type->size);
@@ -64,7 +63,6 @@ binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
 		struct qbe_value *val, const char *fmt)
 {
 	alloc_temp(ctx, val, obj->type, fmt);
-	val->indirect = true;
 
 	struct gen_binding *binding = xcalloc(1, sizeof(struct gen_binding));
 	binding->name = strdup(val->name);
