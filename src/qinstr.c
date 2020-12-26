@@ -57,8 +57,9 @@ load_for_type(enum qbe_stype stype, bool is_signed)
 		return Q_LOADS;
 	case Q_DOUBLE:
 		return Q_LOADD;
-	case Q__VOID:
 	case Q__AGGREGATE:
+		return Q_COPY;
+	case Q__VOID:
 		assert(0); // Invariant
 	}
 	assert(0);

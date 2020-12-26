@@ -148,6 +148,7 @@ gen_store(struct gen_context *ctx,
 
 	const struct qbe_type *qtype = dest->type;
 	assert(qtype->stype != Q__VOID); // Invariant
+	assert(qtype->stype != Q__AGGREGATE); // TODO
 
 	if (dest->indirect) {
 		pushi(ctx->current, NULL, store_for_type(qtype->stype), src, dest, NULL);
@@ -198,23 +199,47 @@ gen_access(struct gen_context *ctx,
 		return;
 	}
 
-	assert(expr->access.type == ACCESS_IDENTIFIER); // TODO
-	const struct scope_object *obj = expr->access.object;
-	struct qbe_value src = {0};
-	qval_for_object(ctx, &src, obj);
+	const struct type *type;
+	struct qbe_value src = {0}, temp = {0}, offset = {0};
+	const struct scope_object *obj;
+	switch (expr->access.type) {
+	case ACCESS_IDENTIFIER:
+		obj = expr->access.object;
+		qval_for_object(ctx, &src, obj);
 
-	struct qbe_value temp = {0};
-	switch (obj->otype) {
-	case O_BIND:
-		gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
+		switch (obj->otype) {
+		case O_BIND:
+			gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
+			gen_store(ctx, out, &temp);
+			break;
+		case O_DECL:
+			// Skip the extra load
+			gen_store(ctx, out, &src);
+			break;
+		}
+		break;
+	case ACCESS_INDEX:
+		type = expr->access.array->result;
+		gen_temp(ctx, &src, &qbe_long, "source.%d"); // XXX: ARCH
+		gen_expression(ctx, expr->access.array, &src);
+
+		gen_temp(ctx, &offset, &qbe_long, "offset.%d");
+		gen_expression(ctx, expr->access.index, &offset);
+		// TODO: Check if offset is in bounds
+		constl(&temp, type->array.members->size);
+		pushi(ctx->current, &offset, Q_MUL, &offset, &temp, NULL);
+
+		pushi(ctx->current, &src, Q_ADD, &src, &offset, NULL);
+		src.type = qtype_for_type(ctx, type->array.members, false);
+		src.indirect = true;
+		gen_loadtemp(ctx, &temp, &src,
+			qtype_for_type(ctx, type->array.members, true),
+			type_is_signed(type->array.members));
 		gen_store(ctx, out, &temp);
 		break;
-	case O_DECL:
-		// Skip the extra load
-		gen_store(ctx, out, &src);
-		break;
+	case ACCESS_FIELD:
+		assert(0); // TODO
 	}
-
 }
 
 static void
