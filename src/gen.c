@@ -129,18 +129,21 @@ gen_store(struct gen_context *ctx,
 	const struct qbe_value *dest,
 	const struct qbe_value *src)
 {
-	assert(src && !src->indirect); // Invariant
 	if (!dest) {
 		// no-op
 		return;
 	}
 
-	const struct qbe_type *qtype = dest->type;
-	assert(qtype->stype != Q__VOID); // Invariant
-	assert(qtype->stype != Q__AGGREGATE); // TODO
+	assert(src->type->stype != Q__VOID
+		&& dest->type->stype != Q__VOID); // Invariant
+	assert(src->type->stype != Q__AGGREGATE
+		&& dest->type->stype != Q__AGGREGATE); // TODO: Fuck me
 
+	assert(!src->indirect);
 	if (dest->indirect) {
-		pushi(ctx->current, NULL, store_for_type(qtype->stype), src, dest, NULL);
+		pushi(ctx->current, NULL,
+			store_for_type(src->type->stype),
+			src, dest, NULL);
 	} else {
 		pushi(ctx->current, dest, Q_COPY, src, NULL);
 	}
@@ -152,15 +155,16 @@ gen_load(struct gen_context *ctx,
 	const struct qbe_value *src,
 	bool is_signed)
 {
-	const struct qbe_type *qtype = dest->type;
-	assert(qtype->stype != Q__VOID); // Invariant
+	assert(src->type->stype != Q__VOID
+		&& dest->type->stype != Q__VOID); // Invariant
+	assert(src->type->stype != Q__AGGREGATE
+		&& dest->type->stype != Q__AGGREGATE); // TODO: Fuck me
 
-	if (src->type->stype == Q__AGGREGATE) {
-		assert(src->indirect && !dest->indirect);
-		pushi(ctx->current, dest, Q_COPY, src, NULL);
-	} else if (src->indirect) {
-		pushi(ctx->current, dest, load_for_type(
-			qtype->stype, is_signed), src, NULL);
+	assert(!dest->indirect);
+	if (src->indirect) {
+		pushi(ctx->current, dest,
+			load_for_type(dest->type->stype, is_signed),
+			src, NULL);
 	} else {
 		pushi(ctx->current, dest, Q_COPY, src, NULL);
 	}
@@ -189,8 +193,9 @@ gen_expr_access_ident(struct gen_context *ctx,
 	struct qbe_value src = {0}, temp = {0};
 	qval_for_object(ctx, &src, obj);
 	if (src.indirect) {
-		gen_loadtemp(ctx, &temp, &src, src.type,
-				type_is_signed(obj->type));
+		gen_loadtemp(ctx, &temp, &src,
+			qtype_for_type(ctx, obj->type, true),
+			type_is_signed(obj->type));
 		gen_store(ctx, out, &temp);
 	} else {
 		gen_store(ctx, out, &src);
