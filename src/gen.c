@@ -35,25 +35,24 @@ static void
 gen_temp(struct gen_context *ctx, struct qbe_value *val,
 		const struct qbe_type *type, const char *fmt)
 {
-	val->kind = QV_TEMPORARY;
-	val->type = type;
-
 	int n = snprintf(NULL, 0, fmt, ctx->id);
 	char *str = xcalloc(1, n + 1);
 	snprintf(str, n + 1, fmt, ctx->id);
 	++ctx->id;
 
+	val->kind = QV_TEMPORARY;
+	val->type = type;
 	val->name = str;
+	val->indirect = false;
 }
 
 static void
 alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 		const struct type *type, const char *fmt)
 {
+	struct qbe_value size = {0};
 	gen_temp(ctx, val, qtype_for_type(ctx, type, true), fmt);
 	val->indirect = true;
-
-	struct qbe_value size;
 	constl(&size, type->size);
 	pushprei(ctx->current, val, alloc_for_align(type->align), &size, NULL);
 }
@@ -62,14 +61,12 @@ static struct gen_binding *
 binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
 		struct qbe_value *val, const char *fmt)
 {
-	alloc_temp(ctx, val, obj->type, fmt);
-
 	struct gen_binding *binding = xcalloc(1, sizeof(struct gen_binding));
+	alloc_temp(ctx, val, obj->type, fmt);
 	binding->name = strdup(val->name);
 	binding->object = obj;
 	binding->next = ctx->bindings;
 	ctx->bindings = binding;
-
 	return binding;
 }
 
@@ -103,42 +100,36 @@ qval_for_object(struct gen_context *ctx,
 		val->indirect = false;
 		break;
 	}
-	val->type = qtype_for_type(ctx, obj->type, false);
+
+	if (type_is_aggregate(obj->type)) {
+		val->type = &qbe_aggregate;
+	} else {
+		val->type = &qbe_long; // XXX: ARCH
+	}
+
 	val->name = binding ? strdup(binding->name) : ident_to_sym(&obj->ident);
 }
 
-// Given a pointer temporary, convert it to a dereferenced pointer for the given
-// secondary type
 static void
-qval_deref(struct gen_context *ctx,
-	struct qbe_value *val, const struct type *type)
+qval_deref(struct qbe_value *val)
 {
 	assert(val->type == &qbe_long); // Invariant // XXX: ARCH
-	// Because we stack-allocate all variables and store a pointer to them
-	// in qbe_value, this is generally as easy as changing the
-	// interpretation of the value from direct to indirect.
 	val->indirect = true;
-	val->type = qtype_for_type(ctx, type, false);
 }
 
-// Given a non-pointer temporary, convert it to a pointer
 static void
 qval_address(struct qbe_value *val)
 {
-	// Because we stack-allocate all variables and store a pointer to them
-	// in qbe_value, this is generally as easy as changing the
-	// interpretation of the value from indirect to direct.
-	val->type = &qbe_long; // XXX: ARCH
+	assert(val->type == &qbe_long); // XXX: ARCH
 	val->indirect = false;
 }
 
-// Given value src of type A, and value dest of type pointer to A, store src in
-// dest.
 static void
 gen_store(struct gen_context *ctx,
 	const struct qbe_value *dest,
 	const struct qbe_value *src)
 {
+	assert(src && !src->indirect); // Invariant
 	if (!dest) {
 		// no-op
 		return;
@@ -155,18 +146,19 @@ gen_store(struct gen_context *ctx,
 	}
 }
 
-// Given value src of type pointer to A, and value dest of type A, load dest
-// from src.
 static void
 gen_load(struct gen_context *ctx,
 	const struct qbe_value *dest,
 	const struct qbe_value *src,
 	bool is_signed)
 {
-	const struct qbe_type *qtype = src->type;
+	const struct qbe_type *qtype = dest->type;
 	assert(qtype->stype != Q__VOID); // Invariant
 
-	if (src->indirect) {
+	if (src->type->stype == Q__AGGREGATE) {
+		assert(src->indirect && !dest->indirect);
+		pushi(ctx->current, dest, Q_COPY, src, NULL);
+	} else if (src->indirect) {
 		pushi(ctx->current, dest, load_for_type(
 			qtype->stype, is_signed), src, NULL);
 	} else {
@@ -188,7 +180,55 @@ static void gen_expression(struct gen_context *ctx,
 	const struct expression *expr, const struct qbe_value *out);
 
 static void
-gen_access(struct gen_context *ctx,
+gen_expr_access_ident(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	const struct scope_object *obj = expr->access.object;
+
+	struct qbe_value src = {0}, temp = {0};
+	qval_for_object(ctx, &src, obj);
+	if (src.indirect) {
+		gen_loadtemp(ctx, &temp, &src, src.type,
+				type_is_signed(obj->type));
+		gen_store(ctx, out, &temp);
+	} else {
+		gen_store(ctx, out, &src);
+	}
+}
+
+static void
+gen_expr_access_index(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	const struct type *atype = expr->access.array->result;
+	assert(atype->storage == TYPE_STORAGE_ARRAY); // TODO: Slices
+
+	struct qbe_value obj = {0};
+	gen_temp(ctx, &obj, &qbe_long, "object.%d"); // XXX: ARCH
+	gen_expression(ctx, expr->access.array, &obj);
+
+	struct qbe_value index = {0};
+	gen_temp(ctx, &index, &qbe_long, "index.%d");
+	gen_expression(ctx, expr->access.index, &index);
+
+	// TODO: Check if offset is in bounds
+
+	struct qbe_value temp = {0};
+	constl(&temp, atype->array.members->size);
+	pushi(ctx->current, &index, Q_MUL, &index, &temp, NULL);
+	pushi(ctx->current, &obj, Q_ADD, &obj, &index, NULL);
+	qval_deref(&obj);
+
+	gen_loadtemp(ctx, &temp, &obj,
+		qtype_for_type(ctx, atype->array.members, true),
+		type_is_signed(atype->array.members));
+	gen_store(ctx, out, &temp);
+}
+
+static void
+gen_expr_access(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
@@ -197,43 +237,12 @@ gen_access(struct gen_context *ctx,
 		return;
 	}
 
-	const struct type *type;
-	struct qbe_value src = {0}, temp = {0}, offset = {0};
-	const struct scope_object *obj;
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
-		obj = expr->access.object;
-		qval_for_object(ctx, &src, obj);
-
-		switch (obj->otype) {
-		case O_BIND:
-			gen_loadtemp(ctx, &temp, &src, src.type, type_is_signed(obj->type));
-			gen_store(ctx, out, &temp);
-			break;
-		case O_DECL:
-			// Skip the extra load
-			gen_store(ctx, out, &src);
-			break;
-		}
+		gen_expr_access_ident(ctx, expr, out);
 		break;
 	case ACCESS_INDEX:
-		type = expr->access.array->result;
-		gen_temp(ctx, &src, &qbe_long, "source.%d"); // XXX: ARCH
-		gen_expression(ctx, expr->access.array, &src);
-
-		gen_temp(ctx, &offset, &qbe_long, "offset.%d");
-		gen_expression(ctx, expr->access.index, &offset);
-		// TODO: Check if offset is in bounds
-		constl(&temp, type->array.members->size);
-		pushi(ctx->current, &offset, Q_MUL, &offset, &temp, NULL);
-
-		pushi(ctx->current, &src, Q_ADD, &src, &offset, NULL);
-		src.type = qtype_for_type(ctx, type->array.members, false);
-		src.indirect = true;
-		gen_loadtemp(ctx, &temp, &src,
-			qtype_for_type(ctx, type->array.members, true),
-			type_is_signed(type->array.members));
-		gen_store(ctx, out, &temp);
+		gen_expr_access_index(ctx, expr, out);
 		break;
 	case ACCESS_FIELD:
 		assert(0); // TODO
@@ -241,35 +250,47 @@ gen_access(struct gen_context *ctx,
 }
 
 static void
-gen_assign(struct gen_context *ctx,
+gen_expr_assign_ptr(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	const struct expression *object = expr->assign.object;
+	const struct expression *value = expr->assign.value;
+
+	struct qbe_value v = {0};
+	gen_temp(ctx, &v, &qbe_long, "indirect.%d"); // XXX: ARCH
+	gen_expression(ctx, object, &v);
+	qval_deref(&v);
+	gen_expression(ctx, value, &v);
+}
+
+static void
+gen_expr_assign(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
 	assert(out == NULL); // Invariant
+	if (expr->assign.indirect) {
+		gen_expr_assign_ptr(ctx, expr, out);
+		return;
+	}
+
+	// TODO: When this grows to support e.g. indexing expressions, we need
+	// to ensure that the side-effects of the lvalue occur before the
+	// side-effects of the rvalue.
 
 	const struct expression *object = expr->assign.object;
+	assert(object->type == EXPR_ACCESS); // Invariant
+	const struct scope_object *obj = object->access.object;
 	const struct expression *value = expr->assign.value;
 
-	if (expr->assign.indirect) {
-		struct qbe_value dest = {0};
-		gen_temp(ctx, &dest, &qbe_long, "indirect.%d"); // XXX: ARCH
-		gen_expression(ctx, object, &dest);
-		qval_deref(ctx, &dest, value->result);
-		gen_expression(ctx, value, &dest);
-	} else {
-		assert(object->type == EXPR_ACCESS); // Invariant
-		// TODO: When this grows to support e.g. indexing expressions,
-		// we need to ensure that the side-effects of the lvalue occur
-		// before the side-effects of the rvalue.
-		const struct scope_object *obj = object->access.object;
-		struct qbe_value src;
-		qval_for_object(ctx, &src, obj);
-		gen_expression(ctx, value, &src);
-	}
+	struct qbe_value src;
+	qval_for_object(ctx, &src, obj);
+	gen_expression(ctx, value, &src);
 }
 
 static void
-gen_binding(struct gen_context *ctx,
+gen_expr_binding(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
@@ -280,13 +301,12 @@ gen_binding(struct gen_context *ctx,
 		struct qbe_value temp = {0};
 		binding_alloc(ctx, binding->object, &temp, "binding.%d");
 		gen_expression(ctx, binding->initializer, &temp);
-
 		binding = binding->next;
 	}
 }
 
 static void
-gen_binarithm(struct gen_context *ctx,
+gen_expr_binarithm(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
@@ -317,6 +337,7 @@ gen_call(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
+	// XXX: AUDIT ME
 	struct qbe_statement call = {
 		.type = Q_INSTR,
 		.instr = Q_CALL,
@@ -349,23 +370,24 @@ gen_array(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	assert(!expr->result->array.expandable); // TODO
+	const struct type *type = expr->result;
+	assert(out->indirect);			// Invariant
+	assert(!type->array.expandable);	// Invariant
 
-	struct qbe_value offs = {0}, size = {0};
-	gen_temp(ctx, &offs,
-		qtype_for_type(ctx, &builtin_type_size, false),
-		"offset.%d");
-	constl(&size, 0); // XXX: ARCH
-	pushi(ctx->current, &offs, Q_COPY, out, NULL);
-	constl(&size, expr->result->array.members->size); // XXX: ARCH
-	offs.indirect = true;
-	offs.type = qtype_for_type(ctx, expr->result->array.members, true);
+	// XXX: ARCH
+	struct qbe_value ptr = {0};
+	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
+	ptr.indirect = true;
+
+	struct qbe_value size = {0};
+	constl(&size, type->array.members->size);
 
 	struct array_constant *item = expr->constant.array;
 	while (item) {
-		gen_expression(ctx, item->value, &offs);
+		gen_expression(ctx, item->value, &ptr);
 		if (item->next) {
-			pushi(ctx->current, &offs, Q_ADD, &offs, &size, NULL);
+			pushi(ctx->current, &ptr, Q_ADD, &ptr, &size, NULL);
 		}
 		item = item->next;
 	}
@@ -422,7 +444,6 @@ gen_constant(struct gen_context *ctx,
 		constd(&val, expr->constant.fval);
 		break;
 	case Q__AGGREGATE:
-		assert(0); // TODO: General-purpose store
 	case Q__VOID:
 		assert(0); // Invariant
 	}
@@ -439,8 +460,7 @@ gen_expr_list(struct gen_context *ctx,
 	while (exprs) {
 		const struct qbe_value *dest = NULL;
 		if (!exprs->next) {
-			// Last value determines expression result
-			dest = out;
+			dest = out; // Last value determines expression result
 		}
 		gen_expression(ctx, exprs->expr, dest);
 		exprs = exprs->next;
@@ -480,61 +500,73 @@ gen_expr_return(struct gen_context *ctx,
 }
 
 static void
+gen_expr_address(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	const struct expression *operand = expr->unarithm.operand;
+	assert(operand->type == EXPR_ACCESS); // Invariant
+
+	struct qbe_value src = {0};
+	switch (operand->access.type) {
+	case ACCESS_IDENTIFIER:
+		qval_for_object(ctx, &src, operand->access.object);
+		break;
+	case ACCESS_INDEX:
+		assert(0); // TODO
+	case ACCESS_FIELD:
+		assert(0); // TODO
+	}
+
+	assert(src.indirect);
+	qval_address(&src);
+	gen_store(ctx, out, &src);
+}
+
+static void
 gen_expr_unarithm(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	const struct qbe_type *otype =
-		qtype_for_type(ctx, expr->unarithm.operand->result, false);
-	const struct qbe_type *rtype = qtype_for_type(ctx, expr->result, false);
-	if (expr->unarithm.op == UN_ADDRESS) { // Special case
-		const struct expression *operand = expr->unarithm.operand;
-		assert(operand->type == EXPR_ACCESS); // Invariant
-		assert(operand->access.type == ACCESS_IDENTIFIER); // TODO
-		const struct scope_object *obj = operand->access.object;
-
-		struct qbe_value src = {0};
-		qval_for_object(ctx, &src, obj);
-		qval_address(&src);
-		gen_store(ctx, out, &src);
+	if (expr->unarithm.op == UN_ADDRESS) {
+		gen_expr_address(ctx, expr, out);
 		return;
 	}
 
-	struct qbe_value operand = {0}, result = {0};
-	gen_temp(ctx, &operand, otype, "operand.%d");
-	gen_temp(ctx, &result, rtype, "result.%d");
-
-	gen_expression(ctx, expr->unarithm.operand, &operand);
+	struct expression *operand = expr->unarithm.operand;
+	struct qbe_value op = {0}, res = {0};
+	gen_temp(ctx, &op, qtype_for_type(ctx, operand->result, false), "operand.%d");
+	gen_temp(ctx, &res, qtype_for_type(ctx, expr->result, false), "result.%d");
+	gen_expression(ctx, expr->unarithm.operand, &op);
 
 	struct qbe_value temp = {0};
 	temp.kind = QV_CONST;
-	temp.type = otype;
+	temp.type = op.type;
 	switch (expr->unarithm.op) {
 	case UN_LNOT:
 		temp.lval = 1;
-		pushi(ctx->current, &result, Q_XOR, &temp, &operand, NULL);
+		pushi(ctx->current, &res, Q_XOR, &temp, &op, NULL);
 		break;
 	case UN_BNOT:
 		temp.lval = (uint64_t)-1;
-		pushi(ctx->current, &result, Q_XOR, &temp, &operand, NULL);
+		pushi(ctx->current, &res, Q_XOR, &temp, &op, NULL);
 		break;
 	case UN_MINUS:
 		temp.lval = 0;
-		pushi(ctx->current, &result, Q_SUB, &temp, &operand, NULL);
+		pushi(ctx->current, &res, Q_SUB, &temp, &op, NULL);
 		break;
 	case UN_PLUS:
-		// no-op
-		result = operand;
+		res = op; // no-op
 		break;
 	case UN_DEREF:
-		qval_deref(ctx, &operand, expr->result);
-		gen_load(ctx, &result, &operand, type_is_signed(expr->result));
+		qval_deref(&op);
+		gen_load(ctx, &res, &op, type_is_signed(expr->result));
 		break;
 	case UN_ADDRESS:
 		assert(0); // Invariant
 	}
 
-	gen_store(ctx, out, &result);
+	gen_store(ctx, out, &res);
 }
 
 static void
@@ -544,18 +576,18 @@ gen_expression(struct gen_context *ctx,
 {
 	switch (expr->type) {
 	case EXPR_ACCESS:
-		gen_access(ctx, expr, out);
+		gen_expr_access(ctx, expr, out);
 		break;
 	case EXPR_ASSERT:
 		assert(0); // TODO
 	case EXPR_ASSIGN:
-		gen_assign(ctx, expr, out);
+		gen_expr_assign(ctx, expr, out);
 		break;
 	case EXPR_BINARITHM:
-		gen_binarithm(ctx, expr, out);
+		gen_expr_binarithm(ctx, expr, out);
 		break;
 	case EXPR_BINDING:
-		gen_binding(ctx, expr, out);
+		gen_expr_binding(ctx, expr, out);
 		break;
 	case EXPR_BREAK:
 		assert(0); // TODO
@@ -597,6 +629,7 @@ gen_expression(struct gen_context *ctx,
 static void
 gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 {
+	// XXX: AUDIT ME
 	assert(decl->type == DECL_FUNC);
 	const struct function_decl *func = &decl->func;
 	const struct type *fntype = func->type;

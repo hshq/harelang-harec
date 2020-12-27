@@ -576,6 +576,7 @@ parse_type(struct parser *par)
 		want(par, T_FN, NULL);
 		// fallthrough
 	case T_FN:
+		type = xcalloc(sizeof(struct ast_type), 1);
 		type->storage = TYPE_STORAGE_FUNCTION;
 		parse_prototype(par, &type->func);
 		if (noreturn) {

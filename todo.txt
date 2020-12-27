@@ -1,5 +1,6 @@
 highest priorities, unordered except where there are obvious dependencies:
 
+- lower implicit casts in check
 - aggregate types
 	- in parameters
 	- in variables
@@ -14,12 +15,3 @@ confidently implement the remainder of the features.
 general todos, includes spec updates:
 - zero-length arrays & slice initializers
 - allocations
-
-
-
-storage consistency audit todos:
-- aggregate types: allocation, initialization, reading, writing
-- pointers, reading and writing, taking pointers to objects
-- pointers to aggregate types
-- copying entire aggregate types
-- nested aggregate types

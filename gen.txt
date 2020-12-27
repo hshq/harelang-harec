@@ -1,0 +1,81 @@
+TODO:
+- test function pointers in more depth (binding, return, call)
+- audit function parameters
+	- primitive
+	- aggregate
+- aggregate type assignment
+- nested aggregate types
+	- binding
+	- assignment
+	- indexing
+
+
+
+
+.allocate object %o:
+	%o =l alloc<align> <size>
+	%o.indirect = yes
+
+.address %out, %in:
+	invariant: %in =l !indirect
+	if %out indirect:
+		storet %out, %in
+	else:
+		%out =l copy %in
+
+constant numeric %out, value:
+	if %out indirect:
+		storet %out, value
+	else:
+		invariant: %out type is simple
+		%out =t copy value
+
+constant array %out, values:
+	invariant: %out =l indirect
+	%addr =l add %out, %offs
+	%addr.indirect = yes
+	for v : values
+		%addr =l add %addr, membsize
+		gen(v, out={%addr invariant: =l indirect})
+
+access %out, object:
+	%o lookup object; invariant: =l indirect
+	if %out indirect:
+		%t =t load %o
+		store %out, %t
+	else:
+		%out =t load %o
+
+index %out, object, index:
+	%o lookup object; invariant: =l indirect
+	%temp =l direct [size]
+	gen(index, %temp =l direct)
+
+binding:
+	%o .allocate object
+	gen(value, out={%o invariant: =l indirect})
+
+unary address %out:
+	%o lookup object: invariant: =l indirect
+	.address %out, %o
+
+let x: [3]int = [3, 2, 1];
+binding:
+	%x =l alloc4 12
+	constant array: out=%x =l indirect
+		type := result type ([3]int)
+		%t.1 =l copy %x	; Allocate pointer to out
+		constant 3: out=%t.1 =l indirect
+			type := result type int (=w)
+			storew %t.1, 3
+		%t.1 =l add %t.1, type.size
+		constant 2: out=%t.1 =l indirect
+		constant 3: out=%t.1 =l indirect
+let y = x[2];
+binding:
+	%y =l alloc4 1
+	index x[2]: out=%y =l
+		unary address x: out=%t.1 =l direct
+			type := lookup object x (binding %x)
+			%t.1 =l copy %x (ptr copy)
+		constant 2: out %t.2 =l	direct
