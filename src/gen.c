@@ -63,6 +63,9 @@ binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
 {
 	struct gen_binding *binding = xcalloc(1, sizeof(struct gen_binding));
 	alloc_temp(ctx, val, obj->type, fmt);
+	if (type_is_aggregate(obj->type)) {
+		val->indirect = false;
+	}
 	binding->name = strdup(val->name);
 	binding->object = obj;
 	binding->next = ctx->bindings;
@@ -102,7 +105,8 @@ qval_for_object(struct gen_context *ctx,
 	}
 
 	if (type_is_aggregate(obj->type)) {
-		val->type = &qbe_aggregate;
+		val->type = &qbe_aggregate; // TODO: Lookup actual type
+		val->indirect = false;
 	} else {
 		val->type = &qbe_long; // XXX: ARCH
 	}
@@ -136,8 +140,17 @@ gen_store(struct gen_context *ctx,
 
 	assert(src->type->stype != Q__VOID
 		&& dest->type->stype != Q__VOID); // Invariant
-	assert(src->type->stype != Q__AGGREGATE
-		&& dest->type->stype != Q__AGGREGATE); // TODO: Fuck me
+
+	if (src->type->stype == Q__AGGREGATE) {
+		assert(!dest->indirect && !src->indirect);
+		if (dest->type->stype == Q__AGGREGATE) {
+			assert(0); // TODO: memcpy
+		} else {
+			assert(dest->type == &qbe_long);
+			pushi(ctx->current, dest, Q_COPY, src, NULL);
+		}
+		return;
+	}
 
 	assert(!src->indirect);
 	if (dest->indirect) {
@@ -224,12 +237,15 @@ gen_expr_access_index(struct gen_context *ctx,
 	constl(&temp, atype->array.members->size);
 	pushi(ctx->current, &index, Q_MUL, &index, &temp, NULL);
 	pushi(ctx->current, &obj, Q_ADD, &obj, &index, NULL);
-	qval_deref(&obj);
-
-	gen_loadtemp(ctx, &temp, &obj,
-		qtype_for_type(ctx, atype->array.members, true),
-		type_is_signed(atype->array.members));
-	gen_store(ctx, out, &temp);
+	if (!type_is_aggregate(atype->array.members)) {
+		qval_deref(&obj);
+		gen_loadtemp(ctx, &temp, &obj,
+			qtype_for_type(ctx, atype->array.members, true),
+			type_is_signed(atype->array.members));
+		gen_store(ctx, out, &temp);
+	} else {
+		gen_store(ctx, out, &obj);
+	}
 }
 
 static void
@@ -376,14 +392,14 @@ gen_array(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	const struct type *type = expr->result;
-	assert(out->indirect);			// Invariant
+	assert(!out->indirect);			// Invariant
 	assert(!type->array.expandable);	// Invariant
 
 	// XXX: ARCH
 	struct qbe_value ptr = {0};
 	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
 	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
-	ptr.indirect = true;
+	ptr.indirect = !type_is_aggregate(type->array.members);
 
 	struct qbe_value size = {0};
 	constl(&size, type->array.members->size);

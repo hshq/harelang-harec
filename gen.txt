@@ -5,9 +5,9 @@ TODO:
 	- aggregate
 - aggregate type assignment
 - nested aggregate types
-	- binding
+	- binding	✓
 	- assignment
-	- indexing
+	- indexing	✓
 
 
 
