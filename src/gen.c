@@ -142,7 +142,7 @@ gen_store(struct gen_context *ctx,
 		&& dest->type->stype != Q__VOID); // Invariant
 
 	if (src->type->stype == Q__AGGREGATE) {
-		assert(!dest->indirect && !src->indirect);
+		assert(!src->indirect);
 		if (dest->type->stype == Q__AGGREGATE) {
 			assert(0); // TODO: memcpy
 		} else {
@@ -539,8 +539,11 @@ gen_expr_address(struct gen_context *ctx,
 		assert(0); // TODO
 	}
 
-	assert(src.indirect);
-	qval_address(&src);
+	if (src.indirect) {
+		qval_address(&src);
+	} else {
+		assert(type_is_aggregate(operand->result));
+	}
 	gen_store(ctx, out, &src);
 }
 
