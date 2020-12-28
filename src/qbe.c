@@ -214,11 +214,13 @@ push(struct qbe_statements *stmts, struct qbe_statement *stmt)
 	if (!stmts->stmts) {
 		stmts->sz = 256;
 		stmts->ln = 0;
-		stmts->stmts = xcalloc(1, sizeof(struct qbe_statement) * stmts->sz);
+		stmts->stmts = xcalloc(1,
+			sizeof(struct qbe_statement) * stmts->sz);
 	}
-	if (stmts->ln + 1 < stmts->sz) {
+	if (stmts->ln + 1 >= stmts->sz) {
 		stmts->sz *= 2;
-		stmts->stmts = xrealloc(stmts->stmts, stmts->sz);
+		stmts->stmts = xrealloc(stmts->stmts,
+			sizeof(struct qbe_statement) * stmts->sz);
 	}
 	stmts->stmts[stmts->ln++] = *stmt;
 }
