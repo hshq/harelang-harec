@@ -694,7 +694,12 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		param->type = qtype_for_type(ctx, obj->type, true);
 
 		if (type_is_aggregate(obj->type)) {
-			assert(0); // TODO
+			struct gen_binding *binding =
+				xcalloc(1, sizeof(struct gen_binding));
+			binding->name = strdup(param->name);
+			binding->object = obj;
+			binding->next = ctx->bindings;
+			ctx->bindings = binding;
 		} else {
 			struct qbe_value val;
 			binding_alloc(ctx, obj, &val, "param.%d");
@@ -704,7 +709,6 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 				.name = param->name,
 			};
 			gen_store(ctx, &val, &src);
-			free(obj->ident.name);
 		}
 
 		obj = obj->next;
