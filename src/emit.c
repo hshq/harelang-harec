@@ -16,10 +16,39 @@ emit_qtype(const struct qbe_type *type, FILE *out)
 		fprintf(out, "%c", (char)type->stype);
 		break;
 	case Q__AGGREGATE:
-		assert(0); // TODO
+		fprintf(out, ":%s", type->name);
+		break;
 	case Q__VOID:
 		break; // no-op
 	}
+}
+
+static void
+emit_type(const struct qbe_def *def, FILE *out)
+{
+	assert(def->kind == Q_TYPE);
+	fprintf(out, "type :%s =", def->name);
+	if (def->type.align != (size_t)-1) {
+		fprintf(out, " align %zu", def->type.align);
+	}
+	fprintf(out, " {");
+
+	const struct qbe_field *field = &def->type.fields;
+	while (field) {
+		if (field->type) {
+			fprintf(out, " ");
+			emit_qtype(field->type, out);
+		}
+		if (field->count) {
+			fprintf(out, " %zu", field->count);
+		}
+		if (field->next) {
+			fprintf(out, ",");
+		}
+		field = field->next;
+	}
+
+	fprintf(out, " }\n\n");
 }
 
 static void
@@ -131,7 +160,7 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 static void
 emit_func(struct qbe_def *def, FILE *out)
 {
-	assert(def->type == Q_FUNC);
+	assert(def->kind == Q_FUNC);
 	fprintf(out, "%sfunction ", def->exported ? "export " : "");
 	emit_qtype(def->func.returns, out);
 	fprintf(out, " $%s(", def->name);
@@ -162,9 +191,10 @@ emit_func(struct qbe_def *def, FILE *out)
 static void
 emit_def(struct qbe_def *def, FILE *out)
 {
-	switch (def->type) {
+	switch (def->kind) {
 	case Q_TYPE:
-		assert(0); // TODO
+		emit_type(def, out);
+		break;
 	case Q_FUNC:
 		emit_func(def, out);
 		break;

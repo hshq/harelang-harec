@@ -150,8 +150,8 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 void
 qbe_append_def(struct qbe_program *prog, struct qbe_def *def)
 {
-	def->next = prog->defs;
-	prog->defs = def;
+	*prog->next = def;
+	prog->next = &def->next;
 }
 
 struct qbe_value *

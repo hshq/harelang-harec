@@ -674,7 +674,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	assert(func->flags == 0); // TODO
 
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
-	qdef->type = Q_FUNC;
+	qdef->kind = Q_FUNC;
 	qdef->exported = decl->exported;
 	qdef->name = func->symbol ? strdup(func->symbol)
 		: ident_to_sym(&decl->ident);
@@ -775,6 +775,7 @@ gen(const struct unit *unit, struct qbe_program *out)
 		.out = out,
 		.ns = unit->ns,
 	};
+	ctx.out->next = &ctx.out->defs;
 	const struct declarations *decls = unit->declarations;
 	assert(decls); // At least one is required
 	trenter(TR_GEN, "gen");

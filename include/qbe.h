@@ -15,9 +15,22 @@ enum qbe_stype {
 	Q__AGGREGATE = 'A',
 };
 
+struct type;
+struct qbe_type;
+
+struct qbe_field {
+	const struct qbe_type *type;
+	size_t count;
+	struct qbe_field *next;
+};
+
 struct qbe_type {
 	enum qbe_stype stype;
-	// TODO: Aggregate type details
+	// Aggregate types only:
+	char *name;
+	size_t align;
+	struct qbe_field fields;
+	const struct type *base;
 };
 
 // Simple type singletons
@@ -203,7 +216,7 @@ struct qbe_func {
 	struct qbe_statements prelude, body;
 };
 
-enum qbe_deftype {
+enum qbe_defkind {
 	Q_TYPE,
 	Q_FUNC,
 	Q_DATA,
@@ -211,16 +224,18 @@ enum qbe_deftype {
 
 struct qbe_def {
 	char *name;
-	enum qbe_deftype type;
+	enum qbe_defkind kind;
 	bool exported;
 	union {
 		struct qbe_func func;
+		struct qbe_type type;
 	};
 	struct qbe_def *next;
 };
 
 struct qbe_program {
 	struct qbe_def *defs;
+	struct qbe_def **next;
 };
 
 void qbe_append_def(struct qbe_program *prog, struct qbe_def *def);

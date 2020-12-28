@@ -1,8 +1,10 @@
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include "gen.h"
 #include "qbe.h"
 #include "types.h"
+#include "util.h"
 
 enum qbe_stype
 qstype_for_type(const struct type *type)
@@ -91,6 +93,75 @@ qxtype_for_type(const struct type *type)
 	assert(0);
 }
 
+static const struct qbe_type *
+lookup_aggregate(struct gen_context *ctx, const struct type *type)
+{
+	for (struct qbe_def *def = ctx->out->defs; def; def = def->next) {
+		if (def->kind == Q_TYPE && def->type.base == type) {
+			return &def->type;
+		}
+	}
+
+	switch (type->storage) {
+	// Special cases
+	case TYPE_STORAGE_ARRAY:
+		return &qbe_long;
+	default:
+		break;
+	}
+
+	int n = snprintf(NULL, 0, "type.%zd", ctx->id);
+	char *name = xcalloc(1, n + 1);
+	snprintf(name, n + 1, "type.%zd", ctx->id);
+	++ctx->id;
+
+	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
+	def->kind = Q_TYPE,
+	def->name = name,
+	def->exported = false,
+	def->type.stype = Q__AGGREGATE;
+	def->type.base = type;
+	def->type.name = name;
+	def->type.align = SIZE_UNDEFINED;
+
+	switch (type->storage) {
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_UNION:
+		assert(0); // TODO
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_FUNCTION:
+		assert(0); // Invariant
+	}
+
+	qbe_append_def(ctx->out, def);
+	return &def->type;
+}
+
 const struct qbe_type *
 qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 {
@@ -121,17 +192,17 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_VOID:
 		return qtype_for_xtype(qstype_for_type(type));
 	case TYPE_STORAGE_ARRAY:
-		return qtype_for_xtype(Q__AGGREGATE);
-	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
-		assert(0); // TODO
+		return lookup_aggregate(ctx, type);
 	case TYPE_STORAGE_FUNCTION:
 		return qtype_for_xtype(Q__AGGREGATE);
+	case TYPE_STORAGE_ALIAS:
+		assert(0); // TODO
 	}
 	assert(0); // Unreachable
 }
