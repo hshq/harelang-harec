@@ -293,13 +293,14 @@ lex_literal(struct lexer *lexer, struct token *out)
 					push(lexer, c, true);
 					goto finalize;
 				}
-				isfloat = true;
 				if (!strchr(base, c = next(lexer, NULL, false))) {
 					push(lexer, c, false);
 					push(lexer, '.', true);
 					goto finalize;
+				} else {
+					push(lexer, c, false);
 				}
-				push(lexer, c, false);
+				isfloat = true;
 				break;
 			case 'e':
 				if (exp || suff) {
