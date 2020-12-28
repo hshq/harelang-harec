@@ -614,6 +614,8 @@ lex_label(struct lexer *lexer, struct token *out)
 	return out->token;
 }
 
+static enum lexical_token _lex(struct lexer *lexer, struct token *out);
+
 static enum lexical_token
 lex2(struct lexer *lexer, struct token *out, uint32_t c)
 {
@@ -663,7 +665,8 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			break;
 		case '/':
 			while ((c = next(lexer, NULL, false)) != UTF8_INVALID && c != '\n') ;
-			return lex(lexer, out);
+			trace(TR_LEX, "comment");
+			return _lex(lexer, out);
 		default:
 			push(lexer, c, false);
 			out->token = T_DIV;
