@@ -117,15 +117,13 @@ qval_for_object(struct gen_context *ctx,
 static void
 qval_deref(struct qbe_value *val)
 {
-	assert(val->type == &qbe_long); // Invariant // XXX: ARCH
-	val->indirect = true;
+	val->indirect = val->type->stype != Q__AGGREGATE;
 }
 
 static void
 qval_address(struct qbe_value *val)
 {
-	assert(val->type == &qbe_long); // XXX: ARCH
-	val->indirect = false;
+	val->indirect = val->type->stype == Q__AGGREGATE;
 }
 
 static void
@@ -142,8 +140,11 @@ gen_store(struct gen_context *ctx,
 		&& dest->type->stype != Q__VOID); // Invariant
 
 	if (src->type->stype == Q__AGGREGATE) {
-		assert(!src->indirect);
-		if (dest->type->stype == Q__AGGREGATE) {
+		if (src->indirect) {
+			assert(dest->indirect);
+			// XXX: ARCH
+			pushi(ctx->current, NULL, Q_STOREL, src, dest, NULL);
+		} else if (dest->type->stype == Q__AGGREGATE) {
 			assert(0); // TODO: memcpy
 		} else {
 			assert(dest->type == &qbe_long);
@@ -170,8 +171,17 @@ gen_load(struct gen_context *ctx,
 {
 	assert(src->type->stype != Q__VOID
 		&& dest->type->stype != Q__VOID); // Invariant
-	assert(src->type->stype != Q__AGGREGATE
-		&& dest->type->stype != Q__AGGREGATE); // TODO: Fuck me
+
+	if (src->type->stype == Q__AGGREGATE) {
+		assert(!src->indirect);
+		if (dest->type->stype == Q__AGGREGATE) {
+			assert(0); // TODO: memcpy
+		} else {
+			assert(dest->type == &qbe_long);
+			pushi(ctx->current, dest, Q_COPY, src, NULL);
+		}
+		return;
+	}
 
 	assert(!dest->indirect);
 	if (src->indirect) {
@@ -237,15 +247,11 @@ gen_expr_access_index(struct gen_context *ctx,
 	constl(&temp, atype->array.members->size);
 	pushi(ctx->current, &index, Q_MUL, &index, &temp, NULL);
 	pushi(ctx->current, &obj, Q_ADD, &obj, &index, NULL);
-	if (!type_is_aggregate(atype->array.members)) {
-		qval_deref(&obj);
-		gen_loadtemp(ctx, &temp, &obj,
-			qtype_for_type(ctx, atype->array.members, true),
-			type_is_signed(atype->array.members));
-		gen_store(ctx, out, &temp);
-	} else {
-		gen_store(ctx, out, &obj);
-	}
+	qval_deref(&obj);
+	gen_loadtemp(ctx, &temp, &obj,
+		qtype_for_type(ctx, atype->array.members, true),
+		type_is_signed(atype->array.members));
+	gen_store(ctx, out, &temp);
 }
 
 static void
@@ -539,11 +545,7 @@ gen_expr_address(struct gen_context *ctx,
 		assert(0); // TODO
 	}
 
-	if (src.indirect) {
-		qval_address(&src);
-	} else {
-		assert(type_is_aggregate(operand->result));
-	}
+	qval_address(&src);
 	gen_store(ctx, out, &src);
 }
 
