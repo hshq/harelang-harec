@@ -1,0 +1,2 @@
+This is a basic Hare runtime. It is capable of running the harec test suite, but
+not much else.
