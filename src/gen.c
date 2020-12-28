@@ -147,10 +147,9 @@ gen_store(struct gen_context *ctx,
 			assert(dest->indirect);
 			// XXX: ARCH
 			pushi(ctx->current, NULL, Q_STOREL, src, dest, NULL);
-		} else if (dest->type->stype == Q__AGGREGATE) {
+		} else if (!dest->indirect && dest->type->stype == Q__AGGREGATE) {
 			assert(0); // TODO: memcpy
 		} else {
-			assert(dest->type == &qbe_long);
 			pushi(ctx->current, dest, Q_COPY, src, NULL);
 		}
 		return;
@@ -363,15 +362,18 @@ gen_expr_binarithm(struct gen_context *ctx,
 }
 
 static void
-gen_call(struct gen_context *ctx,
+gen_expr_call(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	// XXX: AUDIT ME
+	struct qbe_value result = {0};
+	gen_temp(ctx, &result, qtype_for_type(ctx,
+		expr->call.lvalue->result->func.result, true), "returns.%d");
+
 	struct qbe_statement call = {
 		.type = Q_INSTR,
 		.instr = Q_CALL,
-		.out = out ? qval_dup(out) : NULL,
+		.out = qval_dup(&result),
 	};
 
 	struct qbe_arguments *arg, **next = &call.args;
@@ -385,14 +387,21 @@ gen_call(struct gen_context *ctx,
 		assert(!carg->variadic); // TODO
 		arg = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		gen_temp(ctx, &arg->value,
-			qtype_for_type(ctx, carg->value->result, false),
+			qtype_for_type(ctx, carg->value->result, true),
 			"arg.%d");
+		if (type_is_aggregate(carg->value->result)) {
+			qval_address(&arg->value);
+		}
 		gen_expression(ctx, carg->value, &arg->value);
 		carg = carg->next;
 		next = &arg->next;
 	}
 
 	push(&ctx->current->body, &call);
+
+	if (out) {
+		gen_store(ctx, out, &result);
+	}
 }
 
 static void
@@ -424,7 +433,7 @@ gen_array(struct gen_context *ctx,
 }
 
 static void
-gen_constant(struct gen_context *ctx,
+gen_expr_constant(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
@@ -621,12 +630,12 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_BREAK:
 		assert(0); // TODO
 	case EXPR_CALL:
-		gen_call(ctx, expr, out);
+		gen_expr_call(ctx, expr, out);
 		break;
 	case EXPR_CAST:
 		assert(0); // TODO
 	case EXPR_CONSTANT:
-		gen_constant(ctx, expr, out);
+		gen_expr_constant(ctx, expr, out);
 		break;
 	case EXPR_CONTINUE:
 	case EXPR_FOR:

@@ -170,9 +170,8 @@ type_is_aggregate(const struct type *type)
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
-		return true;
 	case TYPE_STORAGE_FUNCTION:
-		assert(0); // Invariant
+		return true;
 	}
 	assert(0); // Unreachable
 }

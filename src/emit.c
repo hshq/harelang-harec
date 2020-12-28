@@ -15,11 +15,10 @@ emit_qtype(const struct qbe_type *type, FILE *out)
 	case Q_DOUBLE:
 		fprintf(out, "%c", (char)type->stype);
 		break;
+	case Q__AGGREGATE:
+		assert(0); // TODO
 	case Q__VOID:
 		break; // no-op
-	case Q__AGGREGATE:
-		fprintf(out, "l"); // XXX: ARCH
-		break;
 	}
 }
 
