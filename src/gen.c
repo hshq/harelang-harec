@@ -70,6 +70,9 @@ binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
 	binding->object = obj;
 	binding->next = ctx->bindings;
 	ctx->bindings = binding;
+	pushc(ctx->current, "alloc binding: %s -> %%%s, =%c, indirect: %d",
+			obj->ident.name, binding->name,
+			(char)val->type->stype, val->indirect);
 	return binding;
 }
 

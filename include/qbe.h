@@ -5,14 +5,14 @@
 #include <stdint.h>
 
 enum qbe_stype {
-	Q__VOID = 0,
+	Q__VOID = 'V',
 	Q_BYTE = 'b',
 	Q_HALF = 'h',
 	Q_WORD = 'w',
 	Q_LONG = 'l',
 	Q_SINGLE = 's',
 	Q_DOUBLE = 'd',
-	Q__AGGREGATE,
+	Q__AGGREGATE = 'A',
 };
 
 struct qbe_type {
@@ -41,10 +41,22 @@ enum qbe_value_kind {
 };
 
 // Represents a value which can be an argument to a QBE instruction.
+// 
+// If the value is a non-aggregate type, indirect determines if it is a pointer
+// to the value, or the value itself.
 //
-// If indirect, this value is a pointer to the actual value, which is allocated
-// elsewhere (e.g. the stack). This is usually true unless we have temporarily
-// loaded a value as an input into an instruction.
+// let x = 10;	// %x =l alloc4 4; storew 10, %x
+// 		// qbe_value{QV_TEMPORARY, =l, true, %x}
+// x;		// %temp =w loadw %x
+// 		// qbe_value{QV_TEMPORARY, =w, false, %temp}
+//
+// Aggregate types cannot be directly stored in temporaries, so if direct is
+// set, the value is still a pointer to an aggregate type.
+//
+// let x = [1, 2, 3];	// %x =l alloc4 12; storew 1, %x; ...
+// 			// qbe_value{QV_TEMPORARY, :aggregate, true, %x }
+// let y = &x;		// %y =l alloc8 8; storel %x, %y
+// 			// qbe_value{QV_TEMPORARY, =l, true, %y }
 struct qbe_value {
 	enum qbe_value_kind kind;
 	const struct qbe_type *type;
