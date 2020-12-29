@@ -610,12 +610,16 @@ gen_expr_if(struct gen_context *ctx,
 
 	push(&ctx->current->body, &tlabel);
 	gen_expression(ctx, expr->_if.true_branch, out);
-	pushi(ctx->current, NULL, Q_JMP, &end, NULL);
+	if (!expr->_if.true_branch->terminates) {
+		pushi(ctx->current, NULL, Q_JMP, &end, NULL);
+	}
 
 	push(&ctx->current->body, &flabel);
 	if (expr->_if.false_branch) {
 		gen_expression(ctx, expr->_if.false_branch, out);
-		pushi(ctx->current, NULL, Q_JMP, &end, NULL);
+		if (!expr->_if.false_branch->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &end, NULL);
+		}
 	}
 
 	push(&ctx->current->body, &endl);
