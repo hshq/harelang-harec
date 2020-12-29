@@ -583,8 +583,6 @@ check_expression(struct context *ctx,
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr);
 		break;
-	case EXPR_WHILE:
-		assert(0); // TODO
 	}
 
 	trleave(TR_CHECK, NULL);

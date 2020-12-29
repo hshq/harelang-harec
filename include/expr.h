@@ -28,7 +28,6 @@ enum expr_type {
 	EXPR_STRUCT,
 	EXPR_SWITCH,
 	EXPR_UNARITHM,
-	EXPR_WHILE,
 };
 
 enum access_type {

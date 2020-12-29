@@ -162,6 +162,13 @@ struct ast_expression_constant {
 	};
 };
 
+struct ast_expression_for {
+	struct ast_expression *bindings;
+	struct ast_expression *cond;
+	struct ast_expression *afterthought;
+	struct ast_expression *body;
+};
+
 struct ast_expression_if {
 	struct ast_expression *cond;
 	struct ast_expression *true_branch, *false_branch;
@@ -225,6 +232,7 @@ struct ast_expression {
 		struct ast_expression_binding binding;
 		struct ast_expression_call call;
 		struct ast_expression_constant constant;
+		struct ast_expression_for _for;
 		struct ast_expression_if _if;
 		struct ast_expression_list list;
 		struct ast_expression_measure measure;

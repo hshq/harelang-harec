@@ -796,8 +796,6 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_UNARITHM:
 		gen_expr_unarithm(ctx, expr, out);
 		break;
-	case EXPR_WHILE:
-		assert(0); // TODO
 	}
 }
 

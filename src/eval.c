@@ -26,7 +26,6 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_CONSTANT:
 		return eval_const(ctx, in, out);
 	case EXPR_CONTINUE:
-	case EXPR_FOR:
 	case EXPR_MEASURE:
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
@@ -37,12 +36,12 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_BINDING:
 	case EXPR_BREAK:
 	case EXPR_CALL:
+	case EXPR_FOR:
 	case EXPR_IF:
 	case EXPR_LIST:
 	case EXPR_MATCH:
 	case EXPR_RETURN:
 	case EXPR_SWITCH:
-	case EXPR_WHILE:
 		// Excluded from translation-compatible subset
 		return EVAL_INVALID;
 	}
