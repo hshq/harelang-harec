@@ -355,6 +355,46 @@ check_expr_constant(struct context *ctx,
 }
 
 static void
+check_expr_for(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "if");
+	expr->type = EXPR_FOR;
+
+	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+	expr->_for.scope = scope;
+
+	struct expression *bindings = NULL,
+		*cond = NULL, *afterthought = NULL, *body = NULL;
+
+	if (aexpr->_for.bindings) {
+		bindings = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->_for.bindings, bindings);
+		expr->_for.bindings = bindings;
+	}
+
+	cond = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->_for.cond, cond);
+	expr->_for.cond = cond;
+	expect(cond->result->storage == TYPE_STORAGE_BOOL,
+		"Expected for condition to be boolean");
+
+	if (aexpr->_for.afterthought) {
+		afterthought = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->_for.afterthought, afterthought);
+		expr->_for.afterthought = afterthought;
+	}
+
+	body = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->_for.body, body);
+	expr->_for.body = body;
+
+	scope_pop(&ctx->scope, TR_CHECK);
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expr_if(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -560,8 +600,10 @@ check_expression(struct context *ctx,
 		check_expr_constant(ctx, aexpr, expr);
 		break;
 	case EXPR_CONTINUE:
-	case EXPR_FOR:
 		assert(0); // TODO
+	case EXPR_FOR:
+		check_expr_for(ctx, aexpr, expr);
+		break;
 	case EXPR_IF:
 		check_expr_if(ctx, aexpr, expr);
 		break;

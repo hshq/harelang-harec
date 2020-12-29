@@ -1378,6 +1378,8 @@ parse_complex_expression(struct parser *par)
 		return parse_if_expression(par);
 	case T_FOR:
 		return parse_for_expression(par);
+	case T_LABEL:
+		assert(0); // TODO: Loop labels
 	case T_MATCH:
 	case T_SWITCH:
 		assert(0); // TODO
