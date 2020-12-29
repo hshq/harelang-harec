@@ -15,7 +15,5 @@ confidently implement the remainder of the features.
 general todos, includes spec updates:
 - zero-length arrays & slice initializers
 - allocations
-- assign arrays from other arrays (memcpy)
-- pass arrays directly into function calls (alloc if needed flag?)
 - casts
 - implicit casts
