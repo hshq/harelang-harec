@@ -105,15 +105,15 @@ struct array_constant {
 };
 
 union expression_constant {
-	struct {
-		char *sval;
-		size_t ssz;
-	};
 	bool bval;
 	double fval;
 	intmax_t ival;
 	uintmax_t uval;
 	uint32_t rune;
+	struct {
+		size_t len;
+		char *value;
+	} string;
 	struct array_constant *array;
 	// TODO: Struct constants
 };

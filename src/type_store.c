@@ -152,12 +152,13 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return &builtin_type_void; // const void and void are the same type
 	case TYPE_STORAGE_NULL:
 		return &builtin_type_null; // const null and null are the same type
+	case TYPE_STORAGE_STRING:
+		return is_const ? &builtin_type_const_str : &builtin_type_str;
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
@@ -194,6 +195,7 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_STRING:
 		break; // built-ins
 	case TYPE_STORAGE_ALIAS:
 		assert(0); // TODO
@@ -217,7 +219,6 @@ atype_hash(struct type_store *store, const struct ast_type *type)
 		hash = atype_hash(store, type->pointer.referent);
 		break;
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
@@ -252,6 +253,7 @@ type_hash(struct type_store *store, const struct type *type)
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_STRING:
 		break; // built-ins
 	case TYPE_STORAGE_ALIAS:
 		assert(0); // TODO
@@ -275,7 +277,6 @@ type_hash(struct type_store *store, const struct type *type)
 		hash = type_hash(store, type->pointer.referent);
 		break;
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:

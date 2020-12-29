@@ -400,7 +400,7 @@ builtin_type_const_size = {
 	.align = 8,
 };
 
-// Selected aggregate type singletons
+// Others
 const struct type builtin_type_const_ptr_char = {
 	.storage = TYPE_STORAGE_POINTER,
 	.flags = TYPE_CONST,
@@ -409,4 +409,15 @@ const struct type builtin_type_const_ptr_char = {
 	.pointer = {
 		.referent = &builtin_type_char,
 	},
+},
+builtin_type_str = {
+	.storage = TYPE_STORAGE_STRING,
+	.size = 24, // XXX: ARCH
+	.align = 8,
+},
+builtin_type_const_str = {
+	.storage = TYPE_STORAGE_STRING,
+	.flags = TYPE_CONST,
+	.size = 24, // XXX: ARCH
+	.align = 8,
 };

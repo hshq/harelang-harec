@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "ast.h"
 #include "check.h"
 #include "expr.h"
@@ -330,9 +331,14 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_ARRAY:
 		check_expr_array(ctx, aexpr, expr);
 		break;
+	case TYPE_STORAGE_STRING:
+		expr->constant.string.len = aexpr->constant.string.len;
+		expr->constant.string.value = xcalloc(1, aexpr->constant.string.len);
+		memcpy(expr->constant.string.value, aexpr->constant.string.value,
+			aexpr->constant.string.len);
+		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
