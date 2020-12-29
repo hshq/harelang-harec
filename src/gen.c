@@ -108,7 +108,7 @@ qval_for_object(struct gen_context *ctx,
 	}
 
 	if (type_is_aggregate(obj->type)) {
-		val->type = &qbe_aggregate; // TODO: Lookup actual type
+		val->type = qtype_for_type(ctx, obj->type, true);
 		val->indirect = false;
 	} else {
 		val->type = &qbe_long; // XXX: ARCH
@@ -130,6 +130,60 @@ qval_address(struct qbe_value *val)
 }
 
 static void
+gen_copy(struct gen_context *ctx,
+	const struct qbe_value *dest,
+	const struct qbe_value *src)
+{
+	assert(!dest->indirect && !src->indirect);
+	assert(dest->type == src->type);
+	const struct qbe_field *field = &dest->type->fields;
+
+	struct qbe_value temp = {0}, destp = {0}, srcp = {0}, size = {0};
+	gen_temp(ctx, &temp, &qbe_long, "temp.%d");
+	gen_temp(ctx, &destp, &qbe_long, "dest.%d");
+	gen_temp(ctx, &srcp, &qbe_long, "src.%d");
+	pushi(ctx->current, &destp, Q_COPY, dest, NULL);
+	pushi(ctx->current, &srcp, Q_COPY, src, NULL);
+
+	while (field) {
+		temp.type = field->type;
+
+		for (size_t i = field->count; i > 0; --i) {
+			switch (field->type->stype) {
+			case Q_BYTE:
+			case Q_HALF:
+			case Q_WORD:
+			case Q_LONG:
+			case Q_SINGLE:
+			case Q_DOUBLE:
+				// XXX: This may be broken for unsigned types b
+				// and h
+				pushi(ctx->current, &temp,
+					load_for_type(field->type->stype, true),
+					&srcp, NULL);
+				pushi(ctx->current, NULL,
+					store_for_type(field->type->stype),
+					&temp, &destp, NULL);
+				break;
+			case Q__AGGREGATE:
+				assert(0); // TODO
+			case Q__VOID:
+				assert(0); // Invariant
+			}
+
+			if (i > 1) {
+				assert(field->type->size != 0);
+				constl(&size, field->type->size);
+				pushi(ctx->current, &destp, Q_ADD, &destp, &size, NULL);
+				pushi(ctx->current, &srcp, Q_ADD, &srcp, &size, NULL);
+			}
+		}
+
+		field = field->next;
+	}
+}
+
+static void
 gen_store(struct gen_context *ctx,
 	const struct qbe_value *dest,
 	const struct qbe_value *src)
@@ -142,13 +196,13 @@ gen_store(struct gen_context *ctx,
 	assert(src->type->stype != Q__VOID
 		&& dest->type->stype != Q__VOID); // Invariant
 
+	// TODO: Revisit me (again)
 	if (src->type->stype == Q__AGGREGATE) {
 		if (src->indirect) {
 			assert(dest->indirect);
-			// XXX: ARCH
-			pushi(ctx->current, NULL, Q_STOREL, src, dest, NULL);
+			pushi(ctx->current, NULL, Q_STOREL, src, dest, NULL); // XXX: ARCH
 		} else if (!dest->indirect && dest->type->stype == Q__AGGREGATE) {
-			assert(0); // TODO: memcpy
+			gen_copy(ctx, dest, src);
 		} else {
 			pushi(ctx->current, dest, Q_COPY, src, NULL);
 		}
@@ -389,11 +443,14 @@ gen_expr_call(struct gen_context *ctx,
 	while (carg) {
 		assert(!carg->variadic); // TODO
 		arg = *next = xcalloc(1, sizeof(struct qbe_arguments));
-		gen_temp(ctx, &arg->value,
-			qtype_for_type(ctx, carg->value->result, true),
-			"arg.%d");
 		if (type_is_aggregate(carg->value->result)) {
+			alloc_temp(ctx, &arg->value,
+				carg->value->result, "arg.%d");
 			qval_address(&arg->value);
+		} else {
+			gen_temp(ctx, &arg->value,
+				qtype_for_type(ctx, carg->value->result, true),
+				"arg.%d");
 		}
 		gen_expression(ctx, carg->value, &arg->value);
 		carg = carg->next;

@@ -26,6 +26,7 @@ struct qbe_field {
 
 struct qbe_type {
 	enum qbe_stype stype;
+	size_t size;
 	// Aggregate types only:
 	char *name;
 	size_t align;
