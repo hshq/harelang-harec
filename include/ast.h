@@ -182,6 +182,27 @@ struct ast_expression_slice {
 	struct ast_expression *start, *end;
 };
 
+struct ast_expression_struct;
+
+struct ast_field_value {
+	bool is_embedded;
+	union {
+		struct {
+			char *name;
+			struct ast_type *type;
+			struct ast_expression *initializer;
+		} field;
+		struct ast_expression *embedded;
+	};
+	struct ast_field_value *next;
+};
+
+struct ast_expression_struct {
+	bool autofill;
+	struct identifier type;
+	struct ast_field_value *fields;
+};
+
 struct ast_expression_unarithm {
 	enum unarithm_operator op;
 	struct ast_expression *operand;
@@ -200,6 +221,7 @@ struct ast_expression {
 		struct ast_expression_measure measure;
 		struct ast_expression_return _return;
 		struct ast_expression_slice slice;
+		struct ast_expression_struct _struct;
 		struct ast_expression_unarithm unarithm;
 	};
 };

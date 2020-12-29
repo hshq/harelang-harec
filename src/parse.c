@@ -602,13 +602,13 @@ parse_type(struct parser *par)
 static struct ast_expression *parse_complex_expression(struct parser *par);
 
 static struct ast_expression *
-parse_access(struct parser *par)
+parse_access(struct parser *par, struct identifier ident)
 {
 	trace(TR_PARSE, "access");
 	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_ACCESS;
 	exp->access.type = ACCESS_IDENTIFIER;
-	parse_identifier(par, &exp->access.ident);
+	exp->access.ident = ident;
 	return exp;
 }
 
@@ -727,6 +727,121 @@ parse_array_literal(struct parser *par)
 	return exp;
 }
 
+static struct ast_expression *parse_struct_literal(struct parser *par,
+	struct identifier ident);
+
+static struct ast_field_value *
+parse_field_value(struct parser *par)
+{
+	struct ast_field_value *exp =
+		xcalloc(sizeof(struct ast_field_value), 1);
+	char *name;
+	struct token tok = {0};
+	switch (lex(par->lex, &tok)) {
+	case T_NAME:
+		name = tok.name;
+		switch (lex(par->lex, &tok)) {
+		case T_COLON:
+			exp->is_embedded = false;
+			exp->field.name = name;
+			exp->field.type = parse_type(par);
+			want(par, T_EQUAL, NULL);
+			// TODO: initializer can be allocation
+			exp->field.initializer = parse_complex_expression(par);
+			trace(TR_PARSE, "%s: [type] = [expr]", name);
+			break;
+		case T_EQUAL:
+			exp->is_embedded = false;
+			exp->field.name = name;
+			// TODO: initializer can be allocation
+			exp->field.initializer = parse_simple_expression(par);
+			trace(TR_PARSE, "%s = [expr]", name);
+			break;
+		case T_DOUBLE_COLON:
+			exp->is_embedded = true;
+			struct identifier ident = {0};
+			struct identifier *i = &ident;
+			parse_identifier(par, i);
+			while (i->ns != NULL) {
+				i = i->ns;
+			}
+			i->ns = xcalloc(sizeof(struct identifier), 1);
+			i->ns->name = name;
+			exp->embedded = parse_struct_literal(par, ident);
+			trace(TR_PARSE, "[embedded struct %s]",
+				identifier_unparse(&ident));
+			break;
+		default:
+			unlex(par->lex, &tok);
+			exp->is_embedded = true;
+			ident.name = name;
+			ident.ns = NULL;
+			exp->embedded = parse_struct_literal(par, ident);
+			trace(TR_PARSE, "[embedded struct %s]", name);
+			break;
+		}
+		break;
+	case T_STRUCT:
+		exp->is_embedded = true;
+		struct identifier id = {0};
+		exp->embedded = parse_struct_literal(par, id);
+			trace(TR_PARSE, "[embedded anonymous struct]");
+		break;
+	default:
+		assert(0);
+	}
+	return exp;
+}
+
+static struct ast_expression *
+parse_struct_literal(struct parser *par, struct identifier ident)
+{
+	trenter(TR_PARSE, "struct-literal");
+	want(par, T_LBRACE, NULL);
+	struct ast_expression *exp = xcalloc(sizeof(struct ast_expression), 1);
+	exp->type = EXPR_STRUCT;
+	exp->_struct.type = ident;
+	struct ast_field_value **next = &exp->_struct.fields;
+	struct token tok = {0};
+	while (tok.token != T_RBRACE) {
+		switch (lex(par->lex, &tok)) {
+		case T_ELLIPSIS:
+			trace(TR_PARSE, "...");
+			synassert(ident.name != NULL, &tok, T_RBRACE, T_EOF);
+			exp->_struct.autofill = true;
+			if (lex(par->lex, &tok) != T_COMMA) {
+				unlex(par->lex, &tok);
+			}
+			want(par, T_RBRACE, &tok);
+			unlex(par->lex, &tok);
+			break;
+		case T_NAME:
+		case T_STRUCT:
+			unlex(par->lex, &tok);
+			*next = parse_field_value(par);
+			next = &(*next)->next;
+			break;
+		default:
+			synassert(false, &tok, T_ELLIPSIS, T_NAME, T_RBRACE,
+				T_STRUCT, T_EOF);
+			break;
+		}
+		switch (lex(par->lex, &tok)) {
+		case T_COMMA:
+			if (lex(par->lex, &tok) != T_RBRACE) {
+				unlex(par->lex, &tok);
+			}
+			break;
+		case T_RBRACE:
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+		}
+	}
+	trleave(TR_PARSE, NULL);
+	return exp;
+}
+
 static struct ast_expression *
 parse_plain_expression(struct parser *par)
 {
@@ -745,12 +860,25 @@ parse_plain_expression(struct parser *par)
 		return parse_constant(par);
 	case T_NAME:
 		unlex(par->lex, &tok);
-		return parse_access(par);
+		struct identifier ident = {0};
+		parse_identifier(par, &ident);
+		struct token tok = {0};
+		switch (lex(par->lex, &tok)) {
+		case T_LBRACE:
+			unlex(par->lex, &tok);
+			return parse_struct_literal(par, ident);
+		default:
+			unlex(par->lex, &tok);
+			return parse_access(par, ident);
+		}
+		assert(0);
 	case T_LBRACKET:
 		unlex(par->lex, &tok);
 		return parse_array_literal(par);
 	case T_STRUCT:
-		assert(0); // TODO: Struct literal
+		ident.name = NULL;
+		ident.ns = NULL;
+		return parse_struct_literal(par, ident);
 	// nested-expression
 	case T_LPAREN:
 		exp = parse_complex_expression(par);
