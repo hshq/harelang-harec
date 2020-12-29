@@ -367,14 +367,17 @@ gen_expr_call(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	struct qbe_value result = {0};
-	gen_temp(ctx, &result, qtype_for_type(ctx,
-		expr->call.lvalue->result->func.result, true), "returns.%d");
 
 	struct qbe_statement call = {
 		.type = Q_INSTR,
 		.instr = Q_CALL,
-		.out = qval_dup(&result),
 	};
+
+	if (expr->call.lvalue->result->func.result != &builtin_type_void) {
+		gen_temp(ctx, &result, qtype_for_type(ctx,
+			expr->call.lvalue->result->func.result, true), "returns.%d");
+		call.out = qval_dup(&result);
+	}
 
 	struct qbe_arguments *arg, **next = &call.args;
 	struct call_argument *carg = expr->call.args;
