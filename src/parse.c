@@ -1060,7 +1060,17 @@ parse_postfix_expression(struct parser *par, struct ast_expression *lvalue)
 		lvalue = parse_call_expression(par, lvalue);
 		break;
 	case T_DOT:
-		assert(0); // TODO: field access expression
+		trenter(TR_PARSE, "field-access");
+		want(par, T_NAME, &tok);
+		struct ast_expression *exp =
+			xcalloc(sizeof(struct ast_expression), 1);
+		exp->type = EXPR_ACCESS;
+		exp->access.type = ACCESS_FIELD;
+		exp->access._struct = lvalue;
+		exp->access.field = tok.name;
+		lvalue = exp;
+		trleave(TR_PARSE, NULL);
+		break;
 	case T_LBRACKET:
 		unlex(par->lex, &tok);
 		lvalue = parse_index_slice_expression(par, lvalue);

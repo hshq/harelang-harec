@@ -105,7 +105,10 @@ struct ast_expression_access {
 			struct ast_expression *array;
 			struct ast_expression *index;
 		};
-		// TODO: Field selection
+		struct {
+			struct ast_expression *_struct;
+			char *field;
+		};
 	};
 };
 
