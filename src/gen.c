@@ -398,7 +398,7 @@ gen_expr_binarithm(struct gen_context *ctx,
 	const struct qbe_type *rtype =
 		qtype_for_type(ctx, expr->binarithm.rvalue->result, false);
 	const struct qbe_type *etype = qtype_for_type(ctx, expr->result, false);
-	assert(etype == ltype && ltype == rtype); // TODO: Type promotion
+	assert(ltype == rtype); // TODO: Type promotion
 
 	struct qbe_value lvalue = {0}, rvalue = {0}, result = {0};
 	gen_temp(ctx, &lvalue, ltype, "lvalue.%d");
@@ -589,6 +589,49 @@ gen_expr_constant(struct gen_context *ctx,
 }
 
 static void
+gen_expr_for(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(out == NULL); // Invariant
+	if (expr->_for.bindings) {
+		gen_expr_binding(ctx, expr->_for.bindings, NULL);
+	}
+
+	struct qbe_statement loopl = {0}, bodyl = {0}, afterl = {0}, endl = {0};
+	struct qbe_value loop = {0}, body = {0}, after = {0}, end = {0};
+	loop.kind = QV_LABEL;
+	loop.name = strdup(genl(&loopl, &ctx->id, "loop.%d"));
+	body.kind = QV_LABEL;
+	body.name = strdup(genl(&bodyl, &ctx->id, "body.%d"));
+	after.kind = QV_LABEL;
+	after.name = strdup(genl(&afterl, &ctx->id, "after.%d"));
+	end.kind = QV_LABEL;
+	end.name = strdup(genl(&endl, &ctx->id, "end.%d"));
+
+	push(&ctx->current->body, &loopl);
+
+	struct qbe_value cond = {0};
+	gen_temp(ctx, &cond, &qbe_word, "cond.%d");
+	gen_expression(ctx, expr->_for.cond, &cond);
+
+	pushi(ctx->current, NULL, Q_JNZ, &cond, &body, &end, NULL);
+
+	push(&ctx->current->body, &bodyl);
+	gen_expression(ctx, expr->_for.body, NULL);
+
+	push(&ctx->current->body, &afterl);
+	if (expr->_for.afterthought) {
+		gen_expression(ctx, expr->_for.afterthought, NULL);
+	}
+	(void)after; // TODO: continue
+
+	pushi(ctx->current, NULL, Q_JMP, &loop, NULL);
+
+	push(&ctx->current->body, &endl);
+}
+
+static void
 gen_expr_if(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -773,8 +816,10 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_constant(ctx, expr, out);
 		break;
 	case EXPR_CONTINUE:
-	case EXPR_FOR:
 		assert(0); // TODO
+	case EXPR_FOR:
+		gen_expr_for(ctx, expr, out);
+		break;
 	case EXPR_IF:
 		gen_expr_if(ctx, expr, out);
 		break;

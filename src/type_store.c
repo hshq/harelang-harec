@@ -397,6 +397,7 @@ type_eq_type(struct type_store *store,
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_STRING:
 		return true;
 	case TYPE_STORAGE_ALIAS:
 		assert(0); // TODO
@@ -427,7 +428,6 @@ type_eq_type(struct type_store *store,
 		return a->pointer.flags == b->pointer.flags &&
 			type_eq_type(store, a->pointer.referent, b->pointer.referent);
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
