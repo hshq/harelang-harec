@@ -355,6 +355,43 @@ check_expr_constant(struct context *ctx,
 }
 
 static void
+check_expr_if(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "if");
+	expr->type = EXPR_IF;
+
+	struct expression *cond, *true_branch, *false_branch = NULL;
+
+	cond = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->_if.cond, cond);
+
+	true_branch = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->_if.true_branch, true_branch);
+
+	if (aexpr->_if.false_branch) {
+		false_branch = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->_if.false_branch, false_branch);
+
+		// TODO: Tagged unions:
+		assert(true_branch->result == false_branch->result);
+		expr->result = true_branch->result;
+	} else {
+		expr->result = &builtin_type_void;
+	}
+
+	expect(cond->result->storage == TYPE_STORAGE_BOOL,
+		"Expected if condition to be boolean");
+
+	expr->_if.cond = cond;
+	expr->_if.true_branch = true_branch;
+	expr->_if.false_branch = false_branch;
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expr_list(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -524,8 +561,10 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_CONTINUE:
 	case EXPR_FOR:
-	case EXPR_IF:
 		assert(0); // TODO
+	case EXPR_IF:
+		check_expr_if(ctx, aexpr, expr);
+		break;
 	case EXPR_LIST:
 		check_expr_list(ctx, aexpr, expr);
 		break;

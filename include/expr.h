@@ -118,6 +118,11 @@ union expression_constant {
 	// TODO: Struct constants
 };
 
+struct expression_if {
+	struct expression *cond;
+	struct expression *true_branch, *false_branch;
+};
+
 struct expressions {
 	struct expression *expr;
 	struct expressions *next;
@@ -172,6 +177,7 @@ struct expression {
 		struct expression_binding binding;
 		struct expression_call call;
 		union expression_constant constant;
+		struct expression_if _if;
 		struct expression_list list;
 		struct expression_measure measure;
 		struct expression_return _return;
