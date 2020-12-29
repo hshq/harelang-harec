@@ -161,8 +161,11 @@ static void
 emit_func(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_FUNC);
-	fprintf(out, "%sfunction ", def->exported ? "export " : "");
-	emit_qtype(def->func.returns, out);
+	fprintf(out, "%sfunction", def->exported ? "export " : "");
+	if (def->func.returns->stype != Q__VOID) {
+		fprintf(out, " ");
+		emit_qtype(def->func.returns, out);
+	}
 	fprintf(out, " $%s(", def->name);
 	struct qbe_func_param *param = def->func.params;
 	while (param) {
@@ -189,6 +192,36 @@ emit_func(struct qbe_def *def, FILE *out)
 }
 
 static void
+emit_data(struct qbe_def *def, FILE *out)
+{
+	assert(def->kind == Q_DATA);
+	fprintf(out, "%sdata $%s = {",
+			def->exported ? "export " : "",
+			def->name);
+
+	struct qbe_data_item *item = &def->data.items;
+	while (item) {
+		switch (item->type) {
+		case QD_VALUE:
+			assert(0); // TODO
+		case QD_ZEROED:
+			assert(0); // TODO
+		case QD_STRING:
+			fprintf(out, " b \"%s\", b 0", item->str);
+			break;
+		}
+
+		if (item->next) {
+			fprintf(out, ",");
+		}
+
+		item = item->next;
+	}
+
+	fprintf(out, " }\n\n");
+}
+
+static void
 emit_def(struct qbe_def *def, FILE *out)
 {
 	switch (def->kind) {
@@ -199,7 +232,8 @@ emit_def(struct qbe_def *def, FILE *out)
 		emit_func(def, out);
 		break;
 	case Q_DATA:
-		assert(0); // TODO
+		emit_data(def, out);
+		break;
 	}
 }
 

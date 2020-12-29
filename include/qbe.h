@@ -216,6 +216,27 @@ struct qbe_func {
 	struct qbe_statements prelude, body;
 };
 
+enum qbe_datatype {
+	QD_VALUE,
+	QD_ZEROED,
+	QD_STRING,
+};
+
+struct qbe_data_item {
+	enum qbe_datatype type;
+	union {
+		struct qbe_value value;
+		size_t zeroed;
+		char *str;
+	};
+	struct qbe_data_item *next;
+};
+
+struct qbe_data {
+	size_t align;
+	struct qbe_data_item items;
+};
+
 enum qbe_defkind {
 	Q_TYPE,
 	Q_FUNC,
@@ -229,6 +250,7 @@ struct qbe_def {
 	union {
 		struct qbe_func func;
 		struct qbe_type type;
+		struct qbe_data data;
 	};
 	struct qbe_def *next;
 };

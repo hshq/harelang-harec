@@ -124,10 +124,14 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 	def->type.name = name;
 	def->type.align = SIZE_UNDEFINED;
 
+	struct qbe_field *field = &def->type.fields;
 	switch (type->storage) {
+	case TYPE_STORAGE_STRING:
+		field->type = &qbe_long; // XXX: ARCH
+		field->count = 3;
+		break;
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:

@@ -433,6 +433,41 @@ gen_array(struct gen_context *ctx,
 }
 
 static void
+gen_string(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(!out->indirect); // Invariant
+
+	struct qbe_value temp = {0};
+	gen_temp(ctx, &temp, &qbe_long, "strdata.%d");
+	temp.kind = QV_GLOBAL;
+
+	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
+	def->name = temp.name;
+	def->kind = Q_DATA;
+	def->data.items.type = QD_STRING;
+	// TODO: Escape special characters
+	def->data.items.str = strdup(expr->constant.string.value);
+	qbe_append_def(ctx->out, def);
+
+	struct qbe_value str = {0};
+	gen_temp(ctx, &str, &qbe_long, "str.%d"); // XXX: ARCH
+	pushi(ctx->current, &str, Q_COPY, out, NULL);
+	str.indirect = true;
+
+	struct qbe_value size = {0};
+	constl(&size, expr->constant.string.len); // XXX: ARCH
+
+	gen_store(ctx, &str, &temp);
+	constl(&temp, 8); // XXX: ARCH
+	pushi(ctx->current, &str, Q_ADD, &str, &temp, NULL);
+	gen_store(ctx, &str, &size);
+	pushi(ctx->current, &str, Q_ADD, &str, &temp, NULL);
+	gen_store(ctx, &str, &size);
+}
+
+static void
 gen_expr_constant(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -460,6 +495,9 @@ gen_expr_constant(struct gen_context *ctx,
 		return;
 	case TYPE_STORAGE_ARRAY:
 		gen_array(ctx, expr, out);
+		return;
+	case TYPE_STORAGE_STRING:
+		gen_string(ctx, expr, out);
 		return;
 	default:
 		// Moving right along
