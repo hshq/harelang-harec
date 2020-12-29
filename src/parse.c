@@ -847,7 +847,7 @@ parse_plain_expression(struct parser *par)
 {
 	trace(TR_PARSE, "plain");
 
-	struct token tok;
+	struct token tok = {0};
 	struct ast_expression *exp;
 	switch (lex(par->lex, &tok)) {
 	// plain-expression
@@ -862,7 +862,6 @@ parse_plain_expression(struct parser *par)
 		unlex(par->lex, &tok);
 		struct identifier ident = {0};
 		parse_identifier(par, &ident);
-		struct token tok = {0};
 		switch (lex(par->lex, &tok)) {
 		case T_LBRACE:
 			unlex(par->lex, &tok);
