@@ -1297,6 +1297,7 @@ parse_simple_expression(struct parser *par)
 static struct ast_expression *
 parse_if_expression(struct parser *par)
 {
+	trenter(TR_PARSE, "if");
 	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
 	exp->type = EXPR_IF;
 
@@ -1322,6 +1323,7 @@ parse_if_expression(struct parser *par)
 		break;
 	}
 
+	trleave(TR_PARSE, NULL);
 	return exp;
 }
 

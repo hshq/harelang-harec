@@ -589,6 +589,39 @@ gen_expr_constant(struct gen_context *ctx,
 }
 
 static void
+gen_expr_if(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	struct qbe_value cond = {0};
+	gen_temp(ctx, &cond, &qbe_word, "cond.%d");
+	gen_expression(ctx, expr->_if.cond, &cond);
+
+	struct qbe_statement tlabel = {0}, flabel = {0}, endl = {0};
+	struct qbe_value tbranch = {0}, fbranch = {0}, end = {0};
+	tbranch.kind = QV_LABEL;
+	tbranch.name = strdup(genl(&tlabel, &ctx->id, "branch_true.%d"));
+	fbranch.kind = QV_LABEL;
+	fbranch.name = strdup(genl(&flabel, &ctx->id, "branch_false.%d"));
+	end.name = strdup(genl(&endl, &ctx->id, "end.%d"));
+	end.kind = QV_LABEL;
+
+	pushi(ctx->current, NULL, Q_JNZ, &cond, &tbranch, &fbranch, NULL);
+
+	push(&ctx->current->body, &tlabel);
+	gen_expression(ctx, expr->_if.true_branch, out);
+	pushi(ctx->current, NULL, Q_JMP, &end, NULL);
+
+	push(&ctx->current->body, &flabel);
+	if (expr->_if.false_branch) {
+		gen_expression(ctx, expr->_if.false_branch, out);
+		pushi(ctx->current, NULL, Q_JMP, &end, NULL);
+	}
+
+	push(&ctx->current->body, &endl);
+}
+
+static void
 gen_expr_list(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -737,8 +770,10 @@ gen_expression(struct gen_context *ctx,
 		break;
 	case EXPR_CONTINUE:
 	case EXPR_FOR:
-	case EXPR_IF:
 		assert(0); // TODO
+	case EXPR_IF:
+		gen_expr_if(ctx, expr, out);
+		break;
 	case EXPR_LIST:
 		gen_expr_list(ctx, expr, out);
 		break;
