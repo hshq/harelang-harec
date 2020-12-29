@@ -446,7 +446,7 @@ gen_expr_call(struct gen_context *ctx,
 		if (type_is_aggregate(carg->value->result)) {
 			alloc_temp(ctx, &arg->value,
 				carg->value->result, "arg.%d");
-			qval_address(&arg->value);
+			qval_deref(&arg->value);
 		} else {
 			gen_temp(ctx, &arg->value,
 				qtype_for_type(ctx, carg->value->result, true),

@@ -330,6 +330,8 @@ parse_primitive_type(struct parser *par)
 }
 
 static struct ast_expression *parse_simple_expression(struct parser *par);
+static struct ast_expression *parse_complex_expression(struct parser *par);
+static struct ast_expression *parse_compound_expression(struct parser *par);
 
 static struct ast_type *
 parse_enum_type(struct parser *par)
@@ -598,8 +600,6 @@ parse_type(struct parser *par)
 		type_storage_unparse(type->storage));
 	return type;
 }
-
-static struct ast_expression *parse_complex_expression(struct parser *par);
 
 static struct ast_expression *
 parse_access(struct parser *par, struct identifier ident)
@@ -1295,11 +1295,43 @@ parse_simple_expression(struct parser *par)
 }
 
 static struct ast_expression *
+parse_if_expression(struct parser *par)
+{
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
+	exp->type = EXPR_IF;
+
+	struct token tok = {0};
+
+	want(par, T_LPAREN, &tok);
+	exp->_if.cond = parse_simple_expression(par);
+	want(par, T_RPAREN, &tok);
+
+	exp->_if.true_branch = parse_compound_expression(par);
+
+	switch (lex(par->lex, &tok)) {
+	case T_ELSE:
+		if (lex(par->lex, &tok) == T_IF) {
+			exp->_if.false_branch = parse_if_expression(par);
+		} else {
+			unlex(par->lex, &tok);
+			exp->_if.false_branch = parse_compound_expression(par);
+		}
+		break;
+	default:
+		unlex(par->lex, &tok);
+		break;
+	}
+
+	return exp;
+}
+
+static struct ast_expression *
 parse_complex_expression(struct parser *par)
 {
 	struct token tok;
 	switch (lex(par->lex, &tok)) {
 	case T_IF:
+		return parse_if_expression(par);
 	case T_FOR:
 	case T_MATCH:
 	case T_SWITCH:
