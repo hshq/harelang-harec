@@ -20,9 +20,6 @@ struct type_store {
 bool type_is_assignable(struct type_store *store,
 	const struct type *to, const struct type *from);
 
-unsigned long atype_hash(struct type_store *store, const struct ast_type *type);
-unsigned long type_hash(struct type_store *store, const struct type *type);
-
 const struct type *type_store_lookup_atype(
 	struct type_store *store, const struct ast_type *atype);
 
