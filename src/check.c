@@ -86,6 +86,39 @@ check_expr_access(struct context *ctx,
 }
 
 static void
+check_expr_assert(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trace(TR_CHECK, "assert");
+	expr->type = EXPR_ASSERT;
+	expr->result = &builtin_type_void;
+
+	if (aexpr->assert.cond != NULL) {
+		expr->assert.cond = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->assert.cond, expr->assert.cond);
+		expect(expr->assert.cond->result->storage == TYPE_STORAGE_BOOL,
+			"Assertion condition must be boolean");
+	} else {
+		expr->terminates = true;
+	}
+
+	expr->assert.message = xcalloc(1, sizeof(struct expression));
+	if (aexpr->assert.message != NULL) {
+		check_expression(ctx, aexpr->assert.message, expr->assert.message);
+		expect(expr->assert.message->result->storage == TYPE_STORAGE_STRING,
+			"Assertion message must be string");
+	} else {
+		expr->assert.message->type = EXPR_CONSTANT;
+		expr->assert.message->result = &builtin_type_const_str;
+		expr->assert.message->constant.string.value =
+			strdup("TODO: add filename and line number here");
+		expr->assert.message->constant.string.len =
+			strlen(expr->assert.message->constant.string.value);
+	}
+}
+
+static void
 check_expr_assign(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -590,7 +623,8 @@ check_expression(struct context *ctx,
 		check_expr_access(ctx, aexpr, expr);
 		break;
 	case EXPR_ASSERT:
-		assert(0); // TODO
+		check_expr_assert(ctx, aexpr, expr);
+		break;
 	case EXPR_ASSIGN:
 		check_expr_assign(ctx, aexpr, expr);
 		break;
