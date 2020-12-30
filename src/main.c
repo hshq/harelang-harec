@@ -1,6 +1,9 @@
+#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "ast.h"
 #include "check.h"
 #include "emit.h"
@@ -8,6 +11,15 @@
 #include "lex.h"
 #include "parse.h"
 #include "qbe.h"
+#include "util.h"
+
+static void
+usage(const char *argv_0)
+{
+	fprintf(stderr,
+		"Usage: %s [-o output] [-T tags...] [-T typdefs] [-N namespace]\n",
+		argv_0);
+}
 
 enum stage {
 	STAGE_LEX,
@@ -42,19 +54,66 @@ int
 main(int argc, char *argv[])
 {
 	enum stage stage = parse_stage(getenv("HA_STAGE"));
+	char *output = NULL;
+	int c;
+	while ((c = getopt(argc, argv, "o:T:t:N:")) != -1) {
+		switch (c) {
+		case 'o':
+			output = optarg;
+			break;
+		case 'T':
+			assert(0); // TODO: Build tags
+		case 't':
+			assert(0); // TODO: Typedefs
+		case 'N':
+			assert(0); // TODO: Namespace
+		default:
+			usage(argv[0]);
+			return 1;
+		}
+	}
 
-	struct lexer lexer;
-	lex_init(&lexer, stdin);
-	if (stage == STAGE_LEX) {
-		struct token tok;
-		while (lex(&lexer, &tok) != T_EOF);
-		lex_finish(&lexer);
-		return 0;
+	size_t ninputs = argc - optind;
+	if (ninputs == 0) {
+		usage(argv[0]);
+		return 1;
 	}
 
 	struct ast_unit aunit = {0};
-	parse(&lexer, &aunit.subunits);
-	lex_finish(&lexer);
+	struct ast_subunit *subunit = &aunit.subunits;
+	struct ast_subunit **next = &aunit.subunits.next;
+
+	struct lexer lexer;
+	for (size_t i = 0; i < ninputs; ++i) {
+		FILE *in;
+		const char *path = argv[optind + i];
+		if (strcmp(path, "-") == 0) {
+			in = stdin;
+		} else {
+			in = fopen(path, "r");
+		}
+
+		if (!in) {
+			fprintf(stderr, "Unable to open %s for reading: %s\n",
+					path, strerror(errno));
+			return 1;
+		}
+
+		lex_init(&lexer, in);
+		if (stage == STAGE_LEX) {
+			struct token tok;
+			while (lex(&lexer, &tok) != T_EOF);
+		} else {
+			parse(&lexer, subunit);
+			if (i + 1 < ninputs) {
+				*next = xcalloc(1, sizeof(struct ast_subunit));
+				subunit = *next;
+				next = &subunit->next;
+			}
+		}
+		lex_finish(&lexer);
+	}
+
 	if (stage == STAGE_PARSE) {
 		return 0;
 	}
@@ -71,6 +130,17 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
-	emit(&prog, stdout);
+	FILE *out;
+	if (!output) {
+		out = stdout;
+	} else {
+		out = fopen(output, "w");
+		if (!out) {
+			fprintf(stderr, "Unable to open %s for writing: %s\n",
+					output, strerror(errno));
+			return 1;
+		}
+	}
+	emit(&prog, out);
 	return 0;
 }

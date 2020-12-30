@@ -695,7 +695,7 @@ check_function(struct context *ctx,
 	return decl;
 }
 
-static void
+static struct declarations **
 check_declarations(struct context *ctx,
 		const struct ast_decls *adecls,
 		struct declarations **next)
@@ -727,6 +727,7 @@ check_declarations(struct context *ctx,
 		adecls = adecls->next;
 	}
 	trleave(TR_CHECK, NULL);
+	return next;
 }
 
 static void
@@ -805,11 +806,12 @@ check(const struct ast_unit *aunit, struct unit *unit)
 
 	// Second pass populates the expression graph
 	struct scopes *scope = subunit_scopes;
+	struct declarations **next_decl = &unit->declarations;
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
 		ctx.scope = scope->scope;
 		trenter(TR_CHECK, "scope %p", ctx.scope);
-		check_declarations(&ctx, &su->decls, &unit->declarations);
+		next_decl = check_declarations(&ctx, &su->decls, next_decl);
 		trleave(TR_CHECK, NULL);
 		scope = scope->next;
 	}
