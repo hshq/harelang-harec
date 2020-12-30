@@ -122,7 +122,7 @@ static const char *tokens[] = {
 };
 
 void
-lex_init(struct lexer *lexer, FILE *f)
+lex_init(struct lexer *lexer, FILE *f, const char *filename)
 {
 	memset(lexer, 0, sizeof(*lexer));
 	lexer->in = f;
@@ -131,7 +131,7 @@ lex_init(struct lexer *lexer, FILE *f)
 	lexer->un.token = T_ERROR;
 	lexer->loc.lineno = 1;
 	lexer->loc.colno = 0;
-	lexer->loc.path = "stdin"; // TODO: non-stdin paths
+	lexer->loc.path = filename;
 	lexer->c[0] = UINT32_MAX;
 	lexer->c[1] = UINT32_MAX;
 }

@@ -2,6 +2,20 @@
 srcdir=${SRCDIR:-$(dirname "$0")}
 eval ". $srcdir/config.sh"
 
+enable_rt=0
+
+option() {
+	case $1 in
+		enable-rt)
+			enable_rt=1
+			;;
+		*)
+			printf 'Unknown option %s\n' "$arg" >&2
+			exit 1
+			;;
+	esac
+}
+
 harec() {
 	genrules harec \
 		src/check.c \
@@ -24,5 +38,10 @@ harec() {
 }
 
 all="harec"
+
+if [ $enable_rt -eq 1 ]
+then
+	subdir rt
+fi
 
 run_configure

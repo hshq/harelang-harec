@@ -1,4 +1,4 @@
-export fn abort @noreturn void = kill(getpid(), SIGABRT);
+export @noreturn fn abort() void = kill(getpid(), SIGABRT);
 
 export @symbol("sys.assert") fn assert_(cond: bool, msg: str) void = {
 	if (!cond) {

@@ -157,7 +157,7 @@ struct lexer {
 	struct location loc;
 };
 
-void lex_init(struct lexer *lexer, FILE *f);
+void lex_init(struct lexer *lexer, FILE *f, const char *filename);
 void lex_finish(struct lexer *lexer);
 enum lexical_token lex(struct lexer *lexer, struct token *out);
 void unlex(struct lexer *lexer, struct token *in);

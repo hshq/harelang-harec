@@ -70,7 +70,7 @@ main(int argc, char *argv[])
 		case 'N':
 			unit.ns = xcalloc(1, sizeof(struct identifier));
 			FILE *in = fmemopen(optarg, strlen(optarg), "r");
-			lex_init(&lexer, in);
+			lex_init(&lexer, in, "-N");
 			parse_identifier(&lexer, unit.ns);
 			lex_finish(&lexer);
 			break;
@@ -106,7 +106,7 @@ main(int argc, char *argv[])
 			return 1;
 		}
 
-		lex_init(&lexer, in);
+		lex_init(&lexer, in, path);
 		if (stage == STAGE_LEX) {
 			struct token tok;
 			while (lex(&lexer, &tok) != T_EOF);

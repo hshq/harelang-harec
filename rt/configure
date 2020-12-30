@@ -1,0 +1,6 @@
+#!/bin/sh
+all="$all rt"
+
+rt() {
+	echo "rt: libhart.a"
+}

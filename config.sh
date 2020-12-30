@@ -32,6 +32,9 @@ do
 		--sysconfdir=*)
 			SYSCONFDIR=${arg#*=}
 			;;
+		*)
+			option "$arg"
+			;;
 	esac
 done
 
@@ -48,6 +51,10 @@ genrules() {
 		ext="${file#*.}"
 		file="${file%.*}"
 		deps=
+		if [ $ext = "ha" ]
+		then
+			deps=" harec"
+		fi
 		printf '%s.o: %s.%s%s\n' "$file" "$file" "$ext" "$deps"
 	done
 	printf '%s_objects=\\\n' "$target"
@@ -190,9 +197,10 @@ run_configure() {
 	)
 
 	printf "Populating build dir... "
-	populate "$srcdir/include"
-	populate "$srcdir/src"
 	populate "$srcdir/doc"
+	populate "$srcdir/include"
+	populate "$srcdir/rt"
+	populate "$srcdir/src"
 	ln -sf "$srcdir"/Makefile ./
 	echo done
 }

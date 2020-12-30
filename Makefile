@@ -8,7 +8,9 @@ harec: $(harec_objects)
 	@printf 'CCLD\t$@\n'
 	@$(CC) $(LDFLAGS) -o $@ $(harec_objects) $(LIBS)
 
-.SUFFIXES: .c .o .scd .1 .5
+include rt/Makefile
+
+.SUFFIXES: .c .o .ha .s .scd .1 .5
 
 .c.o:
 	@printf 'CC\t$@\n'
