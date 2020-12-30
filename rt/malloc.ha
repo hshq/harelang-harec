@@ -13,7 +13,7 @@ export fn must_malloc(n: size) *void = {
 	return p: *void;
 };
 
-export @symbol("sys.free") fn _free() void = {
+export @symbol("rt.free") fn _free() void = {
 	// no-op
 	return;
 };

@@ -66,7 +66,7 @@ export def PROT_GROWSUP: uint	= 0x02000000;
 
 export fn getpid int = syscall0(SYS_getpid): int;
 
-export fn exit @noreturn(status: int) void = syscall1(SYS_exit, status: u64);
+export @noreturn fn exit(status: int) void = syscall1(SYS_exit, status: u64);
 
 export fn kill(pid: int, signal: int) int =
 	syscall2(SYS_kill, pid: u64, signal: u64): int;
