@@ -92,6 +92,8 @@ type_is_assignable(struct type_store *store,
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
+	case TYPE_STORAGE_STRING:
+		return to == &builtin_type_const_ptr_char;
 	// The following types are only assignable from themselves, and are
 	// handled above:
 	case TYPE_STORAGE_ARRAY:
@@ -101,7 +103,6 @@ type_is_assignable(struct type_store *store,
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_VOID:
