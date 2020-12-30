@@ -111,6 +111,69 @@ type_is_assignable(struct type_store *store,
 	assert(0); // Unreachable
 }
 
+bool
+type_is_castable(const struct type *to,
+	const struct type *from)
+{
+	switch (from->storage) {
+	case TYPE_STORAGE_CHAR:
+		return to->storage == TYPE_STORAGE_U8;
+	case TYPE_STORAGE_ENUM:
+		return to->storage == TYPE_STORAGE_ENUM || type_is_integer(to);
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		return type_is_numeric(to);
+	case TYPE_STORAGE_U8:
+		if (to->storage == TYPE_STORAGE_CHAR) {
+			return true;
+		}
+		// Fallthrough
+	case TYPE_STORAGE_U32:
+		if (to->storage == TYPE_STORAGE_RUNE
+				&& from->storage == TYPE_STORAGE_U32) {
+			return true;
+		}
+		// Fallthrough
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+		return to->storage == TYPE_STORAGE_ENUM || type_is_numeric(to);
+	case TYPE_STORAGE_UINTPTR:
+		return to->storage == TYPE_STORAGE_POINTER
+			|| to->storage == TYPE_STORAGE_NULL
+			|| type_is_numeric(to);
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_NULL:
+		return to->storage == TYPE_STORAGE_POINTER
+			|| to->storage == TYPE_STORAGE_NULL
+			|| to->storage == TYPE_STORAGE_UINTPTR;
+	case TYPE_STORAGE_STRING:
+		return to == &builtin_type_const_ptr_char;
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_TAGGED_UNION:
+		assert(0); // TODO
+	case TYPE_STORAGE_RUNE:
+		return to->storage == TYPE_STORAGE_U32;
+	// Cannot be cast:
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_UNION:
+		return false;
+	}
+
+	assert(0); // Unreachable
+}
+
 const struct type *
 builtin_type_for_storage(enum type_storage storage, bool is_const)
 {

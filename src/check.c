@@ -299,6 +299,20 @@ check_expr_call(struct context *ctx,
 }
 
 static void
+check_expr_cast(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trace(TR_CHECK, "cast");
+	expr->type = EXPR_CAST;
+	expr->cast.kind = aexpr->cast.kind;
+	expr->cast.value = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->cast.value, expr->cast.value);
+	expr->result = type_store_lookup_atype(&ctx->store, aexpr->cast.type);
+	expect(type_is_castable(expr->result, expr->cast.value->result), "Invalid cast");
+}
+
+static void
 check_expr_array(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -640,7 +654,8 @@ check_expression(struct context *ctx,
 		check_expr_call(ctx, aexpr, expr);
 		break;
 	case EXPR_CAST:
-		assert(0); // TODO
+		check_expr_cast(ctx, aexpr, expr);
+		break;
 	case EXPR_CONSTANT:
 		check_expr_constant(ctx, aexpr, expr);
 		break;

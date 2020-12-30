@@ -19,6 +19,7 @@ struct type_store {
 
 bool type_is_assignable(struct type_store *store,
 	const struct type *to, const struct type *from);
+bool type_is_castable(const struct type *to, const struct type *from);
 
 const struct type *type_store_lookup_atype(
 	struct type_store *store, const struct ast_type *atype);

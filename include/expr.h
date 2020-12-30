@@ -101,7 +101,6 @@ enum cast_kind {
 struct expression_cast {
 	enum cast_kind kind;
 	struct expression *value;
-	const struct type *type;
 };
 
 struct call_argument {
