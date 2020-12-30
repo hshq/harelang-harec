@@ -563,6 +563,12 @@ parse_type(struct lexer *lexer)
 			type->storage = TYPE_STORAGE_SLICE;
 			type->slice.members = parse_type(lexer);
 			break;
+		case T_TIMES:
+			type->storage = TYPE_STORAGE_ARRAY;
+			type->array.length = NULL;
+			want(lexer, T_RBRACKET, NULL);
+			type->array.members = parse_type(lexer);
+			break;
 		default:
 			type->storage = TYPE_STORAGE_ARRAY;
 			unlex(lexer, &tok);
