@@ -1199,12 +1199,13 @@ parse_unary_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_cast_expression(struct lexer *lexer)
+parse_cast_expression(struct lexer *lexer, struct ast_expression *value)
 {
 	trace(TR_PARSE, "cast");
-	struct ast_expression *value = parse_unary_expression(lexer);
+	if (value == NULL) {
+		value = parse_unary_expression(lexer);
+	}
 	enum cast_kind kind;
-
 	struct token tok;
 	switch (lex(lexer, &tok)) {
 	case T_COLON:
@@ -1226,7 +1227,7 @@ parse_cast_expression(struct lexer *lexer)
 	exp->cast.kind = kind;
 	exp->cast.value = value;
 	exp->cast.type = parse_type(lexer);
-	return exp;
+	return parse_cast_expression(lexer, exp);
 }
 
 static int
@@ -1322,7 +1323,7 @@ parse_bin_expression(struct lexer *lexer, struct ast_expression *lvalue, int i)
 {
 	trace(TR_PARSE, "bin-arithm");
 	if (!lvalue) {
-		lvalue = parse_cast_expression(lexer);
+		lvalue = parse_cast_expression(lexer, NULL);
 	}
 
 	struct token tok;
@@ -1332,7 +1333,8 @@ parse_bin_expression(struct lexer *lexer, struct ast_expression *lvalue, int i)
 	while ((j = precedence(tok.token)) >= i) {
 		enum binarithm_operator op = binop_for_token(tok.token);
 
-		struct ast_expression *rvalue = parse_cast_expression(lexer);
+		struct ast_expression *rvalue =
+			parse_cast_expression(lexer, NULL);
 		lex(lexer, &tok);
 
 		int k;
