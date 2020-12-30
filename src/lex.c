@@ -14,7 +14,12 @@
 #include "util.h"
 
 static const char *tokens[] = {
-	// Must be alpha sorted
+	// Must be alpha sorted and match lex.h
+	[T_ATTR_FINI] = "@fini",
+	[T_ATTR_INIT] = "@init",
+	[T_ATTR_NORETURN] = "@noreturn",
+	[T_ATTR_SYMBOL] = "@symbol",
+	[T_ATTR_TEST] = "@test",
 	[T_ABORT] = "abort",
 	[T_AS] = "as",
 	[T_ASSERT] = "assert",
@@ -64,11 +69,6 @@ static const char *tokens[] = {
 	[T_USE] = "use",
 	[T_VOID] = "void",
 	[T_WHILE] = "while",
-	[T_ATTR_FINI] = "@fini",
-	[T_ATTR_INIT] = "@init",
-	[T_ATTR_NORETURN] = "@noreturn",
-	[T_ATTR_SYMBOL] = "@symbol",
-	[T_ATTR_TEST] = "@test",
 
 	// Operators
 	[T_ANDEQ] = "&=",
@@ -985,7 +985,8 @@ token_str(const struct token *tok)
 	int bytes = 0;
 	switch (tok->token) {
 	case T_NAME:
-		return tok->name;
+		snprintf(buf, sizeof(buf), "name %s", tok->name);
+		return buf;
 	case T_LABEL:
 		snprintf(buf, sizeof(buf), ":%s", tok->name);
 		return buf;

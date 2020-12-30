@@ -121,7 +121,7 @@ main(int argc, char *argv[])
 		lex_finish(&lexer);
 	}
 
-	if (stage == STAGE_PARSE) {
+	if (stage == STAGE_PARSE || stage == STAGE_LEX) {
 		return 0;
 	}
 

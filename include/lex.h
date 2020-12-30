@@ -5,14 +5,14 @@
 
 // Keep sorted
 enum lexical_token {
-	T_AS,
-	T_ABORT,
-	T_ASSERT,
 	T_ATTR_FINI,
 	T_ATTR_INIT,
 	T_ATTR_NORETURN,
 	T_ATTR_SYMBOL,
 	T_ATTR_TEST,
+	T_ABORT,
+	T_AS,
+	T_ASSERT,
 	T_BOOL,
 	T_BREAK,
 	T_CHAR,

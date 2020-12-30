@@ -328,6 +328,8 @@ parse_primitive_type(struct lexer *lexer)
 static struct ast_expression *parse_simple_expression(struct lexer *lexer);
 static struct ast_expression *parse_complex_expression(struct lexer *lexer);
 static struct ast_expression *parse_compound_expression(struct lexer *lexer);
+static struct ast_expression *parse_postfix_expression(struct lexer *lexer,
+		struct ast_expression *exp);
 static struct ast_expression *parse_scope_expression(struct lexer *lexer);
 static struct ast_expression *parse_binding_list(struct lexer *lexer);
 
@@ -888,8 +890,55 @@ parse_plain_expression(struct lexer *lexer)
 	assert(0); // Unreachable
 }
 
-static struct ast_expression *parse_postfix_expression(struct lexer *lexer,
-		struct ast_expression *exp);
+static struct ast_expression *
+parse_assertion_expression(struct lexer *lexer)
+{
+	trace(TR_PARSE, "assertion");
+
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
+	exp->type = EXPR_ASSERT;
+
+	struct token tok;
+	switch (lex(lexer, &tok)) {
+	case T_STATIC:
+		exp->assert.is_static = true;
+		lex(lexer, &tok);
+		break;
+	case T_ASSERT:
+	case T_ABORT:
+		break;
+	default:
+		synassert(false, &tok, T_STATIC, T_ASSERT, T_ABORT, T_EOF);
+	}
+
+	switch (tok.token) {
+	case T_ASSERT:
+		want(lexer, T_LPAREN, &tok);
+		exp->assert.cond = parse_simple_expression(lexer);
+		if (lex(lexer, &tok) == T_COMMA) {
+			exp->assert.message = parse_constant(lexer);
+		} else {
+			unlex(lexer, &tok);
+		}
+		want(lexer, T_RPAREN, &tok);
+		break;
+	case T_ABORT:
+		if (exp->assert.is_static) {
+			synassert(false, &tok, T_ASSERT, T_EOF);
+		}
+		want(lexer, T_LPAREN, &tok);
+		if (lex(lexer, &tok) != T_RPAREN) {
+			unlex(lexer, &tok);
+			exp->assert.message = parse_constant(lexer);
+			want(lexer, T_RPAREN, &tok);
+		}
+		break;
+	default:
+		assert(0); // Invariant
+	}
+
+	return exp;
+}
 
 static struct ast_expression *
 parse_measurement_expression(struct lexer *lexer)
@@ -1036,7 +1085,8 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	case T_ABORT:
 	case T_ASSERT:
 	case T_STATIC:
-		assert(0); // TODO: assertion expression
+		unlex(lexer, &tok);
+		return parse_assertion_expression(lexer);
 	case T_SIZE:
 	case T_LEN:
 	case T_OFFSET:

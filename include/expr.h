@@ -48,6 +48,12 @@ struct expression_access {
 	};
 };
 
+struct expression_assert {
+	struct expression *cond;
+	struct expression *message;
+	bool is_static;
+};
+
 struct expression_assign {
 	struct expression *object, *value;
 	bool indirect;
@@ -179,6 +185,7 @@ struct expression {
 	bool terminates;
 	union {
 		struct expression_access access;
+		struct expression_assert assert;
 		struct expression_assign assign;
 		struct expression_binarithm binarithm;
 		struct expression_binding binding;

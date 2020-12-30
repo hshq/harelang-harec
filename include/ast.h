@@ -112,6 +112,12 @@ struct ast_expression_access {
 	};
 };
 
+struct ast_expression_assert {
+	struct ast_expression *cond;
+	struct ast_expression *message;
+	bool is_static;
+};
+
 struct ast_expression_assign {
 	struct ast_expression *object, *value;
 	bool indirect;
@@ -227,6 +233,7 @@ struct ast_expression {
 	enum expr_type type;
 	union {
 		struct ast_expression_access access;
+		struct ast_expression_assert assert;
 		struct ast_expression_assign assign;
 		struct ast_expression_binarithm binarithm;
 		struct ast_expression_binding binding;
