@@ -1,12 +1,11 @@
 #!/bin/sh -e
 srcdir=${SRCDIR:-$(dirname "$0")}
-eval ". $srcdir/config.sh"
 
 enable_rt=0
 
 option() {
 	case $1 in
-		enable-rt)
+		--enable-rt)
 			enable_rt=1
 			;;
 		*)
@@ -15,6 +14,8 @@ option() {
 			;;
 	esac
 }
+
+eval ". $srcdir/config.sh"
 
 harec() {
 	genrules harec \
