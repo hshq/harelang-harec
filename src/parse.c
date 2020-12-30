@@ -1197,17 +1197,30 @@ parse_cast_expression(struct lexer *lexer)
 {
 	trace(TR_PARSE, "cast");
 	struct ast_expression *value = parse_unary_expression(lexer);
+	enum cast_kind kind;
 
 	struct token tok;
 	switch (lex(lexer, &tok)) {
 	case T_COLON:
+		kind = C_CAST;
+		break;
 	case T_AS:
+		kind = C_ASSERTION;
+		break;
 	case T_IS:
-		assert(0); // TODO
+		kind = C_TEST;
+		break;
 	default:
 		unlex(lexer, &tok);
 		return value;
 	}
+
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
+	exp->type = EXPR_CAST;
+	exp->cast.kind = kind;
+	exp->cast.value = value;
+	exp->cast.type = parse_type(lexer);
+	return exp;
 }
 
 static int

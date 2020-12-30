@@ -146,6 +146,12 @@ struct ast_expression_call {
 	struct ast_call_argument *args;
 };
 
+struct ast_expression_cast {
+	enum cast_kind kind;
+	struct ast_expression *value;
+	struct ast_type *type;
+};
+
 struct ast_array_constant {
 	struct ast_expression *value;
 	struct ast_array_constant *next;
@@ -237,6 +243,7 @@ struct ast_expression {
 		struct ast_expression_binarithm binarithm;
 		struct ast_expression_binding binding;
 		struct ast_expression_call call;
+		struct ast_expression_cast cast;
 		struct ast_expression_constant constant;
 		struct ast_expression_for _for;
 		struct ast_expression_if _if;

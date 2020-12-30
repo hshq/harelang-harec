@@ -92,6 +92,18 @@ struct expression_binding {
 	struct expression_binding *next;
 };
 
+enum cast_kind {
+	C_CAST,
+	C_ASSERTION,
+	C_TEST,
+};
+
+struct expression_cast {
+	enum cast_kind kind;
+	struct expression *value;
+	const struct type *type;
+};
+
 struct call_argument {
 	bool variadic;
 	struct expression *value;
@@ -190,6 +202,7 @@ struct expression {
 		struct expression_binarithm binarithm;
 		struct expression_binding binding;
 		struct expression_call call;
+		struct expression_cast cast;
 		union expression_constant constant;
 		struct expression_for _for;
 		struct expression_if _if;
