@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include "check.h"
 #include "eval.h"
 #include "type_store.h"
@@ -218,9 +219,17 @@ type_hash(struct type_store *store, const struct type *type)
 		hash = type_hash(store, type->pointer.referent);
 		break;
 	case TYPE_STORAGE_SLICE:
+		assert(0); // TODO
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
+		for (const struct type_struct_union *field = type->struct_union;
+				field; field = field->next) {
+			hash = djb2_s(hash, field->name);
+			hash = djb2(hash, type_hash(store, field->type));
+			hash = djb2(hash, field->offset);
+		}
+		break;
+	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
 	}
 	return hash;
@@ -299,13 +308,94 @@ type_eq_type(struct type_store *store,
 		return a->pointer.flags == b->pointer.flags &&
 			type_eq_type(store, a->pointer.referent, b->pointer.referent);
 	case TYPE_STORAGE_SLICE:
+		assert(0); // TODO
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
+		for (const struct type_struct_union *afield = a->struct_union,
+				*bfield = b->struct_union; afield && bfield;
+				afield = afield->next, bfield = bfield->next) {
+			if (!!afield->next != !!bfield->next) {
+				return false;
+			}
+			if (strcmp(afield->name, bfield->name) != 0) {
+				return false;
+			}
+			if (!type_eq_type(store, afield->type, bfield->type)) {
+				return false;
+			}
+			if (afield->offset != bfield->offset) {
+				return false;
+			}
+		}
+		return true;
+	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
 	}
 
 	assert(0); // Unreachable
+}
+
+static void
+struct_insert_field(struct type_store *store, struct type_struct_union **type,
+	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
+	const struct ast_struct_union_type *atype)
+{
+	assert(atype->member_type == MEMBER_TYPE_FIELD);
+	while (*type && strcmp((*type)->name, atype->field.name) < 0) {
+		type = &(*type)->next;
+	}
+	struct type_struct_union *field = *type;
+	// TODO: Bubble this error up
+	assert(field == NULL || strcmp(field->name, atype->field.name) != 0);
+	*type = xcalloc(1, sizeof(struct type_struct_union));
+	(*type)->next = field;
+	field = *type;
+
+	field->name = strdup(atype->field.name);
+	field->type = type_store_lookup_atype(store, atype->field.type);
+	*size += *size % field->type->align;
+	field->offset = *size;
+	if (storage == TYPE_STORAGE_STRUCT) {
+		*size += field->type->size;
+	} else {
+		*usize = field->type->size > *usize ? field->type->size : *usize;
+	}
+	*align = field->type->align > *align ? field->type->align : *align;
+}
+
+static void
+struct_init_from_atype(struct type_store *store, enum type_storage storage,
+	size_t *size, size_t *align, struct type_struct_union **type,
+	const struct ast_struct_union_type *atype)
+{
+	// TODO: fields with size SIZE_UNDEFINED
+	size_t usize = 0;
+	assert(storage == TYPE_STORAGE_STRUCT || storage == TYPE_STORAGE_UNION);
+	while (atype) {
+		size_t sub = *size;
+		switch (atype->member_type) {
+		case MEMBER_TYPE_FIELD:
+			struct_insert_field(store, type, storage, size, &usize,
+				align, atype);
+			break;
+		case MEMBER_TYPE_EMBEDDED:
+			struct_init_from_atype(store, atype->embedded->storage,
+				&sub, align, type,
+				&atype->embedded->struct_union);
+			if (storage == TYPE_STORAGE_UNION) {
+				usize = sub > usize ? sub : usize;
+			} else {
+				*size += sub;
+			}
+			break;
+		case MEMBER_TYPE_ALIAS:
+			assert(0); // TODO
+		}
+		atype = atype->next;
+	}
+	if (storage == TYPE_STORAGE_UNION) {
+		*size = usize;
+	}
 }
 
 static void
@@ -329,6 +419,7 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_U16:
 	case TYPE_STORAGE_U32:
@@ -378,10 +469,14 @@ type_init_from_atype(struct type_store *store,
 			store, atype->pointer.referent);
 		break;
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
+		assert(0); // TODO
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
+		struct_init_from_atype(store, type->storage, &type->size,
+			&type->align, &type->struct_union,
+			&atype->struct_union);
+		break;
+	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
 	}
 }
@@ -459,9 +554,22 @@ type_init_from_type(struct type_store *store,
 		break;
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
+		assert(0); // TODO
 	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_UNION:;
+		struct type_struct_union **next = &new->struct_union;
+		for (const struct type_struct_union *ofield = old->struct_union;
+				ofield; ofield = ofield->next) {
+			struct type_struct_union *field = *next =
+				xcalloc(sizeof(struct type_struct_union), 1);
+			next = &field->next;
+			field->name = ofield->name;
+			field->type =
+				type_store_lookup_type(store, ofield->type);
+			field->offset = ofield->offset;
+		}
+		break;
 	case TYPE_STORAGE_TAGGED_UNION:
-	case TYPE_STORAGE_UNION:
 		assert(0); // TODO
 	}
 }

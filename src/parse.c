@@ -385,17 +385,15 @@ parse_struct_union_type(struct lexer *lexer)
 {
 	struct token tok = {0};
 	struct ast_type *type = xcalloc(sizeof(struct ast_type), 1);
-	struct ast_struct_union_type *next;
+	struct ast_struct_union_type *next = &type->struct_union;
 	switch (lex(lexer, &tok)) {
 	case T_STRUCT:
 		trenter(TR_PARSE, "struct");
 		type->storage = TYPE_STORAGE_STRUCT;
-		next = &type->_struct;
 		break;
 	case T_UNION:
 		trenter(TR_PARSE, "union");
 		type->storage = TYPE_STORAGE_UNION;
-		next = &type->_union;
 		break;
 	default:
 		synassert(false, &tok, T_STRUCT, T_UNION, T_EOF);
@@ -437,6 +435,7 @@ parse_struct_union_type(struct lexer *lexer)
 			break;
 		case T_STRUCT:
 		case T_UNION:
+			next->member_type = MEMBER_TYPE_EMBEDDED;
 			unlex(lexer, &tok);
 			next->embedded = parse_struct_union_type(lexer);
 			trace(TR_PARSE, "[embedded struct/union]");

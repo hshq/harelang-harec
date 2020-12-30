@@ -80,6 +80,13 @@ struct type_pointer {
 	unsigned int flags;
 };
 
+struct type_struct_union {
+	char *name;
+	const struct type *type;
+	size_t offset;
+	struct type_struct_union *next;
+};
+
 enum type_flags {
 	TYPE_CONST = 1 << 0,
 };
@@ -92,6 +99,7 @@ struct type {
 		struct type_array array;
 		struct type_func func;
 		struct type_pointer pointer;
+		struct type_struct_union *struct_union;
 	};
 };
 
