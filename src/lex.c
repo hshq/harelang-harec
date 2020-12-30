@@ -236,13 +236,10 @@ lex_name(struct lexer *lexer, struct token *out)
 	while ((c = next(lexer, NULL, true)) != UTF8_INVALID) {
 		if (c > 0x7F || (!isalnum(c) && c != '_')) {
 			push(lexer, c, true);
-			goto lookup;
+			break;
 		}
 	}
-	out->token = T_EOF;
-	return out->token;
 
-lookup:;
 	void *token = bsearch(&lexer->buf, tokens, T_LAST_KEYWORD + 1,
 			sizeof(tokens[0]), cmp_keyword);
 	if (!token) {
