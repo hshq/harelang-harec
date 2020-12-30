@@ -685,7 +685,6 @@ check_function(struct context *ctx,
 
 	const struct ast_function_decl *afndecl = &adecl->function;
 	trenter(TR_CHECK, "function");
-	assert(!afndecl->symbol); // TODO
 
 	const struct ast_type fn_atype = {
 		.storage = TYPE_STORAGE_FUNCTION,
@@ -701,7 +700,12 @@ check_function(struct context *ctx,
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
 	decl->func.flags = afndecl->flags;
-	mkident(ctx, &decl->ident, &afndecl->ident);
+
+	if (afndecl->symbol) {
+		decl->ident.name = strdup(afndecl->symbol);
+	} else {
+		mkident(ctx, &decl->ident, &afndecl->ident);
+	}
 
 	decl->func.scope = scope_push(&ctx->scope, TR_CHECK);
 	struct ast_function_parameters *params = afndecl->prototype.params;

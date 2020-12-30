@@ -1,5 +1,5 @@
 libhart_srcs=\
-	rt/assert.ha \
+	rt/abort.ha \
 	rt/malloc.ha \
 	rt/memcmp.ha \
 	rt/memcpy.ha \
