@@ -689,7 +689,6 @@ check_function(struct context *ctx,
 				"%s function cannot be exported", flags);
 	}
 
-	scope_insert(ctx->unit, O_DECL, &decl->ident, decl->func.type);
 	scope_pop(&ctx->scope, TR_CHECK);
 	ctx->current_fntype = NULL;
 	trleave(TR_CHECK, NULL);
@@ -747,9 +746,7 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
 	trleave(TR_SCAN, "func %s", buf);
 
-	if (!decl->body) {
-		scope_insert(ctx->unit, O_DECL, &decl->ident, fntype);
-	}
+	scope_insert(ctx->unit, O_DECL, &decl->ident, fntype);
 }
 
 static void
