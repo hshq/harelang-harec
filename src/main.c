@@ -53,8 +53,10 @@ parse_stage(const char *s)
 int
 main(int argc, char *argv[])
 {
-	enum stage stage = parse_stage(getenv("HA_STAGE"));
 	char *output = NULL;
+	struct unit unit = {0};
+	struct lexer lexer;
+
 	int c;
 	while ((c = getopt(argc, argv, "o:T:t:N:")) != -1) {
 		switch (c) {
@@ -66,7 +68,12 @@ main(int argc, char *argv[])
 		case 't':
 			assert(0); // TODO: Typedefs
 		case 'N':
-			assert(0); // TODO: Namespace
+			unit.ns = xcalloc(1, sizeof(struct identifier));
+			FILE *in = fmemopen(optarg, strlen(optarg), "r");
+			lex_init(&lexer, in);
+			parse_identifier(&lexer, unit.ns);
+			lex_finish(&lexer);
+			break;
 		default:
 			usage(argv[0]);
 			return 1;
@@ -82,8 +89,8 @@ main(int argc, char *argv[])
 	struct ast_unit aunit = {0};
 	struct ast_subunit *subunit = &aunit.subunits;
 	struct ast_subunit **next = &aunit.subunits.next;
+	enum stage stage = parse_stage(getenv("HA_STAGE"));
 
-	struct lexer lexer;
 	for (size_t i = 0; i < ninputs; ++i) {
 		FILE *in;
 		const char *path = argv[optind + i];
@@ -118,7 +125,6 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
-	struct unit unit = {0};
 	check(&aunit, &unit);
 	if (stage == STAGE_CHECK) {
 		return 0;

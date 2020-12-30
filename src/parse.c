@@ -62,7 +62,7 @@ want(struct lexer *lexer, enum lexical_token ltok, struct token *tok)
 	}
 }
 
-static void
+void
 parse_identifier(struct lexer *lexer, struct identifier *ident)
 {
 	struct token tok = {0};

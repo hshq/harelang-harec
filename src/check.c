@@ -15,9 +15,20 @@
 struct context {
 	struct type_store store;
 	const struct type *current_fntype;
+	struct identifier *ns;
 	struct scope *unit;
 	struct scope *scope;
 };
+
+static void
+mkident(struct context *ctx, struct identifier *out, const struct identifier *in)
+{
+	identifier_dup(out, in);
+	if (ctx->ns) {
+		out->ns = xcalloc(1, sizeof(struct identifier));
+		identifier_dup(out->ns, ctx->ns);
+	}
+}
 
 static void
 expect(bool constraint, char *fmt, ...)
@@ -655,9 +666,8 @@ check_function(struct context *ctx,
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
-	// TODO: Rewrite ident to be a member of the unit's namespace
-	identifier_dup(&decl->ident, &afndecl->ident);
 	decl->func.flags = afndecl->flags;
+	mkident(ctx, &decl->ident, &afndecl->ident);
 
 	decl->func.scope = scope_push(&ctx->scope, TR_CHECK);
 	struct ast_function_parameters *params = afndecl->prototype.params;
@@ -777,6 +787,7 @@ check(const struct ast_unit *aunit, struct unit *unit)
 {
 	struct context ctx = {0};
 	ctx.store.check_context = &ctx;
+	ctx.ns = unit->ns;
 
 	// Top-level scope management involves:
 	//
