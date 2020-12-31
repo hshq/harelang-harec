@@ -562,6 +562,7 @@ gen_expr_cast(struct gen_context *ctx,
 
 	enum qbe_instr op;
 	switch (to->storage) {
+	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
@@ -604,16 +605,21 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
+	case TYPE_STORAGE_STRING:
+		assert(0); // TODO
+	case TYPE_STORAGE_POINTER:
+		if (to->pointer.referent->storage == TYPE_STORAGE_CHAR
+				&& from->storage == TYPE_STORAGE_STRING) {
+			assert(0); // TODO
+		}
+		// Fallthrough
 	// Can be implemented with a copy
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_POINTER:
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
 	case TYPE_STORAGE_BOOL:
