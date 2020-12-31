@@ -40,9 +40,6 @@ harec() {
 
 all="harec"
 
-if [ $enable_rt -eq 1 ]
-then
-	subdir rt
-fi
+subdir rt
 
 run_configure

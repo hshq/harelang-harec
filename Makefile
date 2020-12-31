@@ -26,7 +26,7 @@ include rt/Makefile
 docs:
 
 clean:
-	@rm -f harec $(harec_objects)
+	@rm -f harec $(harec_objects) $(libhart_objs) libhart.a
 
 distclean: clean
 	@rm -rf "$(OUTDIR)"
