@@ -387,7 +387,6 @@ gen_expr_assign(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(out == NULL); // Invariant
-	assert(expr->assign.op == BIN_LEQUAL); // TODO
 	// TODO: When this grows to support e.g. indexing expressions, we need
 	// to ensure that the side-effects of the lvalue occur before the
 	// side-effects of the rvalue.
@@ -417,7 +416,20 @@ gen_expr_assign(struct gen_context *ctx,
 		qval_for_object(ctx, &src, obj);
 	}
 
-	gen_store(ctx, &src, &v);
+	if (expr->assign.op == BIN_LEQUAL) {
+		gen_store(ctx, &src, &v);
+	} else {
+		struct qbe_value result;
+		gen_temp(ctx, &result, otype, "assign.result.%d");
+		struct qbe_value load;
+		gen_loadtemp(ctx, &load, &src, otype,
+			type_is_signed(objtype));
+		pushi(ctx->current, &result,
+			binarithm_for_op(expr->assign.op, otype,
+				type_is_signed(objtype)),
+			&load, &v, NULL);
+		gen_store(ctx, &src, &result);
+	}
 }
 
 static void
