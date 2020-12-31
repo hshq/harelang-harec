@@ -13,14 +13,6 @@
 #include "types.h"
 #include "util.h"
 
-struct context {
-	struct type_store store;
-	const struct type *current_fntype;
-	struct identifier *ns;
-	struct scope *unit;
-	struct scope *scope;
-};
-
 static void
 mkident(struct context *ctx, struct identifier *out, const struct identifier *in)
 {
@@ -38,7 +30,7 @@ expect(const struct location *loc, bool constraint, char *fmt, ...)
 		va_list ap;
 		va_start(ap, fmt);
 
-		fprintf(stderr, "Error: %s:%d:%d: ",
+		fprintf(stderr, "Error %s:%d:%d: ",
 			loc->path, loc->lineno, loc->colno);
 		vfprintf(stderr, fmt, ap);
 		fprintf(stderr, "\n");
@@ -64,7 +56,7 @@ check_expr_access(struct context *ctx,
 		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
 		char buf[1024];
 		identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
-		expect(&aexpr->loc, obj, "Unknown object", buf);
+		expect(&aexpr->loc, obj, "Unknown object '%s'", buf);
 		if (obj->otype == O_CONST) {
 			// Lower constants
 			*expr = *obj->value;
@@ -256,7 +248,7 @@ check_expr_binding(struct context *ctx,
 			"Initializer is not assignable to binding type");
 
 		const struct scope_object *obj = scope_insert(
-			ctx->scope, O_BIND, &ident, type, NULL);
+			ctx->scope, O_BIND, &ident, &ident, type, NULL);
 		binding->object = obj;
 		binding->initializer = initializer;
 
@@ -766,7 +758,8 @@ check_function(struct context *ctx,
 		};
 		const struct type *type = type_store_lookup_atype(
 				&ctx->store, params->type);
-		scope_insert(decl->func.scope, O_BIND, &ident, type, NULL);
+		scope_insert(decl->func.scope, O_BIND,
+			&ident, &ident, type, NULL);
 		params = params->next;
 	}
 
@@ -844,8 +837,12 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	assert(fntype); // TODO: Forward references
 
 	struct identifier ident = {0};
-	mkident(ctx, &ident, &decl->ident);
-	scope_insert(ctx->unit, O_DECL, &ident, fntype, NULL);
+	if (decl->symbol) {
+		ident.name = strdup(decl->symbol);
+	} else {
+		mkident(ctx, &ident, &decl->ident);
+	}
+	scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, fntype, NULL);
 
 	char buf[1024];
 	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
@@ -880,7 +877,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
-	scope_insert(ctx->unit, O_CONST, &ident, type, value);
+	scope_insert(ctx->unit, O_CONST, &ident, &decl->ident, type, value);
 
 	trleave(TR_SCAN, NULL);
 }
@@ -909,11 +906,10 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 }
 
 void
-check(const struct ast_unit *aunit, struct unit *unit)
+check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
 {
-	struct context ctx = {0};
-	ctx.store.check_context = &ctx;
-	ctx.ns = unit->ns;
+	ctx->store.check_context = ctx;
+	ctx->ns = unit->ns;
 
 	// Top-level scope management involves:
 	//
@@ -923,7 +919,7 @@ check(const struct ast_unit *aunit, struct unit *unit)
 	// 
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
-	ctx.unit = scope_push(&ctx.scope, TR_MAX);
+	ctx->unit = scope_push(&ctx->scope, TR_MAX);
 
 	struct scopes *subunit_scopes;
 	struct scopes **next = &subunit_scopes;
@@ -931,13 +927,13 @@ check(const struct ast_unit *aunit, struct unit *unit)
 	// First pass populates the type graph
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
-		scope_push(&ctx.scope, TR_SCAN);
+		scope_push(&ctx->scope, TR_SCAN);
 
 		assert(!su->imports); // TODO
-		scan_declarations(&ctx, &su->decls);
+		scan_declarations(ctx, &su->decls);
 
 		*next = xcalloc(1, sizeof(struct scopes));
-		(*next)->scope = scope_pop(&ctx.scope, TR_SCAN);
+		(*next)->scope = scope_pop(&ctx->scope, TR_SCAN);
 		next = &(*next)->next;
 	}
 
@@ -946,9 +942,9 @@ check(const struct ast_unit *aunit, struct unit *unit)
 	struct declarations **next_decl = &unit->declarations;
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
-		ctx.scope = scope->scope;
-		trenter(TR_CHECK, "scope %p", ctx.scope);
-		next_decl = check_declarations(&ctx, &su->decls, next_decl);
+		ctx->scope = scope->scope;
+		trenter(TR_CHECK, "scope %p", ctx->scope);
+		next_decl = check_declarations(ctx, &su->decls, next_decl);
 		trleave(TR_CHECK, NULL);
 		scope = scope->next;
 	}

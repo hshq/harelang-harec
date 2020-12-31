@@ -1,14 +1,11 @@
-libhart_srcs=\
+libhart_srcs+=\
 	rt/abort.ha \
-	rt/malloc.ha \
-	rt/memcmp.ha \
-	rt/memcpy.ha \
-	rt/memset.ha
+	rt/rtmain.ha
 
-libhart.a: $(libhart_srcs)
+libhart.a: harec $(libhart_srcs) $(libhart_objs)
 	@printf 'HAREC\t$@\n'
 	@./harec -N rt -o $@.ssa $(libhart_srcs)
 	@qbe -o $@.s $@.ssa
 	@$(AS) -o $@.o $@.s
-	@$(AR) -csr $@ $@.o
+	@$(AR) -csr $@ $@.o $(libhart_objs)
 	@rm $@.o $@.s $@.ssa

@@ -19,6 +19,10 @@ include rt/Makefile
 		$(CPP) $(CFLAGS) -MM -MT $@ $< >> $(OUTDIR)/cppcache
 	@$(CC) -c $(CFLAGS) -o $@ $<
 
+.s.o:
+	@printf 'AS\t$@\n'
+	@$(AS) -o $@ $<
+
 docs:
 
 clean:

@@ -2,5 +2,22 @@
 all="$all rt"
 
 rt() {
-	echo "rt: libhart.a"
+	case $(uname) in
+		Linux)
+			cat <<-EOF
+			libhart_srcs=\
+				rt/+linux/syscallno+x86_64.ha \
+				rt/+linux/syscalls.ha
+
+			libhart_objs=\
+				rt/+linux/syscall+x86_64.o
+
+			rt: libhart.a rt/+linux/start.o
+			EOF
+			;;
+		*)
+			printf "rt not supported for %s\n" "$(uname)" >&2
+			exit 1
+			;;
+	esac
 }

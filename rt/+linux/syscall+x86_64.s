@@ -1,27 +1,27 @@
 .text
-.global sys.syscall0
-sys.syscall0:
+.global rt.syscall0
+rt.syscall0:
 	movq %rdi, %rax
 	syscall
 	ret
 
-.global sys.syscall1
-sys.syscall1:
+.global rt.syscall1
+rt.syscall1:
 	movq %rdi, %rax
 	movq %rsi, %rdi
 	syscall
 	ret
 
-.global sys.syscall2
-sys.syscall2:
+.global rt.syscall2
+rt.syscall2:
 	movq %rdi, %rax
 	movq %rsi, %rdi
 	movq %rdx, %rsi
 	syscall
 	ret
 
-.global sys.syscall3
-sys.syscall3:
+.global rt.syscall3
+rt.syscall3:
 	movq %rdi, %rax
 	movq %rsi, %rdi
 	movq %rdx, %rsi
@@ -29,8 +29,8 @@ sys.syscall3:
 	syscall
 	ret
 
-.global sys.syscall4
-sys.syscall4:
+.global rt.syscall4
+rt.syscall4:
 	movq %rdi, %rax
 	movq %r8, %r10
 	movq %rsi, %rdi
@@ -39,8 +39,8 @@ sys.syscall4:
 	syscall
 	ret
 
-.global sys.syscall5
-sys.syscall5:
+.global rt.syscall5
+rt.syscall5:
 	movq %rdi, %rax
 	movq %r8, %r10
 	movq %rsi, %rdi
@@ -50,8 +50,8 @@ sys.syscall5:
 	syscall
 	ret
 
-.global sys.syscall6
-sys.syscall6:
+.global rt.syscall6
+rt.syscall6:
 	movq %rdi, %rax
 	movq %r8, %r10
 	movq %rsi, %rdi

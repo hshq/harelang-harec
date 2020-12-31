@@ -62,14 +62,13 @@ scope_free_all(struct scopes *scopes)
 }
 
 const struct scope_object *
-scope_insert(struct scope *scope,
-	enum object_type otype,
-	const struct identifier *ident,
-	const struct type *type,
-	struct expression *value)
+scope_insert(struct scope *scope, enum object_type otype,
+	const struct identifier *ident, const struct identifier *name,
+	const struct type *type, struct expression *value)
 {
 	struct scope_object *o = xcalloc(1, sizeof(struct scope_object));
 	identifier_dup(&o->ident, ident);
+	identifier_dup(&o->name, name);
 	o->otype = otype;
 	o->type = type;
 	o->value = value;
@@ -87,7 +86,7 @@ scope_lookup(struct scope *scope, const struct identifier *ident)
 {
 	struct scope_object *o = scope->objects;
 	while (o) {
-		if (identifier_eq(&o->ident, ident)) {
+		if (identifier_eq(&o->name, ident)) {
 			return o;
 		}
 		o = o->next;

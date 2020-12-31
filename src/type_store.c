@@ -320,6 +320,9 @@ static bool
 type_eq_type(struct type_store *store,
 	const struct type *a, const struct type *b)
 {
+	if (a == b) {
+		return true;
+	}
 	if (a->storage != b->storage || a->flags != b->flags) {
 		return false;
 	}

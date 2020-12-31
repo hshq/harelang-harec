@@ -2,11 +2,12 @@
 #define HARE_AST_H
 #include <stdbool.h>
 #include <stdint.h>
-#include "check.h"
 #include "expr.h"
 #include "identifier.h"
 #include "lex.h"
 #include "types.h"
+
+struct ast_type;
 
 enum ast_import_mode {
 	AST_IMPORT_IDENTIFIER,	// use foo::bar;

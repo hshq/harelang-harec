@@ -100,10 +100,12 @@ qval_for_object(struct gen_context *ctx,
 		binding = binding_lookup(ctx, obj);
 		val->kind = QV_TEMPORARY;
 		val->indirect = true;
+		val->name = strdup(binding->name);
 		break;
 	case O_DECL:
 		val->kind = QV_GLOBAL;
 		val->indirect = false;
+		val->name = ident_to_sym(&obj->ident);
 		break;
 	case O_CONST:
 		assert(0); // Invariant (lowered in check)
@@ -115,8 +117,6 @@ qval_for_object(struct gen_context *ctx,
 	} else {
 		val->type = &qbe_long; // XXX: ARCH
 	}
-
-	val->name = binding ? strdup(binding->name) : ident_to_sym(&obj->ident);
 }
 
 static void

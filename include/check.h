@@ -3,10 +3,18 @@
 #include <stdbool.h>
 #include "identifier.h"
 #include "types.h"
+#include "type_store.h"
 
-struct context;
 struct expression;
 struct scope;
+
+struct context {
+	struct type_store store;
+	const struct type *current_fntype;
+	struct identifier *ns;
+	struct scope *unit;
+	struct scope *scope;
+};
 
 enum func_decl_flags {
 	FN_FINI = 1 << 0,
@@ -51,7 +59,9 @@ struct unit {
 struct ast_expression;
 struct ast_unit;
 
-void check(const struct ast_unit *aunit, struct unit *unit);
+void check(struct context *ctx,
+	const struct ast_unit *aunit,
+	struct unit *unit);
 
 void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr, struct expression *expr);

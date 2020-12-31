@@ -125,7 +125,8 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
-	check(&aunit, &unit);
+	struct context ctx = {0};
+	check(&ctx, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
 		return 0;
 	}
