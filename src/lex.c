@@ -263,16 +263,20 @@ lex_literal(struct lexer *lexer, struct token *out)
 	uint32_t c = next(lexer, &out->loc, true);
 	assert(c != UTF8_INVALID && c <= 0x7F && isdigit(c));
 
-	const char *base = "0123456789";
+	int base = 10;
+	const char *basechrs = "0123456789";
 	switch ((c = next(lexer, NULL, true))) {
 	case 'b':
-		base = "01";
+		base = 2;
+		basechrs = "01";
 		break;
 	case 'o':
-		base = "01234567";
+		base = 8;
+		basechrs = "01234567";
 		break;
 	case 'x':
-		base = "0123456789ABCDEFabcdef";
+		base = 16;
+		basechrs = "0123456789ABCDEFabcdef";
 		break;
 	default:
 		push(lexer, c, true);
@@ -283,14 +287,14 @@ lex_literal(struct lexer *lexer, struct token *out)
 	char *exp = NULL;
 	bool isfloat = false;
 	while ((c = next(lexer, NULL, true)) != UTF8_INVALID) {
-		if (!strchr(base, c)) {
+		if (!strchr(basechrs, c)) {
 			switch (c) {
 			case '.':
 				if (isfloat || suff) {
 					push(lexer, c, true);
 					goto finalize;
 				}
-				if (!strchr(base, c = next(lexer, NULL, false))) {
+				if (!strchr(basechrs, c = next(lexer, NULL, false))) {
 					push(lexer, c, false);
 					push(lexer, '.', true);
 					goto finalize;
@@ -382,7 +386,7 @@ finalize:
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_U64:
 	case TYPE_STORAGE_SIZE:
-		out->uval = strtoumax(lexer->buf, NULL, strlen(base));
+		out->uval = strtoumax(lexer->buf, NULL, base);
 		for (uintmax_t i = 0; i < exponent; i++) {
 			out->uval *= 10;
 		}
@@ -392,7 +396,7 @@ finalize:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_I64:
-		out->ival = strtoimax(lexer->buf, NULL, strlen(base));
+		out->ival = strtoimax(lexer->buf, NULL, base);
 		for (uintmax_t i = 0; i < exponent; i++) {
 			out->ival *= 10;
 		}
