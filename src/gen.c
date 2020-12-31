@@ -273,7 +273,7 @@ gen_expr_access_ident(struct gen_context *ctx,
 	qval_for_object(ctx, &src, obj);
 	if (src.indirect) {
 		gen_loadtemp(ctx, &temp, &src,
-			qtype_for_type(ctx, obj->type, true),
+			qtype_for_type(ctx, obj->type, false),
 			type_is_signed(obj->type));
 		gen_store(ctx, out, &temp);
 	} else {
@@ -436,6 +436,27 @@ gen_expr_binding(struct gen_context *ctx,
 }
 
 static void
+extend(struct gen_context *ctx, struct qbe_value *v, const struct type *type)
+{
+	enum qbe_instr op;
+	switch (type->size) {
+	case 1:
+		op = type_is_signed(type) ? Q_EXTSB : Q_EXTUB;
+		break;
+	case 2:
+		op = type_is_signed(type) ? Q_EXTSH : Q_EXTUH;
+		break;
+	default:
+		return;
+	}
+
+	struct qbe_value temp = {0};
+	gen_temp(ctx, &temp, &qbe_word, "ext.%d");
+	pushi(ctx->current, &temp, op, v, NULL);
+	*v = temp;
+}
+
+static void
 gen_expr_binarithm(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -454,6 +475,20 @@ gen_expr_binarithm(struct gen_context *ctx,
 
 	gen_expression(ctx, expr->binarithm.lvalue, &lvalue);
 	gen_expression(ctx, expr->binarithm.rvalue, &rvalue);
+
+	switch (expr->binarithm.op) {
+	case BIN_GREATER:
+	case BIN_GREATEREQ:
+	case BIN_LEQUAL:
+	case BIN_LESS:
+	case BIN_LESSEQ:
+	case BIN_NEQUAL:
+		extend(ctx, &lvalue, expr->binarithm.lvalue->result);
+		extend(ctx, &rvalue, expr->binarithm.rvalue->result);
+		break;
+	default:
+		break;
+	}
 
 	pushi(ctx->current, &result,
 		binarithm_for_op(expr->binarithm.op, ltype,
@@ -509,6 +544,87 @@ gen_expr_call(struct gen_context *ctx,
 	if (out) {
 		gen_store(ctx, out, &result);
 	}
+}
+
+static void
+gen_expr_cast(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	const struct type *to = expr->result,
+	      *from = expr->cast.value->result;
+	bool is_signed = type_is_signed(from);
+
+	struct qbe_value in = {0}, result = {0};
+	gen_temp(ctx, &in, qtype_for_type(ctx, from, false), "cast.in.%d");
+	gen_expression(ctx, expr->cast.value, &in);
+	gen_temp(ctx, &result, qtype_for_type(ctx, to, false), "cast.out.%d");
+
+	enum qbe_instr op;
+	switch (to->storage) {
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_INT:		// XXX: ARCH
+	case TYPE_STORAGE_UINT:		// XXX: ARCH
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINTPTR:	// XXX: ARCH
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_SIZE:		// XXX: ARCH
+		if (type_is_integer(to) && to->size <= from->size) {
+			op = Q_COPY;
+		} else if (type_is_integer(to) && to->size > from->size) {
+			switch (from->size) {
+			case 4:
+				op = is_signed ? Q_EXTSW : Q_EXTUW;
+				break;
+			case 2:
+				op = is_signed ? Q_EXTSH : Q_EXTUH;
+				break;
+			case 1:
+				op = is_signed ? Q_EXTSB : Q_EXTUB;
+				break;
+			default:
+				assert(0); // Invariant
+			}
+		} else if (from->storage == TYPE_STORAGE_POINTER) {
+			assert(to->storage == TYPE_STORAGE_UINTPTR);
+			op = Q_COPY;
+		} else if (type_is_float(from)) {
+			assert(0); // TODO
+		} else {
+			assert(0); // Invariant
+		}
+		pushi(ctx->current, &result, op, &in, NULL);
+		break;
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_ENUM:
+		assert(0); // TODO
+	// Can be implemented with a copy
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_POINTER:
+		pushi(ctx->current, &result, Q_COPY, &in, NULL);
+		break;
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_UNION:
+	case TYPE_STORAGE_VOID:
+		assert(0); // Invariant
+	}
+
+	gen_store(ctx, out, &result);
 }
 
 static void
@@ -859,7 +975,8 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_call(ctx, expr, out);
 		break;
 	case EXPR_CAST:
-		assert(0); // TODO
+		gen_expr_cast(ctx, expr, out);
+		break;
 	case EXPR_CONSTANT:
 		gen_expr_constant(ctx, expr, out);
 		break;
