@@ -154,13 +154,14 @@ type_is_castable(const struct type *to,
 		return to->storage == TYPE_STORAGE_POINTER
 			|| to->storage == TYPE_STORAGE_NULL
 			|| to->storage == TYPE_STORAGE_UINTPTR;
-	case TYPE_STORAGE_STRING:
-		return to == &builtin_type_const_ptr_char;
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
+	case TYPE_STORAGE_STRING:
+		return to->pointer.referent->storage == TYPE_STORAGE_CHAR
+				&& to->pointer.referent->flags & TYPE_CONST;
 	case TYPE_STORAGE_RUNE:
 		return to->storage == TYPE_STORAGE_U32;
 	// Cannot be cast:

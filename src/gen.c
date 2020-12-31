@@ -556,9 +556,23 @@ gen_expr_cast(struct gen_context *ctx,
 	bool is_signed = type_is_signed(from);
 
 	struct qbe_value in = {0}, result = {0};
+	gen_temp(ctx, &result, qtype_for_type(ctx, to, false), "cast.out.%d");
+
+	// Special case: str -> *const char
+	if (to->storage == TYPE_STORAGE_POINTER
+			&& to->pointer.referent->storage == TYPE_STORAGE_CHAR
+			&& from->storage == TYPE_STORAGE_STRING) {
+		gen_temp(ctx, &in, &qbe_long, "cast.in.%d");
+		qval_address(&in);
+		gen_expression(ctx, expr->cast.value, &in);
+		qval_deref(&in);
+		gen_load(ctx, &result, &in, false);
+		gen_store(ctx, out, &result);
+		return;
+	}
+
 	gen_temp(ctx, &in, qtype_for_type(ctx, from, false), "cast.in.%d");
 	gen_expression(ctx, expr->cast.value, &in);
-	gen_temp(ctx, &result, qtype_for_type(ctx, to, false), "cast.out.%d");
 
 	enum qbe_instr op;
 	switch (to->storage) {
@@ -608,22 +622,16 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
-	case TYPE_STORAGE_STRING:
-		assert(0); // TODO
-	case TYPE_STORAGE_POINTER:
-		if (to->pointer.referent->storage == TYPE_STORAGE_CHAR
-				&& from->storage == TYPE_STORAGE_STRING) {
-			assert(0); // TODO
-		}
-		// Fallthrough
 	// Can be implemented with a copy
 	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_SLICE:
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_VOID:
