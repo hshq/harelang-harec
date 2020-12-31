@@ -32,14 +32,14 @@ mkident(struct context *ctx, struct identifier *out, const struct identifier *in
 }
 
 static void
-expect(bool constraint, char *fmt, ...)
+expect(const struct location *loc, bool constraint, char *fmt, ...)
 {
-	// TODO: Bring along line numbers and such
 	if (!constraint) {
 		va_list ap;
 		va_start(ap, fmt);
 
-		fprintf(stderr, "Error: ");
+		fprintf(stderr, "Error: %s:%d:%d: ",
+			loc->path, loc->lineno, loc->colno);
 		vfprintf(stderr, fmt, ap);
 		fprintf(stderr, "\n");
 		abort();
@@ -64,7 +64,7 @@ check_expr_access(struct context *ctx,
 		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
 		char buf[1024];
 		identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
-		expect(obj, "Unknown object", buf);
+		expect(&aexpr->loc, obj, "Unknown object", buf);
 		if (obj->otype == O_CONST) {
 			// Lower constants
 			*expr = *obj->value;
@@ -80,10 +80,11 @@ check_expr_access(struct context *ctx,
 		check_expression(ctx, aexpr->access.index, expr->access.index);
 		const struct type *atype = expr->access.array->result;
 		const struct type *itype = expr->access.index->result;
-		expect(atype->storage == TYPE_STORAGE_ARRAY
-				|| atype->storage == TYPE_STORAGE_SLICE,
+		expect(&aexpr->access.array->loc,
+			atype->storage == TYPE_STORAGE_ARRAY || atype->storage == TYPE_STORAGE_SLICE,
 			"Cannot index non-array, non-slice object");
-		expect(type_is_integer(itype), "Cannot use non-integer type as slice/array index");
+		expect(&aexpr->access.index->loc, type_is_integer(itype),
+			"Cannot use non-integer type as slice/array index");
 		expr->result = atype->array.members;
 		break;
 	case ACCESS_FIELD:
@@ -103,7 +104,8 @@ check_expr_assert(struct context *ctx,
 	if (aexpr->assert.cond != NULL) {
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->assert.cond, expr->assert.cond);
-		expect(expr->assert.cond->result->storage == TYPE_STORAGE_BOOL,
+		expect(&aexpr->assert.cond->loc,
+			expr->assert.cond->result->storage == TYPE_STORAGE_BOOL,
 			"Assertion condition must be boolean");
 	} else {
 		expr->terminates = true;
@@ -112,7 +114,8 @@ check_expr_assert(struct context *ctx,
 	expr->assert.message = xcalloc(1, sizeof(struct expression));
 	if (aexpr->assert.message != NULL) {
 		check_expression(ctx, aexpr->assert.message, expr->assert.message);
-		expect(expr->assert.message->result->storage == TYPE_STORAGE_STRING,
+		expect(&aexpr->assert.message->loc,
+			expr->assert.message->result->storage == TYPE_STORAGE_STRING,
 			"Assertion message must be string");
 	} else {
 		expr->assert.message->type = EXPR_CONSTANT;
@@ -143,19 +146,24 @@ check_expr_assign(struct context *ctx,
 	expr->assign.value = value;
 
 	if (aexpr->assign.indirect) {
-		expect(object->result->storage == TYPE_STORAGE_POINTER,
+		expect(&aexpr->loc,
+			object->result->storage == TYPE_STORAGE_POINTER,
 			"Cannot dereference non-pointer type for assignment");
-		expect(!(object->result->pointer.flags & PTR_NULLABLE),
+		expect(&aexpr->loc,
+			!(object->result->pointer.flags & PTR_NULLABLE),
 			"Cannot dereference nullable pointer type");
-		expect(type_is_assignable(&ctx->store,
+		expect(&aexpr->loc,
+			type_is_assignable(&ctx->store,
 				object->result->pointer.referent,
 				value->result),
 			"Value type is not assignable to pointer type");
 	} else {
 		assert(object->type == EXPR_ACCESS); // Invariant
 		const struct scope_object *obj = object->access.object;
-		expect(!(obj->type->flags & TYPE_CONST), "Cannot assign to const object");
-		expect(type_is_assignable(&ctx->store, obj->type, value->result),
+		expect(&aexpr->loc,
+			!(obj->type->flags & TYPE_CONST), "Cannot assign to const object");
+		expect(&aexpr->loc,
+			type_is_assignable(&ctx->store, obj->type, value->result),
 			"rvalue type is not assignable to lvalue");
 	}
 }
@@ -240,9 +248,11 @@ check_expr_binding(struct context *ctx,
 			type = type_store_lookup_with_flags(&ctx->store,
 				initializer->result, abinding->flags);
 		}
-		expect(type->size != 0 && type->size != SIZE_UNDEFINED,
+		expect(&aexpr->loc,
+			type->size != 0 && type->size != SIZE_UNDEFINED,
 			"Cannot create binding for type of zero or undefined size");
-		expect(type_is_assignable(&ctx->store, type, initializer->result),
+		expect(&aexpr->loc,
+			type_is_assignable(&ctx->store, type, initializer->result),
 			"Initializer is not assignable to binding type");
 
 		const struct scope_object *obj = scope_insert(
@@ -273,7 +283,8 @@ check_expr_call(struct context *ctx,
 	expr->call.lvalue = lvalue;
 
 	const struct type *fntype = type_dereference(lvalue->result);
-	expect(fntype->storage == TYPE_STORAGE_FUNCTION,
+	expect(&aexpr->loc,
+		fntype->storage == TYPE_STORAGE_FUNCTION,
 		"Cannot call non-function type");
 	expr->result = fntype->func.result;
 	assert(fntype->func.variadism == VARIADISM_NONE); // TODO
@@ -288,7 +299,8 @@ check_expr_call(struct context *ctx,
 		arg->value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aarg->value, arg->value);
 
-		expect(type_is_assignable(&ctx->store,
+		expect(&aarg->value->loc,
+			type_is_assignable(&ctx->store,
 				param->type, arg->value->result),
 			"Argument is not assignable to parameter type");
 
@@ -298,8 +310,8 @@ check_expr_call(struct context *ctx,
 		trleave(TR_CHECK, NULL);
 	}
 
-	expect(!aarg, "Too many parameters for function call");
-	expect(!param, "Not enough parameters for function call");
+	expect(&aexpr->loc, !aarg, "Too many parameters for function call");
+	expect(&aexpr->loc, !param, "Not enough parameters for function call");
 
 	trleave(TR_CHECK, NULL);
 }
@@ -315,7 +327,9 @@ check_expr_cast(struct context *ctx,
 	expr->cast.value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->cast.value, expr->cast.value);
 	expr->result = type_store_lookup_atype(&ctx->store, aexpr->cast.type);
-	expect(type_is_castable(expr->result, expr->cast.value->result), "Invalid cast");
+	expect(&aexpr->cast.type->loc,
+		type_is_castable(expr->result, expr->cast.value->result),
+		"Invalid cast");
 }
 
 static void
@@ -339,7 +353,7 @@ check_expr_array(struct context *ctx,
 			type = value->result;
 		} else {
 			// TODO: Assignable? Requires spec update if so
-			expect(value->result == type,
+			expect(&item->value->loc, value->result == type,
 				"Array members must be of a uniform type");
 		}
 
@@ -442,7 +456,8 @@ check_expr_for(struct context *ctx,
 	cond = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_for.cond, cond);
 	expr->_for.cond = cond;
-	expect(cond->result->storage == TYPE_STORAGE_BOOL,
+	expect(&aexpr->_for.cond->loc,
+		cond->result->storage == TYPE_STORAGE_BOOL,
 		"Expected for condition to be boolean");
 
 	if (aexpr->_for.afterthought) {
@@ -486,7 +501,8 @@ check_expr_if(struct context *ctx,
 		expr->result = &builtin_type_void;
 	}
 
-	expect(cond->result->storage == TYPE_STORAGE_BOOL,
+	expect(&aexpr->_if.cond->loc,
+		cond->result->storage == TYPE_STORAGE_BOOL,
 		"Expected if condition to be boolean");
 
 	expr->_if.cond = cond;
@@ -546,11 +562,13 @@ check_expr_measure(struct context *ctx,
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->measure.value);
 		enum type_storage vstor = expr->measure.value->result->storage;
-		expect(vstor == TYPE_STORAGE_ARRAY
+		expect(&aexpr->measure.value->loc,
+			vstor == TYPE_STORAGE_ARRAY
 				|| vstor == TYPE_STORAGE_SLICE
 				|| vstor == TYPE_STORAGE_STRING,
 			"len argument must be of an array, slice, or str type");
-		expect(expr->measure.value->result->size != SIZE_UNDEFINED,
+		expect(&aexpr->measure.value->loc,
+			expr->measure.value->result->size != SIZE_UNDEFINED,
 			"Cannot take length of array type with undefined length");
 		break;
 	case M_SIZE:
@@ -576,8 +594,8 @@ check_expr_return(struct context *ctx,
 		struct expression *rval = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_return.value, rval);
 		expr->_return.value = rval;
-		expect(type_is_assignable(&ctx->store,
-				ctx->current_fntype->func.result, rval->result),
+		expect(&aexpr->_return.value->loc,
+			type_is_assignable(&ctx->store, ctx->current_fntype->func.result, rval->result),
 			"Return value is not assignable to function result type");
 	}
 
@@ -599,22 +617,27 @@ check_expr_unarithm(struct context *ctx,
 
 	switch (expr->unarithm.op) {
 	case UN_LNOT:
-		expect(operand->result->storage == TYPE_STORAGE_BOOL,
+		expect(&aexpr->unarithm.operand->loc,
+			operand->result->storage == TYPE_STORAGE_BOOL,
 			"Cannot perform logical NOT (!) on non-boolean type");
 		expr->result = &builtin_type_bool;
 		break;
 	case UN_BNOT:
-		expect(type_is_integer(operand->result),
+		expect(&aexpr->unarithm.operand->loc,
+			type_is_integer(operand->result),
 			"Cannot perform binary NOT (~) on non-integer type");
-		expect(!type_is_signed(operand->result),
+		expect(&aexpr->unarithm.operand->loc,
+			!type_is_signed(operand->result),
 			"Cannot perform binary NOT (~) on signed type");
 		expr->result = operand->result;
 		break;
 	case UN_MINUS:
 	case UN_PLUS:
-		expect(type_is_numeric(operand->result),
+		expect(&aexpr->unarithm.operand->loc,
+			type_is_numeric(operand->result),
 			"Cannot perform operation on non-numeric type");
-		expect(type_is_signed(operand->result),
+		expect(&aexpr->unarithm.operand->loc,
+			type_is_signed(operand->result),
 			"Cannot perform operation on unsigned type");
 		expr->result = operand->result;
 		break;
@@ -623,9 +646,11 @@ check_expr_unarithm(struct context *ctx,
 			&ctx->store, operand->result, 0);
 		break;
 	case UN_DEREF:
-		expect(operand->result->storage == TYPE_STORAGE_POINTER,
+		expect(&aexpr->unarithm.operand->loc,
+			operand->result->storage == TYPE_STORAGE_POINTER,
 			"Cannot de-reference non-pointer type");
-		expect(!(operand->result->pointer.flags & PTR_NULLABLE),
+		expect(&aexpr->unarithm.operand->loc,
+			!(operand->result->pointer.flags & PTR_NULLABLE),
 			"Cannot dereference nullable pointer type");
 		expr->result = operand->result->pointer.referent;
 		break;
@@ -734,6 +759,8 @@ check_function(struct context *ctx,
 	decl->func.scope = scope_push(&ctx->scope, TR_CHECK);
 	struct ast_function_parameters *params = afndecl->prototype.params;
 	while (params) {
+		expect(&params->loc, params->name,
+				"Function parameters must be named");
 		struct identifier ident = {
 			.name = params->name,
 		};
@@ -747,7 +774,8 @@ check_function(struct context *ctx,
 	check_expression(ctx, afndecl->body, body);
 	decl->func.body = body;
 
-	expect(body->terminates || type_is_assignable(&ctx->store, fntype->func.result, body->result),
+	expect(&afndecl->body->loc,
+		body->terminates || type_is_assignable(&ctx->store, fntype->func.result, body->result),
 		"Result value is not assignable to function result type");
 
 	// TODO: Add function name to errors
@@ -755,9 +783,9 @@ check_function(struct context *ctx,
 			|| (decl->func.flags & FN_FINI)
 			|| (decl->func.flags & FN_TEST)) {
 		const char *flags = "@flags"; // TODO: Unparse flags
-		expect(fntype->func.result == &builtin_type_void,
+		expect(&adecl->loc, fntype->func.result == &builtin_type_void,
 				"%s function must return void", flags);
-		expect(!decl->exported,
+		expect(&adecl->loc, !decl->exported,
 				"%s function cannot be exported", flags);
 	}
 
@@ -840,14 +868,15 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	check_expression(ctx, decl->init, initializer);
 
 	// TODO: Lower implicit casts
-	expect(type_is_assignable(&ctx->store, type, initializer->result),
-		"Constnat type is not assignable from initializer type");
+	expect(&decl->init->loc, type_is_assignable(&ctx->store, type, initializer->result),
+		"Constant type is not assignable from initializer type");
 
 	struct expression *value =
 		xcalloc(1, sizeof(struct expression));
 	enum eval_result r = eval_expr(ctx, initializer, value);
 	// TODO: More forward reference issues:
-	expect(r == EVAL_OK, "Unable to evaluate initializer at compile time");
+	expect(&decl->init->loc, r == EVAL_OK,
+		"Unable to evaluate initializer at compile time");
 
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);

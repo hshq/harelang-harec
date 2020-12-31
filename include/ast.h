@@ -5,6 +5,7 @@
 #include "check.h"
 #include "expr.h"
 #include "identifier.h"
+#include "lex.h"
 #include "types.h"
 
 enum ast_import_mode {
@@ -14,6 +15,7 @@ enum ast_import_mode {
 };
 
 struct ast_imports {
+	struct location loc;
 	enum ast_import_mode mode;
 	union {
 		struct identifier ident;
@@ -40,6 +42,7 @@ struct ast_enum_type {
 };
 
 struct ast_function_parameters {
+	struct location loc;
 	char *name;
 	struct ast_type *type;
 	struct ast_function_parameters *next;
@@ -82,6 +85,7 @@ struct ast_struct_union_type {
 };
 
 struct ast_type {
+	struct location loc;
 	enum type_storage storage;
 	unsigned int flags;
 	union {
@@ -235,6 +239,7 @@ struct ast_expression_unarithm {
 };
 
 struct ast_expression {
+	struct location loc;
 	enum expr_type type;
 	union {
 		struct ast_expression_access access;
@@ -286,6 +291,7 @@ enum ast_decl_type {
 };
 
 struct ast_decl {
+	struct location loc;
 	enum ast_decl_type decl_type;
 	bool exported;
 	union {

@@ -1,6 +1,7 @@
 #ifndef HAREC_LEX_H
 #define HAREC_LEX_H
 #include <stdint.h>
+#include <stdio.h>
 #include "types.h"
 
 // Keep sorted
