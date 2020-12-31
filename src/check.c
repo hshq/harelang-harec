@@ -419,6 +419,7 @@ check_expr_for(struct context *ctx,
 {
 	trenter(TR_CHECK, "if");
 	expr->type = EXPR_FOR;
+	expr->result = &builtin_type_void;
 
 	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
 	expr->_for.scope = scope;
