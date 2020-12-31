@@ -134,6 +134,7 @@ check_expr_assign(struct context *ctx,
 	check_expression(ctx, aexpr->assign.object, object);
 	check_expression(ctx, aexpr->assign.value, value);
 
+	expr->assign.op = aexpr->assign.op;
 	expr->assign.object = object;
 	expr->assign.value = value;
 

@@ -54,11 +54,6 @@ struct expression_assert {
 	bool is_static;
 };
 
-struct expression_assign {
-	struct expression *object, *value;
-	bool indirect;
-};
-
 enum binarithm_operator {
 	BIN_BAND,	// &
 	BIN_BOR,	// |
@@ -79,6 +74,12 @@ enum binarithm_operator {
 	BIN_RSHIFT,	// >>
 	BIN_TIMES,	// *
 	BIN_BXOR,	// ^
+};
+
+struct expression_assign {
+	enum binarithm_operator op;
+	struct expression *object, *value;
+	bool indirect;
 };
 
 struct expression_binarithm {

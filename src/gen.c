@@ -387,6 +387,7 @@ gen_expr_assign(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(out == NULL); // Invariant
+	assert(expr->assign.op == BIN_LEQUAL); // TODO
 	// TODO: When this grows to support e.g. indexing expressions, we need
 	// to ensure that the side-effects of the lvalue occur before the
 	// side-effects of the rvalue.

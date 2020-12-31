@@ -1556,12 +1556,14 @@ parse_binding_list(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_assignment(struct lexer *lexer, struct ast_expression *object, bool indirect)
+parse_assignment(struct lexer *lexer, struct ast_expression *object,
+	bool indirect, enum binarithm_operator op)
 {
 	trenter(TR_PARSE, "assign");
 	struct ast_expression *value = parse_complex_expression(lexer);
 	struct ast_expression *expr = mkexpr(&lexer->loc);
 	expr->type = EXPR_ASSIGN;
+	expr->assign.op = op;
 	expr->assign.object = object;
 	expr->assign.value = value;
 	expr->assign.indirect = indirect;
@@ -1616,7 +1618,27 @@ parse_scope_expression(struct lexer *lexer)
 
 	switch (lex(lexer, &tok)) {
 	case T_EQUAL:
-		return parse_assignment(lexer, value, indirect);
+		return parse_assignment(lexer, value, indirect, BIN_LEQUAL);
+	case T_ANDEQ:
+		return parse_assignment(lexer, value, indirect, BIN_BAND);
+	case T_DIVEQ:
+		return parse_assignment(lexer, value, indirect, BIN_DIV);
+	case T_LSHIFTEQ:
+		return parse_assignment(lexer, value, indirect, BIN_LSHIFT);
+	case T_MINUSEQ:
+		return parse_assignment(lexer, value, indirect, BIN_MINUS);
+	case T_MODEQ:
+		return parse_assignment(lexer, value, indirect, BIN_MODULO);
+	case T_OREQ:
+		return parse_assignment(lexer, value, indirect, BIN_BOR);
+	case T_PLUSEQ:
+		return parse_assignment(lexer, value, indirect, BIN_PLUS);
+	case T_RSHIFTEQ:
+		return parse_assignment(lexer, value, indirect, BIN_RSHIFT);
+	case T_TIMESEQ:
+		return parse_assignment(lexer, value, indirect, BIN_TIMES);
+	case T_BXOREQ:
+		return parse_assignment(lexer, value, indirect, BIN_BXOR);
 	default:
 		unlex(lexer, &tok);
 		value = parse_bin_expression(lexer, value, 0);
