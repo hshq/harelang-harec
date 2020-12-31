@@ -5,6 +5,7 @@
 #include <string.h>
 #include "ast.h"
 #include "check.h"
+#include "eval.h"
 #include "expr.h"
 #include "scope.h"
 #include "trace.h"
@@ -64,8 +65,13 @@ check_expr_access(struct context *ctx,
 		char buf[1024];
 		identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
 		expect(obj, "Unknown object", buf);
-		expr->result = obj->type;
-		expr->access.object = obj;
+		if (obj->otype == O_CONST) {
+			// Lower constants
+			*expr = *obj->value;
+		} else {
+			expr->result = obj->type;
+			expr->access.object = obj;
+		}
 		break;
 	case ACCESS_INDEX:
 		expr->access.array = xcalloc(1, sizeof(struct expression));
@@ -239,8 +245,8 @@ check_expr_binding(struct context *ctx,
 		expect(type_is_assignable(&ctx->store, type, initializer->result),
 			"Initializer is not assignable to binding type");
 
-		const struct scope_object *obj = scope_insert(ctx->scope,
-				O_BIND, &ident, type);
+		const struct scope_object *obj = scope_insert(
+			ctx->scope, O_BIND, &ident, type, NULL);
 		binding->object = obj;
 		binding->initializer = initializer;
 
@@ -733,7 +739,7 @@ check_function(struct context *ctx,
 		};
 		const struct type *type = type_store_lookup_atype(
 				&ctx->store, params->type);
-		scope_insert(decl->func.scope, O_BIND, &ident, type);
+		scope_insert(decl->func.scope, O_BIND, &ident, type, NULL);
 		params = params->next;
 	}
 
@@ -768,7 +774,7 @@ check_declarations(struct context *ctx,
 {
 	trenter(TR_CHECK, "declarations");
 	while (adecls) {
-		struct declaration *decl;
+		struct declaration *decl = NULL;
 		const struct ast_decl *adecl = &adecls->decl;
 		switch (adecl->decl_type) {
 		case AST_DECL_FUNC:
@@ -779,7 +785,7 @@ check_declarations(struct context *ctx,
 		case AST_DECL_GLOBAL:
 			assert(0); // TODO
 		case AST_DECL_CONST:
-			assert(0); // TODO
+			break; // Handled in scan
 		}
 
 		if (decl) {
@@ -809,11 +815,45 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 			&ctx->store, &fn_atype);
 	assert(fntype); // TODO: Forward references
 
+	struct identifier ident = {0};
+	mkident(ctx, &ident, &decl->ident);
+	scope_insert(ctx->unit, O_DECL, &ident, fntype, NULL);
+
 	char buf[1024];
 	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
 	trleave(TR_SCAN, "func %s", buf);
+}
 
-	scope_insert(ctx->unit, O_DECL, &decl->ident, fntype);
+static void
+scan_const(struct context *ctx, const struct ast_global_decl *decl)
+{
+	trenter(TR_SCAN, "constant");
+	assert(!decl->symbol); // Invariant
+
+	const struct type *type = type_store_lookup_atype(
+			&ctx->store, decl->type);
+	// TODO:
+	// - Free the initializer
+	// - Defer if we can't evaluate it now (for forward references)
+	struct expression *initializer =
+		xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, decl->init, initializer);
+
+	// TODO: Lower implicit casts
+	expect(type_is_assignable(&ctx->store, type, initializer->result),
+		"Constnat type is not assignable from initializer type");
+
+	struct expression *value =
+		xcalloc(1, sizeof(struct expression));
+	enum eval_result r = eval_expr(ctx, initializer, value);
+	// TODO: More forward reference issues:
+	expect(r == EVAL_OK, "Unable to evaluate initializer at compile time");
+
+	struct identifier ident = {0};
+	mkident(ctx, &ident, &decl->ident);
+	scope_insert(ctx->unit, O_CONST, &ident, type, value);
+
+	trleave(TR_SCAN, NULL);
 }
 
 static void
@@ -831,7 +871,8 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 		case AST_DECL_GLOBAL:
 			assert(0); // TODO
 		case AST_DECL_CONST:
-			assert(0); // TODO
+			scan_const(ctx, &decl->constant);
+			break;
 		}
 		decls = decls->next;
 	}

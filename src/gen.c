@@ -105,6 +105,8 @@ qval_for_object(struct gen_context *ctx,
 		val->kind = QV_GLOBAL;
 		val->indirect = false;
 		break;
+	case O_CONST:
+		assert(0); // Invariant (lowered in check)
 	}
 
 	if (type_is_aggregate(obj->type)) {

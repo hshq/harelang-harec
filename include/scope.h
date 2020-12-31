@@ -5,6 +5,7 @@
 
 enum object_type {
 	O_BIND,
+	O_CONST,
 	O_DECL,
 };
 
@@ -13,6 +14,7 @@ struct scope_object {
 	enum object_type otype;
 	struct identifier ident;
 	const struct type *type;
+	struct expression *value; // For O_CONST
 	struct scope_object *next;
 };
 
@@ -35,7 +37,7 @@ void scope_free_all(struct scopes *scopes);
 
 const struct scope_object *scope_insert(struct scope *scope,
 	enum object_type otype, const struct identifier *ident,
-	const struct type *type);
+	const struct type *type, struct expression *value);
 const struct scope_object *scope_lookup(struct scope *scope,
 	const struct identifier *ident);
 

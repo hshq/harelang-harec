@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
+#include "expr.h"
 #include "identifier.h"
 #include "scope.h"
 #include "trace.h"
@@ -64,12 +65,18 @@ const struct scope_object *
 scope_insert(struct scope *scope,
 	enum object_type otype,
 	const struct identifier *ident,
-	const struct type *type)
+	const struct type *type,
+	struct expression *value)
 {
 	struct scope_object *o = xcalloc(1, sizeof(struct scope_object));
 	identifier_dup(&o->ident, ident);
 	o->otype = otype;
 	o->type = type;
+	o->value = value;
+	if (value) {
+		assert(otype == O_CONST);
+		assert(value->type == EXPR_CONSTANT);
+	}
 	*scope->next = o;
 	scope->next = &o->next;
 	return o;
