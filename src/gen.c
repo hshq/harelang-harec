@@ -382,43 +382,41 @@ gen_expr_assert(struct gen_context *ctx,
 }
 
 static void
-gen_expr_assign_ptr(struct gen_context *ctx,
-	const struct expression *expr,
-	const struct qbe_value *out)
-{
-	const struct expression *object = expr->assign.object;
-	const struct expression *value = expr->assign.value;
-
-	struct qbe_value v = {0};
-	gen_temp(ctx, &v, &qbe_long, "indirect.%d"); // XXX: ARCH
-	gen_expression(ctx, object, &v);
-	qval_deref(&v);
-	gen_expression(ctx, value, &v);
-}
-
-static void
 gen_expr_assign(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
 	assert(out == NULL); // Invariant
-	if (expr->assign.indirect) {
-		gen_expr_assign_ptr(ctx, expr, out);
-		return;
-	}
-
 	// TODO: When this grows to support e.g. indexing expressions, we need
 	// to ensure that the side-effects of the lvalue occur before the
 	// side-effects of the rvalue.
 
 	const struct expression *object = expr->assign.object;
-	assert(object->type == EXPR_ACCESS); // Invariant
+	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
 	const struct scope_object *obj = object->access.object;
 	const struct expression *value = expr->assign.value;
+	const struct type *objtype = expr->assign.indirect
+		? object->result->pointer.referent : object->result;
+
+	const struct qbe_type *vtype =
+		qtype_for_type(ctx, value->result, false);
+	const struct qbe_type *otype = qtype_for_type(ctx, objtype, false);
+	assert(otype == vtype); // TODO: Type promotion
+
+	struct qbe_value v;
+	gen_temp(ctx, &v, vtype, "assign.value.%d");
+	gen_expression(ctx, value, &v);
 
 	struct qbe_value src;
-	qval_for_object(ctx, &src, obj);
-	gen_expression(ctx, value, &src);
+	if (expr->assign.indirect) {
+		gen_temp(ctx, &src, &qbe_long, "indirect.%d"); // XXX: ARCH
+		gen_expression(ctx, object, &src);
+		qval_deref(&src);
+	} else {
+		qval_for_object(ctx, &src, obj);
+	}
+
+	gen_store(ctx, &src, &v);
 }
 
 static void
