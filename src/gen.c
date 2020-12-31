@@ -686,8 +686,8 @@ gen_string(struct gen_context *ctx,
 	def->name = temp.name;
 	def->kind = Q_DATA;
 	def->data.items.type = QD_STRING;
-	// TODO: Escape special characters
 	def->data.items.str = strdup(expr->constant.string.value);
+	def->data.items.sz = expr->constant.string.len;
 	qbe_append_def(ctx->out, def);
 
 	struct qbe_value str = {0};

@@ -228,7 +228,10 @@ struct qbe_data_item {
 	union {
 		struct qbe_value value;
 		size_t zeroed;
-		char *str;
+		struct {
+			char *str;
+			size_t sz;
+		};
 	};
 	struct qbe_data_item *next;
 };

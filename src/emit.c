@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include "emit.h"
 #include "qbe.h"
@@ -192,6 +193,33 @@ emit_func(struct qbe_def *def, FILE *out)
 }
 
 static void
+emit_data_string(const char *str, size_t sz, FILE *out)
+{
+	bool q = false;
+	for (size_t i = 0; i < sz; ++i) {
+		/* XXX: We could stand to emit less conservatively */
+		if (!isprint(str[i]) || str[i] == '"' || str[i] == '\\') {
+			if (q) {
+				q = false;
+				fprintf(out, "\", ");
+			}
+			fprintf(out, "b %d, ", str[i]);
+		} else {
+			if (!q) {
+				q = true;
+				fprintf(out, "b \"");
+			}
+			fprintf(out, "%c", str[i]);
+		}
+	}
+	if (q) {
+		fprintf(out, "\", b 0, ");
+	} else {
+		fprintf(out, "b 0, ");
+	}
+}
+
+static void
 emit_data(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_DATA);
@@ -207,7 +235,7 @@ emit_data(struct qbe_def *def, FILE *out)
 		case QD_ZEROED:
 			assert(0); // TODO
 		case QD_STRING:
-			fprintf(out, " b \"%s\", b 0", item->str);
+			emit_data_string(item->str, item->sz, out);
 			break;
 		}
 
