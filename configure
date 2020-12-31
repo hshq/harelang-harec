@@ -41,5 +41,6 @@ harec() {
 all="harec"
 
 subdir rt
+subdir tests
 
 run_configure

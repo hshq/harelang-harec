@@ -201,6 +201,7 @@ run_configure() {
 	populate "$srcdir/include"
 	populate "$srcdir/rt"
 	populate "$srcdir/src"
+	populate "$srcdir/tests"
 	ln -sf "$srcdir"/Makefile ./
 	echo done
 }

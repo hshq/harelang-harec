@@ -9,6 +9,7 @@ harec: $(harec_objects)
 	@$(CC) $(LDFLAGS) -o $@ $(harec_objects) $(LIBS)
 
 include rt/Makefile
+include tests/Makefile
 
 .SUFFIXES: .c .o .ha .s .scd .1 .5
 

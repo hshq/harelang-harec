@@ -1,0 +1,2 @@
+check:
+	@./tests/run

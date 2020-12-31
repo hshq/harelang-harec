@@ -4,6 +4,7 @@ all="$all rt"
 rt() {
 	case $(uname) in
 		Linux)
+			rtstart=rt/+linux/start.o
 			cat <<-EOF
 			libhart_srcs=\
 				rt/+linux/syscallno+x86_64.ha \

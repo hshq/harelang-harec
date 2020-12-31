@@ -14,3 +14,6 @@ tasks:
 - build: |
     cd harec/build
     make -j2
+- tests: |
+    cd harec/build
+    make check

@@ -1,0 +1,19 @@
+#!/bin/sh
+all="$all tests"
+
+tests() {
+	for t in 00-constants
+	do
+		cat <<EOF
+tests/$t: rt tests/$t.ha
+	@printf 'HAREC %s\t$@\n' "tests/$t"
+	@./harec -o tests/$t.ssa tests/$t.ha
+	@qbe -o tests/$t.s tests/$t.ssa
+	@as -o tests/$t.o tests/$t.s
+	@ld -o tests/$t $rtstart tests/$t.o libhart.a
+	@rm tests/$t.s tests/$t.ssa tests/$t.o
+
+check: tests/$t
+EOF
+	done
+}
