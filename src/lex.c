@@ -149,6 +149,8 @@ update_lineno(struct location *loc, uint32_t c)
 	if (c == '\n') {
 		loc->lineno++;
 		loc->colno = 0;
+	} else if (c == '\t') {
+		loc->colno += 8;
 	} else {
 		loc->colno++;
 	}
