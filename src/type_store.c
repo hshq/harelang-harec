@@ -77,7 +77,8 @@ type_is_assignable(struct type_store *store,
 		case TYPE_STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case TYPE_STORAGE_POINTER:
-			if (to->pointer.referent != from->pointer.referent) {
+			if (to->pointer.referent->storage != TYPE_STORAGE_VOID &&
+					to->pointer.referent != from->pointer.referent) {
 				return false;
 			}
 			if (to->pointer.flags & PTR_NULLABLE) {
@@ -94,6 +95,8 @@ type_is_assignable(struct type_store *store,
 		assert(0); // TODO
 	case TYPE_STORAGE_STRING:
 		return to == &builtin_type_const_ptr_char;
+	case TYPE_STORAGE_VOID:
+		return true;
 	// The following types are only assignable from themselves, and are
 	// handled above:
 	case TYPE_STORAGE_ARRAY:
@@ -105,7 +108,6 @@ type_is_assignable(struct type_store *store,
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_VOID:
 		return false;
 	}
 
