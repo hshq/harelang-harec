@@ -858,10 +858,31 @@ gen_expr_measure(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	struct qbe_value temp = {0};
+	struct qbe_value temp = {0}, ptr = {0};
 	switch (expr->measure.op) {
 	case M_LEN:
-		assert(0); // TODO
+		switch (expr->measure.value->result->storage) {
+		case TYPE_STORAGE_ARRAY:
+			gen_temp(ctx, &temp,
+				qtype_for_type(ctx, expr->result, false),
+				"len.%d");
+			constl(&temp, expr->measure.value->result->array.length);
+			gen_store(ctx, out, &temp);
+			break;
+		case TYPE_STORAGE_SLICE:
+		case TYPE_STORAGE_STRING:
+			gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+			qval_address(&ptr);
+			gen_expression(ctx, expr->measure.value, &ptr);
+			constl(&temp, builtin_type_size.size);
+			pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
+			qval_deref(&ptr);
+			gen_load(ctx, out, &ptr, false);
+			break;
+		default:
+			assert(0); // Invariant
+		}
+		break;
 	case M_SIZE:
 		gen_temp(ctx, &temp,
 			qtype_for_type(ctx, expr->result, false),

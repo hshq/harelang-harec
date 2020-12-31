@@ -540,8 +540,10 @@ check_expr_measure(struct context *ctx,
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->measure.value);
 		enum type_storage vstor = expr->measure.value->result->storage;
-		expect(vstor == TYPE_STORAGE_ARRAY || vstor == TYPE_STORAGE_SLICE,
-			"len argument must be of an array or slice type");
+		expect(vstor == TYPE_STORAGE_ARRAY
+				|| vstor == TYPE_STORAGE_SLICE
+				|| vstor == TYPE_STORAGE_STRING,
+			"len argument must be of an array, slice, or str type");
 		expect(expr->measure.value->result->size != SIZE_UNDEFINED,
 			"Cannot take length of array type with undefined length");
 		break;
