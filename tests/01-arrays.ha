@@ -35,6 +35,19 @@ fn nested() void = {
 	assert(len(x[0]) == 2z);
 };
 
+fn assignment() void = {
+	let x = [1, 2, 3];
+	let y = x;
+	let z = [0, 0, 0];
+	z = y;
+	assert(y[0] == 1);
+	assert(y[1] == 2);
+	assert(y[2] == 3);
+	assert(z[0] == 1);
+	assert(z[1] == 2);
+	assert(z[2] == 3);
+};
+
 fn param(x: [3]int) void = {
 	assert(len(x) == 3z);
 	assert(x[0] == 1);
@@ -48,5 +61,6 @@ export fn main() void = {
 	storage();
 	alignment();
 	nested();
+	assignment();
 	param([1, 2, 3]);
 };
