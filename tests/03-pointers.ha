@@ -16,7 +16,7 @@ fn _nullable() void = {
 	assert(*(x: *int) == 42);
 
 	assert(rt::compile(
-		"fn test() void = { let x: nullable *int = null; *x; };",
+		"fn test() void = { let x: nullable *int = null; let z = *x; };",
 	) != 0);
 };
 
