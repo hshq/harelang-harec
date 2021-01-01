@@ -81,8 +81,8 @@ type_is_assignable(struct type_store *store,
 					to->pointer.referent != from->pointer.referent) {
 				return false;
 			}
-			if (to->pointer.flags & PTR_NULLABLE) {
-				return from->pointer.flags & PTR_NULLABLE;
+			if (from->pointer.flags & PTR_NULLABLE) {
+				return to->pointer.flags & PTR_NULLABLE;
 			}
 			return true;
 		default:
