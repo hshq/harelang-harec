@@ -305,7 +305,9 @@ gen_expr_access_index(struct gen_context *ctx,
 	constl(&temp, atype->array.members->size);
 	pushi(ctx->current, &index, Q_MUL, &index, &temp, NULL);
 	pushi(ctx->current, &obj, Q_ADD, &obj, &index, NULL);
-	qval_deref(&obj);
+	if (!type_is_aggregate(atype->array.members)) {
+		qval_deref(&obj);
+	}
 	gen_loadtemp(ctx, &temp, &obj,
 		qtype_for_type(ctx, atype->array.members, true),
 		type_is_signed(atype->array.members));
@@ -660,8 +662,7 @@ gen_array(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	const struct type *type = expr->result;
-	assert(!out->indirect);			// Invariant
-	assert(!type->array.expandable);	// Invariant
+	assert(!type->array.expandable); // Invariant
 
 	// XXX: ARCH
 	struct qbe_value ptr = {0};
