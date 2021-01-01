@@ -32,5 +32,5 @@ export fn compile(src: str) int = {
 		wait4(child, &status, 0, null: *void);
 	};
 
-	return status;
+	return wexitstatus(status);
 };
