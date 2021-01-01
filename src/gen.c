@@ -395,6 +395,7 @@ gen_expr_assign(struct gen_context *ctx,
 
 	const struct expression *object = expr->assign.object;
 	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
+	assert(object->access.type == ACCESS_IDENTIFIER);
 	const struct scope_object *obj = object->access.object;
 	const struct expression *value = expr->assign.value;
 	const struct type *objtype = expr->assign.indirect

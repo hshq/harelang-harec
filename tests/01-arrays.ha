@@ -26,15 +26,6 @@ fn alignment() void = {
 	assert(&y: uintptr: size % 8z == 0z);
 };
 
-fn nested() void = {
-	let x = [[1, 2], [3, 4]];
-	assert(x[0][0] == 1);
-	assert(x[0][1] == 2);
-	assert(x[1][0] == 3);
-	assert(x[1][1] == 4);
-	assert(len(x[0]) == 2z);
-};
-
 fn assignment() void = {
 	let x = [1, 2, 3];
 	let y = x;
@@ -55,12 +46,24 @@ fn param(x: [3]int) void = {
 	assert(x[2] == 3);
 };
 
+fn nested() void = {
+	let x = [[1, 2], [3, 4]];
+	assert(x[0][0] == 1);
+	assert(x[0][1] == 2);
+	assert(x[1][0] == 3);
+	assert(x[1][1] == 4);
+	assert(len(x[0]) == 2z);
+	// TODO: Assignment to nested array
+	// x[1] = [5, 6];
+};
+
 export fn main() void = {
+	// TODO: Assign to index, take address of index
 	indexing();
 	measurements();
 	storage();
 	alignment();
-	nested();
 	assignment();
 	param([1, 2, 3]);
+	nested();
 };

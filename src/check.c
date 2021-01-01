@@ -156,11 +156,10 @@ check_expr_assign(struct context *ctx,
 			"Value type is not assignable to pointer type");
 	} else {
 		assert(object->type == EXPR_ACCESS); // Invariant
-		const struct scope_object *obj = object->access.object;
+		expect(&aexpr->loc, !(object->result->flags & TYPE_CONST),
+				"Cannot assign to const object");
 		expect(&aexpr->loc,
-			!(obj->type->flags & TYPE_CONST), "Cannot assign to const object");
-		expect(&aexpr->loc,
-			type_is_assignable(&ctx->store, obj->type, value->result),
+			type_is_assignable(&ctx->store, object->result, value->result),
 			"rvalue type is not assignable to lvalue");
 	}
 }
