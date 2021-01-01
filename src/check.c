@@ -110,12 +110,16 @@ check_expr_assert(struct context *ctx,
 			expr->assert.message->result->storage == TYPE_STORAGE_STRING,
 			"Assertion message must be string");
 	} else {
+		int n = snprintf(NULL, 0, "Assertion failed: %s:%d:%d",
+			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+		char *s = xcalloc(1, n + 1);
+		snprintf(s, n, "Assertion failed: %s:%d:%d",
+			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+
 		expr->assert.message->type = EXPR_CONSTANT;
 		expr->assert.message->result = &builtin_type_const_str;
-		expr->assert.message->constant.string.value =
-			strdup("TODO: add filename and line number here");
-		expr->assert.message->constant.string.len =
-			strlen(expr->assert.message->constant.string.value);
+		expr->assert.message->constant.string.value = s;
+		expr->assert.message->constant.string.len = n;
 	}
 }
 
