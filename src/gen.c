@@ -288,11 +288,30 @@ gen_expr_access_index(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	const struct type *atype = expr->access.array->result;
+	while (atype->storage == TYPE_STORAGE_POINTER) {
+		atype = atype->pointer.referent;
+	}
 	assert(atype->storage == TYPE_STORAGE_ARRAY); // TODO: Slices
 
 	struct qbe_value obj = {0};
 	gen_temp(ctx, &obj, &qbe_long, "object.%d"); // XXX: ARCH
 	gen_expression(ctx, expr->access.array, &obj);
+
+	atype = expr->access.array->result;
+	if (atype->storage == TYPE_STORAGE_POINTER) {
+		// We get one dereference for free because the array is stored
+		// indirectly
+		atype = atype->pointer.referent;
+	}
+	while (atype->storage == TYPE_STORAGE_POINTER) {
+		qval_deref(&obj);
+		struct qbe_value deref;
+		gen_loadtemp(ctx, &deref, &obj,
+			qtype_for_type(ctx, atype->pointer.referent, false),
+			type_is_signed(atype->pointer.referent));
+		obj = deref;
+		atype = atype->pointer.referent;
+	}
 
 	struct qbe_value index = {0};
 	gen_temp(ctx, &index, &qbe_long, "index.%d");

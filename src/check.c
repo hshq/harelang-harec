@@ -72,6 +72,12 @@ check_expr_access(struct context *ctx,
 		check_expression(ctx, aexpr->access.index, expr->access.index);
 		const struct type *atype = expr->access.array->result;
 		const struct type *itype = expr->access.index->result;
+		while (atype->storage == TYPE_STORAGE_POINTER) {
+			expect(&aexpr->access.array->loc,
+				!(atype->pointer.flags & PTR_NULLABLE),
+				"Cannot index nullable pointer");
+			atype = atype->pointer.referent;
+		}
 		expect(&aexpr->access.array->loc,
 			atype->storage == TYPE_STORAGE_ARRAY || atype->storage == TYPE_STORAGE_SLICE,
 			"Cannot index non-array, non-slice object");

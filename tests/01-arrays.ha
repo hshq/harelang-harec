@@ -1,8 +1,16 @@
 fn indexing() void = {
 	let x = [1, 2, 3];
+	let y = &x;
+	let z = &y;
 	assert(x[0] == 1);
 	assert(x[1] == 2);
 	assert(x[2] == 3);
+	assert(y[0] == 1);
+	assert(y[1] == 2);
+	assert(y[2] == 3);
+	assert(z[0] == 1);
+	assert(z[1] == 2);
+	assert(z[2] == 3);
 };
 
 fn measurements() void = {
