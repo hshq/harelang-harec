@@ -10,7 +10,7 @@ tests() {
 		04-strings
 	do
 		cat <<EOF
-tests/$t: rt tests/$t.ha
+tests/$t: libhart.a tests/$t.ha
 	@printf 'HAREC %s\t$@\n' "tests/$t"
 	@./harec -o tests/$t.ssa tests/$t.ha
 	@qbe -o tests/$t.s tests/$t.ssa

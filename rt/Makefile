@@ -1,5 +1,6 @@
 libhart_srcs+=\
 	rt/abort.ha \
+	rt/compile.ha \
 	rt/rtmain.ha
 
 libhart.a: harec $(libhart_srcs) $(libhart_objs)

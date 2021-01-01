@@ -1,3 +1,5 @@
+fn rt::compile(src: str) int;
+
 fn basics() void = {
 	let x = 42;
 	let y: *int = &x;
@@ -12,7 +14,10 @@ fn _nullable() void = {
 	let y = 42;
 	x = &y;
 	assert(*(x: *int) == 42);
-	// TODO: Expected failures with nullable pointers
+
+	assert(rt::compile(
+		"fn test() void = { let x: nullable *int = null; *x; };",
+	) != 0);
 };
 
 export fn main() void = {
