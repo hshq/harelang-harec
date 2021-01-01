@@ -4,7 +4,8 @@ all="$all tests"
 tests() {
 	for t in \
 		00-constants \
-		01-arrays
+		01-arrays \
+		02-integers
 	do
 		cat <<EOF
 tests/$t: rt tests/$t.ha
