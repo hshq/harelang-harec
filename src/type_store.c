@@ -158,6 +158,8 @@ type_is_castable(const struct type *to,
 			|| to->storage == TYPE_STORAGE_UINTPTR;
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_ARRAY:
+		return to->storage == TYPE_STORAGE_SLICE
+			|| to->storage == TYPE_STORAGE_ARRAY;
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
