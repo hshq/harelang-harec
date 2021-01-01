@@ -216,6 +216,10 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 				more = false;
 				trace(TR_PARSE, ", ...");
 				break;
+			case T_RPAREN:
+				more = false;
+				unlex(lexer, &tok);
+				break;
 			default:
 				unlex(lexer, &tok);
 				next->next = mkfuncparams(&lexer->loc);
