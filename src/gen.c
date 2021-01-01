@@ -200,8 +200,7 @@ gen_store(struct gen_context *ctx,
 
 	// TODO: Revisit me (again)
 	if (src->type->stype == Q__AGGREGATE) {
-		if (src->indirect) {
-			assert(dest->indirect);
+		if (src->indirect && dest->indirect) {
 			pushi(ctx->current, NULL, Q_STOREL, src, dest, NULL); // XXX: ARCH
 		} else if (!dest->indirect && dest->type->stype == Q__AGGREGATE) {
 			gen_copy(ctx, dest, src);
