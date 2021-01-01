@@ -6,7 +6,8 @@ tests() {
 		00-constants \
 		01-arrays \
 		02-integers \
-		03-pointers
+		03-pointers \
+		04-strings
 	do
 		cat <<EOF
 tests/$t: rt tests/$t.ha

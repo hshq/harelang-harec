@@ -1,5 +1,3 @@
-fn compfail(src: str) void;
-
 fn basics() void = {
 	let x = 42;
 	let y: *int = &x;

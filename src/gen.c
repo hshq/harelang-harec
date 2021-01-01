@@ -309,7 +309,7 @@ gen_expr_access_index(struct gen_context *ctx,
 		qval_deref(&obj);
 	}
 	gen_loadtemp(ctx, &temp, &obj,
-		qtype_for_type(ctx, atype->array.members, true),
+		qtype_for_type(ctx, atype->array.members, false),
 		type_is_signed(atype->array.members));
 	gen_store(ctx, out, &temp);
 }
@@ -988,7 +988,9 @@ gen_expr_unarithm(struct gen_context *ctx,
 		res = op; // no-op
 		break;
 	case UN_DEREF:
-		qval_deref(&op);
+		if (!type_is_aggregate(expr->result)) {
+			qval_deref(&op);
+		}
 		gen_load(ctx, &res, &op, type_is_signed(expr->result));
 		break;
 	case UN_ADDRESS:
