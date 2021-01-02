@@ -1,20 +1,6 @@
 #!/bin/sh -e
 srcdir=${SRCDIR:-$(dirname "$0")}
 
-enable_rt=0
-
-option() {
-	case $1 in
-		--enable-rt)
-			enable_rt=1
-			;;
-		*)
-			printf 'Unknown option %s\n' "$arg" >&2
-			exit 1
-			;;
-	esac
-}
-
 eval ". $srcdir/config.sh"
 
 harec() {

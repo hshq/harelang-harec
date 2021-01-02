@@ -26,7 +26,7 @@ include tests/Makefile
 
 docs:
 
-clean:
+clean: clean-tests
 	@rm -f harec $(harec_objects) $(libhart_objs) libhart.a
 
 distclean: clean

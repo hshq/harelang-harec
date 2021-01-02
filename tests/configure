@@ -19,6 +19,11 @@ tests/$t: libhart.a tests/$t.ha
 	@rm tests/$t.s tests/$t.ssa tests/$t.o
 
 check: tests/$t
+
+clean-test-$t:
+	@rm -f tests/$t
+
+clean-tests: clean-test-$t
 EOF
 	done
 }
