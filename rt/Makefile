@@ -3,7 +3,7 @@ libhart_srcs+=\
 	rt/compile.ha \
 	rt/rtmain.ha
 
-libhart.a: harec $(libhart_srcs) $(libhart_objs)
+libhart.a: harec $(libhart_srcs) $(libhart_objs) $(rtstart)
 	@printf 'HAREC\t$@\n'
 	@./harec -N rt -o $@.ssa $(libhart_srcs)
 	@qbe -o $@.s $@.ssa
@@ -13,3 +13,5 @@ libhart.a: harec $(libhart_srcs) $(libhart_objs)
 
 clean-rt:
 	@rm -f libhart.a $(libhart_objs) $(rtstart)
+
+.PHONY: rt clean-rt

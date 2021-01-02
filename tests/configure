@@ -22,6 +22,7 @@ check: tests/$t
 
 clean-test-$t:
 	@rm -f tests/$t
+.PHONY: clean-test-$t
 
 clean-tests: clean-test-$t
 EOF
