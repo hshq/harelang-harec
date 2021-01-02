@@ -5,6 +5,7 @@ AS=${AS:-as}
 CC=${CC:-cc}
 CFLAGS=${CFLAGS:-}
 LD=${LD:-ld}
+QBE=${QBE:-qbe}
 SCDOC=${SCDOC:-scdoc}
 
 for arg
@@ -143,6 +144,9 @@ run_configure() {
 	printf "Creating $outdir/config.mk... "
 	cat <<-EOF > "$outdir"/config.mk
 	CC=$CC
+	AS=$AS
+	LD=$LD
+	QBE=$QBE
 	SCDOC=$SCDOC
 	LIBS=$LIBS
 	PREFIX=${PREFIX:-/usr/local}
