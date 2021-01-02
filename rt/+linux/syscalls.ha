@@ -29,7 +29,7 @@ export fn execve(
 	argv: uintptr: u64,
 	envp: uintptr: u64): int;
 
-export fn wait4(pid: int, status: *int, options: int, rusage: *void) void =
+export fn wait4(pid: int, status: *int, options: int, rusage: nullable *void) void =
 	syscall4(SYS_wait4, pid: u64, status: uintptr: u64,
 		options: u64, rusage: uintptr: u64);
 
