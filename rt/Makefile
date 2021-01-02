@@ -10,3 +10,6 @@ libhart.a: harec $(libhart_srcs) $(libhart_objs)
 	@$(AS) -o $@.o $@.s
 	@$(AR) -csr $@ $@.o $(libhart_objs)
 	@rm $@.o $@.s $@.ssa
+
+clean-rt:
+	@rm -f libhart.a $(libhart_objs) $(rtstart)

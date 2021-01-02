@@ -6,6 +6,8 @@ rt() {
 		Linux)
 			rtstart=rt/+linux/start.o
 			cat <<-EOF
+			rtstart=rt/+linux/start.o
+
 			libhart_srcs=\
 				rt/+linux/syscallno+x86_64.ha \
 				rt/+linux/syscalls.ha
