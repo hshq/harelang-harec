@@ -12,7 +12,7 @@ tests() {
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
-	@printf 'HAREC %s\t$@\n' "tests/$t"
+	@printf 'HAREC\t%s\t$@\n' "tests/$t"
 	@./harec -o tests/$t.ssa tests/$t.ha
 	@\$(QBE) -o tests/$t.s tests/$t.ssa
 	@\$(AS) -o tests/$t.o tests/$t.s
