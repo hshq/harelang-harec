@@ -596,9 +596,10 @@ gen_expr_cast(struct gen_context *ctx,
 	if (to->storage == TYPE_STORAGE_POINTER
 			&& to->pointer.referent->storage == TYPE_STORAGE_CHAR
 			&& from->storage == TYPE_STORAGE_STRING) {
-		gen_temp(ctx, &in, &qbe_long, "cast.in.%d");
-		qval_address(&in);
+		alloc_temp(ctx, &in, from, "cast.in.%d");
+		in.indirect = false;
 		gen_expression(ctx, expr->cast.value, &in);
+		in.type = &qbe_long;
 		qval_deref(&in);
 		gen_load(ctx, &result, &in, false);
 		gen_store(ctx, out, &result);
