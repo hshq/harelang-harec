@@ -77,8 +77,9 @@ fn nested() void = {
 	assert(x[1][0] == 3);
 	assert(x[1][1] == 4);
 	assert(len(x[0]) == 2z);
-	// TODO: Assignment to nested array
-	// x[1] = [5, 6];
+	x[1] = [5, 6];
+	assert(x[1][0] == 5);
+	assert(x[1][1] == 6);
 };
 
 export fn main() void = {

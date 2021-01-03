@@ -430,13 +430,16 @@ gen_expr_assign(struct gen_context *ctx,
 		qtype_for_type(ctx, value->result, false);
 	const struct qbe_type *otype = qtype_for_type(ctx, objtype, false);
 
-	struct qbe_value v = {0};
-	gen_temp(ctx, &v, vtype, "assign.value.%d");
-	gen_expression(ctx, value, &v);
-
 	if (expr->assign.op == BIN_LEQUAL) {
-		gen_store(ctx, &src, &v);
+		if (!type_is_aggregate(value->result)) {
+			qval_deref(&src);
+		}
+		gen_expression(ctx, value, &src);
 	} else {
+		struct qbe_value v = {0};
+		gen_temp(ctx, &v, vtype, "assign.value.%d");
+		gen_expression(ctx, value, &v);
+
 		struct qbe_value result;
 		gen_temp(ctx, &result, otype, "assign.result.%d");
 
