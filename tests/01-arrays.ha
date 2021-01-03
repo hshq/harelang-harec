@@ -2,6 +2,7 @@ fn indexing() void = {
 	let x = [1, 2, 3];
 	let y = &x;
 	let z = &y;
+	// TODO: Simplify these once we have logical and (&&)
 	assert(x[0] == 1);
 	assert(x[1] == 2);
 	assert(x[2] == 3);
@@ -11,6 +12,21 @@ fn indexing() void = {
 	assert(z[0] == 1);
 	assert(z[1] == 2);
 	assert(z[2] == 3);
+
+	x[0] = 5;
+	x[1] = 6;
+	x[2] = 7;
+	assert(x[0] == 5);
+	assert(x[1] == 6);
+	assert(x[2] == 7);
+	assert(y[0] == 5);
+	assert(y[1] == 6);
+	assert(y[2] == 7);
+
+	let q = &x[0];
+	*q = 1337;
+	assert(x[0] == 1337);
+	assert(y[0] == 1337);
 };
 
 fn measurements() void = {
@@ -66,7 +82,6 @@ fn nested() void = {
 };
 
 export fn main() void = {
-	// TODO: Assign to index, take address of index
 	indexing();
 	measurements();
 	storage();

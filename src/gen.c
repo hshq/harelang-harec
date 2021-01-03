@@ -264,28 +264,18 @@ static void gen_expression(struct gen_context *ctx,
 	const struct expression *expr, const struct qbe_value *out);
 
 static void
-gen_expr_access_ident(struct gen_context *ctx,
+address_ident(struct gen_context *ctx,
 	const struct expression *expr,
-	const struct qbe_value *out)
+	struct qbe_value *out)
 {
 	const struct scope_object *obj = expr->access.object;
-
-	struct qbe_value src = {0}, temp = {0};
-	qval_for_object(ctx, &src, obj);
-	if (src.indirect) {
-		gen_loadtemp(ctx, &temp, &src,
-			qtype_for_type(ctx, obj->type, false),
-			type_is_signed(obj->type));
-		gen_store(ctx, out, &temp);
-	} else {
-		gen_store(ctx, out, &src);
-	}
+	qval_for_object(ctx, out, obj);
 }
 
 static void
-gen_expr_access_index(struct gen_context *ctx,
+address_index(struct gen_context *ctx,
 	const struct expression *expr,
-	const struct qbe_value *out)
+	struct qbe_value *out)
 {
 	const struct type *atype = expr->access.array->result;
 	while (atype->storage == TYPE_STORAGE_POINTER) {
@@ -293,9 +283,8 @@ gen_expr_access_index(struct gen_context *ctx,
 	}
 	assert(atype->storage == TYPE_STORAGE_ARRAY); // TODO: Slices
 
-	struct qbe_value obj = {0};
-	gen_temp(ctx, &obj, &qbe_long, "object.%d"); // XXX: ARCH
-	gen_expression(ctx, expr->access.array, &obj);
+	gen_temp(ctx, out, &qbe_long, "object.%d"); // XXX: ARCH
+	gen_expression(ctx, expr->access.array, out);
 
 	atype = expr->access.array->result;
 	if (atype->storage == TYPE_STORAGE_POINTER) {
@@ -304,12 +293,12 @@ gen_expr_access_index(struct gen_context *ctx,
 		atype = atype->pointer.referent;
 	}
 	while (atype->storage == TYPE_STORAGE_POINTER) {
-		qval_deref(&obj);
+		qval_deref(out);
 		struct qbe_value deref;
-		gen_loadtemp(ctx, &deref, &obj,
+		gen_loadtemp(ctx, &deref, out,
 			qtype_for_type(ctx, atype->pointer.referent, false),
 			type_is_signed(atype->pointer.referent));
-		obj = deref;
+		*out = deref;
 		atype = atype->pointer.referent;
 	}
 
@@ -322,14 +311,28 @@ gen_expr_access_index(struct gen_context *ctx,
 	struct qbe_value temp = {0};
 	constl(&temp, atype->array.members->size);
 	pushi(ctx->current, &index, Q_MUL, &index, &temp, NULL);
-	pushi(ctx->current, &obj, Q_ADD, &obj, &index, NULL);
+	pushi(ctx->current, out, Q_ADD, out, &index, NULL);
 	if (!type_is_aggregate(atype->array.members)) {
-		qval_deref(&obj);
+		qval_deref(out);
 	}
-	gen_loadtemp(ctx, &temp, &obj,
-		qtype_for_type(ctx, atype->array.members, false),
-		type_is_signed(atype->array.members));
-	gen_store(ctx, out, &temp);
+}
+
+static void
+address_object(struct gen_context *ctx,
+		const struct expression *expr,
+		struct qbe_value *out)
+{
+	assert(expr->type == EXPR_ACCESS);
+	switch (expr->access.type) {
+	case ACCESS_IDENTIFIER:
+		address_ident(ctx, expr, out);
+		break;
+	case ACCESS_INDEX:
+		address_index(ctx, expr, out);
+		break;
+	case ACCESS_FIELD:
+		assert(0); // TODO
+	}
 }
 
 static void
@@ -342,15 +345,15 @@ gen_expr_access(struct gen_context *ctx,
 		return;
 	}
 
-	switch (expr->access.type) {
-	case ACCESS_IDENTIFIER:
-		gen_expr_access_ident(ctx, expr, out);
-		break;
-	case ACCESS_INDEX:
-		gen_expr_access_index(ctx, expr, out);
-		break;
-	case ACCESS_FIELD:
-		assert(0); // TODO
+	struct qbe_value src = {0}, temp = {0};
+	address_object(ctx, expr, &src);
+	if (src.indirect) {
+		gen_loadtemp(ctx, &temp, &src,
+			qtype_for_type(ctx, expr->result, false),
+			type_is_signed(expr->result));
+		gen_store(ctx, out, &temp);
+	} else {
+		gen_store(ctx, out, &src);
 	}
 }
 
@@ -406,41 +409,37 @@ gen_expr_assign(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(out == NULL); // Invariant
-	// TODO: When this grows to support e.g. indexing expressions, we need
-	// to ensure that the side-effects of the lvalue occur before the
-	// side-effects of the rvalue.
 
-	const struct expression *object = expr->assign.object;
+	struct expression *object = expr->assign.object;
 	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
-	assert(object->access.type == ACCESS_IDENTIFIER);
-	const struct scope_object *obj = object->access.object;
-	const struct expression *value = expr->assign.value;
-	const struct type *objtype = expr->assign.indirect
-		? object->result->pointer.referent : object->result;
 
-	const struct qbe_type *vtype =
-		qtype_for_type(ctx, value->result, false);
-	const struct qbe_type *otype = qtype_for_type(ctx, objtype, false);
-	assert(otype == vtype); // TODO: Type promotion
-
-	struct qbe_value v;
-	gen_temp(ctx, &v, vtype, "assign.value.%d");
-	gen_expression(ctx, value, &v);
-
-	struct qbe_value src;
+	struct qbe_value src = {0};
 	if (expr->assign.indirect) {
 		gen_temp(ctx, &src, &qbe_long, "indirect.%d"); // XXX: ARCH
 		gen_expression(ctx, object, &src);
 		qval_deref(&src);
 	} else {
-		qval_for_object(ctx, &src, obj);
+		const struct expression *object = expr->assign.object;
+		address_object(ctx, object, &src);
 	}
+
+	const struct expression *value = expr->assign.value;
+	const struct type *objtype = expr->assign.indirect
+		? object->result->pointer.referent : object->result;
+	const struct qbe_type *vtype =
+		qtype_for_type(ctx, value->result, false);
+	const struct qbe_type *otype = qtype_for_type(ctx, objtype, false);
+
+	struct qbe_value v = {0};
+	gen_temp(ctx, &v, vtype, "assign.value.%d");
+	gen_expression(ctx, value, &v);
 
 	if (expr->assign.op == BIN_LEQUAL) {
 		gen_store(ctx, &src, &v);
 	} else {
 		struct qbe_value result;
 		gen_temp(ctx, &result, otype, "assign.result.%d");
+
 		struct qbe_value load;
 		gen_loadtemp(ctx, &load, &src, otype,
 			type_is_signed(objtype));
@@ -962,16 +961,7 @@ gen_expr_address(struct gen_context *ctx,
 	assert(operand->type == EXPR_ACCESS); // Invariant
 
 	struct qbe_value src = {0};
-	switch (operand->access.type) {
-	case ACCESS_IDENTIFIER:
-		qval_for_object(ctx, &src, operand->access.object);
-		break;
-	case ACCESS_INDEX:
-		assert(0); // TODO
-	case ACCESS_FIELD:
-		assert(0); // TODO
-	}
-
+	address_object(ctx, operand, &src);
 	qval_address(&src);
 	gen_store(ctx, out, &src);
 }
