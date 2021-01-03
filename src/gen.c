@@ -359,7 +359,6 @@ gen_expr_assert(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	assert(!out); // Invariant
 	assert(expr->assert.message); // Invariant
 
 	struct qbe_statement failedl = {0}, passedl = {0};
@@ -587,6 +586,11 @@ gen_expr_cast(struct gen_context *ctx,
 {
 	const struct type *to = expr->result,
 	      *from = expr->cast.value->result;
+	if (to->storage == from->storage) {
+		gen_expression(ctx, expr->cast.value, out);
+		return;
+	}
+
 	bool is_signed = type_is_signed(from);
 
 	struct qbe_value in = {0}, result = {0};
@@ -669,8 +673,9 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_VOID:
 		assert(0); // Invariant
+	case TYPE_STORAGE_VOID:
+		return; // no-op
 	}
 
 	gen_store(ctx, out, &result);

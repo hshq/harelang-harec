@@ -38,6 +38,21 @@ expect(const struct location *loc, bool constraint, char *fmt, ...)
 	}
 }
 
+static struct expression *
+lower_implicit_cast(const struct type *to, struct expression *expr)
+{
+	if (to == expr->result) {
+		return expr;
+	}
+	struct expression *cast = xcalloc(1, sizeof(struct expression));
+	cast->type = EXPR_CAST;
+	cast->result = to;
+	cast->terminates = expr->terminates;
+	cast->cast.kind = C_CAST;
+	cast->cast.value = expr;
+	return cast;
+}
+
 void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr, struct expression *expr);
 
@@ -145,8 +160,6 @@ check_expr_assign(struct context *ctx,
 	check_expression(ctx, aexpr->assign.value, value);
 
 	expr->assign.op = aexpr->assign.op;
-	expr->assign.object = object;
-	expr->assign.value = value;
 
 	if (aexpr->assign.indirect) {
 		expect(&aexpr->loc,
@@ -160,6 +173,7 @@ check_expr_assign(struct context *ctx,
 				object->result->pointer.referent,
 				value->result),
 			"Value type is not assignable to pointer type");
+		value = lower_implicit_cast(object->result->pointer.referent, value);
 	} else {
 		assert(object->type == EXPR_ACCESS); // Invariant
 		expect(&aexpr->loc, !(object->result->flags & TYPE_CONST),
@@ -167,7 +181,11 @@ check_expr_assign(struct context *ctx,
 		expect(&aexpr->loc,
 			type_is_assignable(&ctx->store, object->result, value->result),
 			"rvalue type is not assignable to lvalue");
+		value = lower_implicit_cast(object->result, value);
 	}
+
+	expr->assign.object = object;
+	expr->assign.value = value;
 }
 
 static void
@@ -260,7 +278,8 @@ check_expr_binding(struct context *ctx,
 		const struct scope_object *obj = scope_insert(
 			ctx->scope, O_BIND, &ident, &ident, type, NULL);
 		binding->object = obj;
-		binding->initializer = initializer;
+		binding->initializer =
+			lower_implicit_cast(type, initializer);
 
 		if (abinding->next) {
 			binding = *next =
@@ -305,6 +324,9 @@ check_expr_call(struct context *ctx,
 			type_is_assignable(&ctx->store,
 				param->type, arg->value->result),
 			"Argument is not assignable to parameter type");
+		if (param->type != arg->value->result) {
+			arg->value = lower_implicit_cast(param->type, arg->value);
+		}
 
 		aarg = aarg->next;
 		param = param->next;
@@ -496,11 +518,20 @@ check_expr_if(struct context *ctx,
 		false_branch = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_if.false_branch, false_branch);
 
-		// TODO: Tagged unions:
-		assert(true_branch->result == false_branch->result);
-		expr->result = true_branch->result;
+		if (true_branch->terminates && false_branch->terminates) {
+			expr->result = &builtin_type_void;
+		} else if (true_branch->terminates) {
+			expr->result = false_branch->result;
+		} else if (false_branch->terminates) {
+			expr->result = true_branch->result;
+		} else {
+			// TODO: Tagged unions
+			assert(true_branch->result == false_branch->result);
+			expr->result = true_branch->result;
+		}
 	} else {
 		expr->result = &builtin_type_void;
+		expr->terminates = true_branch->terminates;
 	}
 
 	expect(&aexpr->_if.cond->loc,
@@ -595,10 +626,14 @@ check_expr_return(struct context *ctx,
 	if (aexpr->_return.value) {
 		struct expression *rval = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_return.value, rval);
-		expr->_return.value = rval;
 		expect(&aexpr->_return.value->loc,
 			type_is_assignable(&ctx->store, ctx->current_fntype->func.result, rval->result),
 			"Return value is not assignable to function result type");
+		if (ctx->current_fntype->func.result != rval->result) {
+			rval = lower_implicit_cast(
+				ctx->current_fntype->func.result, rval);
+		}
+		expr->_return.value = rval;
 	}
 
 	trleave(TR_CHECK, NULL);
@@ -775,11 +810,14 @@ check_function(struct context *ctx,
 
 	struct expression *body = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, afndecl->body, body);
-	decl->func.body = body;
 
 	expect(&afndecl->body->loc,
 		body->terminates || type_is_assignable(&ctx->store, fntype->func.result, body->result),
 		"Result value is not assignable to function result type");
+	if (!body->terminates && fntype->func.result != body->result) {
+		body = lower_implicit_cast(fntype->func.result, body);
+	}
+	decl->func.body = body;
 
 	// TODO: Add function name to errors
 	if ((decl->func.flags & FN_INIT)

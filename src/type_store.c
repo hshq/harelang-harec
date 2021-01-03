@@ -85,6 +85,10 @@ type_is_assignable(struct type_store *store,
 				return to->pointer.flags & PTR_NULLABLE;
 			}
 			return true;
+		case TYPE_STORAGE_STRING:
+			return to->pointer.referent->storage == TYPE_STORAGE_CHAR
+				// TODO: const transitivity
+				&& to->pointer.referent->flags & TYPE_CONST;
 		default:
 			return false;
 		}
