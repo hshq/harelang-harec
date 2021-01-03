@@ -77,8 +77,10 @@ type_is_assignable(struct type_store *store,
 		case TYPE_STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case TYPE_STORAGE_POINTER:
-			if (to->pointer.referent->storage != TYPE_STORAGE_VOID &&
-					to->pointer.referent != from->pointer.referent) {
+			if (to->pointer.referent->storage == TYPE_STORAGE_VOID) {
+				// TODO: const transitivity
+				return to->pointer.referent->flags == from->pointer.referent->flags;
+			} else if (to->pointer.referent != from->pointer.referent) {
 				return false;
 			}
 			if (from->pointer.flags & PTR_NULLABLE) {
@@ -223,7 +225,7 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	case TYPE_STORAGE_UINTPTR:
 		return is_const ? &builtin_type_const_uintptr : &builtin_type_uintptr;
 	case TYPE_STORAGE_VOID:
-		return &builtin_type_void; // const void and void are the same type
+		return is_const ? &builtin_type_const_void : &builtin_type_void;
 	case TYPE_STORAGE_NULL:
 		return &builtin_type_null; // const null and null are the same type
 	case TYPE_STORAGE_STRING:

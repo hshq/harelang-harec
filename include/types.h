@@ -151,6 +151,7 @@ extern const struct type
 	builtin_type_const_uintptr,
 	builtin_type_const_rune,
 	builtin_type_const_size,
+	builtin_type_const_void,
 	// etc
 	builtin_type_const_ptr_char,
 	builtin_type_str,
