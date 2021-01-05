@@ -54,7 +54,10 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 	gen_temp(ctx, val, qtype_for_type(ctx, type, true), fmt);
 	val->indirect = true;
 	constl(&size, type->size);
+	const struct qbe_type *qtype = val->type;
+	val->type = &qbe_long;
 	pushprei(ctx->current, val, alloc_for_align(type->align), &size, NULL);
+	val->type = qtype;
 }
 
 static struct gen_binding *

@@ -98,6 +98,8 @@ check_expr_access(struct context *ctx,
 			"Cannot index non-array, non-slice object");
 		expect(&aexpr->access.index->loc, type_is_integer(itype),
 			"Cannot use non-integer type as slice/array index");
+		expr->access.index = lower_implicit_cast(
+			&builtin_type_size, expr->access.index);
 		expr->result = atype->array.members;
 		break;
 	case ACCESS_FIELD:

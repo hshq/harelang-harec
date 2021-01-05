@@ -5,7 +5,7 @@
 #include "qbe.h"
 
 static void
-emit_qtype(const struct qbe_type *type, FILE *out)
+emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
 {
 	switch (type->stype) {
 	case Q_BYTE:
@@ -17,7 +17,11 @@ emit_qtype(const struct qbe_type *type, FILE *out)
 		fprintf(out, "%c", (char)type->stype);
 		break;
 	case Q__AGGREGATE:
-		fprintf(out, ":%s", type->name);
+		if (aggr) {
+			fprintf(out, ":%s", type->name);
+		} else {
+			fprintf(out, "l");
+		}
 		break;
 	case Q__VOID:
 		break; // no-op
@@ -38,7 +42,7 @@ emit_type(const struct qbe_def *def, FILE *out)
 	while (field) {
 		if (field->type) {
 			fprintf(out, " ");
-			emit_qtype(field->type, out);
+			emit_qtype(field->type, true, out);
 		}
 		if (field->count) {
 			fprintf(out, " %zu", field->count);
@@ -109,7 +113,7 @@ emit_call(struct qbe_statement *stmt, FILE *out)
 	bool comma = false;
 	while (arg) {
 		fprintf(out, "%s", comma ? ", " : "");
-		emit_qtype(arg->value.type, out);
+		emit_qtype(arg->value.type, true, out);
 		fprintf(out, " ");
 		emit_value(&arg->value, out);
 		arg = arg->next;
@@ -131,11 +135,7 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 		if (stmt->out != NULL) {
 			emit_value(stmt->out, out);
 			fprintf(out, " =");
-			if (stmt->out->indirect) {
-				emit_qtype(&qbe_long, out); // XXX: ARCH
-			} else {
-				emit_qtype(stmt->out->type, out);
-			}
+			emit_qtype(stmt->out->type, false, out);
 			fprintf(out, " ");
 		}
 		if (stmt->instr == Q_CALL) {
@@ -165,12 +165,12 @@ emit_func(struct qbe_def *def, FILE *out)
 	fprintf(out, "%sfunction", def->exported ? "export " : "");
 	if (def->func.returns->stype != Q__VOID) {
 		fprintf(out, " ");
-		emit_qtype(def->func.returns, out);
+		emit_qtype(def->func.returns, true, out);
 	}
 	fprintf(out, " $%s(", def->name);
 	struct qbe_func_param *param = def->func.params;
 	while (param) {
-		emit_qtype(param->type, out);
+		emit_qtype(param->type, true, out);
 		fprintf(out, " %%%s", param->name);
 		if (param->next) {
 			fprintf(out, ", ");
