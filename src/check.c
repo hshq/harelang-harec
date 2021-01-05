@@ -100,7 +100,8 @@ check_expr_access(struct context *ctx,
 			"Cannot use non-integer type as slice/array index");
 		expr->access.index = lower_implicit_cast(
 			&builtin_type_size, expr->access.index);
-		expr->result = atype->array.members;
+		expr->result = type_store_lookup_with_flags(&ctx->store,
+			atype->array.members, atype->flags | atype->array.members->flags);
 		break;
 	case ACCESS_FIELD:
 		assert(0); // TODO
