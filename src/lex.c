@@ -746,7 +746,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		break;
 	case '|':
 		switch ((c = next(lexer, NULL, false))) {
-		case '&':
+		case '|':
 			out->token = T_LOR;
 			break;
 		case '=':
