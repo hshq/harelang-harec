@@ -12,19 +12,19 @@ type_dereference(const struct type *type)
 	return type_dereference(type->pointer.referent);
 }
 
-const struct type_struct_union *
+const struct struct_field *
 type_lookup_field(const struct type *type, const char *name)
 {
 	// TODO: We should consider lowering unions into structs with explicit
 	// offsets
 	assert(type->storage == TYPE_STORAGE_STRUCT
 			|| type->storage == TYPE_STORAGE_UNION);
-	struct type_struct_union *typesu = type->struct_union;
-	while (typesu) {
-		if (strcmp(typesu->name, name) == 0) {
-			return typesu;
+	struct struct_field *field = type->struct_union.fields;
+	while (field) {
+		if (strcmp(field->name, name) == 0) {
+			return field;
 		}
-		typesu = typesu->next;
+		field = field->next;
 	}
 	return NULL;
 }

@@ -297,7 +297,7 @@ type_hash(struct type_store *store, const struct type *type)
 		assert(0); // TODO
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
-		for (const struct type_struct_union *field = type->struct_union;
+		for (const struct struct_field *field = type->struct_union.fields;
 				field; field = field->next) {
 			hash = djb2_s(hash, field->name);
 			hash = djb2(hash, type_hash(store, field->type));
@@ -389,8 +389,9 @@ type_eq_type(struct type_store *store,
 		assert(0); // TODO
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
-		for (const struct type_struct_union *afield = a->struct_union,
-				*bfield = b->struct_union; afield && bfield;
+		for (const struct struct_field *afield = a->struct_union.fields,
+				*bfield = b->struct_union.fields;
+				afield && bfield;
 				afield = afield->next, bfield = bfield->next) {
 			if (!!afield->next != !!bfield->next) {
 				return false;
@@ -414,20 +415,20 @@ type_eq_type(struct type_store *store,
 }
 
 static void
-struct_insert_field(struct type_store *store, struct type_struct_union **type,
+struct_insert_field(struct type_store *store, struct struct_field **fields,
 	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
 	const struct ast_struct_union_type *atype)
 {
 	assert(atype->member_type == MEMBER_TYPE_FIELD);
-	while (*type && strcmp((*type)->name, atype->field.name) < 0) {
-		type = &(*type)->next;
+	while (*fields && strcmp((*fields)->name, atype->field.name) < 0) {
+		fields = &(*fields)->next;
 	}
-	struct type_struct_union *field = *type;
+	struct struct_field *field = *fields;
 	// TODO: Bubble this error up
 	assert(field == NULL || strcmp(field->name, atype->field.name) != 0);
-	*type = xcalloc(1, sizeof(struct type_struct_union));
-	(*type)->next = field;
-	field = *type;
+	*fields = xcalloc(1, sizeof(struct struct_field));
+	(*fields)->next = field;
+	field = *fields;
 
 	field->name = strdup(atype->field.name);
 	field->type = type_store_lookup_atype(store, atype->field.type);
@@ -443,7 +444,7 @@ struct_insert_field(struct type_store *store, struct type_struct_union **type,
 
 static void
 struct_init_from_atype(struct type_store *store, enum type_storage storage,
-	size_t *size, size_t *align, struct type_struct_union **type,
+	size_t *size, size_t *align, struct struct_field **fields,
 	const struct ast_struct_union_type *atype)
 {
 	// TODO: fields with size SIZE_UNDEFINED
@@ -453,12 +454,12 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 		size_t sub = *size;
 		switch (atype->member_type) {
 		case MEMBER_TYPE_FIELD:
-			struct_insert_field(store, type, storage, size, &usize,
+			struct_insert_field(store, fields, storage, size, &usize,
 				align, atype);
 			break;
 		case MEMBER_TYPE_EMBEDDED:
 			struct_init_from_atype(store, atype->embedded->storage,
-				&sub, align, type,
+				&sub, align, fields,
 				&atype->embedded->struct_union);
 			if (storage == TYPE_STORAGE_UNION) {
 				usize = sub > usize ? sub : usize;
@@ -549,9 +550,11 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_SLICE:
 		assert(0); // TODO
 	case TYPE_STORAGE_STRUCT:
+		type->struct_union.c_compat = true;
+		// Fallthrough
 	case TYPE_STORAGE_UNION:
 		struct_init_from_atype(store, type->storage, &type->size,
-			&type->align, &type->struct_union,
+			&type->align, &type->struct_union.fields,
 			&atype->struct_union);
 		break;
 	case TYPE_STORAGE_TAGGED_UNION:
@@ -635,17 +638,18 @@ type_init_from_type(struct type_store *store,
 		assert(0); // TODO
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:;
-		struct type_struct_union **next = &new->struct_union;
-		for (const struct type_struct_union *ofield = old->struct_union;
+		struct struct_field **next = &new->struct_union.fields;
+		for (const struct struct_field *ofield = old->struct_union.fields;
 				ofield; ofield = ofield->next) {
-			struct type_struct_union *field = *next =
-				xcalloc(sizeof(struct type_struct_union), 1);
+			struct struct_field *field = *next =
+				xcalloc(sizeof(struct struct_field), 1);
 			next = &field->next;
 			field->name = ofield->name;
 			field->type =
 				type_store_lookup_type(store, ofield->type);
 			field->offset = ofield->offset;
 		}
+		new->struct_union.c_compat = old->struct_union.c_compat;
 		new->size = old->size;
 		new->align = old->align;
 		break;

@@ -178,7 +178,7 @@ struct expression_return {
 };
 
 struct expression_struct {
-	const struct type_struct_union *field;
+	const struct struct_field *field;
 	struct expression *value;
 	struct expression_struct *next;
 };

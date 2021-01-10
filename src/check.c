@@ -688,7 +688,7 @@ check_expr_struct(struct context *ctx,
 	tfield = stype.struct_union.next;
 	sexpr = &expr->_struct;
 	while (tfield) {
-		const struct type_struct_union *field = type_lookup_field(
+		const struct struct_field *field = type_lookup_field(
 			expr->result, tfield->field.name);
 		// TODO: Use more specific error location
 		expect(&aexpr->loc,

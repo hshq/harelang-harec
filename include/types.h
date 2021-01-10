@@ -80,11 +80,21 @@ struct type_pointer {
 	unsigned int flags;
 };
 
-struct type_struct_union {
+struct struct_field {
 	char *name;
 	const struct type *type;
 	size_t offset;
-	struct type_struct_union *next;
+	struct struct_field *next;
+};
+
+struct type_struct_union {
+	// c_compat is false if explicit offsets are used, or if the type is a
+	// union. The latter is actually still C-compatible, but this is an
+	// implementation detail which changes the way the QBE IL is generated,
+	// and in the case of unions, the altered behavior for explicit-offset
+	// structs is also correct for all cases of unions.
+	bool c_compat;
+	struct struct_field *fields;
 };
 
 enum type_flags {
@@ -99,12 +109,12 @@ struct type {
 		struct type_array array;
 		struct type_func func;
 		struct type_pointer pointer;
-		struct type_struct_union *struct_union;
+		struct type_struct_union struct_union;
 	};
 };
 
 const struct type *type_dereference(const struct type *type);
-const struct type_struct_union *type_lookup_field(
+const struct struct_field *type_lookup_field(
 		const struct type *type, const char *name);
 
 const char *type_storage_unparse(enum type_storage storage);
