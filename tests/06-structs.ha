@@ -40,14 +40,16 @@ fn deref() void = {
 	let a = &coords;
 	assert(a.x == 20);
 	assert(a.y == 30);
-	// TODO: Why does this fail?
-	//let b = &a;
-	//assert(b.x == 20);
-	//assert(b.y == 30);
-	//b.x = 42;
-	//b.y = 96;
-	//assert(coords.x == 42);
-	//assert(coords.y == 96);
+	let b = &a;
+	assert(b.x == 20);
+	assert(b.y == 30);
+	let c = &b;
+	assert(c.x == 20);
+	assert(c.y == 30);
+	c.x = 42;
+	c.y = 96;
+	assert(coords.x == 42);
+	assert(coords.y == 96);
 };
 
 fn nested() void = {

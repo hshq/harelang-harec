@@ -291,17 +291,11 @@ address_index(struct gen_context *ctx,
 
 	atype = expr->access.array->result;
 	if (atype->storage == TYPE_STORAGE_POINTER) {
-		// We get one dereference for free because the array is stored
-		// indirectly
+		// We get one dereference for free for aggregate types
 		atype = atype->pointer.referent;
 	}
 	while (atype->storage == TYPE_STORAGE_POINTER) {
-		qval_deref(out);
-		struct qbe_value deref;
-		gen_loadtemp(ctx, &deref, out,
-			qtype_for_type(ctx, atype->pointer.referent, false),
-			type_is_signed(atype->pointer.referent));
-		*out = deref;
+		pushi(ctx->current, out, Q_LOADL, out, NULL);
 		atype = atype->pointer.referent;
 	}
 
@@ -339,12 +333,7 @@ address_field(struct gen_context *ctx,
 		stype = stype->pointer.referent;
 	}
 	while (stype->storage == TYPE_STORAGE_POINTER) {
-		qval_deref(out);
-		struct qbe_value deref;
-		gen_loadtemp(ctx, &deref, out,
-			qtype_for_type(ctx, stype->pointer.referent, false),
-			type_is_signed(stype->pointer.referent));
-		*out = deref;
+		pushi(ctx->current, out, Q_LOADL, out, NULL);
 		stype = stype->pointer.referent;
 	}
 
