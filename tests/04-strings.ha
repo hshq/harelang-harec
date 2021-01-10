@@ -2,7 +2,9 @@ fn measurements() void = {
 	const x = "Hello!";
 	assert(len(x) == 6z);
 	assert(size(str) == size(*u8) + size(size) * 2z);
-	const align: size = if (size(*u8) > size(size)) size(*u8) else size(size);
+	const align: size =
+		if (size(*u8) > size(size)) size(*u8)
+		else size(size);
 	assert(&x: uintptr: size % align == 0z);
 };
 
