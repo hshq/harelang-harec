@@ -8,7 +8,8 @@ tests() {
 		02-integers \
 		03-pointers \
 		04-strings \
-		05-implicit-casts
+		05-implicit-casts \
+		06-structs
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
