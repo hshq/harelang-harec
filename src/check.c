@@ -685,12 +685,13 @@ check_expr_struct(struct context *ctx,
 
 	expr->result = type_store_lookup_atype(&ctx->store, &stype);
 
-	tfield = stype.struct_union.next;
+	tfield = &stype.struct_union;
 	sexpr = &expr->_struct;
 	while (tfield) {
 		const struct struct_field *field = type_lookup_field(
 			expr->result, tfield->field.name);
 		// TODO: Use more specific error location
+		expect(&aexpr->loc, field, "No field by this name exists for this type");
 		expect(&aexpr->loc,
 			type_is_assignable(&ctx->store, field->type, sexpr->value->result),
 			"Cannot initialize struct field from value of this type");
@@ -698,7 +699,9 @@ check_expr_struct(struct context *ctx,
 		sexpr->value = lower_implicit_cast(field->type, sexpr->value);
 
 		struct ast_struct_union_type *next = tfield->next;
-		free(tfield);
+		if (tfield != &stype.struct_union) {
+			free(tfield);
+		}
 		tfield = next;
 		sexpr = sexpr->next;
 	}

@@ -130,11 +130,23 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 		field->type = &qbe_long; // XXX: ARCH
 		field->count = 3;
 		break;
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_UNION:
+		assert(type->struct_union.c_compat); // TODO
+		for (struct struct_field *tfield = type->struct_union.fields;
+				tfield; tfield = tfield->next) {
+			field->type = qtype_for_type(ctx, tfield->type, true);
+			field->count = 1;
+
+			if (tfield->next) {
+				field->next = xcalloc(1, sizeof(struct qbe_field));
+				field = field->next;
+			}
+		}
+		break;
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
-	case TYPE_STORAGE_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ALIAS:

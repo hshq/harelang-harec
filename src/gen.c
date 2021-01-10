@@ -959,6 +959,27 @@ gen_expr_return(struct gen_context *ctx,
 }
 
 static void
+gen_expr_struct(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	// XXX: ARCH
+	struct qbe_value base = {0}, ptr = {0}, offset = {0};
+	gen_temp(ctx, &base, &qbe_long, "base.%d");
+	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+	pushi(ctx->current, &base, Q_COPY, out, NULL);
+
+	const struct expression_struct *field = &expr->_struct;
+	while (field) {
+		constl(&offset, field->field->offset);
+		pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
+		ptr.indirect = !type_is_aggregate(field->field->type);
+		gen_expression(ctx, field->value, &ptr);
+		field = field->next;
+	}
+}
+
+static void
 gen_expr_address(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -1072,7 +1093,10 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_return(ctx, expr, out);
 		break;
 	case EXPR_SLICE:
+		assert(0); // TODO
 	case EXPR_STRUCT:
+		gen_expr_struct(ctx, expr, out);
+		break;
 	case EXPR_SWITCH:
 		assert(0); // TODO
 	case EXPR_UNARITHM:
