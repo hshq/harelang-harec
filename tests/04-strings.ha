@@ -7,9 +7,9 @@ fn measurements() void = {
 };
 
 fn charptr() void = {
-	let x = "Hello!";
-	let y = x: *const char;
-	let z = y: *[*]u8;
+	const x = "Hello!";
+	const y = x: *const char;
+	const z = y: *[*]u8;
 	assert(z[0] == 'H': u32: u8);
 	assert(z[1] == 'e': u32: u8);
 	assert(z[2] == 'l': u32: u8);
