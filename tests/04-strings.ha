@@ -12,31 +12,30 @@ fn charptr() void = {
 	const x = "Hello!";
 	const y = x: *const char;
 	const z = y: *[*]u8;
-	assert(z[0] == 'H': u32: u8);
-	assert(z[1] == 'e': u32: u8);
-	assert(z[2] == 'l': u32: u8);
-	assert(z[3] == 'l': u32: u8);
-	assert(z[4] == 'o': u32: u8);
-	assert(z[5] == '!': u32: u8);
-	assert(z[6] == 0u8);
+	const expected = ['H', 'e', 'l', 'l', 'o', '!', '\0'];
+	for (let i = 0z; i < len(expected); i += 1z) {
+		assert(z[i] == expected[i]: u32: u8);
+	};
 };
 
 fn storage() void = {
-	const string = "Hello!";
+	const string = "こんにちは";
 	const ptr = &string: *struct {
 		data: *[*]u8,
 		length: size,
 		capacity: size,
 	};
-	assert(ptr.length == 6z);
-	assert(ptr.capacity == 6z);
-	assert(ptr.data[0] == 'H': u32: u8);
-	assert(ptr.data[1] == 'e': u32: u8);
-	assert(ptr.data[2] == 'l': u32: u8);
-	assert(ptr.data[3] == 'l': u32: u8);
-	assert(ptr.data[4] == 'o': u32: u8);
-	assert(ptr.data[5] == '!': u32: u8);
-	assert(ptr.data[6] == 0u8);
+	assert(ptr.length == 15z);
+	assert(ptr.capacity == 15z);
+
+	// UTF-8 encoded
+	const expected = [
+		0xE3u8, 0x81u8, 0x93u8, 0xE3u8, 0x82u8, 0x93u8, 0xE3u8, 0x81u8,
+		0xABu8, 0xE3u8, 0x81u8, 0xA1u8, 0xE3u8, 0x81u8, 0xAFu8, 0x00u8,
+	];
+	for (let i = 0z; i < len(expected); i += 1z) {
+		assert(ptr.data[i] == expected[i]);
+	};
 };
 
 export fn main() void = {
