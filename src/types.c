@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdbool.h>
+#include <string.h>
 #include "types.h"
 
 const struct type *
@@ -9,6 +10,23 @@ type_dereference(const struct type *type)
 		return type;
 	}
 	return type_dereference(type->pointer.referent);
+}
+
+const struct type_struct_union *
+type_lookup_field(const struct type *type, const char *name)
+{
+	// TODO: We should consider lowering unions into structs with explicit
+	// offsets
+	assert(type->storage == TYPE_STORAGE_STRUCT
+			|| type->storage == TYPE_STORAGE_UNION);
+	struct type_struct_union *typesu = type->struct_union;
+	while (typesu) {
+		if (strcmp(typesu->name, name) == 0) {
+			return typesu;
+		}
+		typesu = typesu->next;
+	}
+	return NULL;
 }
 
 const char *

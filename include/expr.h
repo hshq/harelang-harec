@@ -177,6 +177,12 @@ struct expression_return {
 	struct expression *value;
 };
 
+struct expression_struct {
+	const struct type_struct_union *field;
+	struct expression *value;
+	struct expression_struct *next;
+};
+
 enum unarithm_operator {
 	UN_ADDRESS,	// &
 	UN_BNOT,	// ~
@@ -209,6 +215,7 @@ struct expression {
 		struct expression_list list;
 		struct expression_measure measure;
 		struct expression_return _return;
+		struct expression_struct _struct;
 		struct expression_unarithm unarithm;
 	};
 };

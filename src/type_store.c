@@ -646,6 +646,8 @@ type_init_from_type(struct type_store *store,
 				type_store_lookup_type(store, ofield->type);
 			field->offset = ofield->offset;
 		}
+		new->size = old->size;
+		new->align = old->align;
 		break;
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO

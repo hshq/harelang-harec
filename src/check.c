@@ -643,6 +643,70 @@ check_expr_return(struct context *ctx,
 }
 
 static void
+check_expr_struct(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "struct");
+	assert(!aexpr->_struct.autofill); // TODO
+	assert(!aexpr->_struct.type.name); // TODO
+	expr->type = EXPR_STRUCT;
+
+	struct ast_type stype = {
+		.storage = TYPE_STORAGE_STRUCT,
+		.flags = TYPE_CONST,
+	};
+	struct ast_struct_union_type *tfield = &stype.struct_union;
+	struct ast_struct_union_type **tnext = &tfield->next;
+	struct expression_struct *sexpr = &expr->_struct;
+	struct expression_struct **snext = &sexpr->next;
+
+	struct ast_field_value *afield = aexpr->_struct.fields;
+	while (afield) {
+		assert(!afield->is_embedded); // TODO
+
+		tfield->member_type = MEMBER_TYPE_FIELD;
+		tfield->field.name = afield->field.name;
+		tfield->field.type = afield->field.type;
+		sexpr->value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, afield->field.initializer, sexpr->value);
+
+		if (afield->next) {
+			*tnext = tfield = xcalloc(
+				1, sizeof(struct ast_struct_union_type));
+			tnext = &tfield->next;
+			*snext = sexpr = xcalloc(
+				1, sizeof(struct expression_struct));
+			snext = &sexpr->next;
+		}
+
+		afield = afield->next;
+	}
+
+	expr->result = type_store_lookup_atype(&ctx->store, &stype);
+
+	tfield = stype.struct_union.next;
+	sexpr = &expr->_struct;
+	while (tfield) {
+		const struct type_struct_union *field = type_lookup_field(
+			expr->result, tfield->field.name);
+		// TODO: Use more specific error location
+		expect(&aexpr->loc,
+			type_is_assignable(&ctx->store, field->type, sexpr->value->result),
+			"Cannot initialize struct field from value of this type");
+		sexpr->field = field;
+		sexpr->value = lower_implicit_cast(field->type, sexpr->value);
+
+		struct ast_struct_union_type *next = tfield->next;
+		free(tfield);
+		tfield = next;
+		sexpr = sexpr->next;
+	}
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expr_unarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -753,7 +817,10 @@ check_expression(struct context *ctx,
 		check_expr_return(ctx, aexpr, expr);
 		break;
 	case EXPR_SLICE:
+		assert(0); // TODO
 	case EXPR_STRUCT:
+		check_expr_struct(ctx, aexpr, expr);
+		break;
 	case EXPR_SWITCH:
 		assert(0); // TODO
 	case EXPR_UNARITHM:

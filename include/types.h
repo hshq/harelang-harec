@@ -104,6 +104,8 @@ struct type {
 };
 
 const struct type *type_dereference(const struct type *type);
+const struct type_struct_union *type_lookup_field(
+		const struct type *type, const char *name);
 
 const char *type_storage_unparse(enum type_storage storage);
 bool type_is_signed(const struct type *type);
