@@ -13,7 +13,7 @@ type_dereference(const struct type *type)
 }
 
 const struct struct_field *
-type_lookup_field(const struct type *type, const char *name)
+type_get_field(const struct type *type, const char *name)
 {
 	// TODO: We should consider lowering unions into structs with explicit
 	// offsets

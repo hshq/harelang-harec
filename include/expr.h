@@ -44,7 +44,10 @@ struct expression_access {
 			struct expression *array;
 			struct expression *index;
 		};
-		// TODO: Field selection
+		struct {
+			struct expression *_struct;
+			const struct struct_field *field;
+		};
 	};
 };
 

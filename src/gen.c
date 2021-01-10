@@ -321,6 +321,44 @@ address_index(struct gen_context *ctx,
 }
 
 static void
+address_field(struct gen_context *ctx,
+	const struct expression *expr,
+	struct qbe_value *out)
+{
+	const struct type *stype = expr->access._struct->result;
+	while (stype->storage == TYPE_STORAGE_POINTER) {
+		stype = stype->pointer.referent;
+	}
+
+	gen_temp(ctx, out, &qbe_long, "object.%d"); // XXX: ARCH
+	gen_expression(ctx, expr->access._struct, out);
+
+	stype = expr->access._struct->result;
+	if (stype->storage == TYPE_STORAGE_POINTER) {
+		// We get one dereference for free for aggregate types
+		stype = stype->pointer.referent;
+	}
+	while (stype->storage == TYPE_STORAGE_POINTER) {
+		qval_deref(out);
+		struct qbe_value deref;
+		gen_loadtemp(ctx, &deref, out,
+			qtype_for_type(ctx, stype->pointer.referent, false),
+			type_is_signed(stype->pointer.referent));
+		*out = deref;
+		stype = stype->pointer.referent;
+	}
+
+	const struct struct_field *field = expr->access.field;
+
+	struct qbe_value offset = {0};
+	constl(&offset, field->offset);
+	pushi(ctx->current, out, Q_ADD, out, &offset, NULL);
+	if (!type_is_aggregate(field->type)) {
+		qval_deref(out);
+	}
+}
+
+static void
 address_object(struct gen_context *ctx,
 		const struct expression *expr,
 		struct qbe_value *out)
@@ -334,7 +372,8 @@ address_object(struct gen_context *ctx,
 		address_index(ctx, expr, out);
 		break;
 	case ACCESS_FIELD:
-		assert(0); // TODO
+		address_field(ctx, expr, out);
+		break;
 	}
 }
 

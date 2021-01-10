@@ -104,7 +104,23 @@ check_expr_access(struct context *ctx,
 			atype->array.members, atype->flags | atype->array.members->flags);
 		break;
 	case ACCESS_FIELD:
-		assert(0); // TODO
+		expr->access._struct = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->access._struct, expr->access._struct);
+		const struct type *stype = expr->access._struct->result;
+		while (stype->storage == TYPE_STORAGE_POINTER) {
+			expect(&aexpr->access.array->loc,
+				!(stype->pointer.flags & PTR_NULLABLE),
+				"Cannot dereference nullable pointer for field selection");
+			stype = stype->pointer.referent;
+		}
+		expect(&aexpr->access._struct->loc,
+			stype->storage == TYPE_STORAGE_STRUCT || stype->storage == TYPE_STORAGE_UNION,
+			"Cannot index non-struct, non-union object");
+		expr->access.field = type_get_field(stype, aexpr->access.field);
+		expect(&aexpr->access._struct->loc, expr->access.field,
+			"No such struct field '%s'", aexpr->access.field);
+		expr->result = expr->access.field->type;
+		break;
 	}
 }
 
@@ -688,7 +704,7 @@ check_expr_struct(struct context *ctx,
 	tfield = &stype.struct_union;
 	sexpr = &expr->_struct;
 	while (tfield) {
-		const struct struct_field *field = type_lookup_field(
+		const struct struct_field *field = type_get_field(
 			expr->result, tfield->field.name);
 		// TODO: Use more specific error location
 		expect(&aexpr->loc, field, "No field by this name exists for this type");
