@@ -38,7 +38,7 @@ fn alias_fn() void = {
 	let h: my_fn_ptr_ptr = &g;
 	assert(f(0) == foo(0), "fn alias");
 	assert(g(0) == foo(0), "fn ptr alias");
-	//assert(h(0) == foo(0), "fn ptr ptr alias");
+	assert(h(0) == foo(0), "fn ptr ptr alias");
 };
 
 type my_struct = struct { x: int, y: int };
