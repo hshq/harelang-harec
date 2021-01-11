@@ -1,5 +1,5 @@
 // Runs the Hare compiler and returns the exit status.
-export fn compile(src: str) int = {
+export fn compile(src: const str) int = {
 	let status = 0;
 	let pipefd = [-1, -1];
 	pipe2(&pipefd, 0);
@@ -19,7 +19,7 @@ export fn compile(src: str) int = {
 	} else {
 		close(pipefd[0]);
 
-		let buf = src: *const char: *const [*]u8;
+		const buf = src: *const char: *const [*]u8;
 		for (let n = 0z; n < len(src)) {
 			let m = write(pipefd[1], &buf[n], len(src) - n);
 			assert(m: i64 > 0i64, "write(2) failed");
