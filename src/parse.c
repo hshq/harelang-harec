@@ -715,6 +715,17 @@ parse_constant(struct lexer *lexer)
 	case TYPE_STORAGE_STRING:
 		exp->constant.string.len = tok.string.len;
 		exp->constant.string.value = tok.string.value;
+		while (lex(lexer, &tok) == T_LITERAL
+				&& tok.storage == TYPE_STORAGE_STRING) {
+			size_t len = exp->constant.string.len;
+			exp->constant.string.value = xrealloc(
+				exp->constant.string.value,
+				len + tok.string.len);
+			memcpy(exp->constant.string.value + len,
+				tok.string.value, tok.string.len);
+			exp->constant.string.len += tok.string.len;
+		}
+		unlex(lexer, &tok);
 		break;
 	default:
 		assert(0); // TODO

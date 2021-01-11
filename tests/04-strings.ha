@@ -38,8 +38,19 @@ fn storage() void = {
 	};
 };
 
+fn concat() void = {
+	const s = "Hell" "o, " "wor" "ld!";
+	const t = s: *const char: *[*]u8;
+	const expected = ['H', 'e', 'l', 'l', 'o', ',', ' ',
+		'w', 'o', 'r', 'l', 'd', '!'];
+	for (let i = 0z; i < len(expected); i += 1z) {
+		assert(t[i] == expected[i]: u32: u8);
+	};
+};
+
 export fn main() void = {
 	measurements();
 	charptr();
 	storage();
+	concat();
 };
