@@ -218,7 +218,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_FUNCTION:
 		return qtype_for_xtype(Q__AGGREGATE);
 	case TYPE_STORAGE_ALIAS:
-		assert(0); // TODO
+		return qtype_for_type(ctx, type->alias.type, extended);
 	}
 	assert(0); // Unreachable
 }
@@ -250,7 +250,7 @@ type_is_aggregate(const struct type *type)
 	case TYPE_STORAGE_VOID:
 		return false;
 	case TYPE_STORAGE_ALIAS:
-		assert(0); // TODO
+		return type_is_aggregate(type->alias.type);
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:

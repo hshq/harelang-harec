@@ -281,24 +281,19 @@ address_index(struct gen_context *ctx,
 	const struct expression *expr,
 	struct qbe_value *out)
 {
-	const struct type *atype = expr->access.array->result;
-	while (atype->storage == TYPE_STORAGE_POINTER) {
-		atype = atype->pointer.referent;
-	}
-	assert(atype->storage == TYPE_STORAGE_ARRAY); // TODO: Slices
-
 	gen_temp(ctx, out, &qbe_long, "object.%d"); // XXX: ARCH
 	gen_expression(ctx, expr->access.array, out);
 
-	atype = expr->access.array->result;
+	const struct type *atype = type_dealias(expr->access.array->result);
 	if (atype->storage == TYPE_STORAGE_POINTER) {
 		// We get one dereference for free for aggregate types
-		atype = atype->pointer.referent;
+		atype = type_dealias(atype->pointer.referent);
 	}
 	while (atype->storage == TYPE_STORAGE_POINTER) {
 		pushi(ctx->current, out, Q_LOADL, out, NULL);
-		atype = atype->pointer.referent;
+		atype = type_dealias(atype->pointer.referent);
 	}
+	assert(atype->storage == TYPE_STORAGE_ARRAY); // TODO: Slices
 
 	struct qbe_value index = {0};
 	gen_temp(ctx, &index, &qbe_long, "index.%d");
@@ -320,22 +315,17 @@ address_field(struct gen_context *ctx,
 	const struct expression *expr,
 	struct qbe_value *out)
 {
-	const struct type *stype = expr->access._struct->result;
-	while (stype->storage == TYPE_STORAGE_POINTER) {
-		stype = stype->pointer.referent;
-	}
-
 	gen_temp(ctx, out, &qbe_long, "object.%d"); // XXX: ARCH
 	gen_expression(ctx, expr->access._struct, out);
 
-	stype = expr->access._struct->result;
+	const struct type *stype = type_dealias(expr->access._struct->result);
 	if (stype->storage == TYPE_STORAGE_POINTER) {
 		// We get one dereference for free for aggregate types
-		stype = stype->pointer.referent;
+		stype = type_dealias(stype->pointer.referent);
 	}
 	while (stype->storage == TYPE_STORAGE_POINTER) {
 		pushi(ctx->current, out, Q_LOADL, out, NULL);
-		stype = stype->pointer.referent;
+		stype = type_dealias(stype->pointer.referent);
 	}
 
 	const struct struct_field *field = expr->access.field;
@@ -576,18 +566,28 @@ gen_expr_call(struct gen_context *ctx,
 		.instr = Q_CALL,
 	};
 
-	if (expr->call.lvalue->result->func.result != &builtin_type_void) {
-		gen_temp(ctx, &result, qtype_for_type(ctx,
-			expr->call.lvalue->result->func.result, true), "returns.%d");
-		call.out = qval_dup(&result);
-	}
-
 	struct qbe_arguments *arg, **next = &call.args;
 	struct call_argument *carg = expr->call.args;
 	arg = *next = xcalloc(1, sizeof(struct qbe_arguments));
 	gen_temp(ctx, &arg->value, &qbe_long, "func.%d");
 	gen_expression(ctx, expr->call.lvalue, &arg->value);
 	next = &arg->next;
+
+	const struct type *ftype = type_dealias(expr->call.lvalue->result);
+	if (ftype->storage == TYPE_STORAGE_POINTER) {
+		// We get one dereference for free for aggregate types
+		ftype = type_dealias(ftype->pointer.referent);
+	}
+	while (ftype->storage == TYPE_STORAGE_POINTER) {
+		pushi(ctx->current, &arg->value, Q_LOADL, &arg->value, NULL);
+		ftype = type_dealias(ftype->pointer.referent);
+	}
+	assert(ftype->storage == TYPE_STORAGE_FUNCTION);
+	if (ftype->func.result != &builtin_type_void) {
+		gen_temp(ctx, &result, qtype_for_type(ctx,
+			ftype->func.result, true), "returns.%d");
+		call.out = qval_dup(&result);
+	}
 
 	while (carg) {
 		assert(!carg->variadic); // TODO
@@ -618,8 +618,8 @@ gen_expr_cast(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	const struct type *to = expr->result,
-	      *from = expr->cast.value->result;
+	const struct type *to = type_dealias(expr->result),
+	      *from = type_dealias(expr->cast.value->result);
 	if (to->storage == from->storage) {
 		gen_expression(ctx, expr->cast.value, out);
 		return;
@@ -691,7 +691,6 @@ gen_expr_cast(struct gen_context *ctx,
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
@@ -702,6 +701,8 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_SLICE:
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
+	case TYPE_STORAGE_ALIAS:
+		assert(0); // Handled above
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_STRING:
