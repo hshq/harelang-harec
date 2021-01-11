@@ -4,6 +4,7 @@ AR=${AR:-ar}
 AS=${AS:-as}
 CC=${CC:-cc}
 CFLAGS=${CFLAGS:-}
+LDFLAGS=${LDFLAGS:-}
 LD=${LD:-ld}
 QBE=${QBE:-qbe}
 SCDOC=${SCDOC:-scdoc}
@@ -165,6 +166,7 @@ run_configure() {
 	CFLAGS+=-DLIBDIR='"\$(LIBDIR)"'
 	CFLAGS+=-DVARLIBDIR='"\$(VARLIBDIR)"'
 	CFLAGS+=-DSYSCONFDIR='"\$(SYSCONFDIR)"'
+	LDFLAGS=${LDFLAGS}
 
 	all: ${all}
 	EOF
