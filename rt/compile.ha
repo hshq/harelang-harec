@@ -14,7 +14,7 @@ export fn compile(src: str) int = {
 		const path = "./harec";
 		const argv: [3]nullable *const char = [path, "-", null];
 		const envp: [1]nullable *const char = [null];
-		execve(path: *const char, &argv, &envp);
+		execve(path, &argv, &envp);
 		abort();
 	} else {
 		close(pipefd[0]);
