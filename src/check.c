@@ -400,6 +400,7 @@ check_expr_array(struct context *ctx,
 			ctx->type_hint->storage == TYPE_STORAGE_ARRAY ||
 			ctx->type_hint->storage == TYPE_STORAGE_SLICE)) {
 		type = ctx->type_hint->array.members;
+		ctx->type_hint = ctx->type_hint->array.members;
 	}
 
 	while (item) {
