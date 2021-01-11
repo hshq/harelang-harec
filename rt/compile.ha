@@ -12,8 +12,7 @@ export fn compile(src: str) int = {
 		close(2);
 
 		const path = "./harec";
-		const param = "-";
-		const argv: [3]nullable *const char = [path, param, null];
+		const argv: [3]nullable *const char = [path, "-", null];
 		const envp: [1]nullable *const char = [null];
 		execve(path: *const char, &argv, &envp);
 		abort();
