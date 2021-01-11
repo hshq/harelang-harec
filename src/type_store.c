@@ -50,6 +50,10 @@ type_is_assignable(struct type_store *store,
 			from, from->flags & ~TYPE_CONST);
 	}
 
+	if (to->storage == TYPE_STORAGE_ARRAY
+			&& from->storage == TYPE_STORAGE_ARRAY) {
+	}
+
 	if (to == from) {
 		return true;
 	}
@@ -87,11 +91,22 @@ type_is_assignable(struct type_store *store,
 		case TYPE_STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case TYPE_STORAGE_POINTER:
-			if (to->pointer.referent->storage == TYPE_STORAGE_VOID) {
+			switch (to->pointer.referent->storage) {
+			case TYPE_STORAGE_VOID:
 				// TODO: const transitivity
 				return to->pointer.referent->flags == from->pointer.referent->flags;
-			} else if (to->pointer.referent != from->pointer.referent) {
-				return false;
+			case TYPE_STORAGE_ARRAY:
+				if (type_is_assignable(store,
+						to->pointer.referent,
+						from->pointer.referent)) {
+					return true;
+				}
+				break;
+			default:
+				if (to->pointer.referent != from->pointer.referent) {
+					return false;
+				}
+				break;
 			}
 			if (from->pointer.flags & PTR_NULLABLE) {
 				return to->pointer.flags & PTR_NULLABLE;
@@ -117,9 +132,11 @@ type_is_assignable(struct type_store *store,
 	case TYPE_STORAGE_SLICE:
 		return from->storage == TYPE_STORAGE_ARRAY
 			&& to->array.members == from->array.members;
+	case TYPE_STORAGE_ARRAY:
+		return to->array.length == SIZE_UNDEFINED
+			&& from->array.length != SIZE_UNDEFINED;
 	// The following types are only assignable from themselves, and are
 	// handled above:
-	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_FUNCTION:

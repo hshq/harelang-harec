@@ -273,6 +273,15 @@ check_expr_binding(struct context *ctx,
 
 	const struct ast_expression_binding *abinding = &aexpr->binding;
 	while (abinding) {
+		const struct type *type = NULL;
+		if (abinding->type) {
+			type = type_store_lookup_atype(
+				&ctx->store, abinding->type);
+			type = type_store_lookup_with_flags(&ctx->store,
+				type, type->flags | abinding->flags);
+			ctx->type_hint = type;
+		}
+
 		struct identifier ident = {
 			.name = abinding->name,
 		};
@@ -280,15 +289,11 @@ check_expr_binding(struct context *ctx,
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, abinding->initializer, initializer);
 
-		const struct type *type;
-		if (abinding->type) {
-			type = type_store_lookup_atype(
-				&ctx->store, abinding->type);
-			type = type_store_lookup_with_flags(&ctx->store,
-				type, type->flags | abinding->flags);
-		} else {
+		if (!type) {
 			type = type_store_lookup_with_flags(&ctx->store,
 				initializer->result, abinding->flags);
+		} else {
+			ctx->type_hint = NULL;
 		}
 		expect(&aexpr->loc,
 			type->size != 0 && type->size != SIZE_UNDEFINED,
@@ -391,6 +396,12 @@ check_expr_array(struct context *ctx,
 	struct ast_array_constant *item = aexpr->constant.array;
 	struct array_constant *cur, **next = &expr->constant.array;
 
+	if (ctx->type_hint && (
+			ctx->type_hint->storage == TYPE_STORAGE_ARRAY ||
+			ctx->type_hint->storage == TYPE_STORAGE_SLICE)) {
+		type = ctx->type_hint->array.members;
+	}
+
 	while (item) {
 		struct expression *value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, item->value, value);
@@ -401,8 +412,10 @@ check_expr_array(struct context *ctx,
 			type = value->result;
 		} else {
 			// TODO: Assignable? Requires spec update if so
-			expect(&item->value->loc, value->result == type,
+			expect(&item->value->loc,
+				type_is_assignable(&ctx->store, type, value->result),
 				"Array members must be of a uniform type");
+			cur->value = lower_implicit_cast(type, cur->value);
 		}
 
 		if (item->expand) {

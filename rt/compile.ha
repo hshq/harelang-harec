@@ -11,19 +11,11 @@ export fn compile(src: str) int = {
 		close(1);
 		close(2);
 
-		// XXX: This could be simplified a lot with some compiler
-		// improvements
 		const path = "./harec";
 		const param = "-";
-		const argv = [
-			path: nullable *const char,
-			param: nullable *const char,
-			null: nullable *const char,
-		];
-		const envp = [null: nullable *const char];
-		execve(path: *const char,
-			&argv: *[*]nullable *const char,
-			&envp: *[*]nullable *const char);
+		const argv: [3]nullable *const char = [path, param, null];
+		const envp: [1]nullable *const char = [null];
+		execve(path: *const char, &argv, &envp);
 		abort();
 	} else {
 		close(pipefd[0]);

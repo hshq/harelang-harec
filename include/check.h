@@ -11,6 +11,7 @@ struct scope;
 struct context {
 	struct type_store store;
 	const struct type *current_fntype;
+	const struct type *type_hint;
 	struct identifier *ns;
 	struct scope *unit;
 	struct scope *scope;
