@@ -293,7 +293,9 @@ address_index(struct gen_context *ctx,
 		pushi(ctx->current, out, Q_LOADL, out, NULL);
 		atype = type_dealias(atype->pointer.referent);
 	}
-	assert(atype->storage == TYPE_STORAGE_ARRAY); // TODO: Slices
+	if (atype->storage == TYPE_STORAGE_SLICE) {
+		pushi(ctx->current, out, Q_LOADL, out, NULL);
+	}
 
 	struct qbe_value index = {0};
 	gen_temp(ctx, &index, &qbe_long, "index.%d");
