@@ -114,6 +114,9 @@ type_is_assignable(struct type_store *store,
 		return to == &builtin_type_const_ptr_char;
 	case TYPE_STORAGE_VOID:
 		return true;
+	case TYPE_STORAGE_SLICE:
+		return from->storage == TYPE_STORAGE_ARRAY
+			&& to->array.members == from->array.members;
 	// The following types are only assignable from themselves, and are
 	// handled above:
 	case TYPE_STORAGE_ARRAY:
@@ -122,7 +125,6 @@ type_is_assignable(struct type_store *store,
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		return false;

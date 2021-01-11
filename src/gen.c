@@ -644,7 +644,12 @@ gen_expr_cast(struct gen_context *ctx,
 		return;
 	}
 
-	gen_temp(ctx, &in, qtype_for_type(ctx, from, false), "cast.in.%d");
+	if (type_is_aggregate(expr->result)) {
+		alloc_temp(ctx, &in, expr->result, "cast.in.%d");
+		qval_deref(&in);
+	} else {
+		gen_temp(ctx, &in, qtype_for_type(ctx, from, false), "cast.in.%d");
+	}
 	gen_expression(ctx, expr->cast.value, &in);
 
 	enum qbe_instr op;
