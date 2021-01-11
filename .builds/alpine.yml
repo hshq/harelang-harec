@@ -1,11 +1,17 @@
 image: alpine/latest
 sources:
 - https://git.sr.ht/~sircmpwn/harec
+- https://git.sr.ht/~mcf/cproc
 - https://git.sr.ht/~sircmpwn/qbe
 tasks:
 - qbe: |
     cd qbe
     make PREFIX=/usr
+    sudo make install PREFIX=/usr
+- cproc: |
+    cd cproc
+    ./configure
+    make
     sudo make install PREFIX=/usr
 - prepare: |
     mkdir harec/build
@@ -15,5 +21,15 @@ tasks:
     cd harec/build
     make -j2
 - tests: |
+    cd harec/build
+    make check
+- prepare-cproc: |
+    cd harec/build
+    make distclean
+    CC=cproc ../configure
+- build-cproc: |
+    cd harec/build
+    make -j2
+- tests-cproc: |
     cd harec/build
     make check
