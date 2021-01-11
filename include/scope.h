@@ -7,6 +7,7 @@ enum object_type {
 	O_BIND,
 	O_CONST,
 	O_DECL,
+	O_TYPE,
 };
 
 // XXX: This might be better as a hash map

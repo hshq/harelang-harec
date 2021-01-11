@@ -2,14 +2,22 @@
 #include <stdbool.h>
 #include <string.h>
 #include "types.h"
+#include "type_store.h"
 
 const struct type *
 type_dereference(const struct type *type)
 {
-	if (type->storage != TYPE_STORAGE_POINTER) {
+	switch (type->storage) {
+	case TYPE_STORAGE_ALIAS:
+		return type_dereference(type_dealias(type));
+	case TYPE_STORAGE_POINTER:
+		if (type->pointer.flags & PTR_NULLABLE) {
+			return NULL;
+		}
+		return type_dereference(type->pointer.referent);
+	default:
 		return type;
 	}
-	return type_dereference(type->pointer.referent);
 }
 
 const struct struct_field *
@@ -184,7 +192,6 @@ type_is_signed(const struct type *type)
 {
 	switch (type->storage) {
 	case TYPE_STORAGE_VOID:
-	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
@@ -213,6 +220,8 @@ type_is_signed(const struct type *type)
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 		return true;
+	case TYPE_STORAGE_ALIAS:
+		return type_is_signed(type_dealias(type));
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	}

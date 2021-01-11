@@ -17,6 +17,8 @@ struct type_store {
 	struct context *check_context;
 };
 
+const struct type *type_dealias(const struct type *type);
+
 bool type_is_assignable(struct type_store *store,
 	const struct type *to, const struct type *from);
 bool type_is_castable(const struct type *to, const struct type *from);

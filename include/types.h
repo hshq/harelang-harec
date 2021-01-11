@@ -43,6 +43,11 @@ struct type;
 #define SIZE_UNDEFINED ((size_t)-1)
 #define ALIGN_UNDEFINED ((size_t)-1)
 
+struct type_alias {
+	struct identifier ident;
+	const struct type *type;
+};
+
 struct type_array {
 	size_t length; // SIZE_UNDEFINED for [*] or slices
 	const struct type *members;
@@ -106,6 +111,7 @@ struct type {
 	unsigned int flags;
 	size_t size, align;
 	union {
+		struct type_alias alias;
 		struct type_array array;
 		struct type_func func;
 		struct type_pointer pointer;

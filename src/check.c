@@ -72,12 +72,18 @@ check_expr_access(struct context *ctx,
 		char buf[1024];
 		identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
 		expect(&aexpr->loc, obj, "Unknown object '%s'", buf);
-		if (obj->otype == O_CONST) {
+		switch (obj->otype) {
+		case O_CONST:
 			// Lower constants
 			*expr = *obj->value;
-		} else {
+			break;
+		case O_BIND:
+		case O_DECL:
 			expr->result = obj->type;
 			expr->access.object = obj;
+			break;
+		case O_TYPE:
+			expect(&aexpr->loc, false, "Expected identifier, got type");
 		}
 		break;
 	case ACCESS_INDEX:
@@ -85,19 +91,19 @@ check_expr_access(struct context *ctx,
 		expr->access.index = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->access.array, expr->access.array);
 		check_expression(ctx, aexpr->access.index, expr->access.index);
-		const struct type *atype = expr->access.array->result;
-		const struct type *itype = expr->access.index->result;
-		while (atype->storage == TYPE_STORAGE_POINTER) {
-			expect(&aexpr->access.array->loc,
-				!(atype->pointer.flags & PTR_NULLABLE),
-				"Cannot index nullable pointer");
-			atype = atype->pointer.referent;
-		}
+		const struct type *atype =
+			type_dereference(expr->access.array->result);
+		expect(&aexpr->access.array->loc, atype,
+			"Cannot dereference nullable pointer for indexing");
+		const struct type *itype =
+			type_dealias(expr->access.index->result);
 		expect(&aexpr->access.array->loc,
 			atype->storage == TYPE_STORAGE_ARRAY || atype->storage == TYPE_STORAGE_SLICE,
-			"Cannot index non-array, non-slice object");
+			"Cannot index non-array, non-slice %s object",
+			type_storage_unparse(atype->storage));
 		expect(&aexpr->access.index->loc, type_is_integer(itype),
-			"Cannot use non-integer type as slice/array index");
+			"Cannot use non-integer %s type as slice/array index",
+			type_storage_unparse(itype->storage));
 		expr->access.index = lower_implicit_cast(
 			&builtin_type_size, expr->access.index);
 		expr->result = type_store_lookup_with_flags(&ctx->store,
@@ -106,13 +112,10 @@ check_expr_access(struct context *ctx,
 	case ACCESS_FIELD:
 		expr->access._struct = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->access._struct, expr->access._struct);
-		const struct type *stype = expr->access._struct->result;
-		while (stype->storage == TYPE_STORAGE_POINTER) {
-			expect(&aexpr->access.array->loc,
-				!(stype->pointer.flags & PTR_NULLABLE),
-				"Cannot dereference nullable pointer for field selection");
-			stype = stype->pointer.referent;
-		}
+		const struct type *stype =
+			type_dereference(expr->access._struct->result);
+		expect(&aexpr->access._struct->loc, stype,
+			"Cannot dereference nullable pointer for field selection");
 		expect(&aexpr->access._struct->loc,
 			stype->storage == TYPE_STORAGE_STRUCT || stype->storage == TYPE_STORAGE_UNION,
 			"Cannot index non-struct, non-union object");
@@ -323,6 +326,8 @@ check_expr_call(struct context *ctx,
 	expr->call.lvalue = lvalue;
 
 	const struct type *fntype = type_dereference(lvalue->result);
+	expect(&aexpr->loc, fntype,
+		"Cannot dereference nullable pointer type for function call");
 	expect(&aexpr->loc,
 		fntype->storage == TYPE_STORAGE_FUNCTION,
 		"Cannot call non-function type");
@@ -939,7 +944,7 @@ check_declarations(struct context *ctx,
 			decl = check_function(ctx, adecl);
 			break;
 		case AST_DECL_TYPE:
-			assert(0); // TODO
+			break; // Handled in scan
 		case AST_DECL_GLOBAL:
 			assert(0); // TODO
 		case AST_DECL_CONST:
@@ -1020,6 +1025,19 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 }
 
 static void
+scan_type(struct context *ctx, const struct ast_type_decl *decl)
+{
+	trenter(TR_SCAN, "type");
+	const struct type *type =
+		type_store_lookup_atype(&ctx->store, decl->type);
+
+	struct identifier ident = {0};
+	mkident(ctx, &ident, &decl->ident);
+	scope_insert(ctx->unit, O_TYPE, &ident, &decl->ident, type, NULL);
+	trleave(TR_SCAN, NULL);
+}
+
+static void
 scan_declarations(struct context *ctx, const struct ast_decls *decls)
 {
 	trenter(TR_SCAN, "declarations");
@@ -1030,7 +1048,8 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 			scan_function(ctx, &decl->function);
 			break;
 		case AST_DECL_TYPE:
-			assert(0); // TODO
+			scan_type(ctx, &decl->type);
+			break;
 		case AST_DECL_GLOBAL:
 			assert(0); // TODO
 		case AST_DECL_CONST:

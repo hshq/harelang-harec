@@ -111,6 +111,7 @@ qval_for_object(struct gen_context *ctx,
 		val->name = ident_to_sym(&obj->ident);
 		break;
 	case O_CONST:
+	case O_TYPE:
 		assert(0); // Invariant (lowered in check)
 	}
 

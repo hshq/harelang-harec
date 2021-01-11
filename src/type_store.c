@@ -3,6 +3,7 @@
 #include <string.h>
 #include "check.h"
 #include "eval.h"
+#include "scope.h"
 #include "type_store.h"
 #include "util.h"
 
@@ -23,6 +24,15 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 		assert(out.constant.ival > 0);
 	}
 	return (size_t)out.constant.uval;
+}
+
+const struct type *
+type_dealias(const struct type *type)
+{
+	while (type->storage == TYPE_STORAGE_ALIAS) {
+		type = type->alias.type;
+	}
+	return type;
 }
 
 bool
@@ -96,6 +106,7 @@ type_is_assignable(struct type_store *store,
 		}
 		assert(0); // Unreachable
 	case TYPE_STORAGE_ALIAS:
+		return type_is_assignable(store, to->alias.type, from);
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
@@ -121,9 +132,10 @@ type_is_assignable(struct type_store *store,
 }
 
 bool
-type_is_castable(const struct type *to,
-	const struct type *from)
+type_is_castable(const struct type *to, const struct type *from)
 {
+	to = type_dealias(to);
+	from = type_dealias(from);
 	switch (from->storage) {
 	case TYPE_STORAGE_CHAR:
 		return to->storage == TYPE_STORAGE_U8;
@@ -166,7 +178,6 @@ type_is_castable(const struct type *to,
 	case TYPE_STORAGE_ARRAY:
 		return to->storage == TYPE_STORAGE_SLICE
 			|| to->storage == TYPE_STORAGE_ARRAY;
-	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_STRING:
@@ -181,6 +192,8 @@ type_is_castable(const struct type *to,
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		return false;
+	case TYPE_STORAGE_ALIAS:
+		assert(0); // Handled above
 	}
 
 	assert(0); // Unreachable
@@ -273,7 +286,12 @@ type_hash(struct type_store *store, const struct type *type)
 	case TYPE_STORAGE_STRING:
 		break; // built-ins
 	case TYPE_STORAGE_ALIAS:
-		assert(0); // TODO
+		for (const struct identifier *ident = &type->alias.ident; ident;
+				ident = ident->ns) {
+			hash = djb2_s(hash, ident->name);
+		}
+		hash = djb2(hash, type_hash(store, type->alias.type));
+		break;
 	case TYPE_STORAGE_ARRAY:
 		hash = djb2(hash, type_hash(store, type->array.members));
 		hash = djb2(hash, type->array.length);
@@ -358,7 +376,11 @@ type_eq_type(struct type_store *store,
 	case TYPE_STORAGE_STRING:
 		return true;
 	case TYPE_STORAGE_ALIAS:
-		assert(0); // TODO
+		if (!identifier_eq(&a->alias.ident, &b->alias.ident)) {
+			return false;
+		}
+		assert(type_eq_type(store, a->alias.type, b->alias.type));
+		return true;
 	case TYPE_STORAGE_ARRAY:
 		return a->array.length == b->array.length
 			&& a->array.expandable == b->array.expandable
@@ -485,6 +507,7 @@ type_init_from_atype(struct type_store *store,
 	type->storage = atype->storage;
 	type->flags = atype->flags;
 
+	const struct scope_object *obj;
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -508,7 +531,14 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_VOID:
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
-		assert(0); // TODO
+		obj = scope_lookup(store->check_context->scope, &atype->alias);
+ 		// TODO: Bubble this up:
+		assert(obj && obj->otype == O_TYPE);
+		identifier_dup(&type->alias.ident, &atype->alias);
+		type->alias.type = obj->type;
+		type->size = type->alias.type->size;
+		type->align = type->alias.type->align;
+		break;
 	case TYPE_STORAGE_ARRAY:
 		type->array.length = ast_array_len(store, atype);
 		type->array.members = type_store_lookup_atype(
@@ -594,7 +624,12 @@ type_init_from_type(struct type_store *store,
 	case TYPE_STORAGE_VOID:
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
-		assert(0); // TODO
+		new->size = old->size;
+		new->align = old->align;
+		identifier_dup(&new->alias.ident, &old->alias.ident);
+		new->alias.type =
+			type_store_lookup_type(store, old->alias.type);
+		break;
 	case TYPE_STORAGE_ARRAY:
 		new->array.members =
 			type_store_lookup_type(store, old->array.members);
