@@ -155,6 +155,11 @@ type_is_castable(const struct type *to, const struct type *from)
 {
 	to = type_dealias(to);
 	from = type_dealias(from);
+
+	if (to == from) {
+		return true;
+	}
+
 	switch (from->storage) {
 	case TYPE_STORAGE_CHAR:
 		return to->storage == TYPE_STORAGE_U8;
