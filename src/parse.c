@@ -1120,6 +1120,72 @@ parse_index_slice_expression(struct lexer *lexer, struct ast_expression *lvalue)
 }
 
 static struct ast_expression *
+parse_allocation_expression(struct lexer *lexer)
+{
+	trenter(TR_PARSE, "allocation");
+	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
+	struct token tok = {0};
+	switch (lex(lexer, &tok)) {
+	case T_ALLOC:
+		trace(TR_PARSE, "alloc");
+		exp->alloc.kind = ALLOC_KIND_ALLOC;
+		want(lexer, T_LPAREN, NULL);
+		exp->alloc.type = parse_type(lexer);
+		want(lexer, T_COMMA, NULL);
+		exp->alloc.expr = parse_simple_expression(lexer);
+		switch (lex(lexer, &tok)) {
+		case T_COMMA:
+			exp->alloc.cap = parse_simple_expression(lexer);
+			want(lexer, T_RPAREN, NULL);
+			break;
+		case T_RPAREN:
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
+		}
+		break;
+	case T_APPEND:
+		trace(TR_PARSE, "append");
+		exp->alloc.kind = ALLOC_KIND_APPEND;
+		want(lexer, T_LPAREN, NULL);
+		exp->alloc.expr = parse_simple_expression(lexer);
+		want(lexer, T_COMMA, NULL);
+		struct ast_append_values **next = &exp->alloc.values;
+		while (tok.token != T_RPAREN) {
+			*next = xcalloc(1, sizeof(struct ast_append_values));
+			if (lex(lexer, &tok) == T_ELLIPSIS) {
+				exp->alloc.variadic = true;
+				(*next)->value = parse_simple_expression(lexer);
+				if (lex(lexer, &tok) != T_COMMA) {
+					unlex(lexer, &tok);
+				}
+				want(lexer, T_RPAREN, &tok);
+				break;
+			}
+			unlex(lexer, &tok);
+			(*next)->value = parse_simple_expression(lexer);
+			if (lex(lexer, &tok) != T_COMMA) {
+				unlex(lexer, &tok);
+				want(lexer, T_RPAREN, &tok);
+			}
+			next = &(*next)->next;
+		}
+		break;
+	case T_FREE:
+		trace(TR_PARSE, "free");
+		exp->alloc.kind = ALLOC_KIND_FREE;
+		want(lexer, T_LPAREN, NULL);
+		exp->alloc.expr = parse_simple_expression(lexer);
+		want(lexer, T_RPAREN, NULL);
+		break;
+	default:
+		assert(0);
+	}
+	trleave(TR_PARSE, NULL);
+	return exp;
+}
+
+static struct ast_expression *
 parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
 	trace(TR_PARSE, "postfix");
@@ -1128,9 +1194,18 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	// postfix-expression in the specification
 	struct token tok;
 	switch (lex(lexer, &tok)) {
+	case T_ALLOC:
+	case T_APPEND:
+	case T_FREE:
+		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
+			T_EOF);
+		unlex(lexer, &tok);
+		return parse_allocation_expression(lexer);
 	case T_ABORT:
 	case T_ASSERT:
 	case T_STATIC:
+		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
+			T_EOF);
 		unlex(lexer, &tok);
 		return parse_assertion_expression(lexer);
 	case T_SIZE:
