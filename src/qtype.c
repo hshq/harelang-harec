@@ -144,8 +144,11 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 			}
 		}
 		break;
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
+		field->type = &qbe_long; // XXX: ARCH
+		field->count = 3;
+		break;
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:

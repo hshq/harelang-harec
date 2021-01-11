@@ -309,10 +309,11 @@ type_hash(struct type_store *store, const struct type *type)
 		assert(0); // TODO
 	case TYPE_STORAGE_POINTER:
 		hash = djb2(hash, type->pointer.flags);
-		hash = type_hash(store, type->pointer.referent);
+		hash = djb2(hash, type_hash(store, type->pointer.referent));
 		break;
 	case TYPE_STORAGE_SLICE:
-		assert(0); // TODO
+		hash = djb2(hash, type_hash(store, type->array.members));
+		break;
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		for (const struct struct_field *field = type->struct_union.fields;
@@ -408,7 +409,7 @@ type_eq_type(struct type_store *store,
 		return a->pointer.flags == b->pointer.flags &&
 			type_eq_type(store, a->pointer.referent, b->pointer.referent);
 	case TYPE_STORAGE_SLICE:
-		assert(0); // TODO
+		return type_eq_type(store, a->array.members, b->array.members);
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		for (const struct struct_field *afield = a->struct_union.fields,
@@ -578,7 +579,12 @@ type_init_from_atype(struct type_store *store,
 			store, atype->pointer.referent);
 		break;
 	case TYPE_STORAGE_SLICE:
-		assert(0); // TODO
+		type->size = 24; // XXX: ARCH
+		type->align = 8;
+		type->array.members = type_store_lookup_atype(
+			store, atype->array.members);
+		type->array.length = SIZE_UNDEFINED;
+		break;
 	case TYPE_STORAGE_STRUCT:
 		type->struct_union.c_compat = true;
 		// Fallthrough
@@ -622,6 +628,7 @@ type_init_from_type(struct type_store *store,
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_STRING:
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
 		new->size = old->size;
@@ -669,8 +676,12 @@ type_init_from_type(struct type_store *store,
 			store, old->pointer.referent);
 		break;
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
-		assert(0); // TODO
+		new->size = 24; // XXX: ARCH
+		new->align = 8;
+		new->array.members = type_store_lookup_type(
+			store, old->array.members);
+		new->array.length = SIZE_UNDEFINED;
+		break;
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:;
 		struct struct_field **next = &new->struct_union.fields;
