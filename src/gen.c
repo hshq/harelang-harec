@@ -987,8 +987,7 @@ gen_expr_measure(struct gen_context *ctx,
 			gen_expression(ctx, expr->measure.value, &ptr);
 			constl(&temp, builtin_type_size.size);
 			pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
-			qval_deref(&ptr);
-			gen_load(ctx, out, &ptr, false);
+			pushi(ctx->current, out, Q_LOADL, &ptr, NULL);
 			break;
 		default:
 			assert(0); // Invariant

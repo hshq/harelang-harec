@@ -18,7 +18,14 @@ export fn compile(src: str) int = {
 		abort();
 	} else {
 		close(pipefd[0]);
-		write(pipefd[1], src: *const char, len(src));
+
+		let buf = src: *const char: *const [*]u8;
+		for (let n = 0z; n < len(src)) {
+			let m = write(pipefd[1], &buf[n], len(src) - n);
+			assert(m: i64 > 0i64, "write(2) failed");
+			n += m;
+		};
+
 		close(pipefd[1]);
 		wait4(child, &status, 0, null);
 	};
