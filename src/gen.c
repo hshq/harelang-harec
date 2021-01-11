@@ -694,11 +694,33 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
-	// Can be implemented with a copy
 	case TYPE_STORAGE_ARRAY:
+		if (from->storage == TYPE_STORAGE_ARRAY) {
+			pushi(ctx->current, &result, Q_COPY, &in, NULL);
+			break;
+		}
+		assert(0); // TODO: Convert slice to array
+		break;
+	case TYPE_STORAGE_SLICE:
+		if (from->storage == TYPE_STORAGE_SLICE) {
+			pushi(ctx->current, &result, Q_COPY, &in, NULL);
+			break;
+		}
+		// XXX: ARCH
+		struct qbe_value ptr = {0}, offs = {0}, len = {0};
+		gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+		constl(&offs, 8);
+		constl(&len, from->array.length);
+		pushi(ctx->current, &ptr, Q_COPY, out, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &in, &ptr, NULL);
+		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &len, &ptr, NULL);
+		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &len, &ptr, NULL);
+		return;
+	// Can be implemented with a copy
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_SLICE:
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
 	case TYPE_STORAGE_ALIAS:
