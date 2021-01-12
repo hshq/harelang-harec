@@ -11,7 +11,8 @@ tests() {
 		05-implicit-casts \
 		06-structs \
 		07-aliases \
-		08-slices
+		08-slices \
+		09-funcs
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
