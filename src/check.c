@@ -462,7 +462,6 @@ check_expr_array(struct context *ctx,
 		if (!type) {
 			type = value->result;
 		} else {
-			// TODO: Assignable? Requires spec update if so
 			expect(&item->value->loc,
 				type_is_assignable(&ctx->store, type, value->result),
 				"Array members must be of a uniform type");
