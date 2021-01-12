@@ -367,17 +367,17 @@ builtin_for_type(const struct type *type)
 	return builtin_type_for_storage(type->storage, is_const);
 }
 
-static bool
-type_eq_type(struct type_store *store,
-	const struct type *a, const struct type *b)
+static int
+type_cmp(const struct type *a, const struct type *b)
 {
 	if (a == b) {
-		return true;
+		return 0;
 	}
-	if (a->storage != b->storage || a->flags != b->flags) {
-		return false;
+	if (a->storage != b->storage) {
+		return a->storage - b->storage;
 	}
 
+	int c;
 	switch (a->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -399,41 +399,52 @@ type_eq_type(struct type_store *store,
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_VOID:
 	case TYPE_STORAGE_STRING:
-		return true;
+		return 0;
 	case TYPE_STORAGE_ALIAS:
+		// TODO: Relative comparison
 		if (!identifier_eq(&a->alias.ident, &b->alias.ident)) {
-			return false;
+			return 1;
 		}
-		assert(type_eq_type(store, a->alias.type, b->alias.type));
-		return true;
+		assert(type_cmp(a->alias.type, b->alias.type) == 0);
+		return 0;
 	case TYPE_STORAGE_ARRAY:
-		return a->array.length == b->array.length
-			&& a->array.expandable == b->array.expandable
-			&& type_eq_type(store, a->array.members, b->array.members);
+		if (a->array.length != b->array.length) {
+			return a->array.length - b->array.length;
+		}
+		if (a->array.expandable != b->array.expandable) {
+			return a->array.expandable - b->array.expandable;
+		}
+		return type_cmp(a->array.members, b->array.members);
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_FUNCTION:
-		if (a->func.variadism != b->func.variadism
-				|| a->func.flags != b->func.flags
-				|| !type_eq_type(store, a->func.result, b->func.result)) {
-			return false;
+		if (a->func.variadism != b->func.variadism) {
+			return a->func.variadism - b->func.variadism;
+		}
+		if (a->func.flags != b->func.flags) {
+			return a->func.flags - b->func.flags;
+		}
+		if ((c = type_cmp(a->func.result, b->func.result)) != 0) {
+			return c;
 		}
 		struct type_func_param *aparam = a->func.params;
 		struct type_func_param *bparam = b->func.params;
 		while (aparam && bparam) {
-			if (!type_eq_type(store, aparam->type, bparam->type)) {
-				return false;
+			if ((c = type_cmp(aparam->type, bparam->type)) != 0) {
+				return c;
 			}
 
 			aparam = aparam->next;
 			bparam = bparam->next;
 		}
-		return !aparam && !bparam;
+		return aparam ? 1 : bparam ? -1 : 0;
 	case TYPE_STORAGE_POINTER:
-		return a->pointer.flags == b->pointer.flags &&
-			type_eq_type(store, a->pointer.referent, b->pointer.referent);
+		if (a->pointer.flags != b->pointer.flags) {
+			return a->pointer.flags - b->pointer.flags;
+		}
+		return type_cmp(a->pointer.referent, b->pointer.referent);
 	case TYPE_STORAGE_SLICE:
-		return type_eq_type(store, a->array.members, b->array.members);
+		return type_cmp(a->array.members, b->array.members);
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		for (const struct struct_field *afield = a->struct_union.fields,
@@ -441,19 +452,19 @@ type_eq_type(struct type_store *store,
 				afield && bfield;
 				afield = afield->next, bfield = bfield->next) {
 			if (!!afield->next != !!bfield->next) {
-				return false;
+				return afield->next ? 1 : bfield->next ? -1 : 0;
 			}
-			if (strcmp(afield->name, bfield->name) != 0) {
-				return false;
+			if ((c = strcmp(afield->name, bfield->name)) != 0) {
+				return c;
 			}
-			if (!type_eq_type(store, afield->type, bfield->type)) {
-				return false;
+			if ((c = type_cmp(afield->type, bfield->type)) != 0) {
+				return c;
 			}
 			if (afield->offset != bfield->offset) {
-				return false;
+				return afield->offset - bfield->offset;
 			}
 		}
-		return true;
+		return 0;
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
 	}
@@ -749,7 +760,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 
 	while (*next) {
 		bucket = *next;
-		if (type_eq_type(store, &bucket->type, type)) {
+		if (type_cmp(&bucket->type, type) == 0) {
 			return &bucket->type;
 		}
 		next = &bucket->next;
