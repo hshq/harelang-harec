@@ -13,7 +13,8 @@ tests() {
 		07-aliases \
 		08-slices \
 		09-funcs \
-		10-binarithms
+		10-binarithms \
+		11-globals
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha

@@ -107,7 +107,7 @@ qval_for_object(struct gen_context *ctx,
 		break;
 	case O_DECL:
 		val->kind = QV_GLOBAL;
-		val->indirect = false;
+		val->indirect = true;
 		val->name = ident_to_sym(&obj->ident);
 		break;
 	case O_CONST:
@@ -1289,7 +1289,72 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 static void
 gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 {
-	assert(0); // TODO
+	assert(decl->type == DECL_GLOBAL);
+	const struct global_decl *global = &decl->global;
+
+	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
+	qdef->kind = Q_DATA;
+	qdef->exported = decl->exported;
+	qdef->name = ident_to_sym(&decl->ident);
+
+	const union expression_constant *constant = &global->value->constant;
+	struct qbe_data_item *item = &qdef->data.items;
+
+	const struct type *type = type_dealias(global->type);
+	switch (type->storage) {
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_U8:
+		item->type = QD_VALUE;
+		constw(&item->value, (uint8_t)constant->uval);
+		item->value.type = &qbe_byte;
+		break;
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_U16:
+		item->type = QD_VALUE;
+		constw(&item->value, (uint16_t)constant->uval);
+		item->value.type = &qbe_half;
+		break;
+	case TYPE_STORAGE_BOOL:
+		item->type = QD_VALUE;
+		constw(&item->value, constant->bval ? 1 : 0);
+		break;
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_RUNE:
+		item->type = QD_VALUE;
+		constw(&item->value, (uint32_t)constant->uval);
+		break;
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_SIZE:
+		item->type = QD_VALUE;
+		constw(&item->value, (uint32_t)constant->uval);
+		break;
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		assert(0); // TODO
+	case TYPE_STORAGE_UINTPTR:
+		assert(0); // TODO: What are the semantics for this?
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_UNION:
+		assert(0); // TODO
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_VOID:
+		assert(0); // Invariant
+	}
+
+	qbe_append_def(ctx->out, qdef);
 }
 
 static void

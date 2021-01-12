@@ -213,9 +213,9 @@ emit_data_string(const char *str, size_t sz, FILE *out)
 		}
 	}
 	if (q) {
-		fprintf(out, "\", b 0, ");
+		fprintf(out, "\", b 0");
 	} else {
-		fprintf(out, "b 0, ");
+		fprintf(out, "b 0");
 	}
 }
 
@@ -223,7 +223,7 @@ static void
 emit_data(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_DATA);
-	fprintf(out, "%sdata $%s = {",
+	fprintf(out, "%sdata $%s = { ",
 			def->exported ? "export " : "",
 			def->name);
 
@@ -231,7 +231,10 @@ emit_data(struct qbe_def *def, FILE *out)
 	while (item) {
 		switch (item->type) {
 		case QD_VALUE:
-			assert(0); // TODO
+			emit_qtype(item->value.type, true, out);
+			fprintf(out, " ");
+			emit_value(&item->value, out);
+			break;
 		case QD_ZEROED:
 			assert(0); // TODO
 		case QD_STRING:
@@ -239,14 +242,11 @@ emit_data(struct qbe_def *def, FILE *out)
 			break;
 		}
 
-		if (item->next) {
-			fprintf(out, ",");
-		}
-
+		fprintf(out, item->next ? ", " : " ");
 		item = item->next;
 	}
 
-	fprintf(out, " }\n\n");
+	fprintf(out, "}\n\n");
 }
 
 static void
