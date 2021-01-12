@@ -646,7 +646,9 @@ gen_expr_cast(struct gen_context *ctx,
 		return;
 	}
 
-	if (type_is_aggregate(expr->cast.value->result)) {
+	if (type_is_aggregate(expr->cast.value->result)
+			&& expr->cast.value->type == EXPR_CONSTANT) {
+		// This is a stupid fucking hack
 		alloc_temp(ctx, &in, expr->cast.value->result, "cast.in.%d");
 		qval_deref(&in);
 	} else {
