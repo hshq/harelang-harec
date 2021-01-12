@@ -1530,6 +1530,17 @@ parse_for_expression(struct lexer *lexer)
 	exp->type = EXPR_FOR;
 
 	struct token tok = {0};
+	switch (lex(lexer, &tok)) {
+	case T_FOR:
+		break;
+	case T_LABEL:
+		exp->_for.label = tok.name;
+		want(lexer, T_FOR, NULL);
+		break;
+	default:
+		assert(0);
+	}
+
 	want(lexer, T_LPAREN, &tok);
 	switch (lex(lexer, &tok)) {
 	case T_LET:
@@ -1570,9 +1581,9 @@ parse_complex_expression(struct lexer *lexer)
 	case T_IF:
 		return parse_if_expression(lexer);
 	case T_FOR:
-		return parse_for_expression(lexer);
 	case T_LABEL:
-		assert(0); // TODO: Loop labels
+		unlex(lexer, &tok);
+		return parse_for_expression(lexer);
 	case T_MATCH:
 	case T_SWITCH:
 		assert(0); // TODO
@@ -1688,6 +1699,7 @@ parse_scope_expression(struct lexer *lexer)
 		assert(0); // TODO: This is a static binding list or assert
 	case T_IF:
 	case T_FOR:
+	case T_LABEL:
 	case T_MATCH:
 	case T_SWITCH:
 		unlex(lexer, &tok);
@@ -1750,7 +1762,18 @@ parse_control_statement(struct lexer *lexer)
 	switch (lex(lexer, &tok)) {
 	case T_BREAK:
 	case T_CONTINUE:
-		assert(0); // TODO
+		trace(TR_PARSE, tok.token == T_BREAK ? "break" : "continue");
+		exp->type = tok.token == T_BREAK ? EXPR_BREAK : EXPR_CONTINUE;
+		exp->control.label = NULL;
+		switch (lex(lexer, &tok)) {
+		case T_LABEL:
+			exp->control.label = tok.name;
+			break;
+		default:
+			unlex(lexer, &tok);
+			break;
+		}
+		break;
 	case T_RETURN:
 		trace(TR_PARSE, "return");
 		exp->type = EXPR_RETURN;

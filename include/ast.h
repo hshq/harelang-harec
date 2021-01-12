@@ -201,7 +201,12 @@ struct ast_expression_constant {
 	};
 };
 
+struct ast_expression_control {
+	char *label;
+};
+
 struct ast_expression_for {
+	char *label;
 	struct ast_expression *bindings;
 	struct ast_expression *cond;
 	struct ast_expression *afterthought;
@@ -275,6 +280,7 @@ struct ast_expression {
 		struct ast_expression_call call;
 		struct ast_expression_cast cast;
 		struct ast_expression_constant constant;
+		struct ast_expression_control control;
 		struct ast_expression_for _for;
 		struct ast_expression_if _if;
 		struct ast_expression_list list;
