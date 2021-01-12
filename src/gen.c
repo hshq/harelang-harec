@@ -1367,9 +1367,13 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 		assert(0); // TODO
 	case TYPE_STORAGE_UINTPTR:
 		assert(0); // TODO: What are the semantics for this?
+	case TYPE_STORAGE_POINTER:
+		assert(global->value->type == EXPR_CONSTANT); // TODO?
+		item->type = QD_VALUE;
+		constl(&item->value, (uint64_t)constant->uval); // XXX: ARCH
+		break;
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
