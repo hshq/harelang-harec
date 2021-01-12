@@ -2,31 +2,19 @@ fn indexing() void = {
 	let x = [1, 2, 3];
 	let y = &x;
 	let z = &y;
-	// TODO: Simplify these once we have logical and (&&)
-	assert(x[0] == 1);
-	assert(x[1] == 2);
-	assert(x[2] == 3);
-	assert(y[0] == 1);
-	assert(y[1] == 2);
-	assert(y[2] == 3);
-	assert(z[0] == 1);
-	assert(z[1] == 2);
-	assert(z[2] == 3);
+	assert(x[0] == 1 && x[1] == 2 && x[2] == 3);
+	assert(y[0] == 1 && y[1] == 2 && y[2] == 3);
+	assert(z[0] == 1 && z[1] == 2 && z[2] == 3);
 
 	x[0] = 5;
 	x[1] = 6;
 	x[2] = 7;
-	assert(x[0] == 5);
-	assert(x[1] == 6);
-	assert(x[2] == 7);
-	assert(y[0] == 5);
-	assert(y[1] == 6);
-	assert(y[2] == 7);
+	assert(x[0] == 5 && x[1] == 6 && x[2] == 7);
+	assert(y[0] == 5 && y[1] == 6 && y[2] == 7);
 
 	let q = &x[0];
 	*q = 1337;
-	assert(x[0] == 1337);
-	assert(y[0] == 1337);
+	assert(x[0] == 1337 && y[0] == 1337);
 };
 
 fn measurements() void = {
@@ -55,12 +43,8 @@ fn assignment() void = {
 	let y = x;
 	let z = [0, 0, 0];
 	z = y;
-	assert(y[0] == 1);
-	assert(y[1] == 2);
-	assert(y[2] == 3);
-	assert(z[0] == 1);
-	assert(z[1] == 2);
-	assert(z[2] == 3);
+	assert(y[0] == 1 && y[1] == 2 && y[2] == 3);
+	assert(z[0] == 1 && z[1] == 2 && z[2] == 3);
 };
 
 fn param(x: [3]int) void = {
@@ -72,14 +56,11 @@ fn param(x: [3]int) void = {
 
 fn nested() void = {
 	let x = [[1, 2], [3, 4]];
-	assert(x[0][0] == 1);
-	assert(x[0][1] == 2);
-	assert(x[1][0] == 3);
-	assert(x[1][1] == 4);
+	assert(x[0][0] == 1 && x[0][1] == 2);
+	assert(x[1][0] == 3 && x[1][1] == 4);
 	assert(len(x[0]) == 2z);
 	x[1] = [5, 6];
-	assert(x[1][0] == 5);
-	assert(x[1][1] == 6);
+	assert(x[1][0] == 5 && x[1][1] == 6);
 };
 
 export fn main() void = {

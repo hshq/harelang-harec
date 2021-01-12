@@ -20,8 +20,7 @@ fn storage() void = {
 	};
 
 	assert(len(x) == 5z);
-	assert(ptr.length == 5z);
-	assert(ptr.capacity == 5z);
+	assert(ptr.length == 5z && ptr.capacity == 5z);
 
 	for (let i = 0z; i < len(expected); i += 1z) {
 		assert(x[i] == expected[i]);
@@ -41,23 +40,15 @@ fn assignment() void = {
 	x[0] = 4;
 	x[1] = 5;
 	x[2] = 6;
-	assert(x[0] == 4);
-	assert(x[1] == 5);
-	assert(x[2] == 6);
-	assert(source[0] == 4);
-	assert(source[1] == 5);
-	assert(source[2] == 6);
+	assert(x[0] == 4 && x[1] == 5 && x[2] == 6);
+	assert(source[0] == 4 && source[1] == 5 && source[2] == 6);
 	let y: []int = [4, 5, 6];
 	x = y;
 	x[0] = 7;
 	x[1] = 8;
 	x[2] = 9;
-	assert(x[0] == 7);
-	assert(x[1] == 8);
-	assert(x[2] == 9);
-	assert(source[0] == 4);
-	assert(source[1] == 5);
-	assert(source[2] == 6);
+	assert(x[0] == 7 && x[1] == 8 && x[2] == 9);
+	assert(source[0] == 4 && source[1] == 5 && source[2] == 6);
 };
 
 export fn main() void = {

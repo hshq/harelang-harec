@@ -20,36 +20,29 @@ fn padding() void = {
 fn storage() void = {
 	let coords = struct { x: i32 = 10i32, y: i32 = 20i32 };
 	let ptr = &coords: *[*]i32;
-	assert(ptr[0] == 10i32);
-	assert(ptr[1] == 20i32);
+	assert(ptr[0] == 10i32 && ptr[1] == 20i32);
 };
 
 fn assignment() void = {
 	let coords = struct { x: int = 20, y: int = 30 };
 	coords.x = 40;
 	coords.y = 50;
-	assert(coords.x == 40);
-	assert(coords.y == 50);
+	assert(coords.x == 40 && coords.y == 50);
 	coords = struct { x: int = 60, y: int = 70 };
-	assert(coords.x == 60);
-	assert(coords.y == 70);
+	assert(coords.x == 60 && coords.y == 70);
 };
 
 fn deref() void = {
 	let coords = struct { x: int = 20, y: int = 30 };
 	let a = &coords;
-	assert(a.x == 20);
-	assert(a.y == 30);
+	assert(a.x == 20 && a.y == 30);
 	let b = &a;
-	assert(b.x == 20);
-	assert(b.y == 30);
+	assert(b.x == 20 && b.y == 30);
 	let c = &b;
-	assert(c.x == 20);
-	assert(c.y == 30);
+	assert(c.x == 20 && c.y == 30);
 	c.x = 42;
 	c.y = 96;
-	assert(coords.x == 42);
-	assert(coords.y == 96);
+	assert(coords.x == 42 && coords.y == 96);
 };
 
 fn nested() void = {

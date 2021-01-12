@@ -25,8 +25,7 @@ fn storage() void = {
 		length: size,
 		capacity: size,
 	};
-	assert(ptr.length == 15z);
-	assert(ptr.capacity == 15z);
+	assert(ptr.length == 15z && ptr.capacity == 15z);
 
 	// UTF-8 encoded
 	const expected = [
