@@ -592,6 +592,11 @@ type_init_from_atype(struct type_store *store,
 				aparam; aparam = aparam->next) {
 			param = *next = xcalloc(1, sizeof(struct type_func_param));
 			param->type = type_store_lookup_atype(store, aparam->type);
+			if (atype->func.variadism == VARIADISM_HARE
+					&& !aparam->next) {
+				param->type = type_store_lookup_slice(
+					store, param->type);
+			}
 			next = &param->next;
 		}
 		break;
@@ -808,4 +813,17 @@ type_store_lookup_array(struct type_store *store,
 		},
 	};
 	return type_store_lookup_type(store, &array);
+}
+
+const struct type *
+type_store_lookup_slice(struct type_store *store, const struct type *members)
+{
+	struct type slice = {
+		.storage = TYPE_STORAGE_SLICE,
+		.array = {
+			.members = members,
+			.length = SIZE_UNDEFINED,
+		},
+	};
+	return type_store_lookup_type(store, &slice);
 }

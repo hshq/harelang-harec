@@ -318,6 +318,46 @@ check_expr_binding(struct context *ctx,
 	}
 }
 
+// Lower Hare-style variadic arguments into an array literal
+static void
+lower_vaargs(struct context *ctx,
+	const struct ast_call_argument *aarg,
+	struct expression *vaargs,
+	const struct type *type)
+{
+	struct ast_expression val = {
+		.type = EXPR_CONSTANT,
+		.loc = aarg->value->loc,
+		.constant = {
+			.storage = TYPE_STORAGE_ARRAY,
+		},
+	};
+	struct ast_array_constant **next = &val.constant.array;
+	while (aarg) {
+		struct ast_array_constant *item = *next =
+			xcalloc(1, sizeof(struct ast_array_constant));
+		item->value = aarg->value;
+		aarg = aarg->next;
+		next = &item->next;
+	}
+
+	// XXX: This error handling is minimum-effort and bad
+	ctx->type_hint = type_store_lookup_array(
+		&ctx->store, type, SIZE_UNDEFINED, false);
+	check_expression(ctx, &val, vaargs);
+	ctx->type_hint = NULL;
+	assert(vaargs->result->storage == TYPE_STORAGE_ARRAY);
+	expect(&val.loc, vaargs->result->array.members == type,
+		"Argument is not assignable to variadic parameter type");
+
+	struct ast_array_constant *item = val.constant.array;
+	while (item) {
+		struct ast_array_constant *next = item->next;
+		free(item);
+		item = next;
+	}
+}
+
 static void
 check_expr_call(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -337,7 +377,6 @@ check_expr_call(struct context *ctx,
 		fntype->storage == TYPE_STORAGE_FUNCTION,
 		"Cannot call non-function type");
 	expr->result = fntype->func.result;
-	assert(fntype->func.variadism == VARIADISM_NONE); // TODO
 
 	struct call_argument *arg, **next = &expr->call.args;
 	struct ast_call_argument *aarg = aexpr->call.args;
@@ -347,6 +386,17 @@ check_expr_call(struct context *ctx,
 		assert(!aarg->variadic); // TODO
 		arg = *next = xcalloc(1, sizeof(struct call_argument));
 		arg->value = xcalloc(1, sizeof(struct expression));
+
+		if (!param->next && fntype->func.variadism == VARIADISM_HARE) {
+			lower_vaargs(ctx, aarg, arg->value,
+				param->type->array.members);
+			arg->value = lower_implicit_cast(param->type, arg->value);
+			param = NULL;
+			aarg = NULL;
+			trleave(TR_CHECK, NULL);
+			break;
+		}
+
 		check_expression(ctx, aarg->value, arg->value);
 
 		expect(&aarg->value->loc,
@@ -890,6 +940,10 @@ check_function(struct context *ctx,
 	assert(fntype); // Invariant
 	ctx->current_fntype = fntype;
 
+	expect(&adecl->loc,
+		fntype->func.variadism != VARIADISM_C,
+		"C-style variadism is not allowed for function declarations");
+
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
@@ -905,12 +959,16 @@ check_function(struct context *ctx,
 	struct ast_function_parameters *params = afndecl->prototype.params;
 	while (params) {
 		expect(&params->loc, params->name,
-				"Function parameters must be named");
+			"Function parameters must be named");
 		struct identifier ident = {
 			.name = params->name,
 		};
 		const struct type *type = type_store_lookup_atype(
 				&ctx->store, params->type);
+		if (fntype->func.variadism == VARIADISM_HARE
+				&& !params->next) {
+			type = type_store_lookup_slice(&ctx->store, type);
+		}
 		scope_insert(decl->func.scope, O_BIND,
 			&ident, &ident, type, NULL);
 		params = params->next;
