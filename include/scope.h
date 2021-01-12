@@ -1,5 +1,6 @@
 #ifndef HAREC_SCOPE_H
 #define HAREC_SCOPE_H
+#include "expr.h"
 #include "identifier.h"
 #include "trace.h"
 
@@ -23,6 +24,8 @@ struct scope_object {
 };
 
 struct scope {
+	enum expr_type type;
+	const char *label;
 	struct scope_object *objects;
 	struct scope_object **next; // List order matters for functions
 	struct scope *parent;

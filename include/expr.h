@@ -138,7 +138,12 @@ union expression_constant {
 	// TODO: Struct constants
 };
 
+struct expression_control {
+	char *label;
+};
+
 struct expression_for {
+	char *label;
 	struct scope *scope;
 	struct expression *bindings;
 	struct expression *cond;
@@ -213,6 +218,7 @@ struct expression {
 		struct expression_call call;
 		struct expression_cast cast;
 		union expression_constant constant;
+		struct expression_control control;
 		struct expression_for _for;
 		struct expression_if _if;
 		struct expression_list list;

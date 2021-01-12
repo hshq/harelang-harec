@@ -544,6 +544,33 @@ check_expr_constant(struct context *ctx,
 }
 
 static void
+check_expr_control(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "control");
+	expr->type = aexpr->type;
+	expr->terminates = true;
+	char *label = expr->control.label = aexpr->control.label;
+
+	struct scope *scope = ctx->scope;
+	for (; scope != NULL; scope = scope->parent) {
+		if (scope->type != EXPR_FOR) {
+			continue;
+		}
+		if (label == NULL) {
+			break;
+		}
+		if (scope->label != NULL && strcmp(label, scope->label) == 0) {
+			break;
+		}
+	}
+	expect(&aexpr->loc, scope != NULL, "Unknown label %s",
+		expr->control.label);
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expr_for(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -552,8 +579,14 @@ check_expr_for(struct context *ctx,
 	expr->type = EXPR_FOR;
 	expr->result = &builtin_type_void;
 
+	if (aexpr->_for.label) {
+		expr->_for.label = strdup(aexpr->_for.label);
+	}
+
 	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
 	expr->_for.scope = scope;
+	scope->type = expr->type;
+	scope->label = expr->_for.label;
 
 	struct expression *bindings = NULL,
 		*cond = NULL, *afterthought = NULL, *body = NULL;
@@ -642,6 +675,7 @@ check_expr_list(struct context *ctx,
 
 	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
 	expr->list.scope = scope;
+	scope->type = expr->type;
 
 	struct expressions *list = &expr->list.exprs;
 	struct expressions **next = &list->next;
@@ -874,7 +908,9 @@ check_expression(struct context *ctx,
 		check_expr_binding(ctx, aexpr, expr);
 		break;
 	case EXPR_BREAK:
-		assert(0); // TODO
+	case EXPR_CONTINUE:
+		check_expr_control(ctx, aexpr, expr);
+		break;
 	case EXPR_CALL:
 		check_expr_call(ctx, aexpr, expr);
 		break;
@@ -884,8 +920,6 @@ check_expression(struct context *ctx,
 	case EXPR_CONSTANT:
 		check_expr_constant(ctx, aexpr, expr);
 		break;
-	case EXPR_CONTINUE:
-		assert(0); // TODO
 	case EXPR_FOR:
 		check_expr_for(ctx, aexpr, expr);
 		break;
