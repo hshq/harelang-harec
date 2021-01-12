@@ -1,7 +1,25 @@
 @symbol("main") fn main() int;
 fn exit(status: int) void;
 
+let @symbol("__init_array_start") init_start: [*]*fn() void;
+let @symbol("__init_array_end") init_end: [*]*fn() void;
+let @symbol("__fini_array_start") fini_start: [*]*fn() void;
+let @symbol("__fini_array_end") fini_end: [*]*fn() void;
+
 export fn start_ha(iv: [*]uintptr) void = {
+	const ninit = (&init_end: uintptr - &init_start: uintptr): size
+		/ size(*fn() void);
+	for (let i = 0z; i < ninit; i += 1z) {
+		init_start[i]();
+	};
+
 	main();
+
+	const nfini = (&fini_end: uintptr - &fini_start: uintptr): size
+		/ size(*fn() void);
+	for (let i = 0z; i < nfini; i += 1z) {
+		fini_start[i]();
+	};
+
 	exit(0);
 };

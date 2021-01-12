@@ -1882,8 +1882,13 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 		if (mode == T_CONST) {
 			i->type->flags |= TYPE_CONST;
 		}
-		want(lexer, T_EQUAL, NULL);
-		i->init = parse_simple_expression(lexer);
+
+		if (lex(lexer, &tok) == T_EQUAL) {
+			i->init = parse_simple_expression(lexer);
+		} else {
+			unlex(lexer, &tok);
+		}
+
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			lex(lexer, &tok);

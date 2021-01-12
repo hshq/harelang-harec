@@ -238,6 +238,7 @@ struct qbe_data_item {
 
 struct qbe_data {
 	size_t align;
+	char *section;
 	struct qbe_data_item items;
 };
 

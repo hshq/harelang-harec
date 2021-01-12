@@ -1006,6 +1006,10 @@ check_global(struct context *ctx,
 	const struct ast_decl *adecl)
 {
 	const struct ast_global_decl *agdecl = &adecl->global;
+	if (!agdecl->init) {
+		return NULL; // Forward declaration
+	}
+
 	const struct type *type = type_store_lookup_atype(
 			&ctx->store, agdecl->type);
 

@@ -1,3 +1,5 @@
+@noreturn fn rt::exit(status: int) void;
+
 fn addone(x: *int) void = {
 	*x += 1;
 };
@@ -21,7 +23,18 @@ fn vaargs(expected: []int, values: int...) void = {
 	};
 };
 
+let x: int = 42;
+
+@init fn init() void = {
+	x = 1337;
+};
+
+@fini fn fini() void = {
+	rt::exit(42); // Magic number
+};
+
 export fn main() void = {
 	pointers();
 	vaargs([1, 2, 3], 1, 2, 3);
+	assert(x == 1337);
 };

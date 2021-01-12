@@ -1200,7 +1200,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	assert(decl->type == DECL_FUNC);
 	const struct function_decl *func = &decl->func;
 	const struct type *fntype = func->type;
-	assert(func->flags == 0); // TODO
+	assert(!(func->flags & FN_TEST)); // TODO
 
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_FUNC;
@@ -1284,6 +1284,36 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	qbe_append_def(ctx->out, qdef);
 	ctx->current = NULL;
+
+	if (func->flags & FN_INIT) {
+		struct qbe_def *idef = xcalloc(1, sizeof(struct qbe_def));
+		idef->kind = Q_DATA;
+		int l = snprintf(NULL, 0, ".init.%s", qdef->name);
+		idef->name = xcalloc(l + 1, 1);
+		snprintf(idef->name, l + 1, ".init.%s", qdef->name);
+		idef->data.align = 8;
+		idef->data.section = strdup(".init_array");
+		idef->data.items.type = QD_VALUE;
+		idef->data.items.value.kind = QV_GLOBAL;
+		idef->data.items.value.type = &qbe_long;
+		idef->data.items.value.name = strdup(qdef->name);
+		qbe_append_def(ctx->out, idef);
+	}
+
+	if (func->flags & FN_FINI) {
+		struct qbe_def *fdef = xcalloc(1, sizeof(struct qbe_def));
+		fdef->kind = Q_DATA;
+		int l = snprintf(NULL, 0, ".fini.%s", qdef->name);
+		fdef->name = xcalloc(l + 1, 1);
+		snprintf(fdef->name, l + 1, ".fini.%s", qdef->name);
+		fdef->data.align = 8;
+		fdef->data.section = strdup(".fini_array");
+		fdef->data.items.type = QD_VALUE;
+		fdef->data.items.value.kind = QV_GLOBAL;
+		fdef->data.items.value.type = &qbe_long;
+		fdef->data.items.value.name = strdup(qdef->name);
+		qbe_append_def(ctx->out, fdef);
+	}
 }
 
 static void
