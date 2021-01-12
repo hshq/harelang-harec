@@ -1,5 +1,4 @@
 @symbol("main") fn main() int;
-fn exit(status: int) void;
 
 let @symbol("__init_array_start") init_start: [*]*fn() void;
 let @symbol("__init_array_end") init_end: [*]*fn() void;
