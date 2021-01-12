@@ -527,6 +527,35 @@ gen_expr_binarithm(struct gen_context *ctx,
 	const struct qbe_type *etype = qtype_for_type(ctx, expr->result, false);
 	assert(ltype == rtype); // TODO: Type promotion
 
+	if (expr->binarithm.op == BIN_LAND || expr->binarithm.op == BIN_LOR) {
+		struct qbe_statement rlabel = {0}, slabel = {0};
+		struct qbe_value rbranch = {0}, sbranch = {0}, result = {0};
+		rbranch.kind = QV_LABEL;
+		rbranch.name = strdup(genl(&rlabel, &ctx->id, "rvalue.%d"));
+		sbranch.kind = QV_LABEL;
+		sbranch.name = strdup(genl(&slabel, &ctx->id, "short_circuit.%d"));
+		gen_temp(ctx, &result, etype, "result.%d");
+
+		gen_expression(ctx, expr->binarithm.lvalue, &result);
+		if (expr->binarithm.op == BIN_LAND) {
+			pushi(ctx->current, NULL, Q_JNZ, &result, &rbranch,
+				&sbranch, NULL);
+		} else {
+			pushi(ctx->current, NULL, Q_JNZ, &result, &sbranch,
+				&rbranch, NULL);
+		}
+
+		push(&ctx->current->body, &rlabel);
+		gen_expression(ctx, expr->binarithm.rvalue, &result);
+		if (!expr->binarithm.rvalue->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &sbranch, NULL);
+		}
+
+		push(&ctx->current->body, &slabel);
+		gen_store(ctx, out, &result);
+		return;
+	}
+
 	struct qbe_value lvalue = {0}, rvalue = {0}, result = {0};
 	gen_temp(ctx, &lvalue, ltype, "lvalue.%d");
 	gen_temp(ctx, &rvalue, rtype, "rvalue.%d");
