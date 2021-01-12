@@ -900,6 +900,27 @@ gen_expr_constant(struct gen_context *ctx,
 }
 
 static void
+gen_expr_control(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(out == NULL); // Invariant
+	struct gen_loop_context *loop = ctx->loop;
+	while (expr->control.label != NULL && loop != NULL) {
+		if (loop->label && strcmp(expr->control.label, loop->label) == 0) {
+			break;
+		}
+		loop = loop->parent;
+	}
+	assert(loop != NULL);
+	if (expr->type == EXPR_BREAK) {
+		pushi(ctx->current, NULL, Q_JMP, loop->end, NULL);
+	} else {
+		pushi(ctx->current, NULL, Q_JMP, loop->after, NULL);
+	}
+}
+
+static void
 gen_expr_for(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -922,6 +943,14 @@ gen_expr_for(struct gen_context *ctx,
 
 	push(&ctx->current->body, &loopl);
 
+	struct gen_loop_context *loop_ctx =
+		xcalloc(sizeof(struct gen_loop_context), 1);
+	loop_ctx->after = &after;
+	loop_ctx->end = &end;
+	loop_ctx->label = expr->_for.label;
+	loop_ctx->parent = ctx->loop;
+	ctx->loop = loop_ctx;
+
 	struct qbe_value cond = {0};
 	gen_temp(ctx, &cond, &qbe_word, "cond.%d");
 	gen_expression(ctx, expr->_for.cond, &cond);
@@ -935,7 +964,9 @@ gen_expr_for(struct gen_context *ctx,
 	if (expr->_for.afterthought) {
 		gen_expression(ctx, expr->_for.afterthought, NULL);
 	}
-	(void)after; // TODO: continue
+
+	ctx->loop = ctx->loop->parent;
+	free(loop_ctx);
 
 	pushi(ctx->current, NULL, Q_JMP, &loop, NULL);
 
@@ -1152,7 +1183,9 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_binding(ctx, expr, out);
 		break;
 	case EXPR_BREAK:
-		assert(0); // TODO
+	case EXPR_CONTINUE:
+		gen_expr_control(ctx, expr, out);
+		break;
 	case EXPR_CALL:
 		gen_expr_call(ctx, expr, out);
 		break;
@@ -1162,8 +1195,6 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_CONSTANT:
 		gen_expr_constant(ctx, expr, out);
 		break;
-	case EXPR_CONTINUE:
-		assert(0); // TODO
 	case EXPR_FOR:
 		gen_expr_for(ctx, expr, out);
 		break;

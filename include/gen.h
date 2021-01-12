@@ -17,6 +17,13 @@ struct gen_binding {
 	struct gen_binding *next;
 };
 
+struct gen_loop_context {
+	const char *label;
+	struct qbe_value *after;
+	struct qbe_value *end;
+	struct gen_loop_context *parent;
+};
+
 struct gen_context {
 	struct qbe_program *out;
 	struct identifier *ns;
@@ -24,6 +31,7 @@ struct gen_context {
 	const struct qbe_value *end_label;
 	const struct qbe_value *return_value;
 	struct gen_binding *bindings;
+	struct gen_loop_context *loop;
 	uint64_t id;
 };
 
