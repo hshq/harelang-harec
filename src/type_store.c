@@ -401,12 +401,7 @@ type_cmp(const struct type *a, const struct type *b)
 	case TYPE_STORAGE_STRING:
 		return 0;
 	case TYPE_STORAGE_ALIAS:
-		// TODO: Relative comparison
-		if (!identifier_eq(&a->alias.ident, &b->alias.ident)) {
-			return 1;
-		}
-		assert(type_cmp(a->alias.type, b->alias.type) == 0);
-		return 0;
+		return identifier_cmp(&a->alias.ident, &b->alias.ident);
 	case TYPE_STORAGE_ARRAY:
 		if (a->array.length != b->array.length) {
 			return a->array.length - b->array.length;
