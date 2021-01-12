@@ -1197,7 +1197,6 @@ gen_expression(struct gen_context *ctx,
 static void
 gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 {
-	// XXX: AUDIT ME
 	assert(decl->type == DECL_FUNC);
 	const struct function_decl *func = &decl->func;
 	const struct type *fntype = func->type;
@@ -1206,8 +1205,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_FUNC;
 	qdef->exported = decl->exported;
-	qdef->name = func->symbol ? strdup(func->symbol)
-		: ident_to_sym(&decl->ident);
+	qdef->name = ident_to_sym(&decl->ident);
 	qdef->func.returns = qtype_for_type(ctx, fntype->func.result, false);
 	ctx->current = &qdef->func;
 
@@ -1289,16 +1287,24 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 }
 
 static void
+gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
+{
+	assert(0); // TODO
+}
+
+static void
 gen_decl(struct gen_context *ctx, const struct declaration *decl)
 {
 	switch (decl->type) {
 	case DECL_FUNC:
 		gen_function_decl(ctx, decl);
 		break;
-	case DECL_TYPE:
 	case DECL_GLOBAL:
+		gen_global_decl(ctx, decl);
+		break;
+	case DECL_TYPE:
 	case DECL_CONSTANT:
-		assert(0); // TODO
+		assert(0); // Invariant
 	}
 }
 

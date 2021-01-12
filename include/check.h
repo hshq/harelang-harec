@@ -27,8 +27,12 @@ struct function_decl {
 	const struct type *type;
 	struct expression *body;
 	struct scope *scope;
-	char *symbol;
 	unsigned int flags; // enum function_flags
+};
+
+struct global_decl {
+	const struct type *type;
+	struct expression *value; // EXPR_CONSTANT
 };
 
 enum declaration_type {
@@ -44,6 +48,7 @@ struct declaration {
 	bool exported;
 	union {
 		struct function_decl func;
+		struct global_decl global;
 	};
 };
 

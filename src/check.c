@@ -1001,6 +1001,44 @@ check_function(struct context *ctx,
 	return decl;
 }
 
+static struct declaration *
+check_global(struct context *ctx,
+	const struct ast_decl *adecl)
+{
+	const struct ast_global_decl *agdecl = &adecl->global;
+	const struct type *type = type_store_lookup_atype(
+			&ctx->store, agdecl->type);
+
+	// TODO: Free initialier
+	struct expression *initializer =
+		xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, agdecl->init, initializer);
+
+	expect(&agdecl->init->loc,
+		type_is_assignable(&ctx->store, type, initializer->result),
+		"Constant type is not assignable from initializer type");
+	initializer = lower_implicit_cast(type, initializer);
+
+	struct expression *value =
+		xcalloc(1, sizeof(struct expression));
+	enum eval_result r = eval_expr(ctx, initializer, value);
+	expect(&agdecl->init->loc, r == EVAL_OK,
+		"Unable to evaluate global initializer at compile time");
+
+	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
+	decl->type = DECL_GLOBAL;
+	decl->global.type = type;
+	decl->global.value = value;
+
+	if (agdecl->symbol) {
+		decl->ident.name = strdup(agdecl->symbol);
+	} else {
+		mkident(ctx, &decl->ident, &agdecl->ident);
+	}
+
+	return decl;
+}
+
 static struct declarations **
 check_declarations(struct context *ctx,
 		const struct ast_decls *adecls,
@@ -1017,7 +1055,8 @@ check_declarations(struct context *ctx,
 		case AST_DECL_TYPE:
 			break; // Handled in scan
 		case AST_DECL_GLOBAL:
-			assert(0); // TODO
+			decl = check_global(ctx, adecl);
+			break;
 		case AST_DECL_CONST:
 			break; // Handled in scan
 		}
@@ -1034,6 +1073,39 @@ check_declarations(struct context *ctx,
 	}
 	trleave(TR_CHECK, NULL);
 	return next;
+}
+
+static void
+scan_const(struct context *ctx, const struct ast_global_decl *decl)
+{
+	trenter(TR_SCAN, "constant");
+	assert(!decl->symbol); // Invariant
+
+	const struct type *type = type_store_lookup_atype(
+			&ctx->store, decl->type);
+	// TODO:
+	// - Free the initializer
+	// - Defer if we can't evaluate it now (for forward references)
+	struct expression *initializer =
+		xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, decl->init, initializer);
+
+	expect(&decl->init->loc, type_is_assignable(&ctx->store, type, initializer->result),
+		"Constant type is not assignable from initializer type");
+	initializer = lower_implicit_cast(type, initializer);
+
+	struct expression *value =
+		xcalloc(1, sizeof(struct expression));
+	enum eval_result r = eval_expr(ctx, initializer, value);
+	// TODO: More forward reference issues:
+	expect(&decl->init->loc, r == EVAL_OK,
+		"Unable to evaluate constant initializer at compile time");
+
+	struct identifier ident = {0};
+	mkident(ctx, &ident, &decl->ident);
+	scope_insert(ctx->unit, O_CONST, &ident, &decl->ident, type, value);
+
+	trleave(TR_SCAN, NULL);
 }
 
 static void
@@ -1063,34 +1135,21 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 }
 
 static void
-scan_const(struct context *ctx, const struct ast_global_decl *decl)
+scan_global(struct context *ctx, const struct ast_global_decl *decl)
 {
-	trenter(TR_SCAN, "constant");
-	assert(!decl->symbol); // Invariant
+	trenter(TR_SCAN, "global");
 
 	const struct type *type = type_store_lookup_atype(
 			&ctx->store, decl->type);
-	// TODO:
-	// - Free the initializer
-	// - Defer if we can't evaluate it now (for forward references)
-	struct expression *initializer =
-		xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, decl->init, initializer);
-
-	// TODO: Lower implicit casts
-	expect(&decl->init->loc, type_is_assignable(&ctx->store, type, initializer->result),
-		"Constant type is not assignable from initializer type");
-
-	struct expression *value =
-		xcalloc(1, sizeof(struct expression));
-	enum eval_result r = eval_expr(ctx, initializer, value);
-	// TODO: More forward reference issues:
-	expect(&decl->init->loc, r == EVAL_OK,
-		"Unable to evaluate initializer at compile time");
+	assert(type); // TODO: Forward references
 
 	struct identifier ident = {0};
-	mkident(ctx, &ident, &decl->ident);
-	scope_insert(ctx->unit, O_CONST, &ident, &decl->ident, type, value);
+	if (decl->symbol) {
+		ident.name = strdup(decl->symbol);
+	} else {
+		mkident(ctx, &ident, &decl->ident);
+	}
+	scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, type, NULL);
 
 	trleave(TR_SCAN, NULL);
 }
@@ -1115,16 +1174,17 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 	while (decls) {
 		const struct ast_decl *decl = &decls->decl;
 		switch (decl->decl_type) {
+		case AST_DECL_CONST:
+			scan_const(ctx, &decl->constant);
+			break;
 		case AST_DECL_FUNC:
 			scan_function(ctx, &decl->function);
 			break;
+		case AST_DECL_GLOBAL:
+			scan_global(ctx, &decl->global);
+			break;
 		case AST_DECL_TYPE:
 			scan_type(ctx, &decl->type);
-			break;
-		case AST_DECL_GLOBAL:
-			assert(0); // TODO
-		case AST_DECL_CONST:
-			scan_const(ctx, &decl->constant);
 			break;
 		}
 		decls = decls->next;
