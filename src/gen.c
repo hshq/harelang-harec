@@ -141,7 +141,6 @@ gen_copy(struct gen_context *ctx,
 	const struct qbe_value *src)
 {
 	assert(!dest->indirect && !src->indirect);
-	assert(dest->type == src->type);
 	const struct qbe_field *field = &dest->type->fields;
 
 	struct qbe_value temp = {0}, destp = {0}, srcp = {0}, size = {0};
@@ -1079,6 +1078,57 @@ gen_expr_return(struct gen_context *ctx,
 }
 
 static void
+gen_expr_slice(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	// XXX: ARCH
+	struct qbe_value object = {0}, start = {0}, end = {0};
+	const struct type *otype = expr->slice.object->result;
+	address_object(ctx, expr->slice.object, &object);
+	gen_temp(ctx, &start, &qbe_long, "start.%d");
+	gen_temp(ctx, &end, &qbe_long, "end.%d");
+
+	if (expr->slice.start) {
+		gen_expression(ctx, expr->slice.start, &start);
+	} else {
+		constl(&start, 0);
+	}
+
+	if (expr->slice.end) {
+		gen_expression(ctx, expr->slice.end, &end);
+	} else if (otype->storage == TYPE_STORAGE_ARRAY) {
+		constl(&end, otype->array.length);
+	} else {
+		assert(0); // TODO: Read slice length into &end
+	}
+
+	// TODO: Bounds check
+	struct qbe_value src = {0}, dest = {0}, temp = {0}, offset = {0};
+	gen_temp(ctx, &dest, &qbe_long, "dest.%d");
+	gen_temp(ctx, &offset, &qbe_long, "offset.%d");
+	pushi(ctx->current, &dest, Q_COPY, out, NULL);
+	if (otype->storage == TYPE_STORAGE_SLICE) {
+		assert(0); // TODO
+	} else {
+		gen_temp(ctx, &src, &qbe_long, "length.%d");
+
+		constl(&temp, otype->array.members->size);
+		pushi(ctx->current, &offset, Q_MUL, &start, &temp, NULL);
+		pushi(ctx->current, &offset, Q_ADD, &object, &offset, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
+
+		pushi(ctx->current, &offset, Q_SUB, &end, &start, NULL);
+
+		constl(&temp, 8); // XXX: ARCH
+		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
+		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
+	}
+}
+
+static void
 gen_expr_struct(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -1213,7 +1263,8 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_return(ctx, expr, out);
 		break;
 	case EXPR_SLICE:
-		assert(0); // TODO
+		gen_expr_slice(ctx, expr, out);
+		break;
 	case EXPR_STRUCT:
 		gen_expr_struct(ctx, expr, out);
 		break;

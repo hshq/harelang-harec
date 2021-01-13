@@ -403,9 +403,7 @@ check_expr_call(struct context *ctx,
 			type_is_assignable(&ctx->store,
 				param->type, arg->value->result),
 			"Argument is not assignable to parameter type");
-		if (param->type != arg->value->result) {
-			arg->value = lower_implicit_cast(param->type, arg->value);
-		}
+		arg->value = lower_implicit_cast(param->type, arg->value);
 
 		aarg = aarg->next;
 		param = param->next;
@@ -800,6 +798,8 @@ check_expr_slice(struct context *ctx,
 			type_storage_unparse(itype->storage));
 		expr->slice.end = lower_implicit_cast(
 			&builtin_type_size, expr->slice.end);
+	} else {
+		// TODO: Assert that array type has a well-defined length
 	}
 
 	expr->result = type_store_lookup_slice(&ctx->store,
