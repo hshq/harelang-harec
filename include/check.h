@@ -15,6 +15,7 @@ struct context {
 	struct identifier *ns;
 	struct scope *unit;
 	struct scope *scope;
+	int id;
 };
 
 enum func_decl_flags {

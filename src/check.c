@@ -273,8 +273,6 @@ check_expr_binding(struct context *ctx,
 
 	const struct ast_expression_binding *abinding = &aexpr->binding;
 	while (abinding) {
-		assert(!abinding->is_static); // TODO
-
 		const struct type *type = NULL;
 		if (abinding->type) {
 			type = type_store_lookup_atype(
@@ -303,12 +301,29 @@ check_expr_binding(struct context *ctx,
 		expect(&aexpr->loc,
 			type_is_assignable(&ctx->store, type, initializer->result),
 			"Initializer is not assignable to binding type");
-
-		const struct scope_object *obj = scope_insert(
-			ctx->scope, O_BIND, &ident, &ident, type, NULL);
-		binding->object = obj;
 		binding->initializer =
 			lower_implicit_cast(type, initializer);
+
+		if (!abinding->is_static) {
+			binding->object = scope_insert(ctx->scope, O_BIND,
+				&ident, &ident, type, NULL);
+		} else {
+			struct expression *value =
+				xcalloc(1, sizeof(struct expression));
+			enum eval_result r = eval_expr(ctx, initializer, value);
+			expect(&abinding->initializer->loc, r == EVAL_OK,
+				"Unable to evaluate static initializer at compile time");
+			// TODO: Free initializer
+			initializer = value;
+
+			struct identifier gen = {0};
+			int n = snprintf(NULL, 0, "static.%d", ctx->id);
+			gen.name = xcalloc(n + 1, 1);
+			snprintf(gen.name, n + 1, "static.%d", ctx->id);
+			++ctx->id;
+			binding->object = scope_insert(ctx->scope, O_DECL,
+				&gen, &ident, type, NULL);
+		}
 
 		if (abinding->next) {
 			binding = *next =

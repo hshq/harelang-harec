@@ -60,6 +60,9 @@ alloc_temp(struct gen_context *ctx, struct qbe_value *val,
 	val->type = qtype;
 }
 
+static void qval_for_object(struct gen_context *ctx,
+	struct qbe_value *val, const struct scope_object *obj);
+
 static struct gen_binding *
 binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
 		struct qbe_value *val, const char *fmt)
@@ -477,6 +480,9 @@ gen_expr_assign(struct gen_context *ctx,
 	}
 }
 
+static void gen_global_decl(struct gen_context *ctx,
+		const struct declaration *decl);
+
 static void
 gen_expr_binding(struct gen_context *ctx,
 	const struct expression *expr,
@@ -487,8 +493,20 @@ gen_expr_binding(struct gen_context *ctx,
 	const struct expression_binding *binding = &expr->binding;
 	while (binding) {
 		struct qbe_value temp = {0};
-		binding_alloc(ctx, binding->object, &temp, "binding.%d");
-		gen_expression(ctx, binding->initializer, &temp);
+		if (binding->object->otype != O_DECL) {
+			binding_alloc(ctx, binding->object, &temp, "binding.%d");
+			gen_expression(ctx, binding->initializer, &temp);
+		} else {
+			struct declaration decl = {
+				.type = DECL_GLOBAL,
+				.ident = binding->object->ident,
+				.global = {
+					.type = binding->object->type,
+					.value = binding->initializer,
+				},
+			};
+			gen_global_decl(ctx, &decl);
+		}
 		binding = binding->next;
 	}
 }

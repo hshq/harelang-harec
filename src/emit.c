@@ -239,7 +239,8 @@ emit_data(struct qbe_def *def, FILE *out)
 			emit_value(&item->value, out);
 			break;
 		case QD_ZEROED:
-			assert(0); // TODO
+			fprintf(out, "z %zu", item->zeroed);
+			break;
 		case QD_STRING:
 			emit_data_string(item->str, item->sz, out);
 			break;
