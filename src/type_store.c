@@ -58,6 +58,7 @@ type_is_assignable(struct type_store *store,
 		return true;
 	}
 
+	const struct type *to_secondary, *from_secondary;
 	switch (to->storage) {
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
@@ -130,8 +131,13 @@ type_is_assignable(struct type_store *store,
 	case TYPE_STORAGE_VOID:
 		return true;
 	case TYPE_STORAGE_SLICE:
+		// XXX: This is not quite right
+		to_secondary = type_store_lookup_with_flags(store,
+			to->array.members, to->array.members->flags & ~TYPE_CONST);
+		from_secondary = type_store_lookup_with_flags(store,
+			from->array.members, from->array.members->flags & ~TYPE_CONST);
 		return from->storage == TYPE_STORAGE_ARRAY
-			&& to->array.members == from->array.members;
+			&& to_secondary == from_secondary;
 	case TYPE_STORAGE_ARRAY:
 		return to->array.length == SIZE_UNDEFINED
 			&& from->array.length != SIZE_UNDEFINED;

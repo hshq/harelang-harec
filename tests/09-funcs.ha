@@ -16,11 +16,17 @@ fn pointers() void = {
 	assert(x == 3);
 };
 
-fn vaargs(expected: []int, values: int...) void = {
+fn vafn(expected: []int, values: int...) void = {
 	assert(len(expected) == len(values));
 	for (let i = 0z; i < len(values); i += 1z) {
 		assert(expected[i] == values[i]);
 	};
+};
+
+fn vaargs() void = {
+	vafn([1, 2, 3], 1, 2, 3);
+	let data = [1, 2, 3];
+	vafn(data, data...);
 };
 
 let x: int = 42;
@@ -35,6 +41,6 @@ let x: int = 42;
 
 export fn main() void = {
 	pointers();
-	vaargs([1, 2, 3], 1, 2, 3);
+	vaargs();
 	assert(x == 1337);
 };

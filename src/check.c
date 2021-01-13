@@ -383,11 +383,11 @@ check_expr_call(struct context *ctx,
 	struct type_func_param *param = fntype->func.params;
 	while (param && aarg) {
 		trenter(TR_CHECK, "arg");
-		assert(!aarg->variadic); // TODO
 		arg = *next = xcalloc(1, sizeof(struct call_argument));
 		arg->value = xcalloc(1, sizeof(struct expression));
 
-		if (!param->next && fntype->func.variadism == VARIADISM_HARE) {
+		if (!param->next && fntype->func.variadism == VARIADISM_HARE
+				&& !aarg->variadic) {
 			lower_vaargs(ctx, aarg, arg->value,
 				param->type->array.members);
 			arg->value = lower_implicit_cast(param->type, arg->value);
