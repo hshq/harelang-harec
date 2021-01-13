@@ -73,11 +73,16 @@ fn assert_slice_eq(actual: []int, expected: []int) void = {
 
 fn slicing() void = {
 	let a = [1, 2, 3, 4, 5];
+	assert_slice_eq(a[..], [1, 2, 3, 4, 5]);
 	assert_slice_eq(a[..3], [1, 2, 3]);
 	assert_slice_eq(a[1..3], [2, 3]);
 	assert_slice_eq(a[1..], [2, 3, 4, 5]);
 
-	// TODO: Test slicing other slices
+	let b: []int = [1, 2, 3, 4, 5];
+	assert_slice_eq(b[..], [1, 2, 3, 4, 5]);
+	assert_slice_eq(b[..3], [1, 2, 3]);
+	assert_slice_eq(b[1..3], [2, 3]);
+	assert_slice_eq(b[1..], [2, 3, 4, 5]);
 	
 	assert(rt::compile(
 		"fn test() void = { let x = \"test\"; x[1..3]; };"

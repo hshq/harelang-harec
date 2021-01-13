@@ -1118,6 +1118,8 @@ parse_index_slice_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		exp->access.index = start;
 		trleave(TR_PARSE, "slice-index (index)");
 		return exp;
+	} else if (tok.token == T_RBRACKET) {
+		unlex(lexer, &tok);
 	}
 
 	switch (lex(lexer, &tok)) {

@@ -1089,6 +1089,10 @@ gen_expr_slice(struct gen_context *ctx,
 	gen_temp(ctx, &start, &qbe_long, "start.%d");
 	gen_temp(ctx, &end, &qbe_long, "end.%d");
 
+	struct qbe_value src = {0}, dest = {0}, temp = {0}, offset = {0};
+	gen_temp(ctx, &dest, &qbe_long, "dest.%d");
+	gen_temp(ctx, &offset, &qbe_long, "offset.%d");
+
 	if (expr->slice.start) {
 		gen_expression(ctx, expr->slice.start, &start);
 	} else {
@@ -1100,16 +1104,34 @@ gen_expr_slice(struct gen_context *ctx,
 	} else if (otype->storage == TYPE_STORAGE_ARRAY) {
 		constl(&end, otype->array.length);
 	} else {
-		assert(0); // TODO: Read slice length into &end
+		pushc(ctx->current, "load length");
+		constl(&temp, 8); // XXX: ARCH
+		pushi(ctx->current, &offset, Q_ADD, &object, &temp, NULL);
+		pushi(ctx->current, &end, Q_LOADL, &offset, NULL);
 	}
 
 	// TODO: Bounds check
-	struct qbe_value src = {0}, dest = {0}, temp = {0}, offset = {0};
-	gen_temp(ctx, &dest, &qbe_long, "dest.%d");
-	gen_temp(ctx, &offset, &qbe_long, "offset.%d");
 	pushi(ctx->current, &dest, Q_COPY, out, NULL);
 	if (otype->storage == TYPE_STORAGE_SLICE) {
-		assert(0); // TODO
+		pushc(ctx->current, "load array");
+
+		gen_temp(ctx, &src, &qbe_long, "src.%d");
+		pushi(ctx->current, &src, Q_LOADL, &object, NULL);
+
+		pushc(ctx->current, "add offset");
+		constl(&temp, otype->array.members->size);
+		pushi(ctx->current, &offset, Q_MUL, &start, &temp, NULL);
+		pushi(ctx->current, &offset, Q_ADD, &src, &offset, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
+
+		pushc(ctx->current, "store length & capacity");
+		constl(&temp, 8); // XXX: ARCH
+		pushi(ctx->current, &offset, Q_SUB, &end, &start, NULL);
+		constl(&temp, 8); // XXX: ARCH
+		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
+		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
+		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
 	} else {
 		gen_temp(ctx, &src, &qbe_long, "length.%d");
 
