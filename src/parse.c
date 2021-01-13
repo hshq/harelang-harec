@@ -372,7 +372,8 @@ static struct ast_expression *parse_compound_expression(struct lexer *lexer);
 static struct ast_expression *parse_postfix_expression(struct lexer *lexer,
 		struct ast_expression *exp);
 static struct ast_expression *parse_scope_expression(struct lexer *lexer);
-static struct ast_expression *parse_binding_list(struct lexer *lexer);
+static struct ast_expression *parse_binding_list(
+		struct lexer *lexer, bool is_static);
 
 static struct ast_type *
 parse_enum_type(struct lexer *lexer)
@@ -948,14 +949,19 @@ parse_plain_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_assertion_expression(struct lexer *lexer)
+parse_assertion_expression(struct lexer *lexer, bool is_static)
 {
 	trace(TR_PARSE, "assertion");
 
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_ASSERT;
+	exp->assert.is_static = is_static;
 
 	struct token tok;
+	if (is_static) {
+		want(lexer, T_ASSERT, &tok);
+	}
+
 	switch (lex(lexer, &tok)) {
 	case T_STATIC:
 		exp->assert.is_static = true;
@@ -1228,7 +1234,7 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
 			T_EOF);
 		unlex(lexer, &tok);
-		return parse_assertion_expression(lexer);
+		return parse_assertion_expression(lexer, false);
 	case T_SIZE:
 	case T_LEN:
 	case T_OFFSET:
@@ -1556,7 +1562,7 @@ parse_for_expression(struct lexer *lexer)
 	case T_LET:
 	case T_CONST:
 		unlex(lexer, &tok);
-		exp->_for.bindings = parse_binding_list(lexer);
+		exp->_for.bindings = parse_binding_list(lexer, false);
 		want(lexer, T_SEMICOLON, &tok);
 		break;
 	default:
@@ -1604,14 +1610,14 @@ parse_complex_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_binding_list(struct lexer *lexer)
+parse_binding_list(struct lexer *lexer, bool is_static)
 {
 	trenter(TR_PARSE, "binding-list");
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_BINDING;
 	unsigned int flags = 0;
 
-	struct token tok;
+	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_CONST:
 		flags = TYPE_CONST;
@@ -1634,6 +1640,7 @@ parse_binding_list(struct lexer *lexer)
 		binding->name = tok.name;
 		binding->initializer = mkexpr(&lexer->loc);
 		binding->flags = flags;
+		binding->is_static = is_static;
 
 		switch (lex(lexer, &tok)) {
 		case T_COLON:
@@ -1704,9 +1711,20 @@ parse_scope_expression(struct lexer *lexer)
 	case T_LET:
 	case T_CONST:
 		unlex(lexer, &tok);
-		return parse_binding_list(lexer);
+		return parse_binding_list(lexer, false);
 	case T_STATIC:
-		assert(0); // TODO: This is a static binding list or assert
+		switch (lex(lexer, &tok)) {
+		case T_LET:
+		case T_CONST:
+			unlex(lexer, &tok);
+			return parse_binding_list(lexer, true);
+		case T_ASSERT:
+			unlex(lexer, &tok);
+			return parse_assertion_expression(lexer, true);
+		default:
+			synassert(false, &tok, T_LET, T_CONST, T_ASSERT, T_EOF);
+		}
+		break;
 	case T_IF:
 	case T_FOR:
 	case T_LABEL:

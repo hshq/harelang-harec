@@ -273,6 +273,8 @@ check_expr_binding(struct context *ctx,
 
 	const struct ast_expression_binding *abinding = &aexpr->binding;
 	while (abinding) {
+		assert(!abinding->is_static); // TODO
+
 		const struct type *type = NULL;
 		if (abinding->type) {
 			type = type_store_lookup_atype(
