@@ -761,6 +761,54 @@ check_expr_return(struct context *ctx,
 }
 
 static void
+check_expr_slice(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "slice");
+	expr->type = EXPR_SLICE;
+
+	expr->slice.object = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->slice.object, expr->slice.object);
+	const struct type *atype =
+		type_dereference(expr->slice.object->result);
+	expect(&aexpr->slice.object->loc, atype,
+		"Cannot dereference nullable pointer for slicing");
+	expect(&aexpr->slice.object->loc,
+		expr->slice.object->result->storage == TYPE_STORAGE_SLICE ||
+		expr->slice.object->result->storage == TYPE_STORAGE_ARRAY,
+		"Cannot slice non-array, non-slice object");
+
+	const struct type *itype;
+	if (aexpr->slice.start) {
+		expr->slice.start = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->slice.start, expr->slice.start);
+		itype = type_dealias(expr->slice.start->result);
+		expect(&aexpr->slice.start->loc, type_is_integer(itype),
+			"Cannot use non-integer %s type as slicing operand",
+			type_storage_unparse(itype->storage));
+		expr->slice.start = lower_implicit_cast(
+			&builtin_type_size, expr->slice.start);
+	}
+
+	if (aexpr->slice.end) {
+		expr->slice.end = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->slice.end, expr->slice.end);
+		itype = type_dealias(expr->slice.end->result);
+		expect(&aexpr->slice.end->loc, type_is_integer(itype),
+			"Cannot use non-integer %s type as slicing operand",
+			type_storage_unparse(itype->storage));
+		expr->slice.end = lower_implicit_cast(
+			&builtin_type_size, expr->slice.end);
+	}
+
+	expr->result = type_store_lookup_slice(&ctx->store,
+		expr->slice.object->result->array.members);
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expr_struct(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -938,7 +986,8 @@ check_expression(struct context *ctx,
 		check_expr_return(ctx, aexpr, expr);
 		break;
 	case EXPR_SLICE:
-		assert(0); // TODO
+		check_expr_slice(ctx, aexpr, expr);
+		break;
 	case EXPR_STRUCT:
 		check_expr_struct(ctx, aexpr, expr);
 		break;

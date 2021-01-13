@@ -185,6 +185,11 @@ struct expression_return {
 	struct expression *value;
 };
 
+struct expression_slice {
+	struct expression *object;
+	struct expression *start, *end;
+};
+
 struct expression_struct {
 	const struct struct_field *field;
 	struct expression *value;
@@ -225,6 +230,7 @@ struct expression {
 		struct expression_measure measure;
 		struct expression_return _return;
 		struct expression_struct _struct;
+		struct expression_slice slice;
 		struct expression_unarithm unarithm;
 	};
 };
