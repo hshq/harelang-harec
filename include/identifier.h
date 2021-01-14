@@ -12,6 +12,6 @@ char *identifier_unparse(const struct identifier *ident);
 int identifier_unparse_static(
 	const struct identifier *ident, char *buf, size_t len);
 void identifier_dup(struct identifier *new, const struct identifier *ident);
-int identifier_cmp(const struct identifier *a, const struct identifier *b);
+bool identifier_eq(const struct identifier *a, const struct identifier *b);
 
 #endif
