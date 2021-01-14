@@ -40,11 +40,6 @@ type_is_assignable(struct type_store *store,
 		from = type_store_lookup_with_flags(store,
 			from, from->flags & ~TYPE_CONST);
 	}
-
-	if (to->storage == TYPE_STORAGE_ARRAY
-			&& from->storage == TYPE_STORAGE_ARRAY) {
-	}
-
 	if (to == from) {
 		return true;
 	}
