@@ -288,7 +288,7 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	assert(0); // Unreachable
 }
 
-static unsigned long
+static uint64_t
 type_hash(struct type_store *store, const struct type *type)
 {
 	uint64_t hash = FNV1A_INIT;
@@ -750,7 +750,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 		return builtin;
 	}
 
-	unsigned long hash = type_hash(store, type);
+	uint64_t hash = type_hash(store, type);
 	struct type_bucket **next = &store->buckets[hash % TYPE_STORE_BUCKETS],
 		*bucket = NULL;
 
