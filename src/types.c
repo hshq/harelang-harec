@@ -270,6 +270,7 @@ type_hash(const struct type *type)
 		for (const struct identifier *ident = &type->alias.ident; ident;
 				ident = ident->ns) {
 			hash = fnv1a_s(hash, ident->name);
+			hash = fnv1a(hash, 0);
 		}
 		hash = fnv1a_u64(hash, type_hash(type->alias.type));
 		break;
