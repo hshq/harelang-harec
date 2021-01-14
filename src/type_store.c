@@ -291,6 +291,7 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 static uint64_t
 type_hash(struct type_store *store, const struct type *type)
 {
+	// XXX: ARCH
 	uint64_t hash = FNV1A_INIT;
 	hash = fnv1a(hash, type->storage);
 	hash = fnv1a(hash, type->flags);
