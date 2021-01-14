@@ -108,6 +108,7 @@ enum type_flags {
 
 struct type {
 	enum type_storage storage;
+	uint64_t id;
 	unsigned int flags;
 	size_t size, align;
 	union {
@@ -132,8 +133,10 @@ bool type_is_float(const struct type *type);
 
 uint64_t type_hash(const struct type *type);
 
+void builtin_types_init();
+
 // Built-in type singletons
-extern const struct type
+extern struct type
 	// Primitive
 	builtin_type_bool,
 	builtin_type_char,

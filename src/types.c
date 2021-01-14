@@ -311,8 +311,35 @@ type_hash(const struct type *type)
 	return hash;
 }
 
+void
+builtin_types_init()
+{
+	struct type *builtins[] = {
+		&builtin_type_bool, &builtin_type_char, &builtin_type_f32,
+		&builtin_type_f64, &builtin_type_i8, &builtin_type_i16,
+		&builtin_type_i32, &builtin_type_i64, &builtin_type_int,
+		&builtin_type_u8, &builtin_type_u16, &builtin_type_u32,
+		&builtin_type_u64, &builtin_type_uint, &builtin_type_uintptr,
+		&builtin_type_null, &builtin_type_rune, &builtin_type_size,
+		&builtin_type_void, &builtin_type_const_bool,
+		&builtin_type_const_char, &builtin_type_const_f32,
+		&builtin_type_const_f64, &builtin_type_const_i8,
+		&builtin_type_const_i16, &builtin_type_const_i32,
+		&builtin_type_const_i64, &builtin_type_const_int,
+		&builtin_type_const_u8, &builtin_type_const_u16,
+		&builtin_type_const_u32, &builtin_type_const_u64,
+		&builtin_type_const_uint, &builtin_type_const_uintptr,
+		&builtin_type_const_rune, &builtin_type_const_size,
+		&builtin_type_const_void, &builtin_type_const_ptr_char,
+		&builtin_type_str, &builtin_type_const_str,
+	};
+	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
+		builtins[i]->id = type_hash(builtins[i]);
+	}
+}
+
 // Built-in type singletons
-const struct type builtin_type_bool = {
+struct type builtin_type_bool = {
 	.storage = TYPE_STORAGE_BOOL,
 	.size = 4, // XXX: ARCH
 	.align = 4,
@@ -517,7 +544,7 @@ builtin_type_const_void = {
 };
 
 // Others
-const struct type builtin_type_const_ptr_char = {
+struct type builtin_type_const_ptr_char = {
 	.storage = TYPE_STORAGE_POINTER,
 	.flags = TYPE_CONST,
 	.size = 8, // XXX: ARCH

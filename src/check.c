@@ -1299,6 +1299,7 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 void
 check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
 {
+	builtin_types_init();
 	ctx->store.check_context = ctx;
 	ctx->ns = unit->ns;
 

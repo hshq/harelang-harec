@@ -558,10 +558,11 @@ static const struct type *type_store_lookup_type(
 
 static void
 type_init_from_type(struct type_store *store,
-	struct type *new, const struct type *old)
+	struct type *new, const struct type *old, uint64_t hash)
 {
 	new->storage = old->storage;
 	new->flags = old->flags;
+	new->id = hash;
 
 	switch (old->storage) {
 	case TYPE_STORAGE_BOOL:
@@ -683,7 +684,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 
 	bucket = *next = xcalloc(1, sizeof(struct type_bucket));
 	// XXX: can we replace this with memcpy?
-	type_init_from_type(store, &bucket->type, type);
+	type_init_from_type(store, &bucket->type, type, hash);
 	return &bucket->type;
 }
 
