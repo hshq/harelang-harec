@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "types.h"
-#include "type_store.h"
+#include "util.h"
 
 const struct type *
 type_dereference(const struct type *type)
@@ -18,6 +18,15 @@ type_dereference(const struct type *type)
 	default:
 		return type;
 	}
+}
+
+const struct type *
+type_dealias(const struct type *type)
+{
+	while (type->storage == TYPE_STORAGE_ALIAS) {
+		type = type->alias.type;
+	}
+	return type;
 }
 
 const struct struct_field *
@@ -226,6 +235,79 @@ type_is_signed(const struct type *type)
 		assert(0); // TODO
 	}
 	assert(0); // Unreachable
+}
+
+uint64_t
+type_hash(const struct type *type)
+{
+	// XXX: ARCH
+	uint64_t hash = FNV1A_INIT;
+	hash = fnv1a(hash, type->storage);
+	hash = fnv1a(hash, type->flags);
+	switch (type->storage) {
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_STRING:
+		break; // built-ins
+	case TYPE_STORAGE_ALIAS:
+		for (const struct identifier *ident = &type->alias.ident; ident;
+				ident = ident->ns) {
+			hash = fnv1a_s(hash, ident->name);
+		}
+		hash = fnv1a_u64(hash, type_hash(type->alias.type));
+		break;
+	case TYPE_STORAGE_ARRAY:
+		hash = fnv1a_u64(hash, type_hash(type->array.members));
+		hash = fnv1a_u64(hash, type->array.length);
+		break;
+	case TYPE_STORAGE_FUNCTION:
+		hash = fnv1a_u64(hash, type_hash(type->func.result));
+		hash = fnv1a(hash, type->func.variadism);
+		hash = fnv1a(hash, type->func.flags);
+		for (struct type_func_param *param = type->func.params;
+				param; param = param->next) {
+			hash = fnv1a_u64(hash, type_hash(param->type));
+		}
+		break;
+	case TYPE_STORAGE_ENUM:
+		assert(0); // TODO
+	case TYPE_STORAGE_POINTER:
+		hash = fnv1a(hash, type->pointer.flags);
+		hash = fnv1a_u64(hash, type_hash(type->pointer.referent));
+		break;
+	case TYPE_STORAGE_SLICE:
+		hash = fnv1a_u64(hash, type_hash(type->array.members));
+		break;
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_UNION:
+		for (const struct struct_field *field = type->struct_union.fields;
+				field; field = field->next) {
+			hash = fnv1a_s(hash, field->name);
+			hash = fnv1a_u64(hash, type_hash(field->type));
+			hash = fnv1a_u64(hash, field->offset);
+		}
+		break;
+	case TYPE_STORAGE_TAGGED_UNION:
+		assert(0); // TODO
+	}
+	return hash;
 }
 
 // Built-in type singletons

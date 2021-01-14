@@ -120,6 +120,7 @@ struct type {
 };
 
 const struct type *type_dereference(const struct type *type);
+const struct type *type_dealias(const struct type *type);
 const struct struct_field *type_get_field(
 	const struct type *type, const char *name);
 
@@ -128,6 +129,8 @@ bool type_is_signed(const struct type *type);
 bool type_is_integer(const struct type *type);
 bool type_is_numeric(const struct type *type);
 bool type_is_float(const struct type *type);
+
+uint64_t type_hash(const struct type *type);
 
 // Built-in type singletons
 extern const struct type
