@@ -153,7 +153,6 @@ type_is_castable(const struct type *to, const struct type *from)
 {
 	to = type_dealias(to);
 	from = type_dealias(from);
-
 	if (to == from) {
 		return true;
 	}
@@ -291,100 +290,6 @@ builtin_for_type(const struct type *type)
 {
 	bool is_const = (type->flags & TYPE_CONST) != 0;
 	return builtin_type_for_storage(type->storage, is_const);
-}
-
-static bool
-type_eq_type(struct type_store *store,
-	const struct type *a, const struct type *b)
-{
-	if (a == b) {
-		return true;
-	}
-	if (a->storage != b->storage || a->flags != b->flags) {
-		return false;
-	}
-
-	switch (a->storage) {
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_VOID:
-	case TYPE_STORAGE_STRING:
-		return true;
-	case TYPE_STORAGE_ALIAS:
-		if (!identifier_eq(&a->alias.ident, &b->alias.ident)) {
-			return false;
-		}
-		assert(type_eq_type(store, a->alias.type, b->alias.type));
-		return true;
-	case TYPE_STORAGE_ARRAY:
-		return a->array.length == b->array.length
-			&& a->array.expandable == b->array.expandable
-			&& type_eq_type(store, a->array.members, b->array.members);
-	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
-	case TYPE_STORAGE_FUNCTION:
-		if (a->func.variadism != b->func.variadism
-				|| a->func.flags != b->func.flags
-				|| !type_eq_type(store, a->func.result, b->func.result)) {
-			return false;
-		}
-		struct type_func_param *aparam = a->func.params;
-		struct type_func_param *bparam = b->func.params;
-		while (aparam && bparam) {
-			if (!type_eq_type(store, aparam->type, bparam->type)) {
-				return false;
-			}
-
-			aparam = aparam->next;
-			bparam = bparam->next;
-		}
-		return !aparam && !bparam;
-	case TYPE_STORAGE_POINTER:
-		return a->pointer.flags == b->pointer.flags &&
-			type_eq_type(store, a->pointer.referent, b->pointer.referent);
-	case TYPE_STORAGE_SLICE:
-		return type_eq_type(store, a->array.members, b->array.members);
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_UNION:
-		for (const struct struct_field *afield = a->struct_union.fields,
-				*bfield = b->struct_union.fields;
-				afield && bfield;
-				afield = afield->next, bfield = bfield->next) {
-			if (!!afield->next != !!bfield->next) {
-				return false;
-			}
-			if (strcmp(afield->name, bfield->name) != 0) {
-				return false;
-			}
-			if (!type_eq_type(store, afield->type, bfield->type)) {
-				return false;
-			}
-			if (afield->offset != bfield->offset) {
-				return false;
-			}
-		}
-		return true;
-	case TYPE_STORAGE_TAGGED_UNION:
-		assert(0); // TODO
-	}
-
-	assert(0); // Unreachable
 }
 
 static void
@@ -553,115 +458,6 @@ type_init_from_atype(struct type_store *store,
 	}
 }
 
-static const struct type *type_store_lookup_type(
-		struct type_store *store, const struct type *type);
-
-static void
-type_init_from_type(struct type_store *store,
-	struct type *new, const struct type *old, uint64_t hash)
-{
-	new->storage = old->storage;
-	new->flags = old->flags;
-	new->id = hash;
-
-	switch (old->storage) {
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_VOID:
-	case TYPE_STORAGE_STRING:
-		assert(0); // Invariant
-	case TYPE_STORAGE_ALIAS:
-		new->size = old->size;
-		new->align = old->align;
-		identifier_dup(&new->alias.ident, &old->alias.ident);
-		new->alias.type =
-			type_store_lookup_type(store, old->alias.type);
-		break;
-	case TYPE_STORAGE_ARRAY:
-		new->array.members =
-			type_store_lookup_type(store, old->array.members);
-		new->array.length = old->array.length;
-		new->array.expandable = old->array.expandable;
-		new->align = new->array.members->align;
-		if (new->array.length == SIZE_UNDEFINED) {
-			new->size = SIZE_UNDEFINED;
-		} else {
-			new->size = new->array.members->size * new->array.length;
-		}
-		break;
-	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
-	case TYPE_STORAGE_FUNCTION:
-		new->size = SIZE_UNDEFINED;
-		new->align = SIZE_UNDEFINED;
-		new->func.result =
-			type_store_lookup_type(store, old->func.result);
-		new->func.variadism = old->func.variadism;
-		for (struct type_func_param *oparam = old->func.params,
-				*param, **next = &new->func.params; oparam;
-				oparam = oparam->next) {
-			param = *next =
-				xcalloc(1, sizeof(struct type_func_param));
-			param->type =
-				type_store_lookup_type(store, oparam->type);
-			next = &param->next;
-		}
-		new->func.flags = old->func.flags;
-		break;
-	case TYPE_STORAGE_POINTER:
-		new->size = 8; // XXX: ARCH
-		new->align = 8;
-		new->pointer.flags = old->pointer.flags;
-		new->pointer.referent = type_store_lookup_type(
-			store, old->pointer.referent);
-		break;
-	case TYPE_STORAGE_SLICE:
-		new->size = 24; // XXX: ARCH
-		new->align = 8;
-		new->array.members = type_store_lookup_type(
-			store, old->array.members);
-		new->array.length = SIZE_UNDEFINED;
-		break;
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_UNION:;
-		struct struct_field **next = &new->struct_union.fields;
-		for (const struct struct_field *ofield = old->struct_union.fields;
-				ofield; ofield = ofield->next) {
-			struct struct_field *field = *next =
-				xcalloc(sizeof(struct struct_field), 1);
-			next = &field->next;
-			field->name = ofield->name;
-			field->type =
-				type_store_lookup_type(store, ofield->type);
-			field->offset = ofield->offset;
-		}
-		new->struct_union.c_compat = old->struct_union.c_compat;
-		new->size = old->size;
-		new->align = old->align;
-		break;
-	case TYPE_STORAGE_TAGGED_UNION:
-		assert(0); // TODO
-	}
-}
-
-// Used internally for looking up modified forms of other types and for
-// inserting types into the type store
 static const struct type *
 type_store_lookup_type(struct type_store *store, const struct type *type)
 {
@@ -676,15 +472,15 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 
 	while (*next) {
 		bucket = *next;
-		if (type_eq_type(store, &bucket->type, type)) {
+		if (bucket->type.id == hash) {
 			return &bucket->type;
 		}
 		next = &bucket->next;
 	}
 
 	bucket = *next = xcalloc(1, sizeof(struct type_bucket));
-	// XXX: can we replace this with memcpy?
-	type_init_from_type(store, &bucket->type, type, hash);
+	bucket->type = *type;
+	bucket->type.id = hash;
 	return &bucket->type;
 }
 
@@ -695,7 +491,6 @@ type_store_lookup_atype(struct type_store *store, const struct ast_type *atype)
 	if (builtin) {
 		return builtin;
 	}
-
 	struct type type = {0};
 	type_init_from_atype(store, &type, atype);
 	return type_store_lookup_type(store, &type);
@@ -723,6 +518,8 @@ type_store_lookup_pointer(struct type_store *store,
 			.referent = referent,
 			.flags = ptrflags,
 		},
+		.size = 8, // XXX: ARCH
+		.align = 8,
 	};
 	return type_store_lookup_type(store, &ptr);
 }
@@ -738,6 +535,9 @@ type_store_lookup_array(struct type_store *store,
 			.length = len,
 			.expandable = expandable,
 		},
+		.size = len == SIZE_UNDEFINED
+			? SIZE_UNDEFINED : members->size * len,
+		.align = members->align,
 	};
 	return type_store_lookup_type(store, &array);
 }
@@ -751,6 +551,8 @@ type_store_lookup_slice(struct type_store *store, const struct type *members)
 			.members = members,
 			.length = SIZE_UNDEFINED,
 		},
+		.size = 24, // XXX: ARCH
+		.align = 8,
 	};
 	return type_store_lookup_type(store, &slice);
 }
