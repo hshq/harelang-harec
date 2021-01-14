@@ -12,7 +12,7 @@ do
 	then
 		ntests=$((ntests+1))
 		name="$(basename "$f")"
-		printf '%-40s ...' "$name"
+		printf '%-20s ...' "$name"
 		if [ "$name" = "09-funcs" ]
 		then
 			expected=42
