@@ -1,19 +1,20 @@
 #include <stdlib.h>
+#include <stdint.h>
 // Do not include this header:
 //#include "util.h"
 
-unsigned long
-djb2(unsigned long hash, char c)
+uint64_t
+fnv1a(uint64_t hash, unsigned char c)
 {
-	return ((hash << 5) + hash) + c;
+	return (hash ^ c) * 1099511628211;
 }
 
-unsigned long
-djb2_s(unsigned long hash, const char *str)
+uint64_t
+fnv1a_s(uint64_t hash, const char *str)
 {
-	char c;
+	unsigned char c;
 	while ((c = *str++)) {
-		hash = djb2(hash, c);
+		hash = fnv1a(hash, c);
 	}
 	return hash;
 }

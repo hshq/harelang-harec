@@ -291,9 +291,9 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 static unsigned long
 type_hash(struct type_store *store, const struct type *type)
 {
-	unsigned long hash = DJB2_INIT;
-	hash = djb2(hash, type->storage);
-	hash = djb2(hash, type->flags);
+	uint64_t hash = FNV1A_INIT;
+	hash = fnv1a(hash, type->storage);
+	hash = fnv1a(hash, type->flags);
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -319,39 +319,39 @@ type_hash(struct type_store *store, const struct type *type)
 	case TYPE_STORAGE_ALIAS:
 		for (const struct identifier *ident = &type->alias.ident; ident;
 				ident = ident->ns) {
-			hash = djb2_s(hash, ident->name);
+			hash = fnv1a_s(hash, ident->name);
 		}
-		hash = djb2(hash, type_hash(store, type->alias.type));
+		hash = fnv1a(hash, type_hash(store, type->alias.type));
 		break;
 	case TYPE_STORAGE_ARRAY:
-		hash = djb2(hash, type_hash(store, type->array.members));
-		hash = djb2(hash, type->array.length);
+		hash = fnv1a(hash, type_hash(store, type->array.members));
+		hash = fnv1a(hash, type->array.length);
 		break;
 	case TYPE_STORAGE_FUNCTION:
-		hash = djb2(hash, type_hash(store, type->func.result));
-		hash = djb2(hash, type->func.variadism);
-		hash = djb2(hash, type->func.flags);
+		hash = fnv1a(hash, type_hash(store, type->func.result));
+		hash = fnv1a(hash, type->func.variadism);
+		hash = fnv1a(hash, type->func.flags);
 		for (struct type_func_param *param = type->func.params;
 				param; param = param->next) {
-			hash = djb2(hash, type_hash(store, param->type));
+			hash = fnv1a(hash, type_hash(store, param->type));
 		}
 		break;
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_POINTER:
-		hash = djb2(hash, type->pointer.flags);
-		hash = djb2(hash, type_hash(store, type->pointer.referent));
+		hash = fnv1a(hash, type->pointer.flags);
+		hash = fnv1a(hash, type_hash(store, type->pointer.referent));
 		break;
 	case TYPE_STORAGE_SLICE:
-		hash = djb2(hash, type_hash(store, type->array.members));
+		hash = fnv1a(hash, type_hash(store, type->array.members));
 		break;
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		for (const struct struct_field *field = type->struct_union.fields;
 				field; field = field->next) {
-			hash = djb2_s(hash, field->name);
-			hash = djb2(hash, type_hash(store, field->type));
-			hash = djb2(hash, field->offset);
+			hash = fnv1a_s(hash, field->name);
+			hash = fnv1a(hash, type_hash(store, field->type));
+			hash = fnv1a(hash, field->offset);
 		}
 		break;
 	case TYPE_STORAGE_TAGGED_UNION:
