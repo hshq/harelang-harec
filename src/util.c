@@ -10,6 +10,16 @@ fnv1a(uint64_t hash, unsigned char c)
 }
 
 uint64_t
+fnv1a_u64(uint64_t hash, uint64_t u64)
+{
+	hash = fnv1a(hash, (u64) & 0xFF);
+	hash = fnv1a(hash, (u64 >> 8) & 0xFF);
+	hash = fnv1a(hash, (u64 >> 16) & 0xFF);
+	hash = fnv1a(hash, (u64 >> 24) & 0xFF);
+	return hash;
+}
+
+uint64_t
 fnv1a_s(uint64_t hash, const char *str)
 {
 	unsigned char c;

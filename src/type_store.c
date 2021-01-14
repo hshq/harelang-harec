@@ -321,37 +321,37 @@ type_hash(struct type_store *store, const struct type *type)
 				ident = ident->ns) {
 			hash = fnv1a_s(hash, ident->name);
 		}
-		hash = fnv1a(hash, type_hash(store, type->alias.type));
+		hash = fnv1a_u64(hash, type_hash(store, type->alias.type));
 		break;
 	case TYPE_STORAGE_ARRAY:
-		hash = fnv1a(hash, type_hash(store, type->array.members));
-		hash = fnv1a(hash, type->array.length);
+		hash = fnv1a_u64(hash, type_hash(store, type->array.members));
+		hash = fnv1a_u64(hash, type->array.length);
 		break;
 	case TYPE_STORAGE_FUNCTION:
-		hash = fnv1a(hash, type_hash(store, type->func.result));
+		hash = fnv1a_u64(hash, type_hash(store, type->func.result));
 		hash = fnv1a(hash, type->func.variadism);
 		hash = fnv1a(hash, type->func.flags);
 		for (struct type_func_param *param = type->func.params;
 				param; param = param->next) {
-			hash = fnv1a(hash, type_hash(store, param->type));
+			hash = fnv1a_u64(hash, type_hash(store, param->type));
 		}
 		break;
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_POINTER:
 		hash = fnv1a(hash, type->pointer.flags);
-		hash = fnv1a(hash, type_hash(store, type->pointer.referent));
+		hash = fnv1a_u64(hash, type_hash(store, type->pointer.referent));
 		break;
 	case TYPE_STORAGE_SLICE:
-		hash = fnv1a(hash, type_hash(store, type->array.members));
+		hash = fnv1a_u64(hash, type_hash(store, type->array.members));
 		break;
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		for (const struct struct_field *field = type->struct_union.fields;
 				field; field = field->next) {
 			hash = fnv1a_s(hash, field->name);
-			hash = fnv1a(hash, type_hash(store, field->type));
-			hash = fnv1a(hash, field->offset);
+			hash = fnv1a_u64(hash, type_hash(store, field->type));
+			hash = fnv1a_u64(hash, field->offset);
 		}
 		break;
 	case TYPE_STORAGE_TAGGED_UNION:
