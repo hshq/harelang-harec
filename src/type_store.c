@@ -126,7 +126,8 @@ type_is_assignable(struct type_store *store,
 				|| from->storage == TYPE_STORAGE_SLICE)
 			&& to_secondary == from_secondary;
 	case TYPE_STORAGE_ARRAY:
-		return to->array.length == SIZE_UNDEFINED
+		return from->storage == TYPE_STORAGE_ARRAY
+			&& to->array.length == SIZE_UNDEFINED
 			&& from->array.length != SIZE_UNDEFINED;
 	// The following types are only assignable from themselves, and are
 	// handled above:
