@@ -699,11 +699,11 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	struct qbe_value tag = {0}, ptr = {0}, offs = {0};
 	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
 	constl(&offs, 8);
-	constl(&tag, expr->result->id);
+	constl(&tag, expr->cast.value->result->id);
 	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
 	pushi(ctx->current, NULL, Q_STOREL, &tag, &ptr, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
-	ptr.type = qtype_for_type(ctx, expr->result, false);
+	ptr.type = qtype_for_type(ctx, expr->cast.value->result, false);
 	ptr.indirect = !type_is_aggregate(expr->cast.value->result);
 	gen_expression(ctx, expr->cast.value, &ptr);
 }

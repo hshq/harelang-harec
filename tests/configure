@@ -15,7 +15,8 @@ tests() {
 		09-funcs \
 		10-binarithms \
 		11-globals \
-		12-loops
+		12-loops \
+		13-tagged
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
