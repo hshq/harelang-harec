@@ -662,6 +662,58 @@ gen_expr_call(struct gen_context *ctx,
 }
 
 static void
+gen_cast_to_tagged(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out,
+	const struct type *from)
+{
+	if (from->storage == TYPE_STORAGE_TAGGED_UNION) {
+		assert(0); // TODO
+	}
+
+	struct qbe_value tag = {0}, ptr = {0}, offs = {0};
+	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+	constl(&offs, 8);
+	constl(&tag, expr->result->id);
+	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
+	pushi(ctx->current, NULL, Q_STOREL, &tag, &ptr, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+	ptr.type = qtype_for_type(ctx, expr->result, false);
+	ptr.indirect = type_is_aggregate(expr->cast.value->result);
+	gen_expression(ctx, expr->cast.value, &ptr);
+}
+
+static void
+gen_cast_from_tagged(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out,
+	const struct type *to)
+{
+	if (to->storage == TYPE_STORAGE_TAGGED_UNION) {
+		assert(0); // TODO
+	}
+
+	// XXX: This has not been fully tested pending rules implementation
+	struct qbe_value ptr = {0}, offs = {0}, temp = {0};
+	gen_temp(ctx, &ptr,
+		qtype_for_type(ctx, expr->result, false), "tagged.%d");
+	gen_expression(ctx, expr->cast.value, &ptr);
+
+	constl(&offs, 8);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+	ptr.type = qtype_for_type(ctx, expr->result, false);
+	ptr.indirect = type_is_aggregate(expr->result);
+	if (ptr.indirect) {
+		gen_loadtemp(ctx, &temp, &ptr,
+			qtype_for_type(ctx, expr->result, false),
+			type_is_signed(expr->result));
+		gen_store(ctx, out, &temp);
+	} else {
+		gen_store(ctx, out, &ptr);
+	}
+}
+
+static void
 gen_expr_cast(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -670,6 +722,12 @@ gen_expr_cast(struct gen_context *ctx,
 	      *from = type_dealias(expr->cast.value->result);
 	if (to->storage == from->storage) {
 		gen_expression(ctx, expr->cast.value, out);
+		return;
+	} else if (to->storage == TYPE_STORAGE_TAGGED_UNION) {
+		gen_cast_to_tagged(ctx, expr, out, from);
+		return;
+	} else if (from->storage == TYPE_STORAGE_TAGGED_UNION) {
+		gen_cast_from_tagged(ctx, expr, out, to);
 		return;
 	}
 
@@ -702,7 +760,10 @@ gen_expr_cast(struct gen_context *ctx,
 	}
 	gen_expression(ctx, expr->cast.value, &in);
 
+	// Used for various casts
 	enum qbe_instr op;
+	struct qbe_value ptr = {0}, offs = {0}, len = {0};
+
 	switch (to->storage) {
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_U8:
@@ -746,7 +807,6 @@ gen_expr_cast(struct gen_context *ctx,
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
@@ -762,7 +822,6 @@ gen_expr_cast(struct gen_context *ctx,
 			break;
 		}
 		// XXX: ARCH
-		struct qbe_value ptr = {0}, offs = {0}, len = {0};
 		gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
 		constl(&offs, 8);
 		constl(&len, from->array.length);
@@ -779,6 +838,7 @@ gen_expr_cast(struct gen_context *ctx,
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
 	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // Handled above
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_FUNCTION:
