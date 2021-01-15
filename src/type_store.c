@@ -351,6 +351,96 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	}
 }
 
+static size_t
+sum_atagged_memb(const struct ast_tagged_union_type *u)
+{
+	size_t nmemb = 0;
+	for (; u; u = u->next) {
+		if (u->type->storage == TYPE_STORAGE_TAGGED_UNION) {
+			nmemb += sum_atagged_memb(&u->type->tagged_union);
+		} else {
+			++nmemb;
+		}
+	}
+	return nmemb;
+}
+
+static void
+collect_atagged_memb(struct type_store *store,
+		struct type_tagged_union **ta,
+		const struct ast_tagged_union_type *atu,
+		size_t *i)
+{
+	for (; atu; atu = atu->next) {
+		if (atu->type->storage == TYPE_STORAGE_TAGGED_UNION) {
+			collect_atagged_memb(store, ta, atu, i);
+			continue;
+		}
+		struct type_tagged_union *tu;
+		ta[*i] = tu = xcalloc(1, sizeof(struct type_tagged_union));
+		tu->type = type_store_lookup_atype(store, atu->type);
+		*i += 1;
+	}
+}
+
+static int
+tagged_cmp(const void *ptr_a, const void *ptr_b)
+{
+	const struct type_tagged_union **a =
+		(const struct type_tagged_union **)ptr_a;
+	const struct type_tagged_union **b =
+		(const struct type_tagged_union **)ptr_b;
+	return (*a)->type->id < (*b)->type->id ? -1
+		: (*a)->type->id > (*b)->type->id ? 1 : 0;
+}
+
+static void
+tagged_init_from_atype(struct type_store *store,
+	struct type *type, const struct ast_type *atype)
+{
+	size_t nmemb = sum_atagged_memb(&atype->tagged_union);
+	struct type_tagged_union **tu =
+		xcalloc(nmemb, sizeof(struct type_tagged_union *));
+	size_t i = 0;
+	collect_atagged_memb(store, tu, &atype->tagged_union, &i);
+
+	// Prune duplicates
+	for (i = 1; i < nmemb; ++i)
+	for (size_t j = 0; j < i; ++j) {
+		if (tu[j]->type->id == tu[i]->type->id) {
+			assert(0); // TODO: prune
+		}
+	}
+
+	// Sort by ID
+	qsort(tu, nmemb, sizeof(tu[0]), tagged_cmp);
+
+	// First one free
+	type->tagged = *tu[0];
+	free(tu[0]);
+
+	type->size = type->tagged.type->size;
+	type->align = type->tagged.type->align;
+
+	struct type_tagged_union **next = &type->tagged.next;
+	for (size_t i = 1; i < nmemb; ++i) {
+		if (tu[i]->type->size > type->size) {
+			type->size = tu[i]->type->size;
+		}
+		if (tu[i]->type->align > type->align) {
+			type->align = tu[i]->type->align;
+		}
+
+		*next = tu[i];
+		next = &tu[i]->next;
+	}
+
+	type->size += builtin_type_size.size;
+	if (builtin_type_size.align > type->align) {
+		type->align = builtin_type_size.align;
+	}
+}
+
 static void
 type_init_from_atype(struct type_store *store,
 	struct type *type,
@@ -450,7 +540,8 @@ type_init_from_atype(struct type_store *store,
 			&atype->struct_union);
 		break;
 	case TYPE_STORAGE_TAGGED_UNION:
-		assert(0); // TODO
+		tagged_init_from_atype(store, type, atype);
+		break;
 	}
 }
 

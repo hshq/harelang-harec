@@ -102,6 +102,11 @@ struct type_struct_union {
 	struct struct_field *fields;
 };
 
+struct type_tagged_union {
+	const struct type *type;
+	struct type_tagged_union *next;
+};
+
 enum type_flags {
 	TYPE_CONST = 1 << 0,
 };
@@ -117,6 +122,7 @@ struct type {
 		struct type_func func;
 		struct type_pointer pointer;
 		struct type_struct_union struct_union;
+		struct type_tagged_union tagged;
 	};
 };
 

@@ -306,7 +306,13 @@ type_hash(const struct type *type)
 		}
 		break;
 	case TYPE_STORAGE_TAGGED_UNION:
-		assert(0); // TODO
+		// Invariant: subtypes must be sorted by ID and must not include
+		// any other tagged union types, nor any duplicates.
+		for (const struct type_tagged_union *tu = &type->tagged;
+				tu; tu = tu->next) {
+			hash = fnv1a_u64(hash, type_hash(tu->type));
+		}
+		break;
 	}
 	return hash;
 }
