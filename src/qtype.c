@@ -106,10 +106,11 @@ tagged_qtype(struct gen_context *ctx, const struct type *type)
 	def->name = name;
 	def->exported = false;
 	def->type.stype = Q__AGGREGATE;
-	def->type.base = type;
+	def->type.base = NULL;
 	def->type.name = name;
 	def->type.align = SIZE_UNDEFINED;
 	def->type.is_union = true;
+	def->type.size = type->size - builtin_type_size.size;
 
 	struct qbe_field *field = &def->type.fields;
 	for (const struct type_tagged_union *tu = &type->tagged;
@@ -154,11 +155,11 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
 	def->kind = Q_TYPE;
 	def->name = name;
-	def->exported = false;
 	def->type.stype = Q__AGGREGATE;
 	def->type.base = type;
 	def->type.name = name;
 	def->type.align = SIZE_UNDEFINED;
+	def->type.size = type->size;
 
 	struct qbe_field *field = &def->type.fields;
 	switch (type->storage) {

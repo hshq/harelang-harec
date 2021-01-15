@@ -76,9 +76,10 @@ binding_alloc(struct gen_context *ctx, const struct scope_object *obj,
 	binding->object = obj;
 	binding->next = ctx->bindings;
 	ctx->bindings = binding;
-	pushc(ctx->current, "alloc binding: %s -> %%%s, =%c, indirect: %d",
+	pushc(ctx->current, "alloc binding: %s -> %%%s, =%c (%s), indirect: %d",
 			obj->ident.name, binding->name,
-			(char)val->type->stype, val->indirect);
+			(char)val->type->stype, val->type->name,
+			val->indirect);
 	return binding;
 }
 
@@ -144,7 +145,8 @@ gen_copy(struct gen_context *ctx,
 	const struct qbe_value *src)
 {
 	assert(!dest->indirect && !src->indirect);
-	const struct qbe_field *field = &dest->type->fields;
+	pushc(ctx->current, "begin gen_copy for type %s (is_union? %d)",
+			dest->type->name, dest->type->is_union);
 
 	struct qbe_value temp = {0}, destp = {0}, srcp = {0}, size = {0};
 	gen_temp(ctx, &temp, &qbe_long, "temp.%d");
@@ -153,10 +155,22 @@ gen_copy(struct gen_context *ctx,
 	pushi(ctx->current, &destp, Q_COPY, dest, NULL);
 	pushi(ctx->current, &srcp, Q_COPY, src, NULL);
 
+	const struct qbe_field *field = &dest->type->fields;
+	if (dest->type->is_union) {
+		size_t max = 0;
+		for (const struct qbe_field *f = &dest->type->fields;
+				f; f = f->next) {
+			if (f->type->size > max) {
+				field = f;
+			}
+		}
+	}
+
 	while (field) {
 		temp.type = field->type;
 
 		for (size_t i = field->count; i > 0; --i) {
+			struct qbe_value a, b;
 			switch (field->type->stype) {
 			case Q_BYTE:
 			case Q_HALF:
@@ -164,8 +178,8 @@ gen_copy(struct gen_context *ctx,
 			case Q_LONG:
 			case Q_SINGLE:
 			case Q_DOUBLE:
-				// XXX: This may be broken for unsigned types b
-				// and h
+				// TODO: This might be broken for unsigned types
+				// b and h
 				pushi(ctx->current, &temp,
 					load_for_type(field->type->stype, true),
 					&srcp, NULL);
@@ -174,12 +188,16 @@ gen_copy(struct gen_context *ctx,
 					&temp, &destp, NULL);
 				break;
 			case Q__AGGREGATE:
-				assert(0); // TODO
+				a = destp, b = srcp;
+				a.type = field->type;
+				b.type = field->type;
+				gen_copy(ctx, &a, &b);
+				break;
 			case Q__VOID:
 				assert(0); // Invariant
 			}
 
-			if (i > 1) {
+			if (!dest->type->is_union) {
 				assert(field->type->size != 0);
 				constl(&size, field->type->size);
 				pushi(ctx->current, &destp, Q_ADD, &destp, &size, NULL);
@@ -188,7 +206,14 @@ gen_copy(struct gen_context *ctx,
 		}
 
 		field = field->next;
+
+		if (dest->type->is_union) {
+			// We only copy the largest field in this case
+			break;
+		}
 	}
+
+	pushc(ctx->current, "end gen_copy for type %s", dest->type->name);
 }
 
 static void
