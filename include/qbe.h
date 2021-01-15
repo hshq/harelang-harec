@@ -30,6 +30,7 @@ struct qbe_type {
 	// Aggregate types only:
 	char *name;
 	size_t align;
+	bool is_union;
 	struct qbe_field fields;
 	const struct type *base;
 };

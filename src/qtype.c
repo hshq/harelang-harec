@@ -94,6 +94,42 @@ qxtype_for_type(const struct type *type)
 }
 
 static const struct qbe_type *
+tagged_qtype(struct gen_context *ctx, const struct type *type)
+{
+	int n = snprintf(NULL, 0, "tags.%zd", ctx->id);
+	char *name = xcalloc(1, n + 1);
+	snprintf(name, n + 1, "tags.%zd", ctx->id);
+	++ctx->id;
+
+	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
+	def->kind = Q_TYPE;
+	def->name = name;
+	def->exported = false;
+	def->type.stype = Q__AGGREGATE;
+	def->type.base = type;
+	def->type.name = name;
+	def->type.align = SIZE_UNDEFINED;
+	def->type.is_union = true;
+
+	struct qbe_field *field = &def->type.fields;
+	for (const struct type_tagged_union *tu = &type->tagged;
+			tu; tu = tu->next) {
+		if (tu->type->size == 0) {
+			continue;
+		}
+		field->type = qtype_for_type(ctx, tu->type, true);
+		field->count = 1;
+		if (tu->next) {
+			field->next = xcalloc(1, sizeof(struct qbe_field));
+			field = field->next;
+		}
+	}
+
+	qbe_append_def(ctx->out, def);
+	return &def->type;
+}
+
+static const struct qbe_type *
 lookup_aggregate(struct gen_context *ctx, const struct type *type)
 {
 	for (struct qbe_def *def = ctx->out->defs; def; def = def->next) {
@@ -116,9 +152,9 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 	++ctx->id;
 
 	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
-	def->kind = Q_TYPE,
-	def->name = name,
-	def->exported = false,
+	def->kind = Q_TYPE;
+	def->name = name;
+	def->exported = false;
 	def->type.stype = Q__AGGREGATE;
 	def->type.base = type;
 	def->type.name = name;
@@ -148,8 +184,18 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 		field->type = &qbe_long; // XXX: ARCH
 		field->count = 3;
 		break;
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_TAGGED_UNION:
+		def->type.align = type->align;
+		field->type = &qbe_long; // XXX: ARCH
+		field->count = 1;
+		if (type->size != builtin_type_size.size) {
+			field->next = xcalloc(1, sizeof(struct qbe_field));
+			field = field->next;
+			field->type = tagged_qtype(ctx, type);
+			field->count = 1;
+		}
+		break;
+	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ALIAS:

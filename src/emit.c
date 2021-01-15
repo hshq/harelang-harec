@@ -40,6 +40,9 @@ emit_type(const struct qbe_def *def, FILE *out)
 
 	const struct qbe_field *field = &def->type.fields;
 	while (field) {
+		if (def->type.is_union) {
+			fprintf(out, " {");
+		}
 		if (field->type) {
 			fprintf(out, " ");
 			emit_qtype(field->type, true, out);
@@ -47,7 +50,9 @@ emit_type(const struct qbe_def *def, FILE *out)
 		if (field->count) {
 			fprintf(out, " %zu", field->count);
 		}
-		if (field->next) {
+		if (def->type.is_union) {
+			fprintf(out, " }");
+		} else if (field->next) {
 			fprintf(out, ",");
 		}
 		field = field->next;
