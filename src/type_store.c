@@ -26,6 +26,29 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 	return (size_t)out.constant.uval;
 }
 
+static bool
+tagged_assignable(struct type_store *store,
+		const struct type *to,
+		const struct type *from)
+{
+	if (from->storage == TYPE_STORAGE_TAGGED_UNION) {
+		assert(0); // TODO
+	}
+
+	size_t nassignable = 0;
+	for (const struct type_tagged_union *tu = &to->tagged;
+			tu; tu = tu->next) {
+		if (tu->type->id == from->id) {
+			return true;
+		}
+		if (type_is_assignable(store, tu->type, from)) {
+			++nassignable;
+		}
+	}
+
+	return nassignable == 1;
+}
+
 bool
 type_is_assignable(struct type_store *store,
 	const struct type *to,
@@ -110,8 +133,6 @@ type_is_assignable(struct type_store *store,
 	case TYPE_STORAGE_ALIAS:
 		return type_is_assignable(store, to->alias.type, from);
 	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_TAGGED_UNION:
-		assert(0); // TODO
 	case TYPE_STORAGE_STRING:
 		return to == &builtin_type_const_ptr_char;
 	case TYPE_STORAGE_VOID:
@@ -129,6 +150,8 @@ type_is_assignable(struct type_store *store,
 		return from->storage == TYPE_STORAGE_ARRAY
 			&& to->array.length == SIZE_UNDEFINED
 			&& from->array.length != SIZE_UNDEFINED;
+	case TYPE_STORAGE_TAGGED_UNION:
+		return tagged_assignable(store, to, from);
 	// The following types are only assignable from themselves, and are
 	// handled above:
 	case TYPE_STORAGE_BOOL:
