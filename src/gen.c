@@ -679,7 +679,7 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	pushi(ctx->current, NULL, Q_STOREL, &tag, &ptr, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 	ptr.type = qtype_for_type(ctx, expr->result, false);
-	ptr.indirect = type_is_aggregate(expr->cast.value->result);
+	ptr.indirect = !type_is_aggregate(expr->cast.value->result);
 	gen_expression(ctx, expr->cast.value, &ptr);
 }
 
