@@ -766,6 +766,9 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		case '=':
 			out->token = T_LEQUAL;
 			break;
+		case '>':
+			out->token = T_CASE;
+			break;
 		default:
 			push(lexer, c, false);
 			out->token = T_EQUAL;

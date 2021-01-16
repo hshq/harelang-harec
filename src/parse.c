@@ -1593,6 +1593,97 @@ parse_for_expression(struct lexer *lexer)
 	return exp;
 }
 
+static struct ast_case_option *
+parse_case_options(struct lexer *lexer)
+{
+	struct token tok = {0};
+	switch (lex(lexer, &tok)) {
+	case T_TIMES:
+		want(lexer, T_CASE, &tok);
+		return NULL;
+	default:
+		unlex(lexer, &tok);
+		break;
+	}
+
+	bool more = true;
+	struct ast_case_option *opt = xcalloc(1, sizeof(struct ast_case_option));
+	struct ast_case_option *opts = opt;
+	struct ast_case_option **next = &opt->next;
+	while (more) {
+		opt->value = parse_simple_expression(lexer);
+		switch (lex(lexer, &tok)) {
+		case T_COMMA:
+			switch (lex(lexer, &tok)) {
+			case T_CASE:
+				more = false;
+				break;
+			default:
+				unlex(lexer, &tok);
+				break;
+			}
+			break;
+		case T_CASE:
+			more = false;
+			break;
+		default:
+			unlex(lexer, &tok);
+			opt = xcalloc(1, sizeof(struct ast_case_option));
+			*next = opt;
+			next = &opt->next;
+			break;
+		}
+	}
+
+	return opts;
+}
+
+static struct ast_expression *
+parse_switch_expression(struct lexer *lexer)
+{
+	trenter(TR_PARSE, "switch");
+	struct ast_expression *exp = mkexpr(&lexer->loc);
+	exp->type = EXPR_SWITCH;
+
+	struct token tok = {0};
+	want(lexer, T_LPAREN, &tok);
+	exp->_switch.value = parse_simple_expression(lexer);
+	want(lexer, T_RPAREN, &tok);
+
+	want(lexer, T_LBRACE, &tok);
+
+	bool more = true;
+	struct ast_switch_case **next_case = &exp->_switch.cases; 
+	while (more) {
+		struct ast_switch_case *_case =
+			*next_case = xcalloc(1, sizeof(struct ast_switch_case));
+		_case->options = parse_case_options(lexer);
+		_case->value = parse_compound_expression(lexer);
+
+		switch (lex(lexer, &tok)) {
+		case T_COMMA:
+			switch (lex(lexer, &tok)) {
+			case T_RBRACE:
+				more = false;
+				break;
+			default:
+				unlex(lexer, &tok);
+				break;
+			}
+			break;
+		case T_RBRACE:
+			more = false;
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+		}
+
+		next_case = &_case->next;
+	}
+
+	return exp;
+}
+
 static struct ast_expression *
 parse_complex_expression(struct lexer *lexer)
 {
@@ -1605,8 +1696,9 @@ parse_complex_expression(struct lexer *lexer)
 		unlex(lexer, &tok);
 		return parse_for_expression(lexer);
 	case T_MATCH:
-	case T_SWITCH:
 		assert(0); // TODO
+	case T_SWITCH:
+		return parse_switch_expression(lexer);
 	default:
 		unlex(lexer, &tok);
 		return parse_simple_expression(lexer);

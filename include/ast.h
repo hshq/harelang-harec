@@ -260,6 +260,22 @@ struct ast_field_value {
 	struct ast_field_value *next;
 };
 
+struct ast_case_option {
+	struct ast_expression *value;
+	struct ast_case_option *next;
+};
+
+struct ast_switch_case {
+	struct ast_case_option *options; // NULL for *
+	struct ast_expression *value;
+	struct ast_switch_case *next;
+};
+
+struct ast_expression_switch {
+	struct ast_expression *value;
+	struct ast_switch_case *cases;
+};
+
 struct ast_expression_struct {
 	bool autofill;
 	struct identifier type;
@@ -292,6 +308,7 @@ struct ast_expression {
 		struct ast_expression_return _return;
 		struct ast_expression_slice slice;
 		struct ast_expression_struct _struct;
+		struct ast_expression_switch _switch;
 		struct ast_expression_unarithm unarithm;
 	};
 };
