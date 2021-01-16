@@ -12,9 +12,19 @@ qbe_byte = {
 	.stype = Q_BYTE,
 	.size = 1,
 },
+qbe_byte_s = {
+	.stype = Q_BYTE,
+	.size = 1,
+	.is_signed = true,
+},
 qbe_half = {
 	.stype = Q_HALF,
 	.size = 2,
+},
+qbe_half_s = {
+	.stype = Q_HALF,
+	.size = 2,
+	.is_signed = true,
 },
 qbe_word = {
 	.stype = Q_WORD,
@@ -42,13 +52,13 @@ qbe_aggregate = {
 };
 
 const struct qbe_type *
-qtype_for_xtype(enum qbe_stype type)
+qtype_for_xtype(enum qbe_stype type, bool is_signed)
 {
 	switch (type) {
 	case Q_BYTE:
-		return &qbe_byte;
+		return is_signed ? &qbe_byte_s : &qbe_byte;
 	case Q_HALF:
-		return &qbe_half;
+		return is_signed ? &qbe_half_s : &qbe_half;
 	case Q_WORD:
 		return &qbe_word;
 	case Q_LONG:

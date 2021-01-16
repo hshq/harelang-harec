@@ -30,7 +30,7 @@ struct qbe_type {
 	// Aggregate types only:
 	char *name;
 	size_t align;
-	bool is_union;
+	bool is_union, is_signed;
 	struct qbe_field fields;
 	const struct type *base;
 };
@@ -46,7 +46,7 @@ extern const struct qbe_type
 	qbe_void,
 	qbe_aggregate;
 
-const struct qbe_type *qtype_for_xtype(enum qbe_stype type);
+const struct qbe_type *qtype_for_xtype(enum qbe_stype type, bool is_signed);
 
 enum qbe_value_kind {
 	QV_CONST,

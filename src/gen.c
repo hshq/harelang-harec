@@ -173,6 +173,9 @@ gen_copy(struct gen_context *ctx,
 
 	while (field) {
 		temp.type = field->type;
+		if (temp.type->stype == Q_HALF || temp.type->stype == Q_BYTE) {
+			temp.type = &qbe_word;
+		}
 
 		for (size_t i = field->count; i > 0; --i) {
 			struct qbe_value a, b;
@@ -183,10 +186,9 @@ gen_copy(struct gen_context *ctx,
 			case Q_LONG:
 			case Q_SINGLE:
 			case Q_DOUBLE:
-				// TODO: This might be broken for unsigned types
-				// b and h
 				pushi(ctx->current, &temp,
-					load_for_type(field->type->stype, true),
+					load_for_type(field->type->stype,
+						field->type->is_signed),
 					&srcp, NULL);
 				pushi(ctx->current, NULL,
 					store_for_type(field->type->stype),

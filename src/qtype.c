@@ -238,7 +238,9 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_U16:
 		if (extended) {
-			return qtype_for_xtype(qxtype_for_type(type));
+			return qtype_for_xtype(
+				qxtype_for_type(type),
+				type_is_signed(type));
 		}
 		// Fallthrough
 	case TYPE_STORAGE_BOOL:
@@ -256,7 +258,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_VOID:
-		return qtype_for_xtype(qstype_for_type(type));
+		return qtype_for_xtype(qstype_for_type(type), false);
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
@@ -266,7 +268,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_UNION:
 		return lookup_aggregate(ctx, type);
 	case TYPE_STORAGE_FUNCTION:
-		return qtype_for_xtype(Q__AGGREGATE);
+		return qtype_for_xtype(Q__AGGREGATE, false);
 	case TYPE_STORAGE_ALIAS:
 		return qtype_for_type(ctx, type->alias.type, extended);
 	}
