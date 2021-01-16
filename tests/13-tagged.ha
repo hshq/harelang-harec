@@ -66,8 +66,16 @@ fn reduction() void = {
 };
 
 fn casts() void = {
-	let a: (i8 | i16) = 42i16;
-	assert(a as i16 == 42i16);
+	let a: (u8 | u16) = 42u16;
+	assert(a as u16 == 42u16);
+	let x = a: u8;
+	assert(x == 42u8);
+
+	let val: u16 = 0xBEEFu16;
+	const is_little = (&val: *[2]u8)[0] == 0xEFu8;
+	a = 0xCAFEu16;
+	x = a: u8;
+	assert(x == (if (is_little) 0xFEu8 else 0xCAu8));
 };
 
 export fn main() void = {
