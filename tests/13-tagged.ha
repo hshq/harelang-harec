@@ -48,9 +48,7 @@ fn reduction() void = {
 	let a: (i8 | i16) = 42i8;
 	let b: (i16 | i8) = a;
 	let c: (i8 | i16 | i32) = a;
-	assert(a is i8);
-	assert(b is i8);
-	assert(c is i8);
+	assert(a is i8 && b is i8 && c is i8);
 	assert(size((i8 | i16 | i32)) == size((i8 | (i16 | i32))));
 	assert(size(integer) == size(signed));
 	assert(size(integer) != size((signed | unsigned)));
