@@ -922,6 +922,69 @@ check_expr_struct(struct context *ctx,
 }
 
 static void
+check_expr_switch(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	trenter(TR_CHECK, "switch");
+	expr->type = EXPR_SWITCH;
+
+	struct expression *value = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->_switch.value, value);
+	const struct type *type = value->result;
+	expr->_switch.value = value;
+
+	// TODO: Test for dupes, exhaustiveness
+	struct switch_case **next = &expr->_switch.cases, *_case = NULL;
+	for (struct ast_switch_case *acase = aexpr->_switch.cases;
+			acase; acase = acase->next) {
+		_case = *next = xcalloc(1, sizeof(struct switch_case));
+		next = &_case->next;
+
+		struct case_option *opt, **next_opt = &_case->options;
+		for (struct ast_case_option *aopt = acase->options;
+				aopt; aopt = aopt->next) {
+			opt = *next_opt = xcalloc(1, sizeof(struct case_option));
+			struct expression *value =
+				xcalloc(1, sizeof(struct expression));
+			struct expression *evaled =
+				xcalloc(1, sizeof(struct expression));
+
+			check_expression(ctx, aopt->value, value);
+			// XXX: Should this be assignable instead?
+			expect(&aopt->value->loc,
+				type == value->result,
+				"Invalid type for switch case");
+
+			enum eval_result r = eval_expr(ctx, value, evaled);
+			expect(&aopt->value->loc,
+				r == EVAL_OK,
+				"Unable to evaluate case at compile time");
+
+			opt->value = evaled;
+			next_opt = &opt->next;
+		}
+
+		_case->value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, acase->value, _case->value);
+		if (expr->terminates) {
+			continue;
+		}
+
+		if (expr->result == NULL) {
+			expr->result = _case->value->result;
+		} else if (expr->result != _case->value->result) {
+			assert(0); // TODO: Form tagged union
+		}
+	}
+
+	if (expr->result == NULL) {
+		expr->result = &builtin_type_void;
+		expr->terminates = true;
+	}
+}
+
+static void
 check_expr_unarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr)
@@ -1038,7 +1101,8 @@ check_expression(struct context *ctx,
 		check_expr_struct(ctx, aexpr, expr);
 		break;
 	case EXPR_SWITCH:
-		assert(0); // TODO
+		check_expr_switch(ctx, aexpr, expr);
+		break;
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr);
 		break;

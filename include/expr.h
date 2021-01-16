@@ -191,6 +191,22 @@ struct expression_slice {
 	struct expression *start, *end;
 };
 
+struct case_option {
+	struct expression *value;
+	struct case_option *next;
+};
+
+struct switch_case {
+	struct case_option *options; // NULL for *
+	struct expression *value;
+	struct switch_case *next;
+};
+
+struct expression_switch {
+	struct expression *value;
+	struct switch_case *cases;
+};
+
 struct expression_struct {
 	const struct struct_field *field;
 	struct expression *value;
@@ -230,6 +246,7 @@ struct expression {
 		struct expression_list list;
 		struct expression_measure measure;
 		struct expression_return _return;
+		struct expression_switch _switch;
 		struct expression_struct _struct;
 		struct expression_slice slice;
 		struct expression_unarithm unarithm;
