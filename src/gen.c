@@ -707,7 +707,6 @@ gen_expr_call(struct gen_context *ctx,
 	}
 
 	while (carg) {
-		assert(!carg->variadic); // TODO
 		arg = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		if (type_is_aggregate(carg->value->result)) {
 			alloc_temp(ctx, &arg->value,
