@@ -761,16 +761,14 @@ gen_cast_from_tagged(struct gen_context *ctx,
 		assert(0); // TODO
 	}
 
-	// XXX: This has not been fully tested pending rules implementation
 	struct qbe_value ptr = {0}, offs = {0}, temp = {0};
-	gen_temp(ctx, &ptr,
-		qtype_for_type(ctx, expr->result, false), "tagged.%d");
+	gen_temp(ctx, &ptr, &qbe_long, "tagged.%d");
 	gen_expression(ctx, expr->cast.value, &ptr);
 
 	constl(&offs, 8);
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 	ptr.type = qtype_for_type(ctx, expr->result, false);
-	ptr.indirect = type_is_aggregate(expr->result);
+	qval_deref(&ptr);
 	if (ptr.indirect) {
 		gen_loadtemp(ctx, &temp, &ptr,
 			qtype_for_type(ctx, expr->result, false),
@@ -800,6 +798,45 @@ gen_expr_type_test(struct gen_context *ctx,
 }
 
 static void
+gen_expr_type_assertion(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	// XXX: ARCH
+	const struct type *want = type_dealias(expr->cast.secondary),
+	      *tagged = type_dealias(expr->cast.value->result);
+	struct qbe_value tag = {0}, in = {0}, id = {0}, result = {0};
+	gen_temp(ctx, &tag, &qbe_long, "tag.%d");
+	gen_temp(ctx, &in, qtype_for_type(ctx, tagged, false), "cast.in.%d");
+	qval_address(&in);
+	gen_expression(ctx, expr->cast.value, &in);
+	pushi(ctx->current, &tag, Q_LOADL, &in, NULL);
+	constl(&id, want->id);
+	gen_temp(ctx, &result, &qbe_word, "valid.%d");
+	pushi(ctx->current, &result, Q_CEQL, &tag, &id, NULL);
+
+	struct qbe_statement validl = {0}, invalidl = {0};
+	struct qbe_value bvalid = {0}, binvalid = {0};
+	bvalid.kind = QV_LABEL;
+	bvalid.name = strdup(genl(&validl, &ctx->id, "type.valid.%d"));
+	binvalid.kind = QV_LABEL;
+	binvalid.name = strdup(genl(&invalidl, &ctx->id, "type.invalid.%d"));
+
+	pushi(ctx->current, NULL, Q_JNZ, &result, &bvalid, &binvalid, NULL);
+
+	push(&ctx->current->body, &invalidl);
+
+	struct qbe_value rtfunc = {0};
+	rtfunc.kind = QV_GLOBAL;
+	rtfunc.name = strdup("rt.abort_fixed");
+	rtfunc.type = &qbe_long;
+	constl(&result, ABORT_TYPE_ASSERTION);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &result, NULL);
+
+	push(&ctx->current->body, &validl);
+}
+
+static void
 gen_expr_cast(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -808,7 +845,8 @@ gen_expr_cast(struct gen_context *ctx,
 	case C_CAST:
 		break; // Handled below
 	case C_ASSERTION:
-		assert(0); // TODO
+		gen_expr_type_assertion(ctx, expr, out);
+		break; // Handled below
 	case C_TEST:
 		gen_expr_type_test(ctx, expr, out);
 		return;

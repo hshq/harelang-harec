@@ -65,10 +65,15 @@ fn reduction() void = {
 	assert(i is int);
 };
 
+fn casts() void = {
+	let a: (i8 | i16) = 42i16;
+	assert(a as i16 == 42i16);
+};
+
 export fn main() void = {
 	measurements();
 	storage();
 	operators();
 	reduction();
-	// TODO: Expand this as other tagged union features become available
+	casts();
 };
