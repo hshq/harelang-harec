@@ -40,6 +40,10 @@ fn operators() void = {
 	assert(x is u64);
 };
 
+type signed = (i8 | i16 | i32 | i64 | int);
+type unsigned = (u8 | u16 | u32 | u64 | uint);
+type integer = (...signed | ...unsigned);
+
 fn reduction() void = {
 	let a: (i8 | i16) = 42i8;
 	let b: (i16 | i8) = a;
@@ -48,6 +52,10 @@ fn reduction() void = {
 	assert(b is i8);
 	assert(c is i8);
 	assert(size((i8 | i16 | i32)) == size((i8 | (i16 | i32))));
+	assert(size(integer) == size(signed));
+	assert(size(integer) != size((signed | unsigned)));
+	let i: integer = 10;
+	assert(i is int);
 };
 
 export fn main() void = {

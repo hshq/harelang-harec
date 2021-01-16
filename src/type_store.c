@@ -415,17 +415,55 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 }
 
 static size_t
-sum_atagged_memb(const struct ast_tagged_union_type *u)
+sum_tagged_memb(struct type_store *store,
+		const struct type_tagged_union *u)
 {
 	size_t nmemb = 0;
 	for (; u; u = u->next) {
-		if (u->type->storage == TYPE_STORAGE_TAGGED_UNION) {
-			nmemb += sum_atagged_memb(&u->type->tagged_union);
+		const struct type *type = u->type;
+		if (type->storage == TYPE_STORAGE_TAGGED_UNION) {
+			nmemb += sum_tagged_memb(store, &type->tagged);
 		} else {
 			++nmemb;
 		}
 	}
 	return nmemb;
+}
+
+static size_t
+sum_atagged_memb(struct type_store *store,
+		const struct ast_tagged_union_type *u)
+{
+	size_t nmemb = 0;
+	for (; u; u = u->next) {
+		const struct type *type =
+			type_store_lookup_atype(store, u->type);
+		if (type->storage == TYPE_STORAGE_TAGGED_UNION) {
+			nmemb += sum_tagged_memb(store, &type->tagged);
+		} else {
+			++nmemb;
+		}
+	}
+	return nmemb;
+}
+
+static void
+collect_tagged_memb(struct type_store *store,
+		struct type_tagged_union **ta,
+		const struct type_tagged_union *src,
+		size_t *i)
+{
+	for (; src; src = src->next) {
+		const struct type *type = src->type;
+		if (type->storage == TYPE_STORAGE_TAGGED_UNION) {
+			collect_tagged_memb(store, ta, &type->tagged, i);
+			continue;
+		}
+		struct type_tagged_union *tu;
+		ta[*i] = tu = xcalloc(1, sizeof(struct type_tagged_union));
+		tu->type = type;
+		*i += 1;
+	}
 }
 
 static void
@@ -435,13 +473,15 @@ collect_atagged_memb(struct type_store *store,
 		size_t *i)
 {
 	for (; atu; atu = atu->next) {
-		if (atu->type->storage == TYPE_STORAGE_TAGGED_UNION) {
-			collect_atagged_memb(store, ta, &atu->type->tagged_union, i);
+		const struct type *type =
+			type_store_lookup_atype(store, atu->type);
+		if (type->storage == TYPE_STORAGE_TAGGED_UNION) {
+			collect_tagged_memb(store, ta, &type->tagged, i);
 			continue;
 		}
 		struct type_tagged_union *tu;
 		ta[*i] = tu = xcalloc(1, sizeof(struct type_tagged_union));
-		tu->type = type_store_lookup_atype(store, atu->type);
+		tu->type = type;
 		*i += 1;
 	}
 }
@@ -461,7 +501,7 @@ static void
 tagged_init_from_atype(struct type_store *store,
 	struct type *type, const struct ast_type *atype)
 {
-	size_t nmemb = sum_atagged_memb(&atype->tagged_union);
+	size_t nmemb = sum_atagged_memb(store, &atype->tagged_union);
 	struct type_tagged_union **tu =
 		xcalloc(nmemb, sizeof(struct type_tagged_union *));
 	size_t i = 0;
