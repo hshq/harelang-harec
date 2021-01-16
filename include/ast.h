@@ -90,7 +90,6 @@ struct ast_type {
 	enum type_storage storage;
 	unsigned int flags;
 	union {
-		struct identifier alias;
 		struct ast_list_type array;
 		struct ast_enum_type _enum;
 		struct ast_function_type func;
@@ -98,6 +97,10 @@ struct ast_type {
 		struct ast_list_type slice;
 		struct ast_struct_union_type struct_union;
 		struct ast_tagged_union_type tagged_union;
+		struct {
+			struct identifier alias;
+			bool unwrap;
+		};
 	};
 };
 

@@ -537,8 +537,11 @@ type_init_from_atype(struct type_store *store,
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
 		obj = scope_lookup(store->check_context->scope, &atype->alias);
- 		// TODO: Bubble this up:
-		assert(obj && obj->otype == O_TYPE);
+		if (atype->unwrap) {
+			*type = *obj->type;
+			break;
+		}
+		assert(obj && obj->otype == O_TYPE); // TODO: Bubble this up
 		identifier_dup(&type->alias.ident, &atype->alias);
 		type->alias.type = obj->type;
 		type->size = type->alias.type->size;

@@ -549,8 +549,7 @@ parse_type(struct lexer *lexer)
 		break;
 	}
 	struct ast_type *type = NULL;
-	bool noreturn = false;
-	bool nullable = false;
+	bool noreturn = false, nullable = false, unwrap = false;
 	switch (lex(lexer, &tok)) {
 	case T_I8:
 	case T_I16:
@@ -632,10 +631,15 @@ parse_type(struct lexer *lexer)
 			type->func.flags |= FN_NORETURN;
 		}
 		break;
+	case T_ELLIPSIS:
+		unwrap = true;
+		want(lexer, T_NAME, &tok);
+		// Fallthrough
 	case T_NAME:
 		unlex(lexer, &tok);
 		type = mktype(&lexer->loc);
 		type->storage = TYPE_STORAGE_ALIAS;
+		type->unwrap = unwrap;
 		parse_identifier(lexer, &type->alias);
 		break;
 	default:
