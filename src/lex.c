@@ -266,6 +266,9 @@ static uint32_t
 lex_literal(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, true);
+	if (c == '-') {
+		c = next(lexer, NULL, true);
+	}
 	assert(c != UTF8_INVALID && c <= 0x7F && isdigit(c));
 
 	int base = 10;
@@ -703,6 +706,11 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			out->token = T_MINUSMINUS;
 			break;
 		default:
+			if (c != UTF8_INVALID && c <= 0x7F && isdigit(c)) {
+				push(lexer, c, false);
+				push(lexer, '-', false);
+				return lex_literal(lexer, out);
+			}
 			push(lexer, c, false);
 			out->token = T_MINUS;
 			break;
