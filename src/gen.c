@@ -31,18 +31,23 @@ ident_to_sym(const struct identifier *ident)
 	return strdup(ident->name);
 }
 
-static void
-gen_temp(struct gen_context *ctx, struct qbe_value *val,
-		const struct qbe_type *type, const char *fmt)
+static char *
+gen_name(struct gen_context *ctx, const char *fmt)
 {
 	int n = snprintf(NULL, 0, fmt, ctx->id);
 	char *str = xcalloc(1, n + 1);
 	snprintf(str, n + 1, fmt, ctx->id);
 	++ctx->id;
+	return str;
+}
 
+static void
+gen_temp(struct gen_context *ctx, struct qbe_value *val,
+		const struct qbe_type *type, const char *fmt)
+{
 	val->kind = QV_TEMPORARY;
 	val->type = type;
-	val->name = str;
+	val->name = gen_name(ctx, fmt);
 	val->indirect = false;
 }
 
@@ -320,15 +325,52 @@ address_index(struct gen_context *ctx,
 		pushi(ctx->current, out, Q_LOADL, out, NULL);
 		atype = type_dealias(atype->pointer.referent);
 	}
-	if (atype->storage == TYPE_STORAGE_SLICE) {
-		pushi(ctx->current, out, Q_LOADL, out, NULL);
-	}
 
 	struct qbe_value index = {0};
 	gen_temp(ctx, &index, &qbe_long, "index.%d");
 	gen_expression(ctx, expr->access.index, &index);
 
-	// TODO: Check if offset is in bounds
+	// XXX: ARCH
+	struct qbe_value length = {0};
+	if (atype->storage == TYPE_STORAGE_ARRAY) {
+		constl(&length, atype->array.length);
+	} else if (atype->storage == TYPE_STORAGE_SLICE) {
+		struct qbe_value ptr = {0};
+		gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+		constl(&length, 8);
+		pushi(ctx->current, &ptr, Q_ADD, out, &length, NULL);
+		gen_temp(ctx, &length, &qbe_long, "length.%d");
+		pushi(ctx->current, &length, Q_LOADL, &ptr, NULL);
+	}
+
+	if (atype->storage != TYPE_STORAGE_ARRAY
+			|| atype->array.length != SIZE_UNDEFINED) {
+		struct qbe_statement validl = {0}, invalidl = {0};
+		struct qbe_value bvalid = {0}, binvalid = {0};
+		bvalid.kind = QV_LABEL;
+		bvalid.name = strdup(genl(&validl, &ctx->id, "bounds.valid.%d"));
+		binvalid.kind = QV_LABEL;
+		binvalid.name = strdup(genl(&invalidl, &ctx->id, "bounds.invalid.%d"));
+
+		struct qbe_value valid = {0};
+		gen_temp(ctx, &valid, &qbe_word, "valid.%d");
+		pushi(ctx->current, &valid, Q_CULTL, &index, &length, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &invalidl);
+
+		struct qbe_value rtfunc = {0};
+		rtfunc.kind = QV_GLOBAL;
+		rtfunc.name = strdup("rt.abort_fixed");
+		rtfunc.type = &qbe_long;
+		constl(&valid, ABORT_OOB);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &valid, NULL);
+
+		push(&ctx->current->body, &validl);
+	}
+
+	if (atype->storage == TYPE_STORAGE_SLICE) {
+		pushi(ctx->current, out, Q_LOADL, out, NULL);
+	}
 
 	struct qbe_value temp = {0};
 	constl(&temp, atype->array.members->size);
@@ -1552,20 +1594,14 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 }
 
 static void
-gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
+gen_data_item(struct gen_context *ctx, struct expression *expr,
+	struct qbe_data_item *item)
 {
-	assert(decl->type == DECL_GLOBAL);
-	const struct global_decl *global = &decl->global;
+	assert(expr->type == EXPR_CONSTANT);
 
-	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
-	qdef->kind = Q_DATA;
-	qdef->exported = decl->exported;
-	qdef->name = ident_to_sym(&decl->ident);
-
-	const union expression_constant *constant = &global->value->constant;
-	struct qbe_data_item *item = &qdef->data.items;
-
-	const struct type *type = type_dealias(global->type);
+	struct qbe_def *def;
+	const union expression_constant *constant = &expr->constant;
+	const struct type *type = type_dealias(expr->result);
 	switch (type->storage) {
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_U8:
@@ -1603,14 +1639,46 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 	case TYPE_STORAGE_UINTPTR:
 		assert(0); // TODO: What are the semantics for this?
 	case TYPE_STORAGE_POINTER:
-		assert(global->value->type == EXPR_CONSTANT); // TODO?
+		assert(expr->type == EXPR_CONSTANT); // TODO?
 		item->type = QD_VALUE;
 		constl(&item->value, (uint64_t)constant->uval); // XXX: ARCH
 		break;
 	case TYPE_STORAGE_ARRAY:
+		assert(type->array.length != SIZE_UNDEFINED);
+		assert(!type->array.expandable); // TODO
+		for (struct array_constant *c = constant->array; c; c = c->next) {
+			gen_data_item(ctx, c->value, item);
+			if (c->next) {
+				item->next = xcalloc(1,
+					sizeof(struct qbe_data_item));
+				item = item->next;
+			}
+		}
+		break;
+	case TYPE_STORAGE_STRING:
+		def = xcalloc(1, sizeof(struct qbe_def));
+		def->name = gen_name(ctx, "strdata.%d");
+		def->kind = Q_DATA;
+		def->data.items.type = QD_STRING;
+		def->data.items.str = strdup(expr->constant.string.value);
+		def->data.items.sz = expr->constant.string.len;
+		qbe_append_def(ctx->out, def);
+
+		item->type = QD_VALUE;
+		item->value.kind = QV_GLOBAL;
+		item->value.type = &qbe_long;
+		item->value.name = strdup(def->name);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		constl(&item->value, expr->constant.string.len);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		constl(&item->value, expr->constant.string.len);
+		break;
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
@@ -1622,7 +1690,18 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 	case TYPE_STORAGE_VOID:
 		assert(0); // Invariant
 	}
+}
 
+static void
+gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
+{
+	assert(decl->type == DECL_GLOBAL);
+	const struct global_decl *global = &decl->global;
+	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
+	qdef->kind = Q_DATA;
+	qdef->exported = decl->exported;
+	qdef->name = ident_to_sym(&decl->ident);
+	gen_data_item(ctx, global->value, &qdef->data.items);
 	qbe_append_def(ctx->out, qdef);
 }
 

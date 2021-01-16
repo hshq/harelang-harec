@@ -5,3 +5,10 @@ export @noreturn @symbol("rt.abort") fn _abort(msg: str) void = {
 	write(2, "\n": *const char, 1z);
 	kill(getpid(), SIGABRT);
 };
+
+// See include/gen.h
+const reasons: [1]str = [
+	"slice or array access out of bounds",	// 0
+];
+
+export @noreturn fn abort_fixed(i: int) void = _abort(reasons[i]);

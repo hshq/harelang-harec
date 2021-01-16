@@ -9,6 +9,7 @@
 enum eval_result
 eval_const(struct context *ctx, struct expression *in, struct expression *out)
 {
+	// TODO: Update for aggregate types
 	out->type = EXPR_CONSTANT;
 	out->result = in->result;
 	out->constant = in->constant;

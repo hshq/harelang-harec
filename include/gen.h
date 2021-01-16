@@ -7,6 +7,10 @@
 #include "identifier.h"
 #include "qbe.h"
 
+enum fixed_aborts {
+	ABORT_OOB = 0,
+};
+
 struct unit;
 
 void gen(const struct unit *unit, struct qbe_program *out);
