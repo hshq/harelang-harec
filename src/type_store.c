@@ -44,7 +44,7 @@ tagged_assignable(struct type_store *store,
 				to_t = to_t->next;
 				from_t = from_t->next;
 			} else {
-				from_t = from_t->next;
+				to_t = to_t->next;
 			}
 		}
 		return from_t == NULL;
