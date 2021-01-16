@@ -40,9 +40,19 @@ fn operators() void = {
 	assert(x is u64);
 };
 
+fn reduction() void = {
+	let a: (i8 | i16) = 42i8;
+	let b: (i16 | i8) = a;
+	let c: (i8 | i16 | i32) = a;
+	assert(a is i8);
+	assert(b is i8);
+	assert(c is i8);
+};
+
 export fn main() void = {
 	measurements();
 	storage();
 	operators();
+	reduction();
 	// TODO: Expand this as other tagged union features become available
 };

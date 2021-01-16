@@ -32,7 +32,22 @@ tagged_assignable(struct type_store *store,
 		const struct type *from)
 {
 	if (from->storage == TYPE_STORAGE_TAGGED_UNION) {
-		assert(0); // TODO
+		if (to->storage != TYPE_STORAGE_TAGGED_UNION) {
+			return false;
+		}
+		// Only assignable if 'to' is a superset of 'from'
+		// Invariant: type_tagged_union is sorted by type tag
+		const struct type_tagged_union *to_t = &to->tagged;
+		const struct type_tagged_union *from_t = &from->tagged;
+		while (to_t && from_t) {
+			if (to_t->type->id == from_t->type->id) {
+				to_t = to_t->next;
+				from_t = from_t->next;
+			} else {
+				from_t = from_t->next;
+			}
+		}
+		return from_t == NULL;
 	}
 
 	size_t nassignable = 0;
@@ -171,6 +186,9 @@ static bool
 tagged_castable(const struct type *to, const struct type *from)
 {
 	if (to->storage == TYPE_STORAGE_TAGGED_UNION) {
+		if (from->storage == TYPE_STORAGE_TAGGED_UNION) {
+			return true;
+		}
 		assert(0); // TODO
 	}
 
