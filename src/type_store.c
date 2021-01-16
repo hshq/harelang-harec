@@ -436,7 +436,7 @@ collect_atagged_memb(struct type_store *store,
 {
 	for (; atu; atu = atu->next) {
 		if (atu->type->storage == TYPE_STORAGE_TAGGED_UNION) {
-			collect_atagged_memb(store, ta, atu, i);
+			collect_atagged_memb(store, ta, &atu->type->tagged_union, i);
 			continue;
 		}
 		struct type_tagged_union *tu;

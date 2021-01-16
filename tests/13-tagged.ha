@@ -47,6 +47,7 @@ fn reduction() void = {
 	assert(a is i8);
 	assert(b is i8);
 	assert(c is i8);
+	assert(size((i8 | i16 | i32)) == size((i8 | (i16 | i32))));
 };
 
 export fn main() void = {
