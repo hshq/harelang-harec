@@ -739,10 +739,38 @@ gen_cast_from_tagged(struct gen_context *ctx,
 }
 
 static void
+gen_expr_type_test(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	// XXX: ARCH
+	const struct type *want = type_dealias(expr->cast.secondary),
+	      *tagged = type_dealias(expr->cast.value->result);
+	struct qbe_value tag = {0}, in = {0}, id = {0};
+	gen_temp(ctx, &tag, &qbe_long, "tag.%d");
+	gen_temp(ctx, &in, qtype_for_type(ctx, tagged, false), "cast.in.%d");
+	qval_address(&in);
+	gen_expression(ctx, expr->cast.value, &in);
+	pushi(ctx->current, &tag, Q_LOADL, &in, NULL);
+	constl(&id, want->id);
+	pushi(ctx->current, out, Q_CEQL, &tag, &id, NULL);
+}
+
+static void
 gen_expr_cast(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
+	switch (expr->cast.kind) {
+	case C_CAST:
+		break; // Handled below
+	case C_ASSERTION:
+		assert(0); // TODO
+	case C_TEST:
+		gen_expr_type_test(ctx, expr, out);
+		return;
+	}
+
 	const struct type *to = type_dealias(expr->result),
 	      *from = type_dealias(expr->cast.value->result);
 	if (to->storage == from->storage) {

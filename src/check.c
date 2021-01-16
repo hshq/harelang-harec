@@ -442,12 +442,41 @@ check_expr_cast(struct context *ctx,
 	trace(TR_CHECK, "cast");
 	expr->type = EXPR_CAST;
 	expr->cast.kind = aexpr->cast.kind;
-	expr->cast.value = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->cast.value, expr->cast.value);
-	expr->result = type_store_lookup_atype(&ctx->store, aexpr->cast.type);
+	struct expression *value = expr->cast.value =
+		xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->cast.value, value);
+	const struct type *secondary = expr->cast.secondary =
+		type_store_lookup_atype(&ctx->store, aexpr->cast.type);
 	expect(&aexpr->cast.type->loc,
-		type_is_castable(expr->result, expr->cast.value->result),
+		type_is_castable(secondary, value->result),
 		"Invalid cast");
+
+	if (aexpr->cast.kind == C_ASSERTION || aexpr->cast.kind == C_TEST) {
+		expect(&aexpr->cast.value->loc,
+			type_dealias(expr->cast.value->result)->storage
+				== TYPE_STORAGE_TAGGED_UNION,
+			"Expected a tagged union type");
+		bool found = false;
+		for (const struct type_tagged_union *t = &value->result->tagged;
+				t; t = t->next) {
+			if (t->type->id == secondary->id) {
+				found = true;
+				break;
+			}
+		}
+		expect(&aexpr->cast.type->loc, found,
+			"Type is not a valid member of the tagged union type");
+	}
+
+	switch (aexpr->cast.kind) {
+	case C_CAST:
+	case C_ASSERTION:
+		expr->result = secondary;
+		break;
+	case C_TEST:
+		expr->result = &builtin_type_bool;
+		break;
+	}
 }
 
 static void

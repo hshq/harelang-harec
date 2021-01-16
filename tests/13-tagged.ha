@@ -29,8 +29,20 @@ fn storage() void = {
 	assert(y._u64 == 0xCAFEBABEDEADBEEFu64);
 };
 
+fn operators() void = {
+	let x: (u8 | u16 | u32 | u64) = 42u8;
+	assert(x is u8);
+	x = 1337u16;
+	assert(x is u16);
+	x = 0xCAFEBABEu32;
+	assert(x is u32);
+	x = 0xCAFEBABEDEADBEEFu64;
+	assert(x is u64);
+};
+
 export fn main() void = {
 	measurements();
 	storage();
+	operators();
 	// TODO: Expand this as other tagged union features become available
 };

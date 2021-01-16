@@ -104,6 +104,7 @@ enum cast_kind {
 
 struct expression_cast {
 	enum cast_kind kind;
+	const struct type *secondary;
 	struct expression *value;
 };
 

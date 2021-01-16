@@ -167,6 +167,28 @@ type_is_assignable(struct type_store *store,
 	assert(0); // Unreachable
 }
 
+static bool
+tagged_castable(const struct type *to, const struct type *from)
+{
+	if (to->storage == TYPE_STORAGE_TAGGED_UNION) {
+		assert(0); // TODO
+	}
+
+	// TODO: Update spec to make this consistent
+	size_t ncastable = 0;
+	for (const struct type_tagged_union *tu = &from->tagged;
+			tu; tu = tu->next) {
+		if (tu->type->id == to->id) {
+			return true;
+		}
+		if (type_is_castable(tu->type, to)) {
+			++ncastable;
+		}
+	}
+
+	return ncastable == 1;
+}
+
 bool
 type_is_castable(const struct type *to, const struct type *from)
 {
@@ -219,7 +241,7 @@ type_is_castable(const struct type *to, const struct type *from)
 		return to->storage == TYPE_STORAGE_SLICE
 			|| to->storage == TYPE_STORAGE_ARRAY;
 	case TYPE_STORAGE_TAGGED_UNION:
-		assert(0); // TODO
+		return tagged_castable(to, from);
 	case TYPE_STORAGE_STRING:
 		return to->pointer.referent->storage == TYPE_STORAGE_CHAR
 				&& to->pointer.referent->flags & TYPE_CONST;
