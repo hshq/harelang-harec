@@ -452,12 +452,12 @@ check_expr_cast(struct context *ctx,
 		"Invalid cast");
 
 	if (aexpr->cast.kind == C_ASSERTION || aexpr->cast.kind == C_TEST) {
+		const struct type *primary = type_dealias(expr->cast.value->result);
 		expect(&aexpr->cast.value->loc,
-			type_dealias(expr->cast.value->result)->storage
-				== TYPE_STORAGE_TAGGED_UNION,
+			primary->storage == TYPE_STORAGE_TAGGED_UNION,
 			"Expected a tagged union type");
 		bool found = false;
-		for (const struct type_tagged_union *t = &value->result->tagged;
+		for (const struct type_tagged_union *t = &primary->tagged;
 				t; t = t->next) {
 			if (t->type->id == secondary->id) {
 				found = true;
