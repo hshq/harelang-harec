@@ -1,0 +1,26 @@
+harec expects the runtime to provide some features under the "rt" namespace.
+
+fn @noreturn rt::abort(msg: str) void
+	Print a diagnostic message and terminate the program.
+
+fn @noreturn rt::abort_fixed(reason: int) void
+	Print a diagnostic message from a list of pre-determined abort reasons,
+	and terminate the program. The list of reasons are:
+
+	0: Slice or array access out-of-bounds
+	1: Type assertion failed
+
+The runtime is also expected to provide startup code. A list of function
+pointers of type `fn() void` is provided in the __init_array_start and
+__fini_array_start globals, which are respectively terminated by
+__init_array_end and __fini_array_end. The following Hare code will make these
+globals available to the current unit:
+
+	const @symbol("__init_array_start") init_start: [*]*fn() void;
+	const @symbol("__init_array_end") init_end: [*]*fn() void;
+	const @symbol("__fini_array_start") fini_start: [*]*fn() void;
+	const @symbol("__fini_array_end") fini_end: [*]*fn() void;
+
+The runtime must call each initialization function, then call the `main`
+function (of type `fn() void`), then call all of the finalization functions,
+before terminating the program normally.
