@@ -278,7 +278,6 @@ void
 emit(struct qbe_program *program, FILE *out)
 {
 	struct qbe_def *def = program->defs;
-	assert(def); // At least one
 	while (def) {
 		emit_def(def, out);
 		def = def->next;

@@ -1836,7 +1836,6 @@ gen(const struct unit *unit, struct qbe_program *out)
 	};
 	ctx.out->next = &ctx.out->defs;
 	const struct declarations *decls = unit->declarations;
-	assert(decls); // At least one is required
 	trenter(TR_GEN, "gen");
 	while (decls) {
 		gen_decl(&ctx, decls->decl);

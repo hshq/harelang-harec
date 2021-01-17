@@ -1433,6 +1433,4 @@ check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
 		trleave(TR_CHECK, NULL);
 		scope = scope->next;
 	}
-
-	assert(unit->declarations);
 }
