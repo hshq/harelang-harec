@@ -1384,6 +1384,72 @@ gen_expr_struct(struct gen_context *ctx,
 }
 
 static void
+gen_expr_switch(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	struct qbe_value sval = {0};
+	gen_temp(ctx, &sval,
+		qtype_for_type(ctx, expr->_switch.value->result, false),
+		"switch.%d");
+	gen_expression(ctx, expr->_switch.value, &sval);
+
+	struct qbe_value match = {0}, temp = {0};
+	gen_temp(ctx, &match,
+		qtype_for_type(ctx, expr->_switch.value->result, false),
+		"value.%d");
+	gen_temp(ctx, &temp, &qbe_word, "temp.%d");
+	struct qbe_statement olabel = {0};
+	struct qbe_value obranch = {0};
+	obranch.kind = QV_LABEL;
+	obranch.name = strdup(genl(&olabel, &ctx->id, "out.%d"));
+
+	struct switch_case *_default = NULL;
+	for (struct switch_case *_case = expr->_switch.cases;
+			_case; _case = _case->next) {
+		if (!_case->options) {
+			_default = _case;
+			continue;
+		}
+
+		struct qbe_statement tlabel = {0}, flabel = {0};
+		struct qbe_value tbranch = {0}, fbranch = {0};
+		tbranch.kind = QV_LABEL;
+		tbranch.name = strdup(genl(&tlabel, &ctx->id, "match.%d"));
+		fbranch.kind = QV_LABEL;
+		fbranch.name = strdup(genl(&flabel, &ctx->id, "next.case.%d"));
+
+		for (struct case_option *opt = _case->options;
+				opt; opt = opt->next) {
+			struct qbe_statement nlabel = {0};
+			struct qbe_value nbranch = {0};
+			nbranch.kind = QV_LABEL;
+			nbranch.name = strdup(genl(&nlabel, &ctx->id, "next.opt.%d"));
+
+			gen_expr_constant(ctx, opt->value, &match);
+			pushi(ctx->current, &temp, binarithm_for_op(
+				BIN_LEQUAL, sval.type, sval.type->is_signed),
+				&match, &sval, NULL);
+			pushi(ctx->current, NULL, Q_JNZ,
+				&temp, &tbranch, &nbranch, NULL);
+			push(&ctx->current->body, &nlabel);
+		}
+
+		pushi(ctx->current, NULL, Q_JMP, &fbranch, NULL);
+		push(&ctx->current->body, &tlabel);
+		gen_expression(ctx, _case->value, out);
+		pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		push(&ctx->current->body, &flabel);
+	}
+
+	if (_default) {
+		gen_expression(ctx, _default->value, out);
+	}
+
+	push(&ctx->current->body, &olabel);
+}
+
+static void
 gen_expr_address(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -1503,7 +1569,8 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_struct(ctx, expr, out);
 		break;
 	case EXPR_SWITCH:
-		assert(0); // TODO
+		gen_expr_switch(ctx, expr, out);
+		break;
 	case EXPR_UNARITHM:
 		gen_expr_unarithm(ctx, expr, out);
 		break;

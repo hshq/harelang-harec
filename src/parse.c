@@ -1628,10 +1628,12 @@ parse_case_options(struct lexer *lexer)
 			break;
 		default:
 			unlex(lexer, &tok);
+			break;
+		}
+		if (more) {
 			opt = xcalloc(1, sizeof(struct ast_case_option));
 			*next = opt;
 			next = &opt->next;
-			break;
 		}
 	}
 
