@@ -967,7 +967,7 @@ check_expr_switch(struct context *ctx,
 
 		_case->value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, acase->value, _case->value);
-		if (expr->terminates) {
+		if (_case->value->terminates) {
 			continue;
 		}
 
