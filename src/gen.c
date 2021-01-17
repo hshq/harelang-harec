@@ -741,10 +741,10 @@ gen_cast_to_tagged(struct gen_context *ctx,
 
 	struct qbe_value tag = {0}, ptr = {0}, offs = {0};
 	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
-	constl(&offs, 8);
-	constl(&tag, expr->cast.value->result->id);
+	constl(&offs, expr->result->align);
+	constw(&tag, expr->cast.value->result->id);
 	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
-	pushi(ctx->current, NULL, Q_STOREL, &tag, &ptr, NULL);
+	pushi(ctx->current, NULL, Q_STOREW, &tag, &ptr, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 	ptr.type = qtype_for_type(ctx, expr->cast.value->result, false);
 	ptr.indirect = !type_is_aggregate(expr->cast.value->result);
@@ -764,8 +764,7 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	struct qbe_value ptr = {0}, offs = {0}, temp = {0};
 	gen_temp(ctx, &ptr, &qbe_long, "tagged.%d");
 	gen_expression(ctx, expr->cast.value, &ptr);
-
-	constl(&offs, 8);
+	constl(&offs, expr->cast.value->result->align);
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 	ptr.type = qtype_for_type(ctx, expr->result, false);
 	qval_deref(&ptr);
@@ -788,13 +787,13 @@ gen_expr_type_test(struct gen_context *ctx,
 	const struct type *want = type_dealias(expr->cast.secondary),
 	      *tagged = type_dealias(expr->cast.value->result);
 	struct qbe_value tag = {0}, in = {0}, id = {0};
-	gen_temp(ctx, &tag, &qbe_long, "tag.%d");
+	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
 	gen_temp(ctx, &in, qtype_for_type(ctx, tagged, false), "cast.in.%d");
 	qval_address(&in);
 	gen_expression(ctx, expr->cast.value, &in);
-	pushi(ctx->current, &tag, Q_LOADL, &in, NULL);
+	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
 	constl(&id, want->id);
-	pushi(ctx->current, out, Q_CEQL, &tag, &id, NULL);
+	pushi(ctx->current, out, Q_CEQW, &tag, &id, NULL);
 }
 
 static void
@@ -806,14 +805,14 @@ gen_expr_type_assertion(struct gen_context *ctx,
 	const struct type *want = type_dealias(expr->cast.secondary),
 	      *tagged = type_dealias(expr->cast.value->result);
 	struct qbe_value tag = {0}, in = {0}, id = {0}, result = {0};
-	gen_temp(ctx, &tag, &qbe_long, "tag.%d");
+	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
 	gen_temp(ctx, &in, qtype_for_type(ctx, tagged, false), "cast.in.%d");
 	qval_address(&in);
 	gen_expression(ctx, expr->cast.value, &in);
-	pushi(ctx->current, &tag, Q_LOADL, &in, NULL);
-	constl(&id, want->id);
+	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
+	constw(&id, want->id);
 	gen_temp(ctx, &result, &qbe_word, "valid.%d");
-	pushi(ctx->current, &result, Q_CEQL, &tag, &id, NULL);
+	pushi(ctx->current, &result, Q_CEQW, &tag, &id, NULL);
 
 	struct qbe_statement validl = {0}, invalidl = {0};
 	struct qbe_value bvalid = {0}, binvalid = {0};
@@ -1041,6 +1040,7 @@ gen_string(struct gen_context *ctx,
 	struct qbe_value size = {0};
 	constl(&size, expr->constant.string.len); // XXX: ARCH
 
+	// TODO: generate string members as declaration
 	gen_store(ctx, &str, &temp);
 	constl(&temp, 8); // XXX: ARCH
 	pushi(ctx->current, &str, Q_ADD, &str, &temp, NULL);

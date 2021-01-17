@@ -110,7 +110,7 @@ tagged_qtype(struct gen_context *ctx, const struct type *type)
 	def->type.name = name;
 	def->type.align = SIZE_UNDEFINED;
 	def->type.is_union = true;
-	def->type.size = type->size - builtin_type_size.size;
+	def->type.size = type->size - builtin_type_uint.size;
 
 	struct qbe_field *field = &def->type.fields;
 	for (const struct type_tagged_union *tu = &type->tagged;
@@ -187,9 +187,9 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 		break;
 	case TYPE_STORAGE_TAGGED_UNION:
 		def->type.align = type->align;
-		field->type = &qbe_long; // XXX: ARCH
+		field->type = &qbe_word; // XXX: ARCH
 		field->count = 1;
-		if (type->size != builtin_type_size.size) {
+		if (type->size != builtin_type_uint.size) {
 			field->next = xcalloc(1, sizeof(struct qbe_field));
 			field = field->next;
 			field->type = tagged_qtype(ctx, type);

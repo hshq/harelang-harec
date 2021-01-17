@@ -357,15 +357,20 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	const struct ast_struct_union_type *atype)
 {
 	assert(atype->member_type == MEMBER_TYPE_FIELD);
-	while (*fields && strcmp((*fields)->name, atype->field.name) < 0) {
+	while (fields && *fields && strcmp((*fields)->name, atype->field.name) < 0) {
 		fields = &(*fields)->next;
 	}
-	struct struct_field *field = *fields;
+	struct struct_field *field, _temp = {0};
+	if (fields != NULL) {
+		field = *fields;
+		assert(field == NULL || strcmp(field->name, atype->field.name) != 0);
+		*fields = xcalloc(1, sizeof(struct struct_field));
+		(*fields)->next = field;
+		field = *fields;
+	} else {
+		field = &_temp;
+	}
 	// TODO: Bubble this error up
-	assert(field == NULL || strcmp(field->name, atype->field.name) != 0);
-	*fields = xcalloc(1, sizeof(struct struct_field));
-	(*fields)->next = field;
-	field = *fields;
 
 	field->name = strdup(atype->field.name);
 	field->type = type_store_lookup_atype(store, atype->field.type);
@@ -391,13 +396,32 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 		size_t sub = *size;
 		switch (atype->member_type) {
 		case MEMBER_TYPE_FIELD:
-			struct_insert_field(store, fields, storage, size, &usize,
-				align, atype);
+			struct_insert_field(store, fields, storage,
+				size, &usize, align, atype);
 			break;
 		case MEMBER_TYPE_EMBEDDED:
-			struct_init_from_atype(store, atype->embedded->storage,
-				&sub, align, fields,
-				&atype->embedded->struct_union);
+			if (atype->embedded->storage == TYPE_STORAGE_UNION) {
+				// We need to set the offset of all union
+				// members to the maximum alignment of the union
+				// members, so first we do a dry run to compute
+				// it:
+				size_t offs = 0, align_1 = 0;
+				struct_init_from_atype(store, TYPE_STORAGE_UNION,
+					&offs, &align_1, NULL,
+					&atype->embedded->struct_union);
+				// Insert padding per the results:
+				*size += *size % align_1;
+				// Then insert the fields for real:
+				sub = *size;
+				struct_init_from_atype(store, TYPE_STORAGE_UNION,
+					&sub, align, fields,
+					&atype->embedded->struct_union);
+			} else {
+				struct_init_from_atype(store, TYPE_STORAGE_STRUCT,
+					&sub, align, fields,
+					&atype->embedded->struct_union);
+			}
+
 			if (storage == TYPE_STORAGE_UNION) {
 				usize = sub > usize ? sub : usize;
 			} else {
@@ -538,9 +562,10 @@ tagged_init_from_atype(struct type_store *store,
 		next = &tu[i]->next;
 	}
 
-	type->size += builtin_type_size.size;
-	if (builtin_type_size.align > type->align) {
-		type->align = builtin_type_size.align;
+	type->size += builtin_type_uint.size % type->align
+		+ builtin_type_uint.align;
+	if (type->align < builtin_type_uint.align) {
+		type->align = builtin_type_uint.align;
 	}
 }
 
@@ -659,7 +684,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 		return builtin;
 	}
 
-	uint64_t hash = type_hash(type);
+	uint32_t hash = type_hash(type);
 	struct type_bucket **next = &store->buckets[hash % TYPE_STORE_BUCKETS],
 		*bucket = NULL;
 

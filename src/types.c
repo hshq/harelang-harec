@@ -237,11 +237,11 @@ type_is_signed(const struct type *type)
 	assert(0); // Unreachable
 }
 
-uint64_t
+uint32_t
 type_hash(const struct type *type)
 {
 	// XXX: ARCH
-	uint64_t hash = FNV1A_INIT;
+	uint32_t hash = FNV1A_INIT;
 	hash = fnv1a(hash, type->storage);
 	hash = fnv1a(hash, type->flags);
 	switch (type->storage) {
@@ -272,37 +272,37 @@ type_hash(const struct type *type)
 			hash = fnv1a_s(hash, ident->name);
 			hash = fnv1a(hash, 0);
 		}
-		hash = fnv1a_u64(hash, type_hash(type->alias.type));
+		hash = fnv1a_u32(hash, type_hash(type->alias.type));
 		break;
 	case TYPE_STORAGE_ARRAY:
-		hash = fnv1a_u64(hash, type_hash(type->array.members));
-		hash = fnv1a_u64(hash, type->array.length);
+		hash = fnv1a_u32(hash, type_hash(type->array.members));
+		hash = fnv1a_u32(hash, type->array.length);
 		break;
 	case TYPE_STORAGE_FUNCTION:
-		hash = fnv1a_u64(hash, type_hash(type->func.result));
+		hash = fnv1a_u32(hash, type_hash(type->func.result));
 		hash = fnv1a(hash, type->func.variadism);
 		hash = fnv1a(hash, type->func.flags);
 		for (struct type_func_param *param = type->func.params;
 				param; param = param->next) {
-			hash = fnv1a_u64(hash, type_hash(param->type));
+			hash = fnv1a_u32(hash, type_hash(param->type));
 		}
 		break;
 	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_POINTER:
 		hash = fnv1a(hash, type->pointer.flags);
-		hash = fnv1a_u64(hash, type_hash(type->pointer.referent));
+		hash = fnv1a_u32(hash, type_hash(type->pointer.referent));
 		break;
 	case TYPE_STORAGE_SLICE:
-		hash = fnv1a_u64(hash, type_hash(type->array.members));
+		hash = fnv1a_u32(hash, type_hash(type->array.members));
 		break;
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		for (const struct struct_field *field = type->struct_union.fields;
 				field; field = field->next) {
 			hash = fnv1a_s(hash, field->name);
-			hash = fnv1a_u64(hash, type_hash(field->type));
-			hash = fnv1a_u64(hash, field->offset);
+			hash = fnv1a_u32(hash, type_hash(field->type));
+			hash = fnv1a_u32(hash, field->offset);
 		}
 		break;
 	case TYPE_STORAGE_TAGGED_UNION:
@@ -310,7 +310,7 @@ type_hash(const struct type *type)
 		// any other tagged union types, nor any duplicates.
 		for (const struct type_tagged_union *tu = &type->tagged;
 				tu; tu = tu->next) {
-			hash = fnv1a_u64(hash, type_hash(tu->type));
+			hash = fnv1a_u32(hash, type_hash(tu->type));
 		}
 		break;
 	}

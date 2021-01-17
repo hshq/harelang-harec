@@ -3,24 +3,24 @@
 // Do not include this header:
 //#include "util.h"
 
-uint64_t
-fnv1a(uint64_t hash, unsigned char c)
+uint32_t
+fnv1a(uint32_t hash, unsigned char c)
 {
 	return (hash ^ c) * 1099511628211;
 }
 
-uint64_t
-fnv1a_u64(uint64_t hash, uint64_t u64)
+uint32_t
+fnv1a_u32(uint32_t hash, uint32_t u32)
 {
-	hash = fnv1a(hash, (u64) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 8) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 16) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 24) & 0xFF);
+	hash = fnv1a(hash, (u32) & 0xFF);
+	hash = fnv1a(hash, (u32 >> 8) & 0xFF);
+	hash = fnv1a(hash, (u32 >> 16) & 0xFF);
+	hash = fnv1a(hash, (u32 >> 24) & 0xFF);
 	return hash;
 }
 
-uint64_t
-fnv1a_s(uint64_t hash, const char *str)
+uint32_t
+fnv1a_s(uint32_t hash, const char *str)
 {
 	unsigned char c;
 	while ((c = *str++)) {

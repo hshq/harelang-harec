@@ -113,7 +113,7 @@ enum type_flags {
 
 struct type {
 	enum type_storage storage;
-	uint64_t id;
+	uint32_t id;
 	unsigned int flags;
 	size_t size, align;
 	union {
@@ -137,7 +137,7 @@ bool type_is_integer(const struct type *type);
 bool type_is_numeric(const struct type *type);
 bool type_is_float(const struct type *type);
 
-uint64_t type_hash(const struct type *type);
+uint32_t type_hash(const struct type *type);
 
 void builtin_types_init();
 

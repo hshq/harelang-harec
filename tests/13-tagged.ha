@@ -1,33 +1,38 @@
 fn rt::compile(src: str) int;
 
 fn measurements() void = {
-	let x: (u8 | u16 | u32 | u64) = 1337u16;
-	assert(size((u8 | u16 | u32 | u64)) == size(u64) + size(size));
+	let x: (u8 | u16 | u32 | u64) = 1337u16;	// With padding
 	const align: size =
-		if (size(u64) < size(size)) size(size)
+		if (size(u64) < size(uint)) size(uint)
 		else size(u64);
-	assert(&x: uintptr: size % align == 0z);
+	assert(size((u8 | u16 | u32 | u64)) == align * 2z);
+	assert(&x: uintptr: size % size(uint) == 0z);
+	assert(&x: uintptr: size % size(u64) == 0z);
+
+	let y: (u8 | u16) = 1337u16;			// No padding
+	assert(&x: uintptr: size % size(uint) == 0z);
+	assert(&x: uintptr: size % size(u16) == 0z);
 };
 
 fn storage() void = {
 	let x: (u8 | u16 | u32 | u64) = 42u8;
 	let y = &x: *struct {
-		tag: size,
+		tag: uint,
 		union { _u8: u8, _u16: u16, _u32: u32, _u64: u64 },
 	};
-	assert(y.tag == 605989269682102909z); // u8 type ID
+	assert(y.tag == 1228088861u); // u8 type ID
 	assert(y._u8 == 42u8);
 
 	x = 1337u16;
-	assert(y.tag == 593553793169496424z); // u16 type ID
+	assert(y.tag == 1225628936u); // u16 type ID
 	assert(y._u16 == 1337u16);
 
 	x = 0xCAFEBABEu32;
-	assert(y.tag == 596423518518559459z); // u32 type ID
+	assert(y.tag == 1226196611u); // u32 type ID
 	assert(y._u32 == 0xCAFEBABEu32);
 
 	x = 0xCAFEBABEDEADBEEFu64;
-	assert(y.tag == 595466943402205114z); // u64 type ID
+	assert(y.tag == 1226007386u); // u64 type ID
 	assert(y._u64 == 0xCAFEBABEDEADBEEFu64);
 };
 
