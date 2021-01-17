@@ -69,14 +69,13 @@ fn alias_struct() void = {
 	assert(v.x.y == 69, "struct alias ptr ptr alias");
 };
 
-// TODO: tagged unions
-//type my_tagged = (int | void);
+type my_tagged = (int | void);
 
-//fn alias_tagged() void = {
-//	let a: my_tagged = 42;
-//	assert(a is int, "tag");
-//	assert(a as int == 42, "value");
-//};
+fn alias_tagged() void = {
+	let a: my_tagged = 42;
+	assert(a is int, "tag");
+	assert(a as int == 42, "value");
+};
 
 type my_my_array = my_array;
 type my_my_int = my_int;
@@ -94,6 +93,6 @@ export fn main() void = {
 	alias_array();
 	alias_fn();
 	alias_struct();
-	//alias_tagged();
+	alias_tagged();
 	alias_alias();
 };
