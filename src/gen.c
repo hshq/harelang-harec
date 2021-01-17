@@ -992,7 +992,6 @@ gen_array(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	const struct type *type = expr->result;
-	assert(!type->array.expandable); // Invariant
 
 	// XXX: ARCH
 	struct qbe_value ptr = {0};
@@ -1003,13 +1002,31 @@ gen_array(struct gen_context *ctx,
 	struct qbe_value size = {0};
 	constl(&size, type->array.members->size);
 
+	size_t n = 0;
 	struct array_constant *item = expr->constant.array;
 	while (item) {
 		gen_expression(ctx, item->value, &ptr);
+		++n;
 		if (item->next) {
 			pushi(ctx->current, &ptr, Q_ADD, &ptr, &size, NULL);
 		}
 		item = item->next;
+	}
+
+	if (!expr->constant.array->expand) {
+		return;
+	}
+
+	pushc(ctx->current, "expanding array to length %zd", type->array.length);
+	struct qbe_value last = {0};
+	gen_loadtemp(ctx, &last, &ptr,
+		qtype_for_type(ctx, type->array.members, false), "expand.%d");
+	if (type_is_aggregate(type->array.members)) {
+		ptr.type = last.type;
+	}
+	for (; n < type->array.length; ++n) {
+		pushi(ctx->current, &ptr, Q_ADD, &ptr, &size, NULL);
+		gen_store(ctx, &ptr, &last);
 	}
 }
 
@@ -1751,7 +1768,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case TYPE_STORAGE_ARRAY:
 		assert(type->array.length != SIZE_UNDEFINED);
-		assert(!type->array.expandable); // TODO
+		assert(!constant->array->expand); // TODO
 		for (struct array_constant *c = constant->array; c; c = c->next) {
 			gen_data_item(ctx, c->value, item);
 			if (c->next) {

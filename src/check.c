@@ -369,7 +369,7 @@ lower_vaargs(struct context *ctx,
 
 	// XXX: This error handling is minimum-effort and bad
 	const struct type *hint = type_store_lookup_array(
-		&ctx->store, type, SIZE_UNDEFINED, false);
+		&ctx->store, type, SIZE_UNDEFINED);
 	check_expression(ctx, &val, vaargs, hint);
 	assert(vaargs->result->storage == TYPE_STORAGE_ARRAY);
 	expect(&val.loc, vaargs->result->array.members == type,
@@ -521,7 +521,7 @@ check_expr_array(struct context *ctx,
 
 		if (item->expand) {
 			expandable = true;
-			cur->expand = true;
+			expr->constant.array->expand = true;
 			assert(!item->next);
 		}
 
@@ -530,7 +530,18 @@ check_expr_array(struct context *ctx,
 		++len;
 	}
 
-	expr->result = type_store_lookup_array(&ctx->store, type, len, expandable);
+	if (expandable) {
+		expect(&aexpr->loc, hint != NULL,
+			"Cannot expand array for inferred type");
+		expect(&aexpr->loc, hint->storage == TYPE_STORAGE_ARRAY
+				&& hint->array.length != SIZE_UNDEFINED
+				&& hint->array.length >= len,
+			"Cannot expand array into destination type");
+		expr->result = type_store_lookup_array(&ctx->store,
+				type, hint->array.length);
+	} else {
+		expr->result = type_store_lookup_array(&ctx->store, type, len);
+	}
 }
 
 static void

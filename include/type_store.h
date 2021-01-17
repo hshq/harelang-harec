@@ -36,7 +36,7 @@ const struct type *type_store_lookup_pointer(struct type_store *store,
 	const struct type *referent, unsigned int ptrflags);
 
 const struct type *type_store_lookup_array(struct type_store *store,
-	const struct type *members, size_t len, bool expandable);
+	const struct type *members, size_t len);
 
 const struct type *type_store_lookup_slice(struct type_store *store,
 	const struct type *members);

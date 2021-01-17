@@ -63,6 +63,27 @@ fn nested() void = {
 	assert(x[1][0] == 5 && x[1][1] == 6);
 };
 
+fn expanded() void = {
+	let a: [5]int = [1337...];
+	for (let i = 0z; i < len(a); i += 1z) {
+		assert(a[i] == 1337);
+	};
+
+	let b: [5]struct { x: int, y: int } = [struct {
+		x: int = 10,
+		y: int = 20,
+	}...];
+	for (let i = 0z; i < len(b); i += 1z) {
+		assert(b[i].x == 10 && b[i].y == 20);
+	};
+
+	let c: [5]int = [1, 2, 3...];
+	let expected = [1, 2, 3, 3, 3];
+	for (let i = 0z; i < len(c); i += 1z) {
+		assert(c[i] == expected[i]);
+	};
+};
+
 export fn main() void = {
 	indexing();
 	measurements();
@@ -71,4 +92,5 @@ export fn main() void = {
 	assignment();
 	param([1, 2, 3]);
 	nested();
+	expanded();
 };
