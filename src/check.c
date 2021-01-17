@@ -54,12 +54,15 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 }
 
 void check_expression(struct context *ctx,
-	const struct ast_expression *aexpr, struct expression *expr);
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *type);
 
 static void
 check_expr_access(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trace(TR_CHECK, "access");
 	expr->type = EXPR_ACCESS;
@@ -89,8 +92,10 @@ check_expr_access(struct context *ctx,
 	case ACCESS_INDEX:
 		expr->access.array = xcalloc(1, sizeof(struct expression));
 		expr->access.index = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->access.array, expr->access.array);
-		check_expression(ctx, aexpr->access.index, expr->access.index);
+		check_expression(ctx, aexpr->access.array,
+			expr->access.array, NULL);
+		check_expression(ctx, aexpr->access.index,
+			expr->access.index, NULL);
 		const struct type *atype =
 			type_dereference(expr->access.array->result);
 		expect(&aexpr->access.array->loc, atype,
@@ -111,7 +116,8 @@ check_expr_access(struct context *ctx,
 		break;
 	case ACCESS_FIELD:
 		expr->access._struct = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->access._struct, expr->access._struct);
+		check_expression(ctx, aexpr->access._struct,
+			expr->access._struct, NULL);
 		const struct type *stype =
 			type_dereference(expr->access._struct->result);
 		expect(&aexpr->access._struct->loc, stype,
@@ -130,7 +136,8 @@ check_expr_access(struct context *ctx,
 static void
 check_expr_assert(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trace(TR_CHECK, "assert");
 	expr->type = EXPR_ASSERT;
@@ -138,7 +145,8 @@ check_expr_assert(struct context *ctx,
 
 	if (aexpr->assert.cond != NULL) {
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->assert.cond, expr->assert.cond);
+		check_expression(ctx, aexpr->assert.cond,
+			expr->assert.cond, &builtin_type_bool);
 		expect(&aexpr->assert.cond->loc,
 			expr->assert.cond->result->storage == TYPE_STORAGE_BOOL,
 			"Assertion condition must be boolean");
@@ -148,7 +156,8 @@ check_expr_assert(struct context *ctx,
 
 	expr->assert.message = xcalloc(1, sizeof(struct expression));
 	if (aexpr->assert.message != NULL) {
-		check_expression(ctx, aexpr->assert.message, expr->assert.message);
+		check_expression(ctx, aexpr->assert.message,
+			expr->assert.message, &builtin_type_str);
 		expect(&aexpr->assert.message->loc,
 			expr->assert.message->result->storage == TYPE_STORAGE_STRING,
 			"Assertion message must be string");
@@ -169,7 +178,8 @@ check_expr_assert(struct context *ctx,
 static void
 check_expr_assign(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trace(TR_CHECK, "assign");
 	expr->type = EXPR_ASSIGN;
@@ -178,8 +188,8 @@ check_expr_assign(struct context *ctx,
 	struct expression *object = xcalloc(1, sizeof(struct expression));
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 
-	check_expression(ctx, aexpr->assign.object, object);
-	check_expression(ctx, aexpr->assign.value, value);
+	check_expression(ctx, aexpr->assign.object, object, NULL);
+	check_expression(ctx, aexpr->assign.value, value, object->result);
 
 	expr->assign.op = aexpr->assign.op;
 
@@ -213,7 +223,8 @@ check_expr_assign(struct context *ctx,
 static void
 check_expr_binarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trace(TR_CHECK, "binarithm");
 	expr->type = EXPR_BINARITHM;
@@ -221,8 +232,8 @@ check_expr_binarithm(struct context *ctx,
 
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression)),
 		*rvalue = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->binarithm.lvalue, lvalue);
-	check_expression(ctx, aexpr->binarithm.rvalue, rvalue);
+	check_expression(ctx, aexpr->binarithm.lvalue, lvalue, NULL);
+	check_expression(ctx, aexpr->binarithm.rvalue, rvalue, NULL);
 	expr->binarithm.lvalue = lvalue;
 	expr->binarithm.rvalue = rvalue;
 
@@ -262,7 +273,8 @@ check_expr_binarithm(struct context *ctx,
 static void
 check_expr_binding(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trace(TR_CHECK, "binding");
 	expr->type = EXPR_BINDING;
@@ -279,7 +291,6 @@ check_expr_binding(struct context *ctx,
 				&ctx->store, abinding->type);
 			type = type_store_lookup_with_flags(&ctx->store,
 				type, type->flags | abinding->flags);
-			ctx->type_hint = type;
 		}
 
 		struct identifier ident = {
@@ -287,13 +298,11 @@ check_expr_binding(struct context *ctx,
 		};
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, abinding->initializer, initializer);
+		check_expression(ctx, abinding->initializer, initializer, type);
 
 		if (!type) {
 			type = type_store_lookup_with_flags(&ctx->store,
 				initializer->result, abinding->flags);
-		} else {
-			ctx->type_hint = NULL;
 		}
 		expect(&aexpr->loc,
 			type->size != 0 && type->size != SIZE_UNDEFINED,
@@ -359,10 +368,9 @@ lower_vaargs(struct context *ctx,
 	}
 
 	// XXX: This error handling is minimum-effort and bad
-	ctx->type_hint = type_store_lookup_array(
+	const struct type *hint = type_store_lookup_array(
 		&ctx->store, type, SIZE_UNDEFINED, false);
-	check_expression(ctx, &val, vaargs);
-	ctx->type_hint = NULL;
+	check_expression(ctx, &val, vaargs, hint);
 	assert(vaargs->result->storage == TYPE_STORAGE_ARRAY);
 	expect(&val.loc, vaargs->result->array.members == type,
 		"Argument is not assignable to variadic parameter type");
@@ -378,13 +386,14 @@ lower_vaargs(struct context *ctx,
 static void
 check_expr_call(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "call");
 	expr->type = EXPR_CALL;
 
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->call.lvalue, lvalue);
+	check_expression(ctx, aexpr->call.lvalue, lvalue, NULL);
 	expr->call.lvalue = lvalue;
 
 	const struct type *fntype = type_dereference(lvalue->result);
@@ -414,7 +423,7 @@ check_expr_call(struct context *ctx,
 			break;
 		}
 
-		check_expression(ctx, aarg->value, arg->value);
+		check_expression(ctx, aarg->value, arg->value, param->type);
 
 		expect(&aarg->value->loc,
 			type_is_assignable(&ctx->store,
@@ -437,16 +446,17 @@ check_expr_call(struct context *ctx,
 static void
 check_expr_cast(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trace(TR_CHECK, "cast");
 	expr->type = EXPR_CAST;
 	expr->cast.kind = aexpr->cast.kind;
 	struct expression *value = expr->cast.value =
 		xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->cast.value, value);
 	const struct type *secondary = expr->cast.secondary =
 		type_store_lookup_atype(&ctx->store, aexpr->cast.type);
+	check_expression(ctx, aexpr->cast.value, value, secondary);
 	expect(&aexpr->cast.type->loc,
 		type_is_castable(secondary, value->result),
 		"Invalid cast");
@@ -482,24 +492,21 @@ check_expr_cast(struct context *ctx,
 static void
 check_expr_array(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	size_t len = 0;
 	bool expandable = false;
-	const struct type *type = NULL;
 	struct ast_array_constant *item = aexpr->constant.array;
 	struct array_constant *cur, **next = &expr->constant.array;
-
-	if (ctx->type_hint && (
-			ctx->type_hint->storage == TYPE_STORAGE_ARRAY ||
-			ctx->type_hint->storage == TYPE_STORAGE_SLICE)) {
-		type = ctx->type_hint->array.members;
-		ctx->type_hint = ctx->type_hint->array.members;
+	const struct type *type = NULL;
+	if (hint) {
+		type = hint->array.members;
 	}
 
 	while (item) {
 		struct expression *value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, item->value, value);
+		check_expression(ctx, item->value, value, type);
 		cur = *next = xcalloc(1, sizeof(struct array_constant));
 		cur->value = value;
 
@@ -529,7 +536,8 @@ check_expr_array(struct context *ctx,
 static void
 check_expr_constant(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trace(TR_CHECK, "constant");
 	expr->type = EXPR_CONSTANT;
@@ -562,7 +570,7 @@ check_expr_constant(struct context *ctx,
 		// No storage
 		break;
 	case TYPE_STORAGE_ARRAY:
-		check_expr_array(ctx, aexpr, expr);
+		check_expr_array(ctx, aexpr, expr, hint);
 		break;
 	case TYPE_STORAGE_STRING:
 		expr->constant.string.len = aexpr->constant.string.len;
@@ -590,7 +598,8 @@ check_expr_constant(struct context *ctx,
 static void
 check_expr_control(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "control");
 	expr->type = aexpr->type;
@@ -617,7 +626,8 @@ check_expr_control(struct context *ctx,
 static void
 check_expr_for(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "if");
 	expr->type = EXPR_FOR;
@@ -637,12 +647,12 @@ check_expr_for(struct context *ctx,
 
 	if (aexpr->_for.bindings) {
 		bindings = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->_for.bindings, bindings);
+		check_expression(ctx, aexpr->_for.bindings, bindings, NULL);
 		expr->_for.bindings = bindings;
 	}
 
 	cond = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->_for.cond, cond);
+	check_expression(ctx, aexpr->_for.cond, cond, &builtin_type_bool);
 	expr->_for.cond = cond;
 	expect(&aexpr->_for.cond->loc,
 		cond->result->storage == TYPE_STORAGE_BOOL,
@@ -650,12 +660,13 @@ check_expr_for(struct context *ctx,
 
 	if (aexpr->_for.afterthought) {
 		afterthought = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->_for.afterthought, afterthought);
+		check_expression(ctx, aexpr->_for.afterthought,
+			afterthought, NULL);
 		expr->_for.afterthought = afterthought;
 	}
 
 	body = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->_for.body, body);
+	check_expression(ctx, aexpr->_for.body, body, NULL);
 	expr->_for.body = body;
 
 	scope_pop(&ctx->scope, TR_CHECK);
@@ -665,7 +676,8 @@ check_expr_for(struct context *ctx,
 static void
 check_expr_if(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "if");
 	expr->type = EXPR_IF;
@@ -673,14 +685,15 @@ check_expr_if(struct context *ctx,
 	struct expression *cond, *true_branch, *false_branch = NULL;
 
 	cond = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->_if.cond, cond);
+	check_expression(ctx, aexpr->_if.cond, cond, &builtin_type_bool);
 
 	true_branch = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->_if.true_branch, true_branch);
+	check_expression(ctx, aexpr->_if.true_branch, true_branch, NULL);
 
 	if (aexpr->_if.false_branch) {
 		false_branch = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->_if.false_branch, false_branch);
+		check_expression(ctx, aexpr->_if.false_branch,
+				false_branch, NULL);
 
 		if (true_branch->terminates && false_branch->terminates) {
 			expr->result = &builtin_type_void;
@@ -712,7 +725,8 @@ check_expr_if(struct context *ctx,
 static void
 check_expr_list(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "expression-list");
 	expr->type = EXPR_LIST;
@@ -727,7 +741,7 @@ check_expr_list(struct context *ctx,
 	const struct ast_expression_list *alist = &aexpr->list;
 	while (alist) {
 		struct expression *lexpr = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, alist->expr, lexpr);
+		check_expression(ctx, alist->expr, lexpr, NULL);
 		list->expr = lexpr;
 
 		alist = alist->next;
@@ -748,7 +762,8 @@ check_expr_list(struct context *ctx,
 static void
 check_expr_measure(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "measure");
 	expr->type = EXPR_MEASURE;
@@ -758,7 +773,8 @@ check_expr_measure(struct context *ctx,
 	switch (expr->measure.op) {
 	case M_LEN:
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->measure.value, expr->measure.value);
+		check_expression(ctx, aexpr->measure.value,
+			expr->measure.value, NULL);
 		enum type_storage vstor = expr->measure.value->result->storage;
 		expect(&aexpr->measure.value->loc,
 			vstor == TYPE_STORAGE_ARRAY
@@ -781,7 +797,8 @@ check_expr_measure(struct context *ctx,
 static void
 check_expr_return(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "return");
 	expr->type = EXPR_RETURN;
@@ -790,7 +807,8 @@ check_expr_return(struct context *ctx,
 
 	if (aexpr->_return.value) {
 		struct expression *rval = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->_return.value, rval);
+		check_expression(ctx, aexpr->_return.value,
+			rval, ctx->current_fntype->func.result);
 		expect(&aexpr->_return.value->loc,
 			type_is_assignable(&ctx->store, ctx->current_fntype->func.result, rval->result),
 			"Return value is not assignable to function result type");
@@ -807,13 +825,14 @@ check_expr_return(struct context *ctx,
 static void
 check_expr_slice(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "slice");
 	expr->type = EXPR_SLICE;
 
 	expr->slice.object = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->slice.object, expr->slice.object);
+	check_expression(ctx, aexpr->slice.object, expr->slice.object, NULL);
 	const struct type *atype =
 		type_dereference(expr->slice.object->result);
 	expect(&aexpr->slice.object->loc, atype,
@@ -826,7 +845,7 @@ check_expr_slice(struct context *ctx,
 	const struct type *itype;
 	if (aexpr->slice.start) {
 		expr->slice.start = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->slice.start, expr->slice.start);
+		check_expression(ctx, aexpr->slice.start, expr->slice.start, NULL);
 		itype = type_dealias(expr->slice.start->result);
 		expect(&aexpr->slice.start->loc, type_is_integer(itype),
 			"Cannot use non-integer %s type as slicing operand",
@@ -837,7 +856,7 @@ check_expr_slice(struct context *ctx,
 
 	if (aexpr->slice.end) {
 		expr->slice.end = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->slice.end, expr->slice.end);
+		check_expression(ctx, aexpr->slice.end, expr->slice.end, NULL);
 		itype = type_dealias(expr->slice.end->result);
 		expect(&aexpr->slice.end->loc, type_is_integer(itype),
 			"Cannot use non-integer %s type as slicing operand",
@@ -857,7 +876,8 @@ check_expr_slice(struct context *ctx,
 static void
 check_expr_struct(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "struct");
 	assert(!aexpr->_struct.autofill); // TODO
@@ -881,7 +901,8 @@ check_expr_struct(struct context *ctx,
 		tfield->field.name = afield->field.name;
 		tfield->field.type = afield->field.type;
 		sexpr->value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, afield->field.initializer, sexpr->value);
+		check_expression(ctx, afield->field.initializer, sexpr->value,
+			type_store_lookup_atype(&ctx->store, tfield->field.type));
 
 		if (afield->next) {
 			*tnext = tfield = xcalloc(
@@ -924,13 +945,14 @@ check_expr_struct(struct context *ctx,
 static void
 check_expr_switch(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "switch");
 	expr->type = EXPR_SWITCH;
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->_switch.value, value);
+	check_expression(ctx, aexpr->_switch.value, value, NULL);
 	const struct type *type = value->result;
 	expr->_switch.value = value;
 
@@ -950,7 +972,7 @@ check_expr_switch(struct context *ctx,
 			struct expression *evaled =
 				xcalloc(1, sizeof(struct expression));
 
-			check_expression(ctx, aopt->value, value);
+			check_expression(ctx, aopt->value, value, type);
 			// XXX: Should this be assignable instead?
 			expect(&aopt->value->loc,
 				type == value->result,
@@ -966,7 +988,7 @@ check_expr_switch(struct context *ctx,
 		}
 
 		_case->value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, acase->value, _case->value);
+		check_expression(ctx, acase->value, _case->value, type);
 		if (_case->value->terminates) {
 			continue;
 		}
@@ -987,13 +1009,14 @@ check_expr_switch(struct context *ctx,
 static void
 check_expr_unarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "unarithm");
 	expr->type = EXPR_UNARITHM;
 
 	struct expression *operand = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->unarithm.operand, operand);
+	check_expression(ctx, aexpr->unarithm.operand, operand, NULL);
 	expr->unarithm.operand = operand;
 	expr->unarithm.op = aexpr->unarithm.op;
 
@@ -1044,67 +1067,68 @@ check_expr_unarithm(struct context *ctx,
 void
 check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
-	struct expression *expr)
+	struct expression *expr,
+	const struct type *hint)
 {
 	trenter(TR_CHECK, "expression");
 
 	switch (aexpr->type) {
 	case EXPR_ACCESS:
-		check_expr_access(ctx, aexpr, expr);
+		check_expr_access(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_ASSERT:
-		check_expr_assert(ctx, aexpr, expr);
+		check_expr_assert(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_ASSIGN:
-		check_expr_assign(ctx, aexpr, expr);
+		check_expr_assign(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BINARITHM:
-		check_expr_binarithm(ctx, aexpr, expr);
+		check_expr_binarithm(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BINDING:
-		check_expr_binding(ctx, aexpr, expr);
+		check_expr_binding(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BREAK:
 	case EXPR_CONTINUE:
-		check_expr_control(ctx, aexpr, expr);
+		check_expr_control(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_CALL:
-		check_expr_call(ctx, aexpr, expr);
+		check_expr_call(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_CAST:
-		check_expr_cast(ctx, aexpr, expr);
+		check_expr_cast(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_CONSTANT:
-		check_expr_constant(ctx, aexpr, expr);
+		check_expr_constant(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_FOR:
-		check_expr_for(ctx, aexpr, expr);
+		check_expr_for(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_IF:
-		check_expr_if(ctx, aexpr, expr);
+		check_expr_if(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_LIST:
-		check_expr_list(ctx, aexpr, expr);
+		check_expr_list(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_MATCH:
 		assert(0); // TODO
 	case EXPR_MEASURE:
-		check_expr_measure(ctx, aexpr, expr);
+		check_expr_measure(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_RETURN:
-		check_expr_return(ctx, aexpr, expr);
+		check_expr_return(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_SLICE:
-		check_expr_slice(ctx, aexpr, expr);
+		check_expr_slice(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_STRUCT:
-		check_expr_struct(ctx, aexpr, expr);
+		check_expr_struct(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_SWITCH:
-		check_expr_switch(ctx, aexpr, expr);
+		check_expr_switch(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_UNARITHM:
-		check_expr_unarithm(ctx, aexpr, expr);
+		check_expr_unarithm(ctx, aexpr, expr, hint);
 		break;
 	}
 
@@ -1167,7 +1191,7 @@ check_function(struct context *ctx,
 	}
 
 	struct expression *body = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, afndecl->body, body);
+	check_expression(ctx, afndecl->body, body, fntype->func.result);
 
 	expect(&afndecl->body->loc,
 		body->terminates || type_is_assignable(&ctx->store, fntype->func.result, body->result),
@@ -1209,7 +1233,7 @@ check_global(struct context *ctx,
 	// TODO: Free initialier
 	struct expression *initializer =
 		xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, agdecl->init, initializer);
+	check_expression(ctx, agdecl->init, initializer, type);
 
 	expect(&agdecl->init->loc,
 		type_is_assignable(&ctx->store, type, initializer->result),
@@ -1285,7 +1309,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	// - Defer if we can't evaluate it now (for forward references)
 	struct expression *initializer =
 		xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, decl->init, initializer);
+	check_expression(ctx, decl->init, initializer, type);
 
 	expect(&decl->init->loc, type_is_assignable(&ctx->store, type, initializer->result),
 		"Constant type is not assignable from initializer type");

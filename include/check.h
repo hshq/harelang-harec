@@ -11,7 +11,6 @@ struct scope;
 struct context {
 	struct type_store store;
 	const struct type *current_fntype;
-	const struct type *type_hint;
 	struct identifier *ns;
 	struct scope *unit;
 	struct scope *scope;
@@ -71,6 +70,8 @@ void check(struct context *ctx,
 	struct unit *unit);
 
 void check_expression(struct context *ctx,
-	const struct ast_expression *aexpr, struct expression *expr);
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint);
 
 #endif
