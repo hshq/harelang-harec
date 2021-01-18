@@ -117,7 +117,6 @@ type_is_integer(const struct type *type)
 {
 	switch (type->storage) {
 	case TYPE_STORAGE_VOID:
-	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
@@ -147,6 +146,8 @@ type_is_integer(const struct type *type)
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 		return true;
+	case TYPE_STORAGE_ALIAS:
+		return type_is_numeric(type_dealias(type));
 	}
 	assert(0); // Unreachable
 }
@@ -156,7 +157,6 @@ type_is_numeric(const struct type *type)
 {
 	switch (type->storage) {
 	case TYPE_STORAGE_VOID:
-	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
@@ -186,6 +186,8 @@ type_is_numeric(const struct type *type)
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 		return true;
+	case TYPE_STORAGE_ALIAS:
+		return type_is_integer(type_dealias(type));
 	}
 	assert(0); // Unreachable
 }
