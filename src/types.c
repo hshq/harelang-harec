@@ -147,7 +147,7 @@ type_is_integer(const struct type *type)
 	case TYPE_STORAGE_UINTPTR:
 		return true;
 	case TYPE_STORAGE_ALIAS:
-		return type_is_numeric(type_dealias(type));
+		return type_is_integer(type_dealias(type));
 	}
 	assert(0); // Unreachable
 }
@@ -187,7 +187,7 @@ type_is_numeric(const struct type *type)
 	case TYPE_STORAGE_UINTPTR:
 		return true;
 	case TYPE_STORAGE_ALIAS:
-		return type_is_integer(type_dealias(type));
+		return type_is_numeric(type_dealias(type));
 	}
 	assert(0); // Unreachable
 }
