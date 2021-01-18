@@ -1,7 +1,7 @@
 fn rt::compile(src: str) int;
 
 fn measurements() void = {
-	let x: (u8 | u16 | u32 | u64) = 1337u16;	// With padding
+	const x: (u8 | u16 | u32 | u64) = 1337u16;	// With padding
 	const align: size =
 		if (size(u64) < size(uint)) size(uint)
 		else size(u64);
@@ -9,14 +9,14 @@ fn measurements() void = {
 	assert(&x: uintptr: size % size(uint) == 0z);
 	assert(&x: uintptr: size % size(u64) == 0z);
 
-	let y: (u8 | u16) = 1337u16;			// No padding
-	assert(&x: uintptr: size % size(uint) == 0z);
-	assert(&x: uintptr: size % size(u16) == 0z);
+	const y: (u8 | u16) = 1337u16;			// No padding
+	assert(&y: uintptr: size % size(uint) == 0z);
+	assert(&y: uintptr: size % size(u16) == 0z);
 };
 
 fn storage() void = {
 	let x: (u8 | u16 | u32 | u64) = 42u8;
-	let y = &x: *struct {
+	const y = &x: *struct {
 		tag: uint,
 		union { _u8: u8, _u16: u16, _u32: u32, _u64: u64 },
 	};
@@ -52,9 +52,9 @@ type unsigned = (u8 | u16 | u32 | u64 | uint);
 type integer = (...signed | ...unsigned);
 
 fn reduction() void = {
-	let a: (i8 | i16) = 42i8;
-	let b: (i16 | i8) = a;
-	let c: (i8 | i16 | i32) = a;
+	const a: (i8 | i16) = 42i8;
+	const b: (i16 | i8) = a;
+	const c: (i8 | i16 | i32) = a;
 	assert(rt::compile(
 		// Cannot assign from more general type
 		"fn test() void = {
@@ -66,7 +66,7 @@ fn reduction() void = {
 	assert(size((i8 | i16 | i32)) == size((i8 | (i16 | i32))));
 	assert(size(integer) == size(signed));
 	assert(size(integer) != size((signed | unsigned)));
-	let i: integer = 10;
+	const i: integer = 10;
 	assert(i is int);
 };
 
@@ -76,7 +76,7 @@ fn casts() void = {
 	let x = a: u8;
 	assert(x == 42u8);
 
-	let val: u16 = 0xBEEFu16;
+	const val = 0xBEEFu16;
 	const is_little = (&val: *[2]u8)[0] == 0xEFu8;
 	a = 0xCAFEu16;
 	x = a: u8;
