@@ -899,6 +899,7 @@ gen_expr_cast(struct gen_context *ctx,
 
 	switch (to->storage) {
 	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
@@ -912,9 +913,9 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_UINTPTR:	// XXX: ARCH
 	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_SIZE:		// XXX: ARCH
-		if (type_is_integer(to) && to->size <= from->size) {
+		if (type_is_integer(from) && to->size <= from->size) {
 			op = Q_COPY;
-		} else if (type_is_integer(to) && to->size > from->size) {
+		} else if (type_is_integer(from) && to->size > from->size) {
 			switch (from->size) {
 			case 4:
 				op = is_signed ? Q_EXTSW : Q_EXTUW;
@@ -931,8 +932,9 @@ gen_expr_cast(struct gen_context *ctx,
 		} else if (from->storage == TYPE_STORAGE_POINTER) {
 			assert(to->storage == TYPE_STORAGE_UINTPTR);
 			op = Q_COPY;
-		} else if (type_is_float(from)) {
-			assert(0); // TODO
+		} else if (from->storage == TYPE_STORAGE_RUNE) {
+			assert(to->storage == TYPE_STORAGE_U32);
+			op = Q_COPY;
 		} else {
 			assert(0); // Invariant
 		}
@@ -940,7 +942,6 @@ gen_expr_cast(struct gen_context *ctx,
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_ENUM:
 		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
 		if (from->storage == TYPE_STORAGE_ARRAY) {

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "gen.h"
 #include "qbe.h"
+#include "type_store.h"
 #include "types.h"
 #include "util.h"
 
@@ -39,7 +40,7 @@ qstype_for_type(const struct type *type)
 		return Q__VOID;
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
+		return qstype_for_type(builtin_type_for_storage(type->_enum.storage, true));
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
@@ -88,7 +89,7 @@ qxtype_for_type(const struct type *type)
 	case TYPE_STORAGE_FUNCTION:
 		return qstype_for_type(type);
 	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
+		return qxtype_for_type(builtin_type_for_storage(type->_enum.storage, true));
 	}
 	assert(0);
 }
@@ -197,7 +198,6 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 		}
 		break;
 	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_CHAR:
@@ -244,6 +244,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 		}
 		// Fallthrough
 	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_U32:
 	case TYPE_STORAGE_RUNE:
@@ -260,7 +261,6 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_VOID:
 		return qtype_for_xtype(qstype_for_type(type), false);
 	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
