@@ -71,7 +71,6 @@ static const char *tokens[] = {
 	[T_UNION] = "union",
 	[T_USE] = "use",
 	[T_VOID] = "void",
-	[T_WHILE] = "while",
 
 	// Operators
 	[T_ANDEQ] = "&=",

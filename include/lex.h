@@ -62,8 +62,7 @@ enum lexical_token {
 	T_UNION,
 	T_USE,
 	T_VOID,
-	T_WHILE,
-	T_LAST_KEYWORD = T_WHILE,
+	T_LAST_KEYWORD = T_VOID,
 
 	// Operators
 	T_ANDEQ,
