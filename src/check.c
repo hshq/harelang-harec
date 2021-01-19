@@ -1406,6 +1406,44 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
 	scope_insert(ctx->unit, O_TYPE, &ident, &decl->ident, type, NULL);
+	if (type->storage == TYPE_STORAGE_ENUM) {
+		for (struct type_enum_value *value = type->_enum.values; value;
+				value = value->next) {
+			struct ast_type atype = {
+				.loc = decl->type->loc,
+				.storage = TYPE_STORAGE_ALIAS,
+				.flags = 0,
+				.unwrap = false,
+				.alias = decl->ident,
+			};
+			const struct type *alias =
+				type_store_lookup_atype(&ctx->store, &atype);
+
+			struct expression *expr =
+				xcalloc(sizeof(struct expression), 1);
+			expr->type = EXPR_CONSTANT;
+			expr->result = alias;
+			if (type_is_signed(alias)) {
+				expr->constant.ival = value->ival;
+			} else {
+				expr->constant.uval = value->uval;
+			}
+
+			struct identifier name_ns = {
+				.name = decl->ident.name,
+				.ns = decl->ident.ns,
+			};
+			struct identifier name = {
+				.name = value->name,
+				.ns = &name_ns,
+			};
+			struct identifier vident = {
+				.name = value->name,
+				.ns = &ident,
+			};
+			scope_insert(ctx->unit, O_CONST, &name, &vident, alias, expr);
+		}
+	}
 	trleave(TR_SCAN, NULL);
 }
 
