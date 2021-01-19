@@ -17,7 +17,8 @@ tests() {
 		11-globals \
 		12-loops \
 		13-tagged \
-		14-switch
+		14-switch \
+		15-enums
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
