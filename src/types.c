@@ -126,13 +126,13 @@ type_is_integer(const struct type *type)
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 		return false;
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
@@ -198,12 +198,14 @@ type_is_float(const struct type *type)
 	return type->storage == TYPE_STORAGE_F32 || type->storage == TYPE_STORAGE_F64;
 }
 
-bool
-type_is_signed(const struct type *type)
+static bool
+storage_is_signed(enum type_storage storage)
 {
-	switch (type->storage) {
+	switch (storage) {
 	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
@@ -231,12 +233,17 @@ type_is_signed(const struct type *type)
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 		return true;
-	case TYPE_STORAGE_ALIAS:
-		return type_is_signed(type_dealias(type));
-	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
 	}
 	assert(0); // Unreachable
+}
+
+bool
+type_is_signed(const struct type *type)
+{
+	if (type->storage == TYPE_STORAGE_ENUM) {
+		return storage_is_signed(type->_enum.storage);
+	}
+	return storage_is_signed(type_dealias(type)->storage);
 }
 
 uint32_t
@@ -290,7 +297,13 @@ type_hash(const struct type *type)
 		}
 		break;
 	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
+		hash = fnv1a(hash, type->_enum.storage);
+		for (struct type_enum_value *value = type->_enum.values; value;
+				value = value->next) {
+			hash = fnv1a_s(hash, value->name);
+			hash = fnv1a(hash, value->uval);
+		}
+		break;
 	case TYPE_STORAGE_POINTER:
 		hash = fnv1a(hash, type->pointer.flags);
 		hash = fnv1a_u32(hash, type_hash(type->pointer.referent));

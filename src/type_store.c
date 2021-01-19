@@ -147,7 +147,6 @@ type_is_assignable(struct type_store *store,
 		assert(0); // Unreachable
 	case TYPE_STORAGE_ALIAS:
 		return type_is_assignable(store, to->alias.type, from);
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_STRING:
 		return to == &builtin_type_const_ptr_char;
 	case TYPE_STORAGE_VOID:
@@ -171,6 +170,7 @@ type_is_assignable(struct type_store *store,
 	// handled above:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
@@ -569,6 +569,9 @@ tagged_init_from_atype(struct type_store *store,
 	}
 }
 
+
+static const struct type *type_store_lookup_type(struct type_store *store, const struct type *type);
+
 static void
 type_init_from_atype(struct type_store *store,
 	struct type *type,
@@ -627,7 +630,47 @@ type_init_from_atype(struct type_store *store,
 		}
 		break;
 	case TYPE_STORAGE_ENUM:
-		assert(0); // TODO
+		type->_enum.storage = atype->_enum.storage;
+		const struct type *storage =
+			builtin_type_for_storage(type->_enum.storage, true);
+ 		// TODO: Bubble this up
+		assert(type_is_integer(storage));
+		type->size = storage->size;
+		type->align = storage->size;
+
+		// TODO: Check for duplicates
+		struct ast_enum_field *avalue = atype->_enum.values;
+		struct type_enum_value **values = &type->_enum.values;
+		intmax_t iimplicit = 0;
+		uintmax_t uimplicit = 0;
+		while (avalue) {
+			struct type_enum_value *value = *values =
+				xcalloc(sizeof(struct type_enum_value), 1);
+			value->name = strdup(avalue->name);
+			if (avalue->value != NULL) {
+				struct expression in, out;
+				check_expression(store->check_context,
+					avalue->value, &in, NULL);
+				enum eval_result r =
+					eval_expr(store->check_context, &in, &out);
+				// TODO: Bubble this up
+				assert(r == EVAL_OK && type_is_assignable(store, storage, out.result));
+				if (type_is_signed(storage)) {
+					iimplicit = out.constant.ival;
+				} else {
+					uimplicit = out.constant.uval;
+				}
+			}
+			// TODO: Test that the value fits into this precision
+			if (type_is_signed(storage)) {
+				value->ival = iimplicit++;
+			} else {
+				value->uval = uimplicit++;
+			}
+			values = &value->next;
+			avalue = avalue->next;
+		}
+		break;
 	case TYPE_STORAGE_FUNCTION:
 		type->size = SIZE_UNDEFINED;
 		type->align = SIZE_UNDEFINED;

@@ -53,6 +53,20 @@ struct type_array {
 	const struct type *members;
 };
 
+struct type_enum_value {
+	char *name;
+	struct type_enum_value *next;
+	union {
+		intmax_t ival;
+		uintmax_t uval;
+	};
+};
+
+struct type_enum {
+	enum type_storage storage;
+	struct type_enum_value *values;
+};
+
 enum variadism {
 	VARIADISM_NONE,
 	VARIADISM_C,
@@ -118,6 +132,7 @@ struct type {
 	union {
 		struct type_alias alias;
 		struct type_array array;
+		struct type_enum _enum;
 		struct type_func func;
 		struct type_pointer pointer;
 		struct type_struct_union struct_union;
