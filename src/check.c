@@ -652,6 +652,16 @@ check_expr_for(struct context *ctx,
 	expr->_for.scope = scope;
 	scope->type = expr->type;
 	scope->label = expr->_for.label;
+	if (expr->_for.label) {
+		for (scope = scope->parent; scope; scope = scope->parent) {
+			if (scope->label == NULL) {
+				continue;
+			}
+			expect(&aexpr->_for.label_loc,
+				strcmp(scope->label, expr->_for.label) != 0,
+				"for loop label must be unique among its ancestors");
+		}
+	}
 
 	struct expression *bindings = NULL,
 		*cond = NULL, *afterthought = NULL, *body = NULL;

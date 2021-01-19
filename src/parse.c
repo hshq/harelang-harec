@@ -1554,6 +1554,7 @@ parse_for_expression(struct lexer *lexer)
 	case T_FOR:
 		break;
 	case T_LABEL:
+		exp->_for.label_loc = tok.loc;
 		exp->_for.label = tok.name;
 		want(lexer, T_FOR, NULL);
 		break;

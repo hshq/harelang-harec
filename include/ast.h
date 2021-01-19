@@ -211,6 +211,7 @@ struct ast_expression_control {
 
 struct ast_expression_for {
 	char *label;
+	struct location label_loc;
 	struct ast_expression *bindings;
 	struct ast_expression *cond;
 	struct ast_expression *afterthought;

@@ -75,9 +75,6 @@ fn label() void = {
 	let i = 0;
 	:outer for (i < 10) {
 		:inner for (let j = 0; j < 7; j += 1) {
-			:outer for (true) {
-				break :outer;
-			};
 			i += 1;
 			if (j == 6) {
 				continue :inner;
@@ -92,6 +89,7 @@ fn label() void = {
 	assert(rt::compile("fn test() void = { :foo for (true) { break :bar; }; };") != 0);
 	assert(rt::compile("fn test() void = { for (true) { break :bar; }; };") != 0);
 	assert(rt::compile("fn test() void = { break :bar; };") != 0);
+	assert(rt::compile("fn test() void = { :foo for (true) { :foo for (true) void; } ; };") != 0);
 };
 
 export fn main() void = {
