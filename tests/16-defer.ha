@@ -4,6 +4,10 @@ fn basics() void = {
 	assert(x == 10);
 	defer x = 20;
 	assert(x == 10);
+	if (true) {
+		return;
+	};
+	defer x = 30;
 };
 
 fn scope() void = {
