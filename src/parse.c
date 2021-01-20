@@ -1859,9 +1859,9 @@ parse_scope_expression(struct lexer *lexer)
 		return parse_deferred_expression(lexer);
 	default:
 		unlex(lexer, &tok);
-		value = parse_unary_expression(lexer);
+		value = parse_cast_expression(lexer, NULL);
 		if (!indirect && value->type != EXPR_ACCESS) {
-			return value;
+			return parse_bin_expression(lexer, value, 0);
 		}
 		// Is possible object-selector, try for assignment
 		break;
