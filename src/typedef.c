@@ -52,7 +52,6 @@ static void
 emit_func(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident); // TODO: Emit @symbol
-
 	const struct type *fntype = decl->func.type;
 	fprintf(out, "export%s fn %s(",
 		(fntype->func.flags & FN_NORETURN) ? " @noreturn" : "",
@@ -72,6 +71,15 @@ emit_func(struct declaration *decl, FILE *out)
 	free(ident);
 }
 
+static void
+emit_global(struct declaration *decl, FILE *out)
+{
+	char *ident = identifier_unparse(&decl->ident); // TODO: Emit @symbol
+	fprintf(out, "export let %s: ", ident);
+	emit_type(decl->global.type, out);
+	fprintf(out, ";\n");
+}
+
 void
 emit_typedefs(struct unit *unit, FILE *out)
 {
@@ -89,7 +97,8 @@ emit_typedefs(struct unit *unit, FILE *out)
 		case DECL_TYPE:
 			assert(0); // TODO
 		case DECL_GLOBAL:
-			assert(0); // TODO
+			emit_global(decl, out);
+			break;
 		case DECL_CONSTANT:
 			assert(0); // TODO
 		}
