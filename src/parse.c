@@ -1040,16 +1040,6 @@ parse_measurement_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_defer_expression(struct lexer *lexer)
-{
-	struct ast_expression *exp = mkexpr(&lexer->loc);
-	want(lexer, T_DEFER, NULL);
-	exp->type = EXPR_DEFER;
-	exp->defer.deferred = parse_scope_expression(lexer);
-	return exp;
-}
-
-static struct ast_expression *
 parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
 	trenter(TR_PARSE, "call");
@@ -1254,9 +1244,6 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	case T_OFFSET:
 		unlex(lexer, &tok);
 		return parse_measurement_expression(lexer);
-	case T_DEFER:
-		unlex(lexer, &tok);
-		return parse_defer_expression(lexer);
 	default:
 		unlex(lexer, &tok);
 		break;
@@ -1802,6 +1789,16 @@ parse_assignment(struct lexer *lexer, struct ast_expression *object,
 }
 
 static struct ast_expression *
+parse_deferred_expression(struct lexer *lexer)
+{
+	struct ast_expression *exp = mkexpr(&lexer->loc);
+	want(lexer, T_DEFER, NULL);
+	exp->type = EXPR_DEFER;
+	exp->defer.deferred = parse_scope_expression(lexer);
+	return exp;
+}
+
+static struct ast_expression *
 parse_scope_expression(struct lexer *lexer)
 {
 	// This is one of the more complicated non-terminals to parse.
@@ -1848,6 +1845,9 @@ parse_scope_expression(struct lexer *lexer)
 			assert(0); // TODO: Wrap value in unary dereference
 		}
 		return value;
+	case T_DEFER:
+		unlex(lexer, &tok);
+		return parse_deferred_expression(lexer);
 	default:
 		unlex(lexer, &tok);
 		value = parse_unary_expression(lexer);
