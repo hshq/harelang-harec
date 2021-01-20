@@ -1912,6 +1912,9 @@ static void
 gen_decl(struct gen_context *ctx, const struct declaration *decl)
 {
 	switch (decl->type) {
+	case DECL_CONSTANT:
+		// Nothing to do
+		break;
 	case DECL_FUNC:
 		gen_function_decl(ctx, decl);
 		break;
@@ -1919,7 +1922,6 @@ gen_decl(struct gen_context *ctx, const struct declaration *decl)
 		gen_global_decl(ctx, decl);
 		break;
 	case DECL_TYPE:
-	case DECL_CONSTANT:
 		// Nothing to do
 		break;
 	}

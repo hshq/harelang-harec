@@ -108,17 +108,17 @@ emit_typedefs(struct unit *unit, FILE *out)
 		}
 
 		switch (decl->type) {
+		case DECL_CONSTANT:
+			assert(0); // TODO
 		case DECL_FUNC:
 			emit_func(decl, out);
-			break;
-		case DECL_TYPE:
-			emit_type_decl(decl, out);
 			break;
 		case DECL_GLOBAL:
 			emit_global(decl, out);
 			break;
-		case DECL_CONSTANT:
-			assert(0); // TODO
+		case DECL_TYPE:
+			emit_type_decl(decl, out);
+			break;
 		}
 	}
 }

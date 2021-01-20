@@ -37,10 +37,10 @@ struct global_decl {
 };
 
 enum declaration_type {
-	DECL_FUNC,
-	DECL_TYPE,
-	DECL_GLOBAL,
 	DECL_CONSTANT,
+	DECL_FUNC,
+	DECL_GLOBAL,
+	DECL_TYPE,
 };
 
 struct declaration {
