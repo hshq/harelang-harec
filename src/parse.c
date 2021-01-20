@@ -1798,6 +1798,8 @@ parse_deferred_expression(struct lexer *lexer)
 	return exp;
 }
 
+static struct ast_expression *parse_expression_list(struct lexer *lexer);
+
 static struct ast_expression *
 parse_scope_expression(struct lexer *lexer)
 {
@@ -1841,6 +1843,13 @@ parse_scope_expression(struct lexer *lexer)
 	case T_SWITCH:
 		unlex(lexer, &tok);
 		value = parse_complex_expression(lexer);
+		if (indirect) {
+			assert(0); // TODO: Wrap value in unary dereference
+		}
+		return value;
+	case T_LBRACE:
+		unlex(lexer, &tok);
+		value = parse_expression_list(lexer);
 		if (indirect) {
 			assert(0); // TODO: Wrap value in unary dereference
 		}
