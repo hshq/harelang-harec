@@ -50,6 +50,7 @@ struct declaration {
 	union {
 		struct function_decl func;
 		struct global_decl global;
+		const struct type *_type;
 	};
 };
 

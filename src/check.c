@@ -1300,6 +1300,19 @@ check_global(struct context *ctx,
 	return decl;
 }
 
+static struct declaration *
+check_type(struct context *ctx,
+	const struct ast_decl *adecl)
+{
+	const struct type *type =
+		type_store_lookup_atype(&ctx->store, adecl->type.type);
+	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
+	decl->type = DECL_TYPE;
+	decl->_type = type;
+	mkident(ctx, &decl->ident, &adecl->type.ident);
+	return decl;
+}
+
 static struct declarations **
 check_declarations(struct context *ctx,
 		const struct ast_decls *adecls,
@@ -1310,16 +1323,17 @@ check_declarations(struct context *ctx,
 		struct declaration *decl = NULL;
 		const struct ast_decl *adecl = &adecls->decl;
 		switch (adecl->decl_type) {
+		case AST_DECL_CONST:
+			break; // Handled in scan
 		case AST_DECL_FUNC:
 			decl = check_function(ctx, adecl);
 			break;
-		case AST_DECL_TYPE:
-			break; // Handled in scan
 		case AST_DECL_GLOBAL:
 			decl = check_global(ctx, adecl);
 			break;
-		case AST_DECL_CONST:
-			break; // Handled in scan
+		case AST_DECL_TYPE:
+			decl = check_type(ctx, adecl);
+			break;
 		}
 
 		if (decl) {

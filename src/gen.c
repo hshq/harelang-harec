@@ -1920,7 +1920,8 @@ gen_decl(struct gen_context *ctx, const struct declaration *decl)
 		break;
 	case DECL_TYPE:
 	case DECL_CONSTANT:
-		assert(0); // Invariant
+		// Nothing to do
+		break;
 	}
 }
 
