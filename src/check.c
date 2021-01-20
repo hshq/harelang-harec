@@ -1425,6 +1425,7 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
 	scope_insert(ctx->unit, O_TYPE, &ident, &decl->ident, type, NULL);
+
 	if (type->storage == TYPE_STORAGE_ENUM) {
 		for (struct type_enum_value *value = type->_enum.values; value;
 				value = value->next) {

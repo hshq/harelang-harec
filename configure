@@ -19,6 +19,7 @@ harec() {
 		src/scope.c \
 		src/trace.c \
 		src/type_store.c \
+		src/typedef.c \
 		src/types.c \
 		src/utf8.c \
 		src/util.c

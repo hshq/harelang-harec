@@ -11,6 +11,7 @@
 #include "lex.h"
 #include "parse.h"
 #include "qbe.h"
+#include "typedef.h"
 #include "util.h"
 
 static void
@@ -53,7 +54,7 @@ parse_stage(const char *s)
 int
 main(int argc, char *argv[])
 {
-	char *output = NULL;
+	char *output = NULL, *typedefs = NULL;
 	struct unit unit = {0};
 	struct lexer lexer;
 
@@ -66,7 +67,8 @@ main(int argc, char *argv[])
 		case 'T':
 			assert(0); // TODO: Build tags
 		case 't':
-			assert(0); // TODO: Typedefs
+			typedefs = optarg;
+			break;
 		case 'N':
 			unit.ns = xcalloc(1, sizeof(struct identifier));
 			FILE *in = fmemopen(optarg, strlen(optarg), "r");
@@ -131,6 +133,17 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
+	if (typedefs) {
+		FILE *out = fopen(typedefs, "w");
+		if (!out) {
+			fprintf(stderr, "Unable to open %s for writing: %s\n",
+					typedefs, strerror(errno));
+			return 1;
+		}
+		emit_typedefs(&unit, out);
+		fclose(out);
+	}
+
 	struct qbe_program prog = {0};
 	gen(&unit, &prog);
 	if (stage == STAGE_GEN) {
@@ -149,5 +162,6 @@ main(int argc, char *argv[])
 		}
 	}
 	emit(&prog, out);
+	fclose(out);
 	return 0;
 }
