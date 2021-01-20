@@ -31,6 +31,29 @@ ident_to_sym(const struct identifier *ident)
 	return strdup(ident->name);
 }
 
+static struct gen_scope_context *
+push_scope(struct gen_context *ctx,
+	enum scope_class class,
+	struct qbe_value *end)
+{
+	struct gen_scope_context *scope =
+		xcalloc(1, sizeof(struct gen_scope_context));
+	scope->class = class;
+	scope->end = end;
+	scope->parent = ctx->scope;
+	ctx->scope = scope;
+	return scope;
+}
+
+static void
+pop_scope(struct gen_context *ctx)
+{
+	struct gen_scope_context *scope = ctx->scope;
+	assert(scope);
+	ctx->scope = ctx->scope->parent;
+	free(scope);
+}
+
 static char *
 gen_name(struct gen_context *ctx, const char *fmt)
 {
@@ -1134,18 +1157,20 @@ gen_expr_control(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(out == NULL); // Invariant
-	struct gen_loop_context *loop = ctx->loop;
-	while (expr->control.label != NULL && loop != NULL) {
-		if (loop->label && strcmp(expr->control.label, loop->label) == 0) {
+	struct gen_scope_context *scope = ctx->scope;
+	while (expr->control.label != NULL && scope != NULL) {
+		if (scope->label
+			&& strcmp(expr->control.label, scope->label) == 0
+			&& scope->class == SCOPE_LOOP) {
 			break;
 		}
-		loop = loop->parent;
+		scope = scope->parent;
 	}
-	assert(loop != NULL);
+	assert(scope != NULL);
 	if (expr->type == EXPR_BREAK) {
-		pushi(ctx->current, NULL, Q_JMP, loop->end, NULL);
+		pushi(ctx->current, NULL, Q_JMP, scope->end, NULL);
 	} else {
-		pushi(ctx->current, NULL, Q_JMP, loop->after, NULL);
+		pushi(ctx->current, NULL, Q_JMP, scope->after, NULL);
 	}
 }
 
@@ -1172,13 +1197,9 @@ gen_expr_for(struct gen_context *ctx,
 
 	push(&ctx->current->body, &loopl);
 
-	struct gen_loop_context *loop_ctx =
-		xcalloc(sizeof(struct gen_loop_context), 1);
-	loop_ctx->after = &after;
-	loop_ctx->end = &end;
-	loop_ctx->label = expr->_for.label;
-	loop_ctx->parent = ctx->loop;
-	ctx->loop = loop_ctx;
+	struct gen_scope_context *scope = push_scope(ctx, SCOPE_LOOP, &end);
+	scope->after = &after;
+	scope->label = expr->_for.label;
 
 	struct qbe_value cond = {0};
 	gen_temp(ctx, &cond, &qbe_word, "cond.%d");
@@ -1194,8 +1215,7 @@ gen_expr_for(struct gen_context *ctx,
 		gen_expression(ctx, expr->_for.afterthought, NULL);
 	}
 
-	ctx->loop = ctx->loop->parent;
-	free(loop_ctx);
+	pop_scope(ctx);
 
 	pushi(ctx->current, NULL, Q_JMP, &loop, NULL);
 

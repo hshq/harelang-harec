@@ -22,11 +22,18 @@ struct gen_binding {
 	struct gen_binding *next;
 };
 
-struct gen_loop_context {
+enum scope_class {
+	SCOPE_LOOP,  // used with continue, break
+	SCOPE_FUNC,  // used with return
+	SCOPE_OTHER, // expression lists, etc
+};
+
+struct gen_scope_context {
 	const char *label;
+	enum scope_class class;
 	struct qbe_value *after;
 	struct qbe_value *end;
-	struct gen_loop_context *parent;
+	struct gen_scope_context *parent;
 };
 
 struct gen_context {
@@ -36,7 +43,7 @@ struct gen_context {
 	const struct qbe_value *end_label;
 	const struct qbe_value *return_value;
 	struct gen_binding *bindings;
-	struct gen_loop_context *loop;
+	struct gen_scope_context *scope;
 	uint64_t id;
 };
 
