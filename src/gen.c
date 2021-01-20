@@ -14,6 +14,9 @@
 #include "types.h"
 #include "util.h"
 
+static void gen_expression(struct gen_context *ctx,
+	const struct expression *expr, const struct qbe_value *out);
+
 static char *
 ident_to_sym(const struct identifier *ident)
 {
@@ -41,6 +44,7 @@ push_scope(struct gen_context *ctx,
 	scope->class = class;
 	scope->end = end;
 	scope->parent = ctx->scope;
+	scope->next_defer = &scope->defers;
 	ctx->scope = scope;
 	return scope;
 }
@@ -50,8 +54,24 @@ pop_scope(struct gen_context *ctx)
 {
 	struct gen_scope_context *scope = ctx->scope;
 	assert(scope);
+	struct gen_deferred *d = scope->defers;
+	while (d) {
+		struct gen_deferred *n = d->next;
+		free(d);
+		d = n;
+	}
 	ctx->scope = ctx->scope->parent;
 	free(scope);
+}
+
+static void
+gen_defers(struct gen_context *ctx, struct gen_scope_context *scope)
+{
+	struct gen_deferred *d = scope->defers;
+	while (d) {
+		gen_expression(ctx, d->expr, NULL);
+		d = d->next;
+	}
 }
 
 static char *
@@ -320,9 +340,6 @@ gen_loadtemp(struct gen_context *ctx,
 	gen_temp(ctx, dest, type, "load.%d");
 	gen_load(ctx, dest, src, is_signed);
 }
-
-static void gen_expression(struct gen_context *ctx,
-	const struct expression *expr, const struct qbe_value *out);
 
 static void
 address_ident(struct gen_context *ctx,
@@ -1158,10 +1175,13 @@ gen_expr_control(struct gen_context *ctx,
 {
 	assert(out == NULL); // Invariant
 	struct gen_scope_context *scope = ctx->scope;
-	while (expr->control.label != NULL && scope != NULL) {
-		if (scope->label
-			&& strcmp(expr->control.label, scope->label) == 0
-			&& scope->class == SCOPE_LOOP) {
+	while (scope != NULL) {
+		gen_defers(ctx, scope);
+		if (expr->control.label && scope->label) {
+			if (strcmp(expr->control.label, scope->label) == 0) {
+				break;
+			}
+		} else if (scope->class == SCOPE_LOOP) {
 			break;
 		}
 		scope = scope->parent;
@@ -1172,6 +1192,17 @@ gen_expr_control(struct gen_context *ctx,
 	} else {
 		pushi(ctx->current, NULL, Q_JMP, scope->after, NULL);
 	}
+}
+
+static void
+gen_expr_defer(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	struct gen_deferred *d = xcalloc(1, sizeof(struct gen_deferred));
+	d->expr = expr->defer.deferred;
+	*ctx->scope->next_defer = d;
+	ctx->scope->next_defer = &d->next;
 }
 
 static void
@@ -1215,6 +1246,7 @@ gen_expr_for(struct gen_context *ctx,
 		gen_expression(ctx, expr->_for.afterthought, NULL);
 	}
 
+	gen_defers(ctx, ctx->scope);
 	pop_scope(ctx);
 
 	pushi(ctx->current, NULL, Q_JMP, &loop, NULL);
@@ -1264,6 +1296,12 @@ gen_expr_list(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
+	struct qbe_statement endl = {0};
+	struct qbe_value end = {0};
+	end.kind = QV_LABEL;
+	end.name = strdup(genl(&endl, &ctx->id, "expr_list_end.%d"));
+	push_scope(ctx, SCOPE_OTHER, &end);
+
 	const struct expressions *exprs = &expr->list.exprs;
 	while (exprs) {
 		const struct qbe_value *dest = NULL;
@@ -1273,6 +1311,10 @@ gen_expr_list(struct gen_context *ctx,
 		gen_expression(ctx, exprs->expr, dest);
 		exprs = exprs->next;
 	}
+
+	gen_defers(ctx, ctx->scope);
+	pop_scope(ctx);
+	push(&ctx->current->body, &endl);
 }
 
 static void
@@ -1324,7 +1366,18 @@ gen_expr_return(struct gen_context *ctx,
 	if (expr->_return.value) {
 		gen_expression(ctx, expr->_return.value, ctx->return_value);
 	}
-	pushi(ctx->current, NULL, Q_JMP, ctx->end_label, NULL);
+
+	struct gen_scope_context *scope = ctx->scope;
+	while (scope) {
+		gen_defers(ctx, scope);
+		if (scope->class == SCOPE_FUNC) {
+			break;
+		}
+		scope = scope->parent;
+	}
+	assert(scope);
+
+	pushi(ctx->current, NULL, Q_JMP, scope->end, NULL);
 }
 
 static void
@@ -1584,7 +1637,8 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_constant(ctx, expr, out);
 		break;
 	case EXPR_DEFER:
-		assert(0); // TODO
+		gen_expr_defer(ctx, expr, out);
+		break;
 	case EXPR_FOR:
 		gen_expr_for(ctx, expr, out);
 		break;
@@ -1681,9 +1735,12 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		ctx->return_value = NULL;
 	}
 
+	push_scope(ctx, SCOPE_FUNC, &end_label_v);
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	gen_expression(ctx, func->body, ctx->return_value);
+	gen_defers(ctx, ctx->scope);
 	push(&qdef->func.body, &end_label);
+	pop_scope(ctx);
 
 	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
 		struct qbe_value load = {0};

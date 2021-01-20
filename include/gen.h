@@ -28,11 +28,17 @@ enum scope_class {
 	SCOPE_OTHER, // expression lists, etc
 };
 
+struct gen_deferred {
+	const struct expression *expr;
+	struct gen_deferred *next;
+};
+
 struct gen_scope_context {
 	const char *label;
 	enum scope_class class;
 	struct qbe_value *after;
 	struct qbe_value *end;
+	struct gen_deferred *defers, **next_defer;
 	struct gen_scope_context *parent;
 };
 
