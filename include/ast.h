@@ -210,7 +210,7 @@ struct ast_expression_control {
 };
 
 struct ast_expression_defer {
-	struct ast_expression *expression;
+	struct ast_expression *deferred;
 };
 
 struct ast_expression_for {

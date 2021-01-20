@@ -1045,7 +1045,7 @@ parse_defer_expression(struct lexer *lexer)
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	want(lexer, T_DEFER, NULL);
 	exp->type = EXPR_DEFER;
-	exp->defer.expression = parse_scope_expression(lexer);
+	exp->defer.deferred = parse_scope_expression(lexer);
 	return exp;
 }
 

@@ -607,6 +607,22 @@ check_expr_constant(struct context *ctx,
 }
 
 static void
+check_expr_defer(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	expect(&aexpr->loc, !ctx->deferring,
+		"Cannot defer within another defer expression.");
+	expr->type = EXPR_DEFER;
+	expr->result = &builtin_type_void;
+	expr->defer.deferred = xcalloc(1, sizeof(struct expression));
+	ctx->deferring = true;
+	check_expression(ctx, aexpr->defer.deferred, expr->defer.deferred, NULL);
+	ctx->deferring = false;
+}
+
+static void
 check_expr_control(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -1123,7 +1139,8 @@ check_expression(struct context *ctx,
 		check_expr_constant(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_DEFER:
-		assert(0);
+		check_expr_defer(ctx, aexpr, expr, hint);
+		break;
 	case EXPR_FOR:
 		check_expr_for(ctx, aexpr, expr, hint);
 		break;

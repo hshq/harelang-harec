@@ -14,6 +14,7 @@ struct context {
 	struct identifier *ns;
 	struct scope *unit;
 	struct scope *scope;
+	bool deferring;
 	int id;
 };
 

@@ -144,6 +144,10 @@ struct expression_control {
 	char *label;
 };
 
+struct expression_defer {
+	struct expression *deferred;
+};
+
 struct expression_for {
 	char *label;
 	struct scope *scope;
@@ -241,6 +245,7 @@ struct expression {
 		struct expression_call call;
 		struct expression_cast cast;
 		union expression_constant constant;
+		struct expression_defer defer;
 		struct expression_control control;
 		struct expression_for _for;
 		struct expression_if _if;
