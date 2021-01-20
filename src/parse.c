@@ -1040,6 +1040,16 @@ parse_measurement_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
+parse_defer_expression(struct lexer *lexer)
+{
+	struct ast_expression *exp = mkexpr(&lexer->loc);
+	want(lexer, T_DEFER, NULL);
+	exp->type = EXPR_DEFER;
+	exp->defer.expression = parse_scope_expression(lexer);
+	return exp;
+}
+
+static struct ast_expression *
 parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
 	trenter(TR_PARSE, "call");
@@ -1244,6 +1254,9 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	case T_OFFSET:
 		unlex(lexer, &tok);
 		return parse_measurement_expression(lexer);
+	case T_DEFER:
+		unlex(lexer, &tok);
+		return parse_defer_expression(lexer);
 	default:
 		unlex(lexer, &tok);
 		break;

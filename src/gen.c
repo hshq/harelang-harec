@@ -1563,6 +1563,8 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_CONSTANT:
 		gen_expr_constant(ctx, expr, out);
 		break;
+	case EXPR_DEFER:
+		assert(0); // TODO
 	case EXPR_FOR:
 		gen_expr_for(ctx, expr, out);
 		break;

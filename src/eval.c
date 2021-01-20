@@ -103,6 +103,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_BINDING:
 	case EXPR_BREAK:
 	case EXPR_CALL:
+	case EXPR_DEFER:
 	case EXPR_FOR:
 	case EXPR_IF:
 	case EXPR_LIST:

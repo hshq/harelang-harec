@@ -1122,6 +1122,8 @@ check_expression(struct context *ctx,
 	case EXPR_CONSTANT:
 		check_expr_constant(ctx, aexpr, expr, hint);
 		break;
+	case EXPR_DEFER:
+		assert(0);
 	case EXPR_FOR:
 		check_expr_for(ctx, aexpr, expr, hint);
 		break;
