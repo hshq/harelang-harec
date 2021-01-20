@@ -53,7 +53,11 @@ emit_func(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident); // TODO: Emit @symbol
 	const struct type *fntype = decl->func.type;
-	fprintf(out, "export%s fn %s(",
+	fprintf(out, "export");
+	if (decl->symbol) {
+		fprintf(out, " @symbol(\"%s\")", decl->symbol);
+	}
+	fprintf(out, "%s fn %s(",
 		(fntype->func.flags & FN_NORETURN) ? " @noreturn" : "",
 		ident);
 
@@ -74,8 +78,12 @@ emit_func(struct declaration *decl, FILE *out)
 static void
 emit_global(struct declaration *decl, FILE *out)
 {
-	char *ident = identifier_unparse(&decl->ident); // TODO: Emit @symbol
-	fprintf(out, "export let %s: ", ident);
+	char *ident = identifier_unparse(&decl->ident);
+	fprintf(out, "export");
+	if (decl->symbol) {
+		fprintf(out, " @symbol(\"%s\") ", decl->symbol);
+	}
+	fprintf(out, " let %s: ", ident);
 	emit_type(decl->global.type, out);
 	fprintf(out, ";\n");
 }

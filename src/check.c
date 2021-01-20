@@ -1207,6 +1207,7 @@ check_function(struct context *ctx,
 
 	if (afndecl->symbol) {
 		decl->ident.name = strdup(afndecl->symbol);
+		decl->symbol = strdup(afndecl->symbol);
 	} else {
 		mkident(ctx, &decl->ident, &afndecl->ident);
 	}
@@ -1293,6 +1294,7 @@ check_global(struct context *ctx,
 
 	if (agdecl->symbol) {
 		decl->ident.name = strdup(agdecl->symbol);
+		decl->symbol = strdup(agdecl->symbol);
 	} else {
 		mkident(ctx, &decl->ident, &agdecl->ident);
 	}

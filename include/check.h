@@ -46,6 +46,7 @@ enum declaration_type {
 struct declaration {
 	enum declaration_type type;
 	struct identifier ident;
+	char *symbol;
 	bool exported;
 	union {
 		struct function_decl func;
