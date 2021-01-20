@@ -80,6 +80,15 @@ emit_global(struct declaration *decl, FILE *out)
 	fprintf(out, ";\n");
 }
 
+static void
+emit_type_decl(struct declaration *decl, FILE *out)
+{
+	char *ident = identifier_unparse(&decl->ident);
+	fprintf(out, "export type %s = ", ident);
+	emit_type(decl->_type, out);
+	fprintf(out, ";\n");
+}
+
 void
 emit_typedefs(struct unit *unit, FILE *out)
 {
@@ -95,7 +104,8 @@ emit_typedefs(struct unit *unit, FILE *out)
 			emit_func(decl, out);
 			break;
 		case DECL_TYPE:
-			assert(0); // TODO
+			emit_type_decl(decl, out);
+			break;
 		case DECL_GLOBAL:
 			emit_global(decl, out);
 			break;
