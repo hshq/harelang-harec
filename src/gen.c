@@ -1912,7 +1912,7 @@ static void
 gen_decl(struct gen_context *ctx, const struct declaration *decl)
 {
 	switch (decl->type) {
-	case DECL_CONSTANT:
+	case DECL_CONST:
 		// Nothing to do
 		break;
 	case DECL_FUNC:

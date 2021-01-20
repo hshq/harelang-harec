@@ -18,6 +18,11 @@ struct context {
 	int id;
 };
 
+struct constant_decl {
+	const struct type *type;
+	const struct expression *value;
+};
+
 enum func_decl_flags {
 	FN_FINI = 1 << 0,
 	FN_INIT = 1 << 1,
@@ -37,7 +42,7 @@ struct global_decl {
 };
 
 enum declaration_type {
-	DECL_CONSTANT,
+	DECL_CONST,
 	DECL_FUNC,
 	DECL_GLOBAL,
 	DECL_TYPE,
@@ -49,6 +54,7 @@ struct declaration {
 	char *symbol;
 	bool exported;
 	union {
+		struct constant_decl constant;
 		struct function_decl func;
 		struct global_decl global;
 		const struct type *_type;

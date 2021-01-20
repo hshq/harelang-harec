@@ -1176,6 +1176,23 @@ check_expression(struct context *ctx,
 }
 
 static struct declaration *
+check_const(struct context *ctx,
+	const struct ast_decl *adecl)
+{
+	const struct type *type = type_store_lookup_atype(
+			&ctx->store, adecl->constant.type);
+	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
+	const struct scope_object *obj = scope_lookup(
+			ctx->unit, &adecl->constant.ident);
+	assert(obj && obj->otype == O_CONST);
+	decl->type = DECL_CONST;
+	decl->constant.type = type;
+	decl->constant.value = obj->value;
+	mkident(ctx, &decl->ident, &adecl->constant.ident);
+	return decl;
+}
+
+static struct declaration *
 check_function(struct context *ctx,
 	const struct ast_decl *adecl)
 {
@@ -1326,7 +1343,8 @@ check_declarations(struct context *ctx,
 		const struct ast_decl *adecl = &adecls->decl;
 		switch (adecl->decl_type) {
 		case AST_DECL_CONST:
-			break; // Handled in scan
+			decl = check_const(ctx, adecl);
+			break;
 		case AST_DECL_FUNC:
 			decl = check_function(ctx, adecl);
 			break;

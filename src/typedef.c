@@ -108,7 +108,7 @@ emit_typedefs(struct unit *unit, FILE *out)
 		}
 
 		switch (decl->type) {
-		case DECL_CONSTANT:
+		case DECL_CONST:
 			assert(0); // TODO
 		case DECL_FUNC:
 			emit_func(decl, out);
