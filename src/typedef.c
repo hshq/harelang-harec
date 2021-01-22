@@ -2,8 +2,62 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "check.h"
+#include "expr.h"
 #include "identifier.h"
 #include "typedef.h"
+
+static void
+emit_const(const struct expression *expr, FILE *out)
+{
+	assert(expr->type == EXPR_CONSTANT);
+	const union expression_constant *val = &expr->constant;
+	switch (expr->result->storage) {
+	case TYPE_STORAGE_BOOL:
+		fprintf(out, "%s", val->bval ? "false" : "true");
+		break;
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		fprintf(out, "%lf", val->fval);
+		break;
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_INT:
+		fprintf(out, "%ld", val->ival);
+		break;
+	case TYPE_STORAGE_NULL:
+		fprintf(out, "null");
+		break;
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_UINT:
+		fprintf(out, "%lu", val->uval);
+		break;
+	case TYPE_STORAGE_VOID:
+		fprintf(out, "void");
+		break;
+	case TYPE_STORAGE_RUNE:
+		assert(0); // TODO
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_UNION:
+		assert(0); // TODO
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_UINTPTR:
+		assert(0); // Invariant
+	}
+}
 
 static void
 emit_type(const struct type *type, FILE *out)
@@ -49,9 +103,21 @@ emit_type(const struct type *type, FILE *out)
 }
 
 static void
-emit_func(struct declaration *decl, FILE *out)
+emit_decl_const(struct declaration *decl, FILE *out)
 {
-	char *ident = identifier_unparse(&decl->ident); // TODO: Emit @symbol
+	char *ident = identifier_unparse(&decl->ident);
+	fprintf(out, "export def %s: ", ident);
+	free(ident);
+	emit_type(decl->constant.type, out);
+	fprintf(out, " = ");
+	emit_const(decl->constant.value, out);
+	fprintf(out, ";\n");
+}
+
+static void
+emit_decl_func(struct declaration *decl, FILE *out)
+{
+	char *ident = identifier_unparse(&decl->ident);
 	const struct type *fntype = decl->func.type;
 	fprintf(out, "export");
 	if (decl->symbol) {
@@ -76,7 +142,7 @@ emit_func(struct declaration *decl, FILE *out)
 }
 
 static void
-emit_global(struct declaration *decl, FILE *out)
+emit_decl_global(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	fprintf(out, "export");
@@ -89,7 +155,7 @@ emit_global(struct declaration *decl, FILE *out)
 }
 
 static void
-emit_type_decl(struct declaration *decl, FILE *out)
+emit_decl_type(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	fprintf(out, "export type %s = ", ident);
@@ -109,15 +175,16 @@ emit_typedefs(struct unit *unit, FILE *out)
 
 		switch (decl->type) {
 		case DECL_CONST:
-			assert(0); // TODO
+			emit_decl_const(decl, out);
+			break;
 		case DECL_FUNC:
-			emit_func(decl, out);
+			emit_decl_func(decl, out);
 			break;
 		case DECL_GLOBAL:
-			emit_global(decl, out);
+			emit_decl_global(decl, out);
 			break;
 		case DECL_TYPE:
-			emit_type_decl(decl, out);
+			emit_decl_type(decl, out);
 			break;
 		}
 	}
