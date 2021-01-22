@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,6 +51,13 @@ module_resolve(struct identifier *ident, struct type_store *store)
 
 	const char *path = open_typedefs(ident);
 	FILE *f = fopen(path, "r");
+	if (!f) {
+		fprintf(stderr, "Could not open module '%s' for reading: %s\n",
+				identifier_unparse(ident),
+				strerror(errno));
+		exit(1);
+	}
+
 	lex_init(&lexer, f, path);
 	parse(&lexer, &aunit.subunits);
 	lex_finish(&lexer);
