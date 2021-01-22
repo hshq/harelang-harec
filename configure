@@ -12,6 +12,7 @@ harec() {
 		src/identifier.c \
 		src/lex.c \
 		src/main.c \
+		src/mod.c \
 		src/parse.c \
 		src/qbe.c \
 		src/qinstr.c \

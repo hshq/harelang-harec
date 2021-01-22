@@ -7,6 +7,7 @@
 #include "check.h"
 #include "eval.h"
 #include "expr.h"
+#include "mod.h"
 #include "scope.h"
 #include "trace.h"
 #include "type_store.h"
@@ -1551,7 +1552,23 @@ check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
 			su; su = su->next) {
 		scope_push(&ctx->scope, TR_SCAN);
 
-		assert(!su->imports); // TODO
+		for (struct ast_imports *imports = su->imports;
+				imports; imports = imports->next) {
+			struct scope *mod;
+			switch (imports->mode) {
+			case AST_IMPORT_IDENTIFIER:
+				mod = module_resolve(
+					&imports->ident, &ctx->store);
+				break;
+			case AST_IMPORT_ALIAS:
+				assert(0); // TODO
+			case AST_IMPORT_MEMBERS:
+				assert(0); // TODO
+			}
+
+			(void)mod; // TODO: Populate subunit scope
+		}
+
 		scan_declarations(ctx, &su->decls);
 
 		*next = xcalloc(1, sizeof(struct scopes));
