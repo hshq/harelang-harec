@@ -1069,7 +1069,9 @@ gen_string(struct gen_context *ctx,
 	def->name = temp.name;
 	def->kind = Q_DATA;
 	def->data.items.type = QD_STRING;
-	def->data.items.str = strdup(expr->constant.string.value);
+	def->data.items.str = xcalloc(1, expr->constant.string.len);
+	memcpy(def->data.items.str, expr->constant.string.value,
+			expr->constant.string.len);
 	def->data.items.sz = expr->constant.string.len;
 	qbe_append_def(ctx->out, def);
 
@@ -1665,7 +1667,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_FUNC;
 	qdef->exported = decl->exported;
-	qdef->name = ident_to_sym(&decl->ident);
+	qdef->name = decl->symbol ? strdup(decl->symbol) : ident_to_sym(&decl->ident);
 	qdef->func.returns = qtype_for_type(ctx, fntype->func.result, false);
 	ctx->current = &qdef->func;
 

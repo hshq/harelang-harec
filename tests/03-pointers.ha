@@ -1,4 +1,4 @@
-fn rt::compile(src: str) int;
+use rt;
 
 fn basics() void = {
 	let x = 42;

@@ -1,4 +1,4 @@
-fn rt::compile(src: str) int;
+use rt;
 
 let x: int = 42;
 

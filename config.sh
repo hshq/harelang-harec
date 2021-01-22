@@ -167,6 +167,7 @@ run_configure() {
 	CFLAGS+=-DVARLIBDIR='"\$(VARLIBDIR)"'
 	CFLAGS+=-DSYSCONFDIR='"\$(SYSCONFDIR)"'
 	LDFLAGS=${LDFLAGS}
+	HARECACHE=./mod
 
 	all: ${all}
 	EOF

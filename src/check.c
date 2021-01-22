@@ -1224,11 +1224,9 @@ check_function(struct context *ctx,
 	decl->func.flags = afndecl->flags;
 
 	if (afndecl->symbol) {
-		decl->ident.name = strdup(afndecl->symbol);
 		decl->symbol = strdup(afndecl->symbol);
-	} else {
-		mkident(ctx, &decl->ident, &afndecl->ident);
 	}
+	mkident(ctx, &decl->ident, &afndecl->ident);
 
 	decl->func.scope = scope_push(&ctx->scope, TR_CHECK);
 	struct ast_function_parameters *params = afndecl->prototype.params;
@@ -1548,8 +1546,6 @@ load_import(struct ast_imports *import,
 	case AST_IMPORT_MEMBERS:
 		assert(0); // TODO
 	}
-
-	scope_free(mod);
 }
 
 struct scope *
@@ -1583,6 +1579,7 @@ check(struct type_store *ts, const struct ast_unit *aunit, struct unit *unit)
 			load_import(imports, ts, ctx.scope);
 		}
 
+		ctx.store->check_context = &ctx;
 		scan_declarations(&ctx, &su->decls);
 
 		*next = xcalloc(1, sizeof(struct scopes));

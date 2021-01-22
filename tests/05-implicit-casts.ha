@@ -1,4 +1,4 @@
-fn rt::compile(src: str) int;
+use rt;
 
 fn rules() void = {
 	// Fixed precision ints

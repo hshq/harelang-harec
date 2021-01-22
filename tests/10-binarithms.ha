@@ -1,4 +1,3 @@
-
 fn error() bool = {
 	abort();
 	return false;

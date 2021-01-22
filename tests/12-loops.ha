@@ -1,4 +1,4 @@
-fn rt::compile(src: str) int;
+use rt;
 
 fn scope() void = {
 	let x = 0;

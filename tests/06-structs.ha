@@ -1,4 +1,4 @@
-fn rt::compile(src: str) int;
+use rt;
 
 fn padding() void = {
 	assert(size(struct { x: i32, y: i32 }) == 8z);

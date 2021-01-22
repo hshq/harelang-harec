@@ -5,7 +5,8 @@ libhart_srcs+=\
 
 libhart.a: harec $(libhart_srcs) $(libhart_objs) $(rtstart)
 	@printf 'HAREC\t$@\n'
-	@./harec -N rt -o $@.ssa $(libhart_srcs)
+	@mkdir -p $(HARECACHE)/rt
+	@./harec -Nrt -t$(HARECACHE)/rt/rt.td -o $@.ssa $(libhart_srcs)
 	@qbe -o $@.s $@.ssa
 	@$(AS) -o $@.o $@.s
 	@$(AR) -csr $@ $@.o $(libhart_objs)

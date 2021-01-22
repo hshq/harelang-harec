@@ -6,6 +6,41 @@
 #include "identifier.h"
 #include "typedef.h"
 
+static const char *
+storage_to_suffix(enum type_storage storage)
+{
+	switch (storage) {
+	case TYPE_STORAGE_F32:
+		return "f32";
+	case TYPE_STORAGE_F64:
+		return "f64";
+	case TYPE_STORAGE_I16:
+		return "i16";
+	case TYPE_STORAGE_I32:
+		return "i32";
+	case TYPE_STORAGE_I64:
+		return "i64";
+	case TYPE_STORAGE_I8:
+		return "i8";
+	case TYPE_STORAGE_INT:
+		return "i";
+	case TYPE_STORAGE_SIZE:
+		return "z";
+	case TYPE_STORAGE_U16:
+		return "u16";
+	case TYPE_STORAGE_U32:
+		return "u32";
+	case TYPE_STORAGE_U64:
+		return "u64";
+	case TYPE_STORAGE_U8:
+		return "u8";
+	case TYPE_STORAGE_UINT:
+		return "u";
+	default:
+		assert(0);
+	}
+}
+
 static void
 emit_const(const struct expression *expr, FILE *out)
 {
@@ -17,14 +52,16 @@ emit_const(const struct expression *expr, FILE *out)
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-		fprintf(out, "%lf", val->fval);
+		fprintf(out, "%lf%s", val->fval,
+			storage_to_suffix(expr->result->storage));
 		break;
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_INT:
-		fprintf(out, "%ld", val->ival);
+		fprintf(out, "%ld%s", val->ival,
+			storage_to_suffix(expr->result->storage));
 		break;
 	case TYPE_STORAGE_NULL:
 		fprintf(out, "null");
@@ -35,7 +72,8 @@ emit_const(const struct expression *expr, FILE *out)
 	case TYPE_STORAGE_U64:
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_UINT:
-		fprintf(out, "%lu", val->uval);
+		fprintf(out, "%lu%s", val->uval,
+			storage_to_suffix(expr->result->storage));
 		break;
 	case TYPE_STORAGE_VOID:
 		fprintf(out, "void");
@@ -95,10 +133,20 @@ emit_type(const struct type *type, FILE *out)
 				? "nullable " : "");
 		emit_type(type->pointer.referent, out);
 		break;
-	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_FUNCTION:
+		if (type->array.length == SIZE_UNDEFINED) {
+			fprintf(out, "[*]");
+		} else {
+			fprintf(out, "[%zd]", type->array.length);
+		}
+		emit_type(type->array.members, out);
+		break;
 	case TYPE_STORAGE_SLICE:
+		fprintf(out, "[]");
+		emit_type(type->array.members, out);
+		break;
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:

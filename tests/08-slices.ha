@@ -1,4 +1,4 @@
-fn rt::compile(src: str) int;
+use rt;
 
 fn from_array() void = {
 	let src = [1, 2, 3];

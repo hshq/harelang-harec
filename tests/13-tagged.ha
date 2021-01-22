@@ -1,4 +1,4 @@
-fn rt::compile(src: str) int;
+use rt;
 
 fn measurements() void = {
 	const x: (u8 | u16 | u32 | u64) = 1337u16;	// With padding

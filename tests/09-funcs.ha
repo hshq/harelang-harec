@@ -1,4 +1,4 @@
-@noreturn fn rt::exit(status: int) void;
+use rt;
 
 fn addone(x: *int) void = {
 	*x += 1;
