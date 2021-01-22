@@ -7,9 +7,10 @@ export @noreturn @symbol("rt.abort") fn _abort(msg: str) void = {
 };
 
 // See include/gen.h
-const reasons: [2]str = [
+const reasons: [3]str = [
 	"slice or array access out of bounds",	// 0
 	"type assertion failed",		// 1
+	"allocation failed",			// 2
 ];
 
 export @noreturn fn abort_fixed(i: int) void = _abort(reasons[i]);

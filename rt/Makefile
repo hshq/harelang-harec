@@ -1,6 +1,8 @@
 libhart_srcs+=\
 	rt/abort.ha \
 	rt/compile.ha \
+	rt/malloc.ha \
+	rt/memcpy.ha \
 	rt/rtmain.ha
 
 libhart.a: harec $(libhart_srcs) $(libhart_objs) $(rtstart)

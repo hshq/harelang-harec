@@ -9,6 +9,8 @@ rt() {
 			rtstart=rt/+linux/start.o
 
 			libhart_srcs=\
+				rt/+linux/errno.ha \
+				rt/+linux/segmalloc.ha \
 				rt/+linux/syscallno+x86_64.ha \
 				rt/+linux/syscalls.ha
 
