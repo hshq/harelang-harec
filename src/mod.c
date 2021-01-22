@@ -52,8 +52,8 @@ module_resolve(struct identifier *ident, struct type_store *store)
 	const char *path = open_typedefs(ident);
 	FILE *f = fopen(path, "r");
 	if (!f) {
-		fprintf(stderr, "Could not open module '%s' for reading: %s\n",
-				identifier_unparse(ident),
+		fprintf(stderr, "Could not open module '%s' for reading from %s: %s\n",
+				identifier_unparse(ident), path,
 				strerror(errno));
 		exit(1);
 	}
