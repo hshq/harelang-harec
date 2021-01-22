@@ -32,6 +32,8 @@ clean: clean-tests clean-rt
 distclean: clean
 	@rm -rf "$(OUTDIR)"
 
-install:
+install: harec
+	mkdir -p $(DESTDIR)$(BINDIR)
+	install -m755 harec $(DESTDIR)$(BINDIR)/harec
 
 .PHONY: docs clean distclean install
