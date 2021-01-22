@@ -1596,6 +1596,9 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_ACCESS:
 		gen_expr_access(ctx, expr, out);
 		break;
+	case EXPR_ALLOC:
+		assert(0); // TODO
+		break;
 	case EXPR_ASSERT:
 		gen_expr_assert(ctx, expr, out);
 		break;

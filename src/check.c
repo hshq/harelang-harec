@@ -57,7 +57,7 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *type);
+	const struct type *hint);
 
 static void
 check_expr_access(struct context *ctx,
@@ -130,6 +130,70 @@ check_expr_access(struct context *ctx,
 		expect(&aexpr->access._struct->loc, expr->access.field,
 			"No such struct field '%s'", aexpr->access.field);
 		expr->result = expr->access.field->type;
+		break;
+	}
+}
+
+static void
+check_alloc(struct context *ctx, const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	expr->alloc.expr = xcalloc(sizeof(struct expression), 1);
+	expr->result =
+		type_store_lookup_atype(ctx->store, aexpr->alloc.type);
+	check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr, expr->result);
+	enum type_storage storage = type_dealias(expr->result)->storage;
+	switch (storage) {
+	case TYPE_STORAGE_POINTER:
+		if (aexpr->alloc.cap != NULL) {
+			// We can't just expect(aexpr->alloc.cap != NULL)
+			// because we want to use aexpr->alloc.cap->loc
+			expect(&aexpr->alloc.cap->loc, false,
+				"Allocation with capacity must be of slice type, not %s",
+				type_storage_unparse(storage));
+		}
+		break;
+	case TYPE_STORAGE_SLICE:
+		if (aexpr->alloc.cap != NULL) {
+			expr->alloc.cap = xcalloc(sizeof(struct expression), 1);
+			check_expression(ctx, aexpr->alloc.cap, expr->alloc.cap,
+				&builtin_type_size);
+			expect(&aexpr->alloc.cap->loc,
+				type_is_assignable(ctx->store,
+					&builtin_type_size,
+					expr->alloc.cap->result),
+				"Allocation capacity must be assignable to size");
+		}
+		break;
+	default:
+		expect(&aexpr->loc, false,
+			"Allocation type must be pointer or slice, not %s",
+			type_storage_unparse(storage));
+	}
+}
+
+static void
+check_expr_alloc(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	assert(aexpr->type == EXPR_ALLOC);
+	expr->type = EXPR_ALLOC;
+	expr->alloc.kind = aexpr->alloc.kind;
+	switch (expr->alloc.kind) {
+	case AKIND_ALLOC:
+		trace(TR_CHECK, "alloc");
+		check_alloc(ctx, aexpr, expr);
+		break;
+	case AKIND_APPEND:
+		trace(TR_CHECK, "append");
+		assert(0); // TODO
+	case AKIND_FREE:
+		trace(TR_CHECK, "free");
+		expr->alloc.expr = xcalloc(sizeof(struct expression), 1);
+		check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr, NULL);
+		expr->result = &builtin_type_void;
 		break;
 	}
 }
@@ -1113,6 +1177,9 @@ check_expression(struct context *ctx,
 	switch (aexpr->type) {
 	case EXPR_ACCESS:
 		check_expr_access(ctx, aexpr, expr, hint);
+		break;
+	case EXPR_ALLOC:
+		check_expr_alloc(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_ASSERT:
 		check_expr_assert(ctx, aexpr, expr, hint);

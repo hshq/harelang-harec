@@ -1159,7 +1159,8 @@ parse_allocation_expression(struct lexer *lexer)
 	switch (lex(lexer, &tok)) {
 	case T_ALLOC:
 		trace(TR_PARSE, "alloc");
-		exp->alloc.kind = ALLOC_KIND_ALLOC;
+		exp->type = EXPR_ALLOC;
+		exp->alloc.kind = AKIND_ALLOC;
 		want(lexer, T_LPAREN, NULL);
 		exp->alloc.type = parse_type(lexer);
 		want(lexer, T_COMMA, NULL);
@@ -1177,7 +1178,8 @@ parse_allocation_expression(struct lexer *lexer)
 		break;
 	case T_APPEND:
 		trace(TR_PARSE, "append");
-		exp->alloc.kind = ALLOC_KIND_APPEND;
+		exp->type = EXPR_ALLOC;
+		exp->alloc.kind = AKIND_APPEND;
 		want(lexer, T_LPAREN, NULL);
 		exp->alloc.expr = parse_simple_expression(lexer);
 		want(lexer, T_COMMA, NULL);
@@ -1204,7 +1206,8 @@ parse_allocation_expression(struct lexer *lexer)
 		break;
 	case T_FREE:
 		trace(TR_PARSE, "free");
-		exp->alloc.kind = ALLOC_KIND_FREE;
+		exp->type = EXPR_ALLOC;
+		exp->alloc.kind = AKIND_FREE;
 		want(lexer, T_LPAREN, NULL);
 		exp->alloc.expr = parse_simple_expression(lexer);
 		want(lexer, T_RPAREN, NULL);

@@ -117,12 +117,6 @@ struct ast_expression_access {
 	};
 };
 
-enum alloc_kind {
-	ALLOC_KIND_ALLOC,
-	ALLOC_KIND_APPEND,
-	ALLOC_KIND_FREE,
-};
-
 struct ast_append_values {
 	struct ast_expression *value;
 	struct ast_append_values *next;
@@ -133,10 +127,10 @@ struct ast_expression_allocation {
 	struct ast_expression *expr;
 	// For allocs only
 	struct ast_type *type;
+	struct ast_expression *cap;
 	// For appends only
 	bool variadic;
 	struct ast_append_values *values;
-	struct ast_expression *cap;
 };
 
 struct ast_expression_assert {

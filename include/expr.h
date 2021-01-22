@@ -9,6 +9,7 @@ struct scope_object;
 
 enum expr_type {
 	EXPR_ACCESS,
+	EXPR_ALLOC,
 	EXPR_ASSERT,
 	EXPR_ASSIGN,
 	EXPR_BINARITHM,
@@ -50,6 +51,28 @@ struct expression_access {
 			const struct struct_field *field;
 		};
 	};
+};
+
+enum alloc_kind {
+	AKIND_ALLOC,
+	AKIND_APPEND,
+	AKIND_FREE,
+};
+
+struct append_values {
+	struct expression *value;
+	struct append_values *next;
+};
+
+struct expression_alloc {
+	enum alloc_kind kind;
+	struct expression *expr;
+	// For allocs only
+	// Allocated type goes in expr->result
+	struct expression *cap;
+	// For appends only
+	bool variadic;
+	struct append_values *values;
 };
 
 struct expression_assert {
@@ -238,6 +261,7 @@ struct expression {
 	bool terminates;
 	union {
 		struct expression_access access;
+		struct expression_alloc alloc;
 		struct expression_assert assert;
 		struct expression_assign assign;
 		struct expression_binarithm binarithm;

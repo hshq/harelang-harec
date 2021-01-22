@@ -380,6 +380,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_STRUCT:
 	case EXPR_UNARITHM:
 		assert(0); // TODO
+	case EXPR_ALLOC:
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINDING:
