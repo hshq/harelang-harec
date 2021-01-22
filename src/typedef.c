@@ -87,14 +87,18 @@ emit_type(const struct type *type, FILE *out)
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_STRING:
 		fprintf(out, "%s", type_storage_unparse(type->storage));
+		break;
+	case TYPE_STORAGE_POINTER:
+		fprintf(out, "%s*", type->pointer.flags & PTR_NULLABLE
+				? "nullable " : "");
+		emit_type(type->pointer.referent, out);
 		break;
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
