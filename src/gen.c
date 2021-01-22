@@ -475,6 +475,90 @@ gen_expr_access(struct gen_context *ctx,
 	}
 }
 
+static void gen_alloc(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(expr->type == EXPR_ALLOC && expr->alloc.kind == AKIND_ALLOC);
+	// TODO: Slices
+	assert(type_dealias(expr->result)->storage == TYPE_STORAGE_POINTER);
+	// TODO: Explicit capacity
+	assert(expr->alloc.cap == NULL);
+	struct qbe_value ret = {0}, size = {0};
+	gen_temp(ctx, &size,
+		qtype_for_type(ctx, &builtin_type_size, true),
+		"alloc.size.%d");
+	constl(&size, type_dealias(expr->result)->pointer.referent->size);
+	// XXX: ARCH
+	gen_temp(ctx, &ret, &qbe_long, "alloc.ret.%d");
+	struct qbe_value rtalloc = {0};
+	rtalloc.kind = QV_GLOBAL;
+	rtalloc.name = strdup("rt.malloc");
+	rtalloc.type = &qbe_long;
+	pushi(ctx->current, &ret, Q_CALL, &rtalloc, &size, NULL);
+	gen_store(ctx, out, &ret);
+	qval_deref(&ret);
+	struct qbe_value load = {0};
+	gen_loadtemp(ctx, &load, out,
+		qtype_for_type(ctx, expr->result, false),
+		type_is_signed(expr->result));
+
+	struct qbe_statement nulll = {0}, validl = {0}, endl = {0};
+	struct qbe_value bnull = {0}, bvalid = {0}, bend = {0};
+	bvalid.kind = QV_LABEL;
+	bvalid.name = strdup(genl(&validl, &ctx->id, "alloc.valid.%d"));
+	bnull.kind = QV_LABEL;
+	bnull.name = strdup(genl(&nulll, &ctx->id, "alloc.null.%d"));
+	bend.kind = QV_LABEL;
+	bend.name = strdup(genl(&endl, &ctx->id, "alloc.end.%d"));
+	// XXX: null might not be 0
+	pushi(ctx->current, NULL, Q_JNZ, &load, &bvalid, &bnull, NULL);
+	push(&ctx->current->body, &nulll);
+
+	if (type_dealias(expr->result)->pointer.flags & PTR_NULLABLE) {
+		pushi(ctx->current, NULL, Q_JMP, &bend, NULL);
+	} else {
+		struct qbe_value reason = {0}, rtabort = {0};
+		constl(&reason, 2);
+		rtabort.kind = QV_GLOBAL;
+		rtabort.name = strdup("rt.abort_fixed");
+		rtabort.type = &qbe_long;
+		pushi(ctx->current, NULL, Q_CALL, &rtabort, &reason, NULL);
+	}
+	push(&ctx->current->body, &validl);
+	if (!type_is_aggregate(type_dealias(expr->result)->pointer.referent)) {
+		qval_deref(&load);
+	}
+	gen_expression(ctx, expr->alloc.expr, &load);
+	push(&ctx->current->body, &endl);
+}
+
+static void
+gen_expr_alloc(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(expr->type == EXPR_ALLOC);
+	struct qbe_value val = {0}, rtfunc = {0};
+	switch (expr->alloc.kind) {
+	case AKIND_ALLOC:
+		gen_alloc(ctx, expr, out);
+		break;
+	case AKIND_APPEND:
+		assert(0); // TODO
+	case AKIND_FREE:
+		gen_temp(ctx, &val,
+			qtype_for_type(ctx, expr->alloc.expr->result, true),
+			"free.%d");
+		gen_expression(ctx, expr->alloc.expr, &val);
+		rtfunc.kind = QV_GLOBAL;
+		rtfunc.name = strdup("rt.free");
+		rtfunc.type = &qbe_long;
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, NULL);
+		break;
+	}
+}
+
 static void
 gen_expr_assert(struct gen_context *ctx,
 	const struct expression *expr,
@@ -952,7 +1036,8 @@ gen_expr_cast(struct gen_context *ctx,
 			default:
 				assert(0); // Invariant
 			}
-		} else if (from->storage == TYPE_STORAGE_POINTER) {
+		} else if (from->storage == TYPE_STORAGE_POINTER
+				|| from->storage == TYPE_STORAGE_NULL) {
 			assert(to->storage == TYPE_STORAGE_UINTPTR);
 			op = Q_COPY;
 		} else if (from->storage == TYPE_STORAGE_RUNE) {
@@ -1597,7 +1682,7 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_access(ctx, expr, out);
 		break;
 	case EXPR_ALLOC:
-		assert(0); // TODO
+		gen_expr_alloc(ctx, expr, out);
 		break;
 	case EXPR_ASSERT:
 		gen_expr_assert(ctx, expr, out);
