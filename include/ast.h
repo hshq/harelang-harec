@@ -18,11 +18,9 @@ enum ast_import_mode {
 struct ast_imports {
 	struct location loc;
 	enum ast_import_mode mode;
-	union {
-		struct identifier ident;
-		struct identifier *alias;
-		struct ast_imports *members;
-	};
+	struct identifier ident;
+	struct identifier *alias;
+	struct ast_imports *members;
 	struct ast_imports *next;
 };
 

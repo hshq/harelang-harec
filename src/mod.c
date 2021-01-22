@@ -39,7 +39,6 @@ open_typedefs(struct identifier *ident)
 	const char *ipath = ident_to_path(ident);
 	snprintf(path, sizeof(path), pathfmt, ipath, version);
 	free(version);
-
 	return path;
 }
 
@@ -54,7 +53,8 @@ module_resolve(struct identifier *ident, struct type_store *store)
 	lex_init(&lexer, f, path);
 	parse(&lexer, &aunit.subunits);
 	lex_finish(&lexer);
-	(void)aunit;
 
-	assert(0); // TODO
+	// TODO: Free unused bits
+	struct unit u = {0};
+	return check(store, &aunit, &u);
 }

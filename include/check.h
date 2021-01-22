@@ -74,7 +74,7 @@ struct unit {
 struct ast_expression;
 struct ast_unit;
 
-void check(struct type_store *ts,
+struct scope *check(struct type_store *ts,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 

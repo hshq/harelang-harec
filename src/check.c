@@ -1420,8 +1420,10 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	struct identifier ident = {0};
 	if (decl->symbol) {
 		ident.name = strdup(decl->symbol);
-	} else {
+	} else if (!decl->ident.ns) {
 		mkident(ctx, &ident, &decl->ident);
+	} else {
+		ident = decl->ident;
 	}
 	scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, fntype, NULL);
 
@@ -1527,7 +1529,30 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 	trleave(TR_SCAN, NULL);
 }
 
-void
+static void
+load_import(struct ast_imports *import,
+		struct type_store *ts, struct scope *scope)
+{
+	struct scope *mod = module_resolve(&import->ident, ts);
+
+	switch (import->mode) {
+	case AST_IMPORT_IDENTIFIER:
+		for (struct scope_object *obj = mod->objects;
+				obj; obj = obj->next) {
+			scope_insert(scope, obj->otype, &obj->ident,
+					&obj->name, obj->type, obj->value);
+		}
+		break;
+	case AST_IMPORT_ALIAS:
+		assert(0); // TODO
+	case AST_IMPORT_MEMBERS:
+		assert(0); // TODO
+	}
+
+	scope_free(mod);
+}
+
+struct scope *
 check(struct type_store *ts, const struct ast_unit *aunit, struct unit *unit)
 {
 	struct context ctx = {0};
@@ -1555,18 +1580,7 @@ check(struct type_store *ts, const struct ast_unit *aunit, struct unit *unit)
 
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
-			struct scope *mod;
-			switch (imports->mode) {
-			case AST_IMPORT_IDENTIFIER:
-				mod = module_resolve(&imports->ident, ts);
-				break;
-			case AST_IMPORT_ALIAS:
-				assert(0); // TODO
-			case AST_IMPORT_MEMBERS:
-				assert(0); // TODO
-			}
-
-			(void)mod; // TODO: Populate subunit scope
+			load_import(imports, ts, ctx.scope);
 		}
 
 		scan_declarations(&ctx, &su->decls);
@@ -1587,4 +1601,6 @@ check(struct type_store *ts, const struct ast_unit *aunit, struct unit *unit)
 		trleave(TR_CHECK, NULL);
 		scope = scope->next;
 	}
+
+	return ctx.unit;
 }
