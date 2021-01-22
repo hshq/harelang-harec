@@ -17,23 +17,6 @@
 static void gen_expression(struct gen_context *ctx,
 	const struct expression *expr, const struct qbe_value *out);
 
-static char *
-ident_to_sym(const struct identifier *ident)
-{
-	if (ident->ns) {
-		char *ns = ident_to_sym(ident->ns);
-		if (!ns) {
-			return NULL;
-		}
-		int n = snprintf(NULL, 0, "%s.%s", ns, ident->name);
-		char *str = xcalloc(1, n + 1);
-		snprintf(str, n + 1, "%s.%s", ns, ident->name);
-		free(ns);
-		return str;
-	}
-	return strdup(ident->name);
-}
-
 static struct gen_scope_context *
 push_scope(struct gen_context *ctx,
 	enum scope_class class,

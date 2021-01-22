@@ -1,7 +1,11 @@
 #include <stdlib.h>
 #include <stdint.h>
-// Do not include this header:
-//#include "util.h"
+#include <string.h>
+#include "util.h"
+// Remove safety macros:
+#undef malloc
+#undef calloc
+#undef realloc
 
 uint32_t
 fnv1a(uint32_t hash, unsigned char c)
@@ -47,4 +51,21 @@ xrealloc(void *p, size_t s)
 		abort();
 	}
 	return p;
+}
+
+char *
+getpath(const struct pathspec *paths, size_t npaths) {
+	for (size_t i = 0; i < npaths; i++) {
+		const char *var = "";
+		if (paths[i].var) {
+			var = getenv(paths[i].var);
+		}
+		if (var) {
+			char *out = calloc(1,
+				strlen(var) + strlen(paths[i].path) + 1);
+			strcat(strcat(out, var), paths[i].path);
+			return out;
+		}
+	}
+	return NULL;
 }

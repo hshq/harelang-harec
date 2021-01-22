@@ -12,6 +12,7 @@
 #include "parse.h"
 #include "qbe.h"
 #include "typedef.h"
+#include "type_store.h"
 #include "util.h"
 
 static void
@@ -127,8 +128,9 @@ main(int argc, char *argv[])
 		return 0;
 	}
 
-	struct context ctx = {0};
-	check(&ctx, &aunit, &unit);
+	struct type_store ts = {0};
+	builtin_types_init();
+	check(&ts, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
 		return 0;
 	}

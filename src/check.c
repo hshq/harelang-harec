@@ -112,7 +112,7 @@ check_expr_access(struct context *ctx,
 			type_storage_unparse(itype->storage));
 		expr->access.index = lower_implicit_cast(
 			&builtin_type_size, expr->access.index);
-		expr->result = type_store_lookup_with_flags(&ctx->store,
+		expr->result = type_store_lookup_with_flags(ctx->store,
 			atype->array.members, atype->flags | atype->array.members->flags);
 		break;
 	case ACCESS_FIELD:
@@ -202,7 +202,7 @@ check_expr_assign(struct context *ctx,
 			!(object->result->pointer.flags & PTR_NULLABLE),
 			"Cannot dereference nullable pointer type");
 		expect(&aexpr->loc,
-			type_is_assignable(&ctx->store,
+			type_is_assignable(ctx->store,
 				object->result->pointer.referent,
 				value->result),
 			"Value type is not assignable to pointer type");
@@ -212,7 +212,7 @@ check_expr_assign(struct context *ctx,
 		expect(&aexpr->loc, !(object->result->flags & TYPE_CONST),
 				"Cannot assign to const object");
 		expect(&aexpr->loc,
-			type_is_assignable(&ctx->store, object->result, value->result),
+			type_is_assignable(ctx->store, object->result, value->result),
 			"rvalue type is not assignable to lvalue");
 		value = lower_implicit_cast(object->result, value);
 	}
@@ -289,8 +289,8 @@ check_expr_binding(struct context *ctx,
 		const struct type *type = NULL;
 		if (abinding->type) {
 			type = type_store_lookup_atype(
-				&ctx->store, abinding->type);
-			type = type_store_lookup_with_flags(&ctx->store,
+				ctx->store, abinding->type);
+			type = type_store_lookup_with_flags(ctx->store,
 				type, type->flags | abinding->flags);
 		}
 
@@ -302,14 +302,14 @@ check_expr_binding(struct context *ctx,
 		check_expression(ctx, abinding->initializer, initializer, type);
 
 		if (!type) {
-			type = type_store_lookup_with_flags(&ctx->store,
+			type = type_store_lookup_with_flags(ctx->store,
 				initializer->result, abinding->flags);
 		}
 		expect(&aexpr->loc,
 			type->size != 0 && type->size != SIZE_UNDEFINED,
 			"Cannot create binding for type of zero or undefined size");
 		expect(&aexpr->loc,
-			type_is_assignable(&ctx->store, type, initializer->result),
+			type_is_assignable(ctx->store, type, initializer->result),
 			"Initializer is not assignable to binding type");
 		binding->initializer =
 			lower_implicit_cast(type, initializer);
@@ -370,7 +370,7 @@ lower_vaargs(struct context *ctx,
 
 	// XXX: This error handling is minimum-effort and bad
 	const struct type *hint = type_store_lookup_array(
-		&ctx->store, type, SIZE_UNDEFINED);
+		ctx->store, type, SIZE_UNDEFINED);
 	check_expression(ctx, &val, vaargs, hint);
 	assert(vaargs->result->storage == TYPE_STORAGE_ARRAY);
 	expect(&val.loc, vaargs->result->array.members == type,
@@ -427,7 +427,7 @@ check_expr_call(struct context *ctx,
 		check_expression(ctx, aarg->value, arg->value, param->type);
 
 		expect(&aarg->value->loc,
-			type_is_assignable(&ctx->store,
+			type_is_assignable(ctx->store,
 				param->type, arg->value->result),
 			"Argument is not assignable to parameter type");
 		arg->value = lower_implicit_cast(param->type, arg->value);
@@ -456,7 +456,7 @@ check_expr_cast(struct context *ctx,
 	struct expression *value = expr->cast.value =
 		xcalloc(1, sizeof(struct expression));
 	const struct type *secondary = expr->cast.secondary =
-		type_store_lookup_atype(&ctx->store, aexpr->cast.type);
+		type_store_lookup_atype(ctx->store, aexpr->cast.type);
 	check_expression(ctx, aexpr->cast.value, value, secondary);
 	expect(&aexpr->cast.type->loc,
 		type_is_castable(secondary, value->result),
@@ -515,7 +515,7 @@ check_expr_array(struct context *ctx,
 			type = value->result;
 		} else {
 			expect(&item->value->loc,
-				type_is_assignable(&ctx->store, type, value->result),
+				type_is_assignable(ctx->store, type, value->result),
 				"Array members must be of a uniform type");
 			cur->value = lower_implicit_cast(type, cur->value);
 		}
@@ -538,10 +538,10 @@ check_expr_array(struct context *ctx,
 				&& hint->array.length != SIZE_UNDEFINED
 				&& hint->array.length >= len,
 			"Cannot expand array into destination type");
-		expr->result = type_store_lookup_array(&ctx->store,
+		expr->result = type_store_lookup_array(ctx->store,
 				type, hint->array.length);
 	} else {
-		expr->result = type_store_lookup_array(&ctx->store, type, len);
+		expr->result = type_store_lookup_array(ctx->store, type, len);
 	}
 }
 
@@ -825,7 +825,7 @@ check_expr_measure(struct context *ctx,
 		break;
 	case M_SIZE:
 		expr->measure.type = type_store_lookup_atype(
-			&ctx->store, aexpr->measure.type);
+			ctx->store, aexpr->measure.type);
 		break;
 	case M_OFFSET:
 		assert(0); // TODO
@@ -846,13 +846,13 @@ check_expr_return(struct context *ctx,
 	if (aexpr->_return.value) {
 		struct expression *rval = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_return.value,
-			rval, ctx->current_fntype->func.result);
+			rval, ctx->fntype->func.result);
 		expect(&aexpr->_return.value->loc,
-			type_is_assignable(&ctx->store, ctx->current_fntype->func.result, rval->result),
+			type_is_assignable(ctx->store, ctx->fntype->func.result, rval->result),
 			"Return value is not assignable to function result type");
-		if (ctx->current_fntype->func.result != rval->result) {
+		if (ctx->fntype->func.result != rval->result) {
 			rval = lower_implicit_cast(
-				ctx->current_fntype->func.result, rval);
+				ctx->fntype->func.result, rval);
 		}
 		expr->_return.value = rval;
 	}
@@ -905,7 +905,7 @@ check_expr_slice(struct context *ctx,
 		// TODO: Assert that array type has a well-defined length
 	}
 
-	expr->result = type_store_lookup_slice(&ctx->store,
+	expr->result = type_store_lookup_slice(ctx->store,
 		expr->slice.object->result->array.members);
 
 	trleave(TR_CHECK, NULL);
@@ -940,7 +940,7 @@ check_expr_struct(struct context *ctx,
 		tfield->field.type = afield->field.type;
 		sexpr->value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, afield->field.initializer, sexpr->value,
-			type_store_lookup_atype(&ctx->store, tfield->field.type));
+			type_store_lookup_atype(ctx->store, tfield->field.type));
 
 		if (afield->next) {
 			*tnext = tfield = xcalloc(
@@ -954,7 +954,7 @@ check_expr_struct(struct context *ctx,
 		afield = afield->next;
 	}
 
-	expr->result = type_store_lookup_atype(&ctx->store, &stype);
+	expr->result = type_store_lookup_atype(ctx->store, &stype);
 
 	tfield = &stype.struct_union;
 	sexpr = &expr->_struct;
@@ -964,7 +964,7 @@ check_expr_struct(struct context *ctx,
 		// TODO: Use more specific error location
 		expect(&aexpr->loc, field, "No field by this name exists for this type");
 		expect(&aexpr->loc,
-			type_is_assignable(&ctx->store, field->type, sexpr->value->result),
+			type_is_assignable(ctx->store, field->type, sexpr->value->result),
 			"Cannot initialize struct field from value of this type");
 		sexpr->field = field;
 		sexpr->value = lower_implicit_cast(field->type, sexpr->value);
@@ -1086,7 +1086,7 @@ check_expr_unarithm(struct context *ctx,
 		break;
 	case UN_ADDRESS:
 		expr->result = type_store_lookup_pointer(
-			&ctx->store, operand->result, 0);
+			ctx->store, operand->result, 0);
 		break;
 	case UN_DEREF:
 		expect(&aexpr->unarithm.operand->loc,
@@ -1181,7 +1181,7 @@ check_const(struct context *ctx,
 	const struct ast_decl *adecl)
 {
 	const struct type *type = type_store_lookup_atype(
-			&ctx->store, adecl->constant.type);
+			ctx->store, adecl->constant.type);
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	const struct scope_object *obj = scope_lookup(
 			ctx->unit, &adecl->constant.ident);
@@ -1210,9 +1210,9 @@ check_function(struct context *ctx,
 		.func = afndecl->prototype,
 	};
 	const struct type *fntype = type_store_lookup_atype(
-			&ctx->store, &fn_atype);
+			ctx->store, &fn_atype);
 	assert(fntype); // Invariant
-	ctx->current_fntype = fntype;
+	ctx->fntype = fntype;
 
 	expect(&adecl->loc,
 		fntype->func.variadism != VARIADISM_C,
@@ -1239,10 +1239,10 @@ check_function(struct context *ctx,
 			.name = params->name,
 		};
 		const struct type *type = type_store_lookup_atype(
-				&ctx->store, params->type);
+				ctx->store, params->type);
 		if (fntype->func.variadism == VARIADISM_HARE
 				&& !params->next) {
-			type = type_store_lookup_slice(&ctx->store, type);
+			type = type_store_lookup_slice(ctx->store, type);
 		}
 		scope_insert(decl->func.scope, O_BIND,
 			&ident, &ident, type, NULL);
@@ -1253,7 +1253,7 @@ check_function(struct context *ctx,
 	check_expression(ctx, afndecl->body, body, fntype->func.result);
 
 	expect(&afndecl->body->loc,
-		body->terminates || type_is_assignable(&ctx->store, fntype->func.result, body->result),
+		body->terminates || type_is_assignable(ctx->store, fntype->func.result, body->result),
 		"Result value is not assignable to function result type");
 	if (!body->terminates && fntype->func.result != body->result) {
 		body = lower_implicit_cast(fntype->func.result, body);
@@ -1272,7 +1272,7 @@ check_function(struct context *ctx,
 	}
 
 	scope_pop(&ctx->scope, TR_CHECK);
-	ctx->current_fntype = NULL;
+	ctx->fntype = NULL;
 	trleave(TR_CHECK, NULL);
 	return decl;
 }
@@ -1287,7 +1287,7 @@ check_global(struct context *ctx,
 	}
 
 	const struct type *type = type_store_lookup_atype(
-			&ctx->store, agdecl->type);
+			ctx->store, agdecl->type);
 
 	// TODO: Free initialier
 	struct expression *initializer =
@@ -1295,7 +1295,7 @@ check_global(struct context *ctx,
 	check_expression(ctx, agdecl->init, initializer, type);
 
 	expect(&agdecl->init->loc,
-		type_is_assignable(&ctx->store, type, initializer->result),
+		type_is_assignable(ctx->store, type, initializer->result),
 		"Constant type is not assignable from initializer type");
 	initializer = lower_implicit_cast(type, initializer);
 
@@ -1325,7 +1325,7 @@ check_type(struct context *ctx,
 	const struct ast_decl *adecl)
 {
 	const struct type *type =
-		type_store_lookup_atype(&ctx->store, adecl->type.type);
+		type_store_lookup_atype(ctx->store, adecl->type.type);
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_TYPE;
 	decl->_type = type;
@@ -1378,7 +1378,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	assert(!decl->symbol); // Invariant
 
 	const struct type *type = type_store_lookup_atype(
-			&ctx->store, decl->type);
+			ctx->store, decl->type);
 	// TODO:
 	// - Free the initializer
 	// - Defer if we can't evaluate it now (for forward references)
@@ -1386,7 +1386,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 		xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
 
-	expect(&decl->init->loc, type_is_assignable(&ctx->store, type, initializer->result),
+	expect(&decl->init->loc, type_is_assignable(ctx->store, type, initializer->result),
 		"Constant type is not assignable from initializer type");
 	initializer = lower_implicit_cast(type, initializer);
 
@@ -1414,7 +1414,7 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 		.func = decl->prototype,
 	};
 	const struct type *fntype = type_store_lookup_atype(
-			&ctx->store, &fn_atype);
+			ctx->store, &fn_atype);
 	assert(fntype); // TODO: Forward references
 
 	struct identifier ident = {0};
@@ -1436,7 +1436,7 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 	trenter(TR_SCAN, "global");
 
 	const struct type *type = type_store_lookup_atype(
-			&ctx->store, decl->type);
+			ctx->store, decl->type);
 	assert(type); // TODO: Forward references
 
 	struct identifier ident = {0};
@@ -1455,7 +1455,7 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 {
 	trenter(TR_SCAN, "type");
 	const struct type *type =
-		type_store_lookup_atype(&ctx->store, decl->type);
+		type_store_lookup_atype(ctx->store, decl->type);
 
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
@@ -1472,7 +1472,7 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 				.alias = decl->ident,
 			};
 			const struct type *alias =
-				type_store_lookup_atype(&ctx->store, &atype);
+				type_store_lookup_atype(ctx->store, &atype);
 
 			struct expression *expr =
 				xcalloc(sizeof(struct expression), 1);
@@ -1528,11 +1528,12 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 }
 
 void
-check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
+check(struct type_store *ts, const struct ast_unit *aunit, struct unit *unit)
 {
-	builtin_types_init();
-	ctx->store.check_context = ctx;
-	ctx->ns = unit->ns;
+	struct context ctx = {0};
+	ctx.ns = unit->ns;
+	ctx.store = ts;
+	ctx.store->check_context = &ctx;
 
 	// Top-level scope management involves:
 	//
@@ -1542,7 +1543,7 @@ check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
 	// 
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
-	ctx->unit = scope_push(&ctx->scope, TR_MAX);
+	ctx.unit = scope_push(&ctx.scope, TR_MAX);
 
 	struct scopes *subunit_scopes;
 	struct scopes **next = &subunit_scopes;
@@ -1550,15 +1551,14 @@ check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
 	// First pass populates the type graph
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
-		scope_push(&ctx->scope, TR_SCAN);
+		scope_push(&ctx.scope, TR_SCAN);
 
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
 			struct scope *mod;
 			switch (imports->mode) {
 			case AST_IMPORT_IDENTIFIER:
-				mod = module_resolve(
-					&imports->ident, &ctx->store);
+				mod = module_resolve(&imports->ident, ts);
 				break;
 			case AST_IMPORT_ALIAS:
 				assert(0); // TODO
@@ -1569,10 +1569,10 @@ check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
 			(void)mod; // TODO: Populate subunit scope
 		}
 
-		scan_declarations(ctx, &su->decls);
+		scan_declarations(&ctx, &su->decls);
 
 		*next = xcalloc(1, sizeof(struct scopes));
-		(*next)->scope = scope_pop(&ctx->scope, TR_SCAN);
+		(*next)->scope = scope_pop(&ctx.scope, TR_SCAN);
 		next = &(*next)->next;
 	}
 
@@ -1581,9 +1581,9 @@ check(struct context *ctx, const struct ast_unit *aunit, struct unit *unit)
 	struct declarations **next_decl = &unit->declarations;
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
-		ctx->scope = scope->scope;
-		trenter(TR_CHECK, "scope %p", ctx->scope);
-		next_decl = check_declarations(ctx, &su->decls, next_decl);
+		ctx.scope = scope->scope;
+		trenter(TR_CHECK, "scope %p", ctx.scope);
+		next_decl = check_declarations(&ctx, &su->decls, next_decl);
 		trleave(TR_CHECK, NULL);
 		scope = scope->next;
 	}

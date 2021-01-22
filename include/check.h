@@ -9,8 +9,8 @@ struct expression;
 struct scope;
 
 struct context {
-	struct type_store store;
-	const struct type *current_fntype;
+	struct type_store *store;
+	const struct type *fntype;
 	struct identifier *ns;
 	struct scope *unit;
 	struct scope *scope;
@@ -74,7 +74,7 @@ struct unit {
 struct ast_expression;
 struct ast_unit;
 
-void check(struct context *ctx,
+void check(struct type_store *ts,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 

@@ -15,4 +15,11 @@ void *xrealloc(void *p, size_t s);
 #define calloc(a, b) (void *)sizeof(struct { static_assert(0, "Use xcalloc instead"); int _; });
 #define realloc(a, b) (void *)sizeof(struct { static_assert(0, "Use xrealloc instead"); int _; });
 
+struct pathspec {
+	const char *var;
+	const char *path;
+};
+
+char *getpath(const struct pathspec *paths, size_t npaths);
+
 #endif
