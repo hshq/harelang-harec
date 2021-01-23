@@ -1,4 +1,4 @@
-# harec
+# harec [![builds.sr.ht status](https://builds.sr.ht/~sircmpwn/harec.svg)](https://builds.sr.ht/~sircmpwn/harec?)
 
 This is a [Hare](https://harelang.org) compiler written in C11 for
 POSIX-compatible systems.
