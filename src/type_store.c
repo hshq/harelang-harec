@@ -261,8 +261,9 @@ type_is_castable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_TAGGED_UNION:
 		return tagged_castable(to, from);
 	case TYPE_STORAGE_STRING:
-		return to->pointer.referent->storage == TYPE_STORAGE_CHAR
-				&& to->pointer.referent->flags & TYPE_CONST;
+		return to->storage == TYPE_STORAGE_POINTER
+			&& to->pointer.referent->storage == TYPE_STORAGE_CHAR
+			&& to->pointer.referent->flags & TYPE_CONST;
 	case TYPE_STORAGE_RUNE:
 		return to->storage == TYPE_STORAGE_U32;
 	// Cannot be cast:
