@@ -196,8 +196,8 @@ struct expression_list {
 };
 
 struct match_case {
-	const struct scope_object *object; // May be NULL
-	const struct type *type;
+	const struct scope_object *object;	// NULL if not bound
+	const struct type *type;		// NULL if default
 	struct expression *value;
 	struct match_case *next;
 };

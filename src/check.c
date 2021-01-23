@@ -889,8 +889,6 @@ check_expr_match(struct context *ctx,
 
 		const struct type *ctype = type_store_lookup_atype(
 				ctx->store, acase->type);
-		struct expression *value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, acase->value, value, NULL);
 
 		// TODO: Figure out alias semantics properly
 		if (is_ptr) {
@@ -930,8 +928,24 @@ check_expr_match(struct context *ctx,
 			}
 		}
 
+		if (acase->name) {
+			struct identifier ident = {
+				.name = acase->name,
+			};
+			struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+			scope->type = EXPR_MATCH;
+			_case->object = scope_insert(scope, O_BIND,
+				&ident, &ident, ctype, NULL);
+		}
+
 		_case->value = xcalloc(1, sizeof(struct expression));
+		_case->type = ctype;
 		check_expression(ctx, acase->value, _case->value, type);
+
+		if (acase->name) {
+			scope_pop(&ctx->scope, TR_CHECK);
+		}
+
 		if (_case->value->terminates) {
 			continue;
 		}

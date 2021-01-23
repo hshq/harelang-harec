@@ -1388,6 +1388,97 @@ gen_expr_list(struct gen_context *ctx,
 }
 
 static void
+gen_expr_match(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	// TODO: Pointers
+	assert(expr->match.value->result->storage == TYPE_STORAGE_TAGGED_UNION);
+
+	const struct type *mtype = expr->match.value->result;
+	struct qbe_value mval = {0}, tag = {0}, match = {0}, temp = {0};
+	gen_temp(ctx, &mval, qtype_for_type(ctx, mtype, false), "match.%d");
+	gen_temp(ctx, &temp, &qbe_word, "temp.%d");
+	qval_address(&mval);
+	gen_expression(ctx, expr->match.value, &mval);
+
+	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
+	pushi(ctx->current, &tag, Q_LOADUW, &mval, NULL);
+
+	struct qbe_statement olabel = {0};
+	struct qbe_value obranch = {0};
+	obranch.kind = QV_LABEL;
+	obranch.name = strdup(genl(&olabel, &ctx->id, "out.%d"));
+
+	struct match_case *_default = NULL;
+	for (struct match_case *_case = expr->match.cases;
+			_case; _case = _case->next) {
+		if (!_case->type) {
+			_default = _case;
+			continue;
+		}
+
+		struct qbe_statement tlabel = {0}, flabel = {0};
+		struct qbe_value tbranch = {0}, fbranch = {0};
+		tbranch.kind = QV_LABEL;
+		tbranch.name = strdup(genl(&tlabel, &ctx->id, "match.%d"));
+		fbranch.kind = QV_LABEL;
+		fbranch.name = strdup(genl(&flabel, &ctx->id, "next.case.%d"));
+
+		const struct type_tagged_union *tu;
+		struct type_tagged_union synthetic = {0};
+		if (_case->type->storage != TYPE_STORAGE_TAGGED_UNION) {
+			synthetic.type = _case->type;
+			tu = &synthetic;
+		} else {
+			tu = &_case->type->tagged;
+		}
+
+		for (; tu; tu = tu->next) {
+			struct qbe_statement nlabel = {0};
+			struct qbe_value nbranch = {0};
+			nbranch.kind = QV_LABEL;
+			nbranch.name = strdup(genl(&nlabel, &ctx->id, "next.opt.%d"));
+
+			constw(&match, tu->type->id);
+			pushi(ctx->current, &temp, Q_CEQW, &match, &tag, NULL);
+			pushi(ctx->current, NULL, Q_JNZ,
+				&temp, &tbranch, &nbranch, NULL);
+			push(&ctx->current->body, &nlabel);
+		}
+
+		pushi(ctx->current, NULL, Q_JMP, &fbranch, NULL);
+		push(&ctx->current->body, &tlabel);
+
+		if (_case->object) {
+			struct qbe_value val = {0}, temp = {0};
+			gen_temp(ctx, &val,
+				qtype_for_type(ctx, _case->type, false),
+				"bound.%d");
+			struct gen_binding *binding =
+				xcalloc(1, sizeof(struct gen_binding));
+			binding->name = strdup(val.name);
+			binding->object = _case->object;
+			binding->next = ctx->bindings;
+			ctx->bindings = binding;
+			constl(&temp, mtype->align);
+			val.type = &qbe_long;
+			pushi(ctx->current, &val, Q_ADD, &mval, &temp, NULL);
+		}
+
+		gen_expression(ctx, _case->value, out);
+		pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		push(&ctx->current->body, &flabel);
+	}
+
+	if (_default) {
+		gen_expression(ctx, _default->value, out);
+	}
+
+	push(&ctx->current->body, &olabel);
+}
+
+static void
 gen_expr_measure(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -1722,7 +1813,8 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_list(ctx, expr, out);
 		break;
 	case EXPR_MATCH:
-		assert(0); // TODO
+		gen_expr_match(ctx, expr, out);
+		break;
 	case EXPR_MEASURE:
 		gen_expr_measure(ctx, expr, out);
 		break;

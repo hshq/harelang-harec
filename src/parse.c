@@ -1741,15 +1741,15 @@ parse_match_expression(struct lexer *lexer)
 			}
 			break;
 		case T_TIMES:
-			want(lexer, T_CASE, &tok);
+			// (default case)
 			break;
 		default:
 			unlex(lexer, &tok);
 			_case->type = parse_type(lexer);
-			want(lexer, T_CASE, &tok);
 			break;
 		}
 
+		want(lexer, T_CASE, &tok);
 		_case->value = parse_compound_expression(lexer);
 
 		switch (lex(lexer, &tok)) {
