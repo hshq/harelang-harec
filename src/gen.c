@@ -1397,10 +1397,11 @@ gen_expr_match(struct gen_context *ctx,
 
 	const struct type *mtype = expr->match.value->result;
 	struct qbe_value mval = {0}, tag = {0}, match = {0}, temp = {0};
-	gen_temp(ctx, &mval, qtype_for_type(ctx, mtype, false), "match.%d");
-	gen_temp(ctx, &temp, &qbe_word, "temp.%d");
-	qval_address(&mval);
+	// Kill me
+	alloc_temp(ctx, &mval, mtype, "match.%d");
+	qval_deref(&mval);
 	gen_expression(ctx, expr->match.value, &mval);
+	gen_temp(ctx, &temp, &qbe_word, "temp.%d");
 
 	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
 	pushi(ctx->current, &tag, Q_LOADUW, &mval, NULL);

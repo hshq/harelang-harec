@@ -20,7 +20,8 @@ tests() {
 		14-switch \
 		15-enums \
 		16-defer \
-		17-alloc
+		17-alloc \
+		18-match
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha

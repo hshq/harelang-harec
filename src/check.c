@@ -887,34 +887,34 @@ check_expr_match(struct context *ctx,
 		_case = *next = xcalloc(1, sizeof(struct match_case));
 		next = &_case->next;
 
-		const struct type *ctype = type_store_lookup_atype(
-				ctx->store, acase->type);
+		const struct type *ctype = NULL;
+		if (acase->type) {
+			ctype = type_store_lookup_atype(ctx->store, acase->type);
 
-		// TODO: Figure out alias semantics properly
-		if (is_ptr) {
+			// TODO: Figure out alias semantics properly
 			switch (ctype->storage) {
 			case TYPE_STORAGE_POINTER:
+				expect(&acase->type->loc, is_ptr,
+					"Not matching on pointer type");
 				expect(&acase->type->loc,
 					type->pointer.referent == ctype->pointer.referent,
 					"Match case of incompatible pointer type");
 				break;
 			case TYPE_STORAGE_NULL:
-				// No additional tests required
+				expect(&acase->type->loc, is_ptr,
+					"Not matching on pointer type");
 				break;
-			default:
-				expect(&acase->type->loc, false,
-					"Invalid type for match case");
-				break;
-			}
-		} else {
-			bool valid = false;
-			switch (ctype->storage) {
 			case TYPE_STORAGE_TAGGED_UNION:
+				expect(&acase->type->loc, !is_ptr,
+					"Not matching on tagged union type");
 				expect(&acase->type->loc, type_is_assignable(
 						ctx->store, type, ctype),
 					"Invalid type for match case");
 				break;
 			default:
+				expect(&acase->type->loc, !is_ptr,
+					"Not matching on tagged union type");
+				bool valid = false;
 				for (const struct type_tagged_union *tu = &type->tagged;
 						tu; tu = tu->next) {
 					if (tu->type == ctype) {
@@ -929,6 +929,7 @@ check_expr_match(struct context *ctx,
 		}
 
 		if (acase->name) {
+			assert(ctype);
 			struct identifier ident = {
 				.name = acase->name,
 			};
@@ -940,7 +941,7 @@ check_expr_match(struct context *ctx,
 
 		_case->value = xcalloc(1, sizeof(struct expression));
 		_case->type = ctype;
-		check_expression(ctx, acase->value, _case->value, type);
+		check_expression(ctx, acase->value, _case->value, NULL);
 
 		if (acase->name) {
 			scope_pop(&ctx->scope, TR_CHECK);
