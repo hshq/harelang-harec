@@ -1,5 +1,5 @@
 fn tagged() void = {
-	let cases: [](int | uint | str) = [10, 10u, "hello"];
+	let cases: [3](int | uint | str) = [10, 10u, "hello"];
 	let expected = [1z, 2z, 5z];
 	for (let i = 0z; i < len(cases); i += 1z) {
 		let y: size = match (cases[i]) {
