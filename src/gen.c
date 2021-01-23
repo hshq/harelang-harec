@@ -1483,7 +1483,7 @@ gen_expr_measure(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	struct qbe_value temp = {0}, ptr = {0};
+	struct qbe_value src = {0}, temp = {0}, ptr = {0};
 	switch (expr->measure.op) {
 	case M_LEN:
 		switch (expr->measure.value->result->storage) {
@@ -1496,12 +1496,19 @@ gen_expr_measure(struct gen_context *ctx,
 			break;
 		case TYPE_STORAGE_SLICE:
 		case TYPE_STORAGE_STRING:
-			gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
-			qval_address(&ptr);
-			gen_expression(ctx, expr->measure.value, &ptr);
+			// My god this is a fucking mess
+			alloc_temp(ctx, &src,
+				expr->measure.value->result,
+				"len.src.%d");
+			qval_deref(&src);
+			gen_temp(ctx, &ptr, &qbe_long, "len.ptr.%d");
+			gen_expression(ctx, expr->measure.value, &src);
 			constl(&temp, builtin_type_size.size);
+			pushi(ctx->current, &ptr, Q_COPY, &src, NULL);
 			pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
-			pushi(ctx->current, out, Q_LOADL, &ptr, NULL);
+			gen_temp(ctx, &temp, &qbe_long, "len.%d");
+			pushi(ctx->current, &temp, Q_LOADL, &ptr, NULL);
+			gen_store(ctx, out, &temp);
 			break;
 		default:
 			assert(0); // Invariant
