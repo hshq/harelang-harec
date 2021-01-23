@@ -1719,7 +1719,8 @@ parse_match_expression(struct lexer *lexer)
 				break;
 			case T_DOUBLE_COLON:
 				_case->type = parse_type(lexer);
-				assert(_case->type->storage == TYPE_STORAGE_ALIAS);
+				synassert(_case->type->storage == TYPE_STORAGE_ALIAS,
+						&tok, T_NAME, T_EOF);
 				struct identifier ident = {
 					.name = tok.name, // Assumes ownership
 					.ns = xcalloc(1, sizeof(struct identifier)),
