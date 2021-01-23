@@ -224,6 +224,18 @@ struct ast_expression_list {
 	struct ast_expression_list *next;
 };
 
+struct ast_match_case {
+	char *name; // May be null
+	struct ast_type *type;
+	struct ast_expression *value;
+	struct ast_match_case *next;
+};
+
+struct ast_expression_match {
+	struct ast_expression *value;
+	struct ast_match_case *cases;
+};
+
 struct ast_expression_measure {
 	enum measure_operator op;
 	union {
@@ -242,21 +254,6 @@ struct ast_expression_slice {
 	struct ast_expression *start, *end;
 };
 
-struct ast_expression_struct;
-
-struct ast_field_value {
-	bool is_embedded;
-	union {
-		struct {
-			char *name;
-			struct ast_type *type;
-			struct ast_expression *initializer;
-		} field;
-		struct ast_expression *embedded;
-	};
-	struct ast_field_value *next;
-};
-
 struct ast_case_option {
 	struct ast_expression *value;
 	struct ast_case_option *next;
@@ -271,6 +268,21 @@ struct ast_switch_case {
 struct ast_expression_switch {
 	struct ast_expression *value;
 	struct ast_switch_case *cases;
+};
+
+struct ast_expression_struct;
+
+struct ast_field_value {
+	bool is_embedded;
+	union {
+		struct {
+			char *name;
+			struct ast_type *type;
+			struct ast_expression *initializer;
+		} field;
+		struct ast_expression *embedded;
+	};
+	struct ast_field_value *next;
 };
 
 struct ast_expression_struct {
@@ -302,6 +314,7 @@ struct ast_expression {
 		struct ast_expression_for _for;
 		struct ast_expression_if _if;
 		struct ast_expression_list list;
+		struct ast_expression_match match;
 		struct ast_expression_measure measure;
 		struct ast_expression_return _return;
 		struct ast_expression_slice slice;

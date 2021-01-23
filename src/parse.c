@@ -1691,6 +1691,92 @@ parse_switch_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
+parse_match_expression(struct lexer *lexer)
+{
+	trenter(TR_PARSE, "match");
+	struct ast_expression *exp = mkexpr(&lexer->loc);
+	exp->type = EXPR_MATCH;
+
+	struct token tok = {0};
+	want(lexer, T_LPAREN, &tok);
+	exp->match.value = parse_simple_expression(lexer);
+	want(lexer, T_RPAREN, &tok);
+	want(lexer, T_LBRACE, &tok);
+
+	bool more = true;
+	struct ast_match_case **next_case = &exp->match.cases;
+	while (more) {
+		struct ast_match_case *_case =
+			*next_case = xcalloc(1, sizeof(struct ast_match_case));
+
+		struct token tok2 = {0};
+		switch (lex(lexer, &tok)) {
+		case T_NAME:
+			switch (lex(lexer, &tok2)) {
+			case T_COLON:
+				_case->name = tok.name; // Assumes ownership
+				_case->type = parse_type(lexer);
+				break;
+			case T_DOUBLE_COLON:
+				_case->type = parse_type(lexer);
+				assert(_case->type->storage == TYPE_STORAGE_ALIAS);
+				struct identifier ident = {
+					.name = tok.name, // Assumes ownership
+					.ns = xcalloc(1, sizeof(struct identifier)),
+				};
+				*ident.ns = _case->type->alias;
+				_case->type->alias = ident;
+				break;
+			case T_CASE:
+				unlex(lexer, &tok);
+				_case->type = parse_type(lexer);
+				assert(_case->type->storage == TYPE_STORAGE_ALIAS);
+				unlex(lexer, &tok2);
+				break;
+			default:
+				synassert(false, &tok, T_COLON,
+					T_DOUBLE_COLON, T_CASE, T_EOF);
+				break;
+			}
+			break;
+		case T_TIMES:
+			want(lexer, T_CASE, &tok);
+			break;
+		default:
+			unlex(lexer, &tok);
+			_case->type = parse_type(lexer);
+			want(lexer, T_CASE, &tok);
+			break;
+		}
+
+		_case->value = parse_compound_expression(lexer);
+
+		switch (lex(lexer, &tok)) {
+		case T_COMMA:
+			switch (lex(lexer, &tok)) {
+			case T_RBRACE:
+				more = false;
+				break;
+			default:
+				unlex(lexer, &tok);
+				break;
+			}
+			break;
+		case T_RBRACE:
+			more = false;
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+		}
+
+		next_case = &_case->next;
+	}
+
+	trleave(TR_PARSE, NULL);
+	return exp;
+}
+
+static struct ast_expression *
 parse_complex_expression(struct lexer *lexer)
 {
 	struct token tok;
@@ -1702,7 +1788,7 @@ parse_complex_expression(struct lexer *lexer)
 		unlex(lexer, &tok);
 		return parse_for_expression(lexer);
 	case T_MATCH:
-		assert(0); // TODO
+		return parse_match_expression(lexer);
 	case T_SWITCH:
 		return parse_switch_expression(lexer);
 	default:
