@@ -862,6 +862,96 @@ check_expr_list(struct context *ctx,
 }
 
 static void
+check_expr_match(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	trenter(TR_CHECK, "match");
+	expr->type = EXPR_MATCH;
+
+	struct expression *value = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->match.value, value, NULL);
+	expr->match.value = value;
+
+	const struct type *type = value->result;
+	bool is_ptr = type->storage == TYPE_STORAGE_POINTER
+		&& type->pointer.flags & PTR_NULLABLE;
+	expect(&aexpr->match.value->loc,
+		type->storage == TYPE_STORAGE_TAGGED_UNION || is_ptr,
+		"match value must be tagged union or nullable pointer type");
+
+	struct match_case **next = &expr->match.cases, *_case = NULL;
+	for (struct ast_match_case *acase = aexpr->match.cases;
+			acase; acase = acase->next) {
+		_case = *next = xcalloc(1, sizeof(struct match_case));
+		next = &_case->next;
+
+		const struct type *ctype = type_store_lookup_atype(
+				ctx->store, acase->type);
+		struct expression *value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, acase->value, value, NULL);
+
+		// TODO: Figure out alias semantics properly
+		if (is_ptr) {
+			switch (ctype->storage) {
+			case TYPE_STORAGE_POINTER:
+				expect(&acase->type->loc,
+					type->pointer.referent == ctype->pointer.referent,
+					"Match case of incompatible pointer type");
+				break;
+			case TYPE_STORAGE_NULL:
+				// No additional tests required
+				break;
+			default:
+				expect(&acase->type->loc, false,
+					"Invalid type for match case");
+				break;
+			}
+		} else {
+			bool valid = false;
+			switch (ctype->storage) {
+			case TYPE_STORAGE_TAGGED_UNION:
+				expect(&acase->type->loc, type_is_assignable(
+						ctx->store, type, ctype),
+					"Invalid type for match case");
+				break;
+			default:
+				for (const struct type_tagged_union *tu = &type->tagged;
+						tu; tu = tu->next) {
+					if (tu->type == ctype) {
+						valid = true;
+						break;
+					}
+				}
+				expect(&acase->type->loc, valid,
+					"Invalid type for match case");
+				break;
+			}
+		}
+
+		_case->value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, acase->value, _case->value, type);
+		if (_case->value->terminates) {
+			continue;
+		}
+
+		if (expr->result == NULL) {
+			expr->result = _case->value->result;
+		} else if (expr->result != _case->value->result) {
+			assert(0); // TODO: Form tagged union
+		}
+	}
+
+	if (expr->result == NULL) {
+		expr->result = &builtin_type_void;
+		expr->terminates = true;
+	}
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expr_measure(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -1219,7 +1309,8 @@ check_expression(struct context *ctx,
 		check_expr_list(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_MATCH:
-		assert(0); // TODO
+		check_expr_match(ctx, aexpr, expr, hint);
+		break;
 	case EXPR_MEASURE:
 		check_expr_measure(ctx, aexpr, expr, hint);
 		break;

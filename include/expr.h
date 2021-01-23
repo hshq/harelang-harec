@@ -195,6 +195,18 @@ struct expression_list {
 	struct expressions exprs;
 };
 
+struct match_case {
+	const struct scope_object *object; // May be NULL
+	const struct type *type;
+	struct expression *value;
+	struct match_case *next;
+};
+
+struct expression_match {
+	struct expression *value;
+	struct match_case *cases;
+};
+
 enum measure_operator {
 	M_LEN,
 	M_SIZE,
@@ -274,6 +286,7 @@ struct expression {
 		struct expression_for _for;
 		struct expression_if _if;
 		struct expression_list list;
+		struct expression_match match;
 		struct expression_measure measure;
 		struct expression_return _return;
 		struct expression_switch _switch;
