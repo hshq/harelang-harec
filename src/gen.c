@@ -277,7 +277,7 @@ gen_store(struct gen_context *ctx,
 	assert(!src->indirect);
 	if (dest->indirect) {
 		pushi(ctx->current, NULL,
-			store_for_type(src->type->stype),
+			store_for_type(dest->type->stype),
 			src, dest, NULL);
 	} else {
 		pushi(ctx->current, dest, Q_COPY, src, NULL);
@@ -296,7 +296,7 @@ gen_load(struct gen_context *ctx,
 	if (src->type->stype == Q__AGGREGATE) {
 		assert(!src->indirect);
 		if (dest->type->stype == Q__AGGREGATE) {
-			assert(0); // TODO: memcpy
+			gen_copy(ctx, dest, src);
 		} else {
 			assert(dest->type == &qbe_long);
 			pushi(ctx->current, dest, Q_COPY, src, NULL);
@@ -623,8 +623,7 @@ gen_expr_assign(struct gen_context *ctx,
 	} else {
 		const struct expression *object = expr->assign.object;
 		address_object(ctx, object, &src);
-		pushc(ctx->current, "assign to object %s (%c)",
-				src.name, (char)src.type->stype);
+		src.type = qtype_for_type(ctx, object->result, true);
 	}
 
 	const struct expression *value = expr->assign.value;
@@ -1110,10 +1109,13 @@ gen_array(struct gen_context *ctx,
 	const struct type *type = expr->result;
 
 	// XXX: ARCH
-	struct qbe_value ptr = {0};
-	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+	struct qbe_value ptr = {0}, val = {0};
+	gen_temp(ctx, &val,
+		qtype_for_type(ctx, type->array.members, true),
+		"ptr.%d");
+	ptr = val, ptr.type = &qbe_long;
+	qval_deref(&val);
 	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
-	ptr.indirect = !type_is_aggregate(type->array.members);
 
 	struct qbe_value size = {0};
 	constl(&size, type->array.members->size);
@@ -1121,7 +1123,7 @@ gen_array(struct gen_context *ctx,
 	size_t n = 0;
 	struct array_constant *item = expr->constant.array;
 	while (item) {
-		gen_expression(ctx, item->value, &ptr);
+		gen_expression(ctx, item->value, &val);
 		++n;
 		if (item->next) {
 			pushi(ctx->current, &ptr, Q_ADD, &ptr, &size, NULL);
@@ -1135,14 +1137,18 @@ gen_array(struct gen_context *ctx,
 
 	pushc(ctx->current, "expanding array to length %zd", type->array.length);
 	struct qbe_value last = {0};
-	gen_loadtemp(ctx, &last, &ptr,
-		qtype_for_type(ctx, type->array.members, false), "expand.%d");
 	if (type_is_aggregate(type->array.members)) {
-		ptr.type = last.type;
+		alloc_temp(ctx, &last, type->array.members, "expand.%d");
+		qval_deref(&last);
+	} else {
+		gen_temp(ctx, &last,
+			qtype_for_type(ctx, type->array.members, false),
+			"expand.%d");
 	}
+	gen_load(ctx, &last, &val, type_is_signed(type->array.members));
 	for (; n < type->array.length; ++n) {
 		pushi(ctx->current, &ptr, Q_ADD, &ptr, &size, NULL);
-		gen_store(ctx, &ptr, &last);
+		gen_store(ctx, &val, &last);
 	}
 }
 

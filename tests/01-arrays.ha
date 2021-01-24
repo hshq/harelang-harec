@@ -84,6 +84,16 @@ fn expanded() void = {
 	};
 };
 
+fn extype() void = {
+	let x: [5]u8 = [42u8...];
+	for (let i = 0z; i < len(x); i += 1z) {
+		assert(x[i] == 42u8);
+	};
+	x[0] = 24u8;
+	assert(x[0] == 24u8);
+	assert(x[1] == 42u8);
+};
+
 export fn main() void = {
 	indexing();
 	measurements();
@@ -93,4 +103,5 @@ export fn main() void = {
 	param([1, 2, 3]);
 	nested();
 	expanded();
+	extype();
 };
