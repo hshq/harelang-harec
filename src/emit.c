@@ -137,15 +137,21 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 		break;
 	case Q_INSTR:
 		fprintf(out, "\t");
+		if (stmt->instr == Q_CALL) {
+			if (stmt->out != NULL) {
+				emit_value(stmt->out, out);
+				fprintf(out, " =");
+				emit_qtype(stmt->out->type, true, out);
+				fprintf(out, " ");
+			}
+			emit_call(stmt, out);
+			break;
+		}
 		if (stmt->out != NULL) {
 			emit_value(stmt->out, out);
 			fprintf(out, " =");
 			emit_qtype(stmt->out->type, false, out);
 			fprintf(out, " ");
-		}
-		if (stmt->instr == Q_CALL) {
-			emit_call(stmt, out);
-			break;
 		}
 		fprintf(out, "%s%s", qbe_instr[stmt->instr],
 				stmt->args ? " " : "");

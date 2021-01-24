@@ -623,6 +623,8 @@ gen_expr_assign(struct gen_context *ctx,
 	} else {
 		const struct expression *object = expr->assign.object;
 		address_object(ctx, object, &src);
+		pushc(ctx->current, "assign to object %s (%c)",
+				src.name, (char)src.type->stype);
 	}
 
 	const struct expression *value = expr->assign.value;
@@ -987,6 +989,11 @@ gen_expr_cast(struct gen_context *ctx,
 		qval_deref(&in);
 		gen_load(ctx, &result, &in, false);
 		gen_store(ctx, out, &result);
+		return;
+	}
+
+	if (to->storage == TYPE_STORAGE_VOID) {
+		gen_expression(ctx, expr->cast.value, NULL);
 		return;
 	}
 
@@ -1987,6 +1994,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_value rval = {0};
 	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
 		alloc_temp(ctx, &rval, fntype->func.result, "ret.%d");
+		if (type_is_aggregate(fntype->func.result)) {
+			rval.indirect = false;
+		}
 		ctx->return_value = &rval;
 	} else {
 		ctx->return_value = NULL;
@@ -2000,11 +2010,15 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	pop_scope(ctx);
 
 	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
-		struct qbe_value load = {0};
-		gen_loadtemp(ctx, &load, ctx->return_value,
-			qdef->func.returns,
-			type_is_signed(fntype->func.result));
-		pushi(&qdef->func, NULL, Q_RET, &load, NULL);
+		if (type_is_aggregate(fntype->func.result)) {
+			pushi(&qdef->func, NULL, Q_RET, ctx->return_value, NULL);
+		} else {
+			struct qbe_value load = {0};
+			gen_loadtemp(ctx, &load, ctx->return_value,
+				qdef->func.returns,
+				type_is_signed(fntype->func.result));
+			pushi(&qdef->func, NULL, Q_RET, &load, NULL);
+		}
 	} else {
 		pushi(&qdef->func, NULL, Q_RET, NULL);
 	}
@@ -2105,10 +2119,11 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case TYPE_STORAGE_ARRAY:
 		assert(type->array.length != SIZE_UNDEFINED);
-		assert(!constant->array->expand); // TODO
-		for (struct array_constant *c = constant->array; c; c = c->next) {
+		size_t n = type->array.length;
+		for (struct array_constant *c = constant->array;
+				c && n; c = c->next ? c->next : c, --n) {
 			gen_data_item(ctx, c->value, item);
-			if (c->next) {
+			if (n > 1 || c->next) {
 				item->next = xcalloc(1,
 					sizeof(struct qbe_data_item));
 				item = item->next;
