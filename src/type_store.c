@@ -523,17 +523,10 @@ tagged_cmp(const void *ptr_a, const void *ptr_b)
 }
 
 static void
-tagged_init_from_atype(struct type_store *store,
-	struct type *type, const struct ast_type *atype)
+tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 {
-	size_t nmemb = sum_atagged_memb(store, &atype->tagged_union);
-	struct type_tagged_union **tu =
-		xcalloc(nmemb, sizeof(struct type_tagged_union *));
-	size_t i = 0;
-	collect_atagged_memb(store, tu, &atype->tagged_union, &i);
-
 	// Prune duplicates
-	for (i = 1; i < nmemb; ++i)
+	for (size_t i = 1; i < nmemb; ++i)
 	for (size_t j = 0; j < i; ++j) {
 		if (tu[j]->type->id == tu[i]->type->id) {
 			assert(0); // TODO: prune
@@ -574,6 +567,17 @@ tagged_init_from_atype(struct type_store *store,
 	}
 }
 
+static void
+tagged_init_from_atype(struct type_store *store,
+	struct type *type, const struct ast_type *atype)
+{
+	size_t nmemb = sum_atagged_memb(store, &atype->tagged_union);
+	struct type_tagged_union **tu =
+		xcalloc(nmemb, sizeof(struct type_tagged_union *));
+	size_t i = 0;
+	collect_atagged_memb(store, tu, &atype->tagged_union, &i);
+	tagged_init(type, tu, nmemb);
+}
 
 static const struct type *type_store_lookup_type(struct type_store *store, const struct type *type);
 
@@ -861,4 +865,20 @@ type_store_lookup_alias(struct type_store *store,
 		type->align = secondary->align;
 	}
 	return type;
+}
+
+const struct type *
+type_store_lookup_tagged(struct type_store *store,
+		struct type_tagged_union *tags)
+{
+	struct type type = {
+		.storage = TYPE_STORAGE_TAGGED_UNION,
+	};
+	size_t nmemb = sum_tagged_memb(store, tags);
+	struct type_tagged_union **tu =
+		xcalloc(nmemb, sizeof(struct type_tagged_union *));
+	size_t i = 0;
+	collect_tagged_memb(store, tu, tags, &i);
+	tagged_init(&type, tu, nmemb);
+	return type_store_lookup_type(store, &type);
 }

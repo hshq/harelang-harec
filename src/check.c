@@ -907,6 +907,10 @@ check_expr_match(struct context *ctx,
 		type->storage == TYPE_STORAGE_TAGGED_UNION || is_ptr,
 		"match value must be tagged union or nullable pointer type");
 
+	struct type_tagged_union result_type = {0};
+	struct type_tagged_union *tagged = &result_type,
+		**next_tag = &tagged->next;
+
 	struct match_case **next = &expr->match.cases, *_case = NULL;
 	for (struct ast_match_case *acase = aexpr->match.cases;
 			acase; acase = acase->next) {
@@ -979,14 +983,37 @@ check_expr_match(struct context *ctx,
 
 		if (expr->result == NULL) {
 			expr->result = _case->value->result;
+			tagged->type = expr->result;
 		} else if (expr->result != _case->value->result) {
-			assert(0); // TODO: Form tagged union
+			tagged = *next_tag =
+				xcalloc(1, sizeof(struct type_tagged_union));
+			next_tag = &tagged->next;
+			tagged->type = _case->value->result;
 		}
 	}
 
 	if (expr->result == NULL) {
 		expr->result = &builtin_type_void;
 		expr->terminates = true;
+	}
+
+	if (result_type.next) {
+		expr->result = type_store_lookup_tagged(
+			ctx->store, &result_type);
+
+		struct match_case *_case = expr->match.cases;
+		while (_case) {
+			_case->value = lower_implicit_cast(
+				expr->result, _case->value);
+			_case = _case->next;
+		}
+
+		struct type_tagged_union *tu = result_type.next;
+		while (tu) {
+			struct type_tagged_union *next = tu->next;
+			free(tu);
+			tu = next;
+		}
 	}
 
 	trleave(TR_CHECK, NULL);
@@ -1188,6 +1215,10 @@ check_expr_switch(struct context *ctx,
 	const struct type *type = value->result;
 	expr->_switch.value = value;
 
+	struct type_tagged_union result_type = {0};
+	struct type_tagged_union *tagged = &result_type,
+		**next_tag = &tagged->next;
+
 	// TODO: Test for dupes, exhaustiveness
 	struct switch_case **next = &expr->_switch.cases, *_case = NULL;
 	for (struct ast_switch_case *acase = aexpr->_switch.cases;
@@ -1227,14 +1258,37 @@ check_expr_switch(struct context *ctx,
 
 		if (expr->result == NULL) {
 			expr->result = _case->value->result;
+			tagged->type = expr->result;
 		} else if (expr->result != _case->value->result) {
-			assert(0); // TODO: Form tagged union
+			tagged = *next_tag =
+				xcalloc(1, sizeof(struct type_tagged_union));
+			next_tag = &tagged->next;
+			tagged->type = _case->value->result;
 		}
 	}
 
 	if (expr->result == NULL) {
 		expr->result = &builtin_type_void;
 		expr->terminates = true;
+	}
+
+	if (result_type.next) {
+		expr->result = type_store_lookup_tagged(
+			ctx->store, &result_type);
+
+		struct switch_case *_case = expr->_switch.cases;
+		while (_case) {
+			_case->value = lower_implicit_cast(
+				expr->result, _case->value);
+			_case = _case->next;
+		}
+
+		struct type_tagged_union *tu = result_type.next;
+		while (tu) {
+			struct type_tagged_union *next = tu->next;
+			free(tu);
+			tu = next;
+		}
 	}
 }
 

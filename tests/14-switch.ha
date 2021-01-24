@@ -24,8 +24,25 @@ fn termination() void = {
 	assert(y == 1337);
 };
 
+fn tagged_result() void = {
+	let x = 42;
+	let y: (int | uint) = switch (x) {
+		42 => 1337,
+		*  => 1337u,
+	};
+	assert(y is int);
+
+	x = 24;
+	y = switch (x) {
+		42 => 1337,
+		*  => 1337u,
+	};
+	assert(y is uint);
+};
+
 export fn main() void = {
 	basics();
 	termination();
+	tagged_result();
 	// TODO: Test exhaustiveness and dupe detection
 };

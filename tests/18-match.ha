@@ -63,10 +63,28 @@ fn alias() void = {
 	};
 };
 
+fn tagged_result() void = {
+	let x: (int | uint) = 42;
+	let y: (int | uint) = match (x) {
+		x: int  => x,
+		x: uint => x,
+	};
+	assert(y is int);
+
+	x = 42u;
+	y = match (x) {
+		x: int  => x,
+		x: uint => x,
+	};
+	assert(y is uint);
+};
+
 export fn main() void = {
 	tagged();
 	termination();
 	default();
 	pointer();
 	alias();
+	tagged_result();
+	// TODO: Test exhaustiveness and dupe detection
 };
