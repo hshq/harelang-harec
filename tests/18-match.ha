@@ -24,8 +24,8 @@ fn termination() void = {
 fn default() void = {
 	let x: (int | uint | str) = 1337u;
 	let y: int = match (x) {
-		int  => 42,
-		*    => 24,
+		int => 42,
+		*   => 24,
 	};
 	assert(y == 24);
 };

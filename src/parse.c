@@ -1733,10 +1733,10 @@ parse_match_expression(struct lexer *lexer)
 				_case->type->alias = ident;
 				break;
 			case T_CASE:
-				unlex(lexer, &tok);
-				_case->type = parse_type(lexer);
-				assert(_case->type->storage == TYPE_STORAGE_ALIAS);
 				unlex(lexer, &tok2);
+				_case->type = mktype(&tok.loc);
+				_case->type->storage = TYPE_STORAGE_ALIAS;
+				_case->type->alias.name = tok.name;
 				break;
 			default:
 				synassert(false, &tok, T_COLON,
