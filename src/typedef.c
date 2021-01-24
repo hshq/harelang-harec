@@ -176,7 +176,26 @@ emit_type(const struct type *type, FILE *out)
 		fprintf(out, "}");
 		break;
 	case TYPE_STORAGE_FUNCTION:
-		assert(0); // TODO
+		if (type->func.flags & FN_NORETURN) {
+			fprintf(out, "@noreturn ");
+		}
+		fprintf(out, "fn(");
+		for (const struct type_func_param *param = type->func.params;
+				param; param = param->next) {
+			if (param->next) {
+				emit_type(param->type, out);
+				fprintf(out, ", ");
+			} else if (type->func.variadism == VARIADISM_HARE) {
+				emit_type(param->type->array.members, out);
+				fprintf(out, "...");
+			} else if (type->func.variadism == VARIADISM_C) {
+				emit_type(param->type, out);
+				fprintf(out, ", ...");
+			}
+		}
+		fprintf(out, ") ");
+		emit_type(type->func.result, out);
+		break;
 	}
 }
 
