@@ -1388,13 +1388,10 @@ gen_expr_list(struct gen_context *ctx,
 }
 
 static void
-gen_expr_match(struct gen_context *ctx,
+gen_match_tagged(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	// TODO: Pointers
-	assert(expr->match.value->result->storage == TYPE_STORAGE_TAGGED_UNION);
-
 	const struct type *mtype = expr->match.value->result;
 	struct qbe_value mval = {0}, tag = {0}, match = {0}, temp = {0};
 	// Kill me
@@ -1477,6 +1474,92 @@ gen_expr_match(struct gen_context *ctx,
 	}
 
 	push(&ctx->current->body, &olabel);
+}
+
+static void
+gen_match_nullable(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	struct qbe_value mval = {0}, temp = {0};
+	gen_temp(ctx, &mval, &qbe_long, "match.%d"); // XXX: ARCH
+	gen_temp(ctx, &temp, &qbe_long, "temp.%d"); // XXX: ARCH
+	gen_expression(ctx, expr->match.value, &mval);
+
+	struct qbe_statement olabel = {0};
+	struct qbe_value obranch = {0};
+	obranch.kind = QV_LABEL;
+	obranch.name = strdup(genl(&olabel, &ctx->id, "out.%d"));
+
+	struct match_case *_default = NULL;
+	for (struct match_case *_case = expr->match.cases;
+			_case; _case = _case->next) {
+		if (!_case->type) {
+			_default = _case;
+			continue;
+		}
+
+		struct qbe_statement tlabel = {0}, flabel = {0};
+		struct qbe_value tbranch = {0}, fbranch = {0};
+		tbranch.kind = QV_LABEL;
+		tbranch.name = strdup(genl(&tlabel, &ctx->id, "match.%d"));
+		fbranch.kind = QV_LABEL;
+		fbranch.name = strdup(genl(&flabel, &ctx->id, "next.case.%d"));
+
+		struct qbe_value zero = {0};
+		constl(&zero, 0);
+		pushi(ctx->current, &temp, Q_CEQL, &mval, &zero, NULL);
+
+		if (_case->type->storage == TYPE_STORAGE_NULL) {
+			pushi(ctx->current, NULL, Q_JNZ,
+				&temp, &tbranch, &fbranch, NULL);
+		} else {
+			pushi(ctx->current, NULL, Q_JNZ,
+				&temp, &fbranch, &tbranch, NULL);
+		}
+
+		push(&ctx->current->body, &tlabel);
+
+		if (_case->object) {
+			struct qbe_value val = {0};
+			alloc_temp(ctx, &val, _case->type, "bound.%d");
+			struct gen_binding *binding =
+				xcalloc(1, sizeof(struct gen_binding));
+			binding->name = strdup(val.name);
+			binding->object = _case->object;
+			binding->next = ctx->bindings;
+			ctx->bindings = binding;
+			gen_store(ctx, &val, &mval);
+		}
+
+		gen_expression(ctx, _case->value, out);
+		pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		push(&ctx->current->body, &flabel);
+	}
+
+	if (_default) {
+		gen_expression(ctx, _default->value, out);
+	}
+
+	push(&ctx->current->body, &olabel);
+}
+
+static void
+gen_expr_match(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	const struct type *mtype = expr->match.value->result;
+	switch (mtype->storage) {
+	case TYPE_STORAGE_TAGGED_UNION:
+		gen_match_tagged(ctx, expr, out);
+		break;
+	case TYPE_STORAGE_POINTER:
+		gen_match_nullable(ctx, expr, out);
+		break;
+	default:
+		assert(0); // Invariant
+	}
 }
 
 static void

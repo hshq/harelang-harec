@@ -30,8 +30,26 @@ fn default() void = {
 	assert(y == 24);
 };
 
+fn pointer() void = {
+	let x = 42;
+	let y: nullable *int = &x;
+	let z: int = match (y) {
+		y: *int => *y,
+		null    => abort(),
+	};
+	assert(z == 42);
+	
+	y = null;
+	z = match(y) {
+		*int => abort(),
+		null => 1337,
+	};
+	assert(z == 1337);
+};
+
 export fn main() void = {
 	tagged();
 	termination();
 	default();
+	pointer();
 };
