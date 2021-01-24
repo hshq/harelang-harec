@@ -1186,7 +1186,8 @@ check_expr_struct(struct context *ctx,
 		expect(&aexpr->loc, field, "No field by this name exists for this type");
 		expect(&aexpr->loc,
 			type_is_assignable(ctx->store, field->type, sexpr->value->result),
-			"Cannot initialize struct field from value of this type");
+			"Cannot initialize struct field '%s' from value of this type",
+			field->name);
 		sexpr->field = field;
 		sexpr->value = lower_implicit_cast(field->type, sexpr->value);
 

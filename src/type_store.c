@@ -110,25 +110,28 @@ type_is_assignable(struct type_store *store,
 	case TYPE_STORAGE_F64:
 		return type_is_float(from);
 	case TYPE_STORAGE_POINTER:
+		to_secondary = type_store_lookup_with_flags(store,
+			to->pointer.referent, 0);
+
 		switch (from->storage) {
 		case TYPE_STORAGE_UINTPTR:
 			return true;
 		case TYPE_STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case TYPE_STORAGE_POINTER:
-			switch (to->pointer.referent->storage) {
+			from_secondary = type_store_lookup_with_flags(store,
+				from->pointer.referent, 0);
+			switch (to_secondary->storage) {
 			case TYPE_STORAGE_VOID:
-				// TODO: const transitivity
-				return to->pointer.referent->flags == from->pointer.referent->flags;
+				return true;
 			case TYPE_STORAGE_ARRAY:
 				if (type_is_assignable(store,
-						to->pointer.referent,
-						from->pointer.referent)) {
+						to_secondary, from_secondary)) {
 					return true;
 				}
 				break;
 			default:
-				if (to->pointer.referent != from->pointer.referent) {
+				if (to_secondary != from_secondary) {
 					return false;
 				}
 				break;
