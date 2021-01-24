@@ -611,7 +611,7 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_ALIAS:
 		obj = scope_lookup(store->check_context->scope, &atype->alias);
 		if (atype->unwrap) {
-			*type = *obj->type;
+			*type = *type_dealias(obj->type);
 			break;
 		}
 		assert(obj && obj->otype == O_TYPE); // TODO: Bubble this up
@@ -820,4 +820,20 @@ type_store_lookup_slice(struct type_store *store, const struct type *members)
 		.align = 8,
 	};
 	return type_store_lookup_type(store, &slice);
+}
+
+const struct type *
+type_store_lookup_alias(struct type_store *store,
+	const struct identifier *ident, const struct type *secondary)
+{
+	struct type alias = {
+		.storage = TYPE_STORAGE_ALIAS,
+		.alias = {
+			.ident = *ident,
+			.type = secondary,
+		},
+		.size = secondary->size,
+		.align = secondary->align,
+	};
+	return type_store_lookup_type(store, &alias);
 }

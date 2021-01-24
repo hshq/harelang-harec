@@ -281,7 +281,6 @@ type_hash(const struct type *type)
 			hash = fnv1a_s(hash, ident->name);
 			hash = fnv1a(hash, 0);
 		}
-		hash = fnv1a_u32(hash, type_hash(type->alias.type));
 		break;
 	case TYPE_STORAGE_ARRAY:
 		hash = fnv1a_u32(hash, type_hash(type->array.members));

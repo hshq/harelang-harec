@@ -87,7 +87,12 @@ check_expr_access(struct context *ctx,
 			expr->access.object = obj;
 			break;
 		case O_TYPE:
-			expect(&aexpr->loc, false, "Expected identifier, got type");
+			expect(&aexpr->loc,
+				type_dealias(obj->type)->storage == TYPE_STORAGE_VOID,
+				"Cannot use non-void type alias as constant");
+			expr->type = EXPR_CONSTANT;
+			expr->result = obj->type;
+			break;
 		}
 		break;
 	case ACCESS_INDEX:
@@ -874,7 +879,7 @@ check_expr_match(struct context *ctx,
 	check_expression(ctx, aexpr->match.value, value, NULL);
 	expr->match.value = value;
 
-	const struct type *type = value->result;
+	const struct type *type = type_dealias(value->result);
 	bool is_ptr = type->storage == TYPE_STORAGE_POINTER
 		&& type->pointer.flags & PTR_NULLABLE;
 	expect(&aexpr->match.value->loc,
@@ -1632,7 +1637,10 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
-	scope_insert(ctx->unit, O_TYPE, &ident, &decl->ident, type, NULL);
+
+	const struct type *alias =
+		type_store_lookup_alias(ctx->store, &ident, type);
+	scope_insert(ctx->unit, O_TYPE, &ident, &decl->ident, alias, NULL);
 
 	if (type->storage == TYPE_STORAGE_ENUM) {
 		for (struct type_enum_value *value = type->_enum.values; value;

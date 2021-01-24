@@ -41,4 +41,7 @@ const struct type *type_store_lookup_array(struct type_store *store,
 const struct type *type_store_lookup_slice(struct type_store *store,
 	const struct type *members);
 
+const struct type *type_store_lookup_alias(struct type_store *store,
+	const struct identifier *ident, const struct type *secondary);
+
 #endif

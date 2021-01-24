@@ -1230,8 +1230,9 @@ gen_expr_constant(struct gen_context *ctx,
 	case Q_DOUBLE:
 		constd(&val, expr->constant.fval);
 		break;
-	case Q__AGGREGATE:
 	case Q__VOID:
+		return; // no-op
+	case Q__AGGREGATE:
 		assert(0); // Invariant
 	}
 
@@ -1549,7 +1550,7 @@ gen_expr_match(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	const struct type *mtype = expr->match.value->result;
+	const struct type *mtype = type_dealias(expr->match.value->result);
 	switch (mtype->storage) {
 	case TYPE_STORAGE_TAGGED_UNION:
 		gen_match_tagged(ctx, expr, out);

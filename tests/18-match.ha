@@ -47,9 +47,26 @@ fn pointer() void = {
 	assert(z == 1337);
 };
 
+type foo = void;
+type bar = void;
+type foobar = (foo | bar);
+
+fn alias() void = {
+	let cases: []foobar = [foo, bar];
+	let expected = [42, 24];
+	for (let i = 0z; i < len(cases); i += 1z) {
+		let y: int = match (cases[i]) {
+			foo => 42,
+			bar => 24,
+		};
+		assert(y == expected[i]);
+	};
+};
+
 export fn main() void = {
 	tagged();
 	termination();
 	default();
 	pointer();
+	alias();
 };
