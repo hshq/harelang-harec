@@ -966,12 +966,9 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 	exp->assert.is_static = is_static;
 
 	struct token tok;
-	if (is_static) {
-		want(lexer, T_ASSERT, &tok);
-	}
-
 	switch (lex(lexer, &tok)) {
 	case T_STATIC:
+		// XXX: The caller should deal with this for us
 		exp->assert.is_static = true;
 		lex(lexer, &tok);
 		break;
@@ -1830,8 +1827,6 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 	case T_LET:
 		// no-op
 		break;
-	case T_STATIC:
-		assert(0); // TODO
 	default:
 		synassert(false, &tok, T_LET, T_CONST, T_EOF);
 	}
