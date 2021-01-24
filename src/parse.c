@@ -359,6 +359,9 @@ parse_primitive_type(struct lexer *lexer)
 	case T_VOID:
 		type->storage = TYPE_STORAGE_VOID;
 		break;
+	case T_NULL:
+		type->storage = TYPE_STORAGE_NULL;
+		break;
 	default:
 		assert(0);
 	}
@@ -570,6 +573,7 @@ parse_type(struct lexer *lexer)
 	case T_F64:
 	case T_BOOL:
 	case T_VOID:
+	case T_NULL:
 		unlex(lexer, &tok);
 		type = parse_primitive_type(lexer);
 		break;
@@ -1741,7 +1745,19 @@ parse_match_expression(struct lexer *lexer)
 			}
 			break;
 		case T_TIMES:
-			// (default case)
+			switch (lex(lexer, &tok2)) {
+			case T_CASE: // Default case
+				unlex(lexer, &tok2);
+				break;
+			default:
+				unlex(lexer, &tok2);
+				_case->type = parse_type(lexer);
+				struct ast_type *ptr = mktype(&tok.loc);
+				ptr->storage = TYPE_STORAGE_POINTER;
+				ptr->pointer.referent = _case->type;
+				_case->type = ptr;
+				break;
+			}
 			break;
 		default:
 			unlex(lexer, &tok);
