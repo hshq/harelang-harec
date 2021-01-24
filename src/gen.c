@@ -615,23 +615,24 @@ gen_expr_assign(struct gen_context *ctx,
 	struct expression *object = expr->assign.object;
 	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
 
+	const struct expression *value = expr->assign.value;
+	const struct type *objtype = expr->assign.indirect
+		? object->result->pointer.referent : object->result;
+	const struct qbe_type *vtype =
+		qtype_for_type(ctx, value->result, true);
+	const struct qbe_type *otype = qtype_for_type(ctx, objtype, true);
+
 	struct qbe_value src = {0};
 	if (expr->assign.indirect) {
 		gen_temp(ctx, &src, &qbe_long, "indirect.%d"); // XXX: ARCH
 		gen_expression(ctx, object, &src);
+		src.type = otype;
 		qval_deref(&src);
 	} else {
 		const struct expression *object = expr->assign.object;
 		address_object(ctx, object, &src);
 		src.type = qtype_for_type(ctx, object->result, true);
 	}
-
-	const struct expression *value = expr->assign.value;
-	const struct type *objtype = expr->assign.indirect
-		? object->result->pointer.referent : object->result;
-	const struct qbe_type *vtype =
-		qtype_for_type(ctx, value->result, false);
-	const struct qbe_type *otype = qtype_for_type(ctx, objtype, false);
 
 	if (expr->assign.op == BIN_LEQUAL) {
 		if (!type_is_aggregate(value->result)) {
