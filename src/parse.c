@@ -1111,13 +1111,11 @@ parse_index_slice_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		break;
 	case T_RBRACKET:
 		break;
-	case T_LITERAL:
+	default:
 		if (is_slice) {
 			unlex(lexer, &tok);
 			break;
 		}
-		// Fallthrough
-	default:
 		synassert(false, &tok, T_SLICE, T_RBRACKET, T_EOF);
 		break;
 	}
