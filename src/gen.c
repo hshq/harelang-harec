@@ -1975,7 +1975,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		param = *next = xcalloc(1, sizeof(struct qbe_func_param));
 		assert(!obj->ident.ns); // Invariant
 		param->name = strdup(obj->ident.name);
-		param->type = qtype_for_type(ctx, obj->type, true);
+		param->type = qtype_for_type(ctx, obj->type, false);
 
 		if (type_is_aggregate(obj->type)) {
 			struct gen_binding *binding =
