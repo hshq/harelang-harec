@@ -1050,8 +1050,8 @@ check_expr_slice(struct context *ctx,
 	expect(&aexpr->slice.object->loc, atype,
 		"Cannot dereference nullable pointer for slicing");
 	expect(&aexpr->slice.object->loc,
-		expr->slice.object->result->storage == TYPE_STORAGE_SLICE ||
-		expr->slice.object->result->storage == TYPE_STORAGE_ARRAY,
+		atype->storage == TYPE_STORAGE_SLICE
+			|| atype->storage == TYPE_STORAGE_ARRAY,
 		"Cannot slice non-array, non-slice object");
 
 	const struct type *itype;
@@ -1079,8 +1079,7 @@ check_expr_slice(struct context *ctx,
 		// TODO: Assert that array type has a well-defined length
 	}
 
-	expr->result = type_store_lookup_slice(ctx->store,
-		expr->slice.object->result->array.members);
+	expr->result = type_store_lookup_slice(ctx->store, atype->array.members);
 
 	trleave(TR_CHECK, NULL);
 }

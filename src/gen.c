@@ -1653,13 +1653,21 @@ gen_expr_slice(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	// XXX: ARCH
-	struct qbe_value object = {0}, start = {0}, end = {0};
+	struct qbe_value object = {0}, start = {0}, end = {0}, temp = {0};
 	const struct type *otype = expr->slice.object->result;
-	address_object(ctx, expr->slice.object, &object);
+	address_object(ctx, expr->slice.object, &temp);
+	gen_temp(ctx, &object, object.type, "object.%d");
+	object.type = temp.type;
+	pushi(ctx->current, &object, Q_COPY, &temp, NULL);
+	while (otype->storage == TYPE_STORAGE_POINTER) {
+		pushi(ctx->current, &object, Q_LOADL, &object, NULL);
+		otype = type_dereference(otype->pointer.referent);
+	}
+
 	gen_temp(ctx, &start, &qbe_long, "start.%d");
 	gen_temp(ctx, &end, &qbe_long, "end.%d");
 
-	struct qbe_value src = {0}, dest = {0}, temp = {0}, offset = {0};
+	struct qbe_value src = {0}, dest = {0}, offset = {0};
 	gen_temp(ctx, &dest, &qbe_long, "dest.%d");
 	gen_temp(ctx, &offset, &qbe_long, "offset.%d");
 
