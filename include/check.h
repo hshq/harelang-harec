@@ -66,9 +66,15 @@ struct declarations {
 	struct declarations *next;
 };
 
+struct imports {
+	struct identifier ident;
+	struct imports *next;
+};
+
 struct unit {
 	struct identifier *ns;
 	struct declarations *declarations;
+	struct imports *imports;
 };
 
 struct ast_expression;

@@ -244,6 +244,13 @@ emit_decl_type(struct declaration *decl, FILE *out)
 void
 emit_typedefs(struct unit *unit, FILE *out)
 {
+	for (struct imports *imports = unit->imports;
+			imports; imports = imports->next) {
+		char *ident = identifier_unparse(&imports->ident);
+		fprintf(out, "use %s;\n", ident);
+		free(ident);
+	}
+
 	for (struct declarations *decls = unit->declarations;
 			decls; decls = decls->next) {
 		struct declaration *decl = decls->decl;

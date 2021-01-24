@@ -1709,7 +1709,7 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 
 static void
 load_import(struct ast_imports *import,
-		struct type_store *ts, struct scope *scope)
+	struct type_store *ts, struct scope *scope)
 {
 	struct scope *mod = module_resolve(&import->ident, ts);
 
@@ -1748,6 +1748,7 @@ check(struct type_store *ts, const struct ast_unit *aunit, struct unit *unit)
 
 	struct scopes *subunit_scopes;
 	struct scopes **next = &subunit_scopes;
+	struct imports **inext = &unit->imports;
 
 	// First pass populates the type graph
 	for (const struct ast_subunit *su = &aunit->subunits;
@@ -1757,6 +1758,21 @@ check(struct type_store *ts, const struct ast_unit *aunit, struct unit *unit)
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
 			load_import(imports, ts, ctx.scope);
+
+			bool found = false;
+			for (struct imports *uimports = unit->imports;
+					uimports; uimports = uimports->next) {
+				if (identifier_eq(&uimports->ident, &imports->ident)) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				struct imports *uimport = *inext =
+					xcalloc(1, sizeof(struct imports));
+				identifier_dup(&uimport->ident, &imports->ident);
+				inext = &uimport->next;
+			}
 		}
 
 		ctx.store->check_context = &ctx;

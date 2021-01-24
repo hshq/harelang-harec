@@ -823,7 +823,7 @@ gen_expr_call(struct gen_context *ctx,
 			qval_deref(&arg->value);
 		} else {
 			gen_temp(ctx, &arg->value,
-				qtype_for_type(ctx, carg->value->result, true),
+				qtype_for_type(ctx, carg->value->result, false),
 				"arg.%d");
 		}
 		gen_expression(ctx, carg->value, &arg->value);
