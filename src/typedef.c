@@ -86,13 +86,13 @@ emit_const(const struct expression *expr, FILE *out)
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // Invariant
 	}
 }
@@ -104,6 +104,7 @@ emit_type(const struct type *type, FILE *out)
 		fprintf(out, "const ");
 	}
 
+	char *ident;
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -146,10 +147,35 @@ emit_type(const struct type *type, FILE *out)
 		emit_type(type->array.members, out);
 		break;
 	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_STRUCT:
+		ident = identifier_unparse(&type->alias.ident);
+		fprintf(out, "%s", ident);
+		free(ident);
+		break;
 	case TYPE_STORAGE_TAGGED_UNION:
+		fprintf(out, "(");
+		for (const struct type_tagged_union *tu = &type->tagged;
+				tu; tu = tu->next) {
+			emit_type(tu->type, out);
+			if (tu->next) {
+				fprintf(out, " | ");
+			}
+		}
+		fprintf(out, ")");
+		break;
+	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
+		assert(type->struct_union.c_compat); // TODO
+		fprintf(out, "%s { ", type->storage == TYPE_STORAGE_STRUCT
+				? "struct" : "union");
+		for (const struct struct_field *f = type->struct_union.fields;
+				f; f = f->next) {
+			fprintf(out, "%s: ", f->name);
+			emit_type(f->type, out);
+			fprintf(out, ", ");
+		}
+		fprintf(out, "}");
+		break;
+	case TYPE_STORAGE_FUNCTION:
 		assert(0); // TODO
 	}
 }
