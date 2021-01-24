@@ -844,13 +844,16 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	const struct qbe_value *out,
 	const struct type *from)
 {
-	if (from->storage == TYPE_STORAGE_TAGGED_UNION) {
-		assert(0); // TODO
-	}
-
 	struct qbe_value tag = {0}, ptr = {0}, offs = {0};
 	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
 	constl(&offs, expr->result->align);
+
+	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED_UNION) {
+		gen_expression(ctx, expr->cast.value, &ptr);
+		gen_copy(ctx, out, &ptr);
+		return;
+	}
+
 	constw(&tag, expr->cast.value->result->id);
 	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
 	pushi(ctx->current, NULL, Q_STOREW, &tag, &ptr, NULL);
@@ -866,7 +869,7 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	const struct qbe_value *out,
 	const struct type *to)
 {
-	if (to->storage == TYPE_STORAGE_TAGGED_UNION) {
+	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED_UNION) {
 		assert(0); // TODO
 	}
 
@@ -893,7 +896,7 @@ gen_expr_type_test(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	// XXX: ARCH
-	const struct type *want = type_dealias(expr->cast.secondary),
+	const struct type *want = expr->cast.secondary,
 	      *tagged = type_dealias(expr->cast.value->result);
 	struct qbe_value tag = {0}, in = {0}, id = {0};
 	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
@@ -962,7 +965,7 @@ gen_expr_cast(struct gen_context *ctx,
 
 	const struct type *to = type_dealias(expr->result),
 	      *from = type_dealias(expr->cast.value->result);
-	if (to->storage == from->storage) {
+	if (to->storage == from->storage && to->size == from->size) {
 		gen_expression(ctx, expr->cast.value, out);
 		return;
 	} else if (to->storage == TYPE_STORAGE_TAGGED_UNION) {

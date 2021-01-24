@@ -412,8 +412,7 @@ check_expr_binding(struct context *ctx,
 		expect(&aexpr->loc,
 			type_is_assignable(ctx->store, type, initializer->result),
 			"Initializer is not assignable to binding type");
-		binding->initializer =
-			lower_implicit_cast(type, initializer);
+		binding->initializer = lower_implicit_cast(type, initializer);
 
 		if (abinding->is_static) {
 			struct expression *value =
