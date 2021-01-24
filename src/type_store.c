@@ -586,6 +586,8 @@ type_init_from_atype(struct type_store *store,
 	type->flags = atype->flags;
 
 	const struct scope_object *obj;
+	const struct identifier *ident;
+	struct identifier temp;
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -609,13 +611,29 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_VOID:
 		assert(0); // Invariant
 	case TYPE_STORAGE_ALIAS:
-		obj = scope_lookup(store->check_context->scope, &atype->alias);
-		assert(obj && obj->otype == O_TYPE); // TODO: Bubble this up
+		ident = &atype->alias;
+		if (ident->ns == NULL) {
+			temp = *ident;
+			temp.ns = store->check_context->ns;
+			ident = &temp;
+		}
+
+		obj = scope_lookup(store->check_context->scope, ident);
+		if (!obj) {
+			identifier_dup(&type->alias.ident, ident);
+			type->alias.type = NULL;
+			type->size = SIZE_UNDEFINED;
+			type->align = SIZE_UNDEFINED;
+			return;
+		}
+
+		assert(obj->otype == O_TYPE); // TODO: Bubble this up
 		if (atype->unwrap) {
 			*type = *type_dealias(obj->type);
 			break;
 		}
-		identifier_dup(&type->alias.ident, &atype->alias);
+
+		identifier_dup(&type->alias.ident, ident);
 		type->alias.type = obj->type;
 		type->size = type->alias.type->size;
 		type->align = type->alias.type->align;
@@ -835,5 +853,12 @@ type_store_lookup_alias(struct type_store *store,
 		.size = secondary->size,
 		.align = secondary->align,
 	};
-	return type_store_lookup_type(store, &alias);
+	struct type *type = (struct type *)type_store_lookup_type(store, &alias);
+	if (type->alias.type == NULL) {
+		// Finish filling in forward referenced type
+		type->alias.type = secondary;
+		type->size = secondary->size;
+		type->align = secondary->align;
+	}
+	return type;
 }

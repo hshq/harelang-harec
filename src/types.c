@@ -24,6 +24,7 @@ const struct type *
 type_dealias(const struct type *type)
 {
 	while (type->storage == TYPE_STORAGE_ALIAS) {
+		assert(type->alias.type != NULL);
 		type = type->alias.type;
 	}
 	return type;

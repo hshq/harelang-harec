@@ -368,12 +368,44 @@ check_expr_binding(struct context *ctx,
 		};
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
+
+		struct identifier gen = {0};
+		if (abinding->is_static) {
+			// Generate a static declaration identifier
+			int n = snprintf(NULL, 0, "static.%d", ctx->id);
+			gen.name = xcalloc(n + 1, 1);
+			snprintf(gen.name, n + 1, "static.%d", ctx->id);
+			++ctx->id;
+		}
+
+		if (type) {
+			// If the type is defined in advance, we can insert the
+			// object into the scope early, which is required for
+			// self-referencing objects.
+			if (!abinding->is_static) {
+				binding->object = scope_insert(ctx->scope,
+					O_BIND, &ident, &ident, type, NULL);
+			} else {
+				binding->object = scope_insert(ctx->scope,
+					O_DECL, &gen, &ident, type, NULL);
+			}
+		}
+
 		check_expression(ctx, abinding->initializer, initializer, type);
 
 		if (!type) {
 			type = type_store_lookup_with_flags(ctx->store,
 				initializer->result, abinding->flags);
+
+			if (!abinding->is_static) {
+				binding->object = scope_insert(ctx->scope,
+					O_BIND, &ident, &ident, type, NULL);
+			} else {
+				binding->object = scope_insert(ctx->scope,
+					O_DECL, &gen, &ident, type, NULL);
+			}
 		}
+
 		expect(&aexpr->loc,
 			type->size != 0 && type->size != SIZE_UNDEFINED,
 			"Cannot create binding for type of zero or undefined size");
@@ -383,25 +415,14 @@ check_expr_binding(struct context *ctx,
 		binding->initializer =
 			lower_implicit_cast(type, initializer);
 
-		if (!abinding->is_static) {
-			binding->object = scope_insert(ctx->scope, O_BIND,
-				&ident, &ident, type, NULL);
-		} else {
+		if (abinding->is_static) {
 			struct expression *value =
 				xcalloc(1, sizeof(struct expression));
 			enum eval_result r = eval_expr(ctx, initializer, value);
 			expect(&abinding->initializer->loc, r == EVAL_OK,
 				"Unable to evaluate static initializer at compile time");
 			// TODO: Free initializer
-			initializer = value;
-
-			struct identifier gen = {0};
-			int n = snprintf(NULL, 0, "static.%d", ctx->id);
-			gen.name = xcalloc(n + 1, 1);
-			snprintf(gen.name, n + 1, "static.%d", ctx->id);
-			++ctx->id;
-			binding->object = scope_insert(ctx->scope, O_DECL,
-				&gen, &ident, type, NULL);
+			binding->initializer = value;
 		}
 
 		if (abinding->next) {

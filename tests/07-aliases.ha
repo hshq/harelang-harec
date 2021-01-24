@@ -88,6 +88,18 @@ fn alias_alias() void = {
 	assert(a[2] == 3, "alias alias");
 };
 
+type recur = struct {
+	self: *recur,
+};
+
+fn recursive() void = {
+	let x: recur = struct {
+		self: *recur = &x,
+	};
+	x.self = &x;
+	assert(x.self == x.self.self);
+};
+
 export fn main() void = {
 	alias_builtin();
 	alias_array();
@@ -95,4 +107,5 @@ export fn main() void = {
 	alias_struct();
 	alias_tagged();
 	alias_alias();
+	recursive();
 };
