@@ -563,6 +563,10 @@ tagged_init_from_atype(struct type_store *store,
 		next = &tu[i]->next;
 	}
 
+	if (type->align == 0) {
+		type->align = builtin_type_uint.align;
+	}
+
 	type->size += builtin_type_uint.size % type->align
 		+ builtin_type_uint.align;
 	if (type->align < builtin_type_uint.align) {
