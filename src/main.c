@@ -19,7 +19,7 @@ static void
 usage(const char *argv_0)
 {
 	fprintf(stderr,
-		"Usage: %s [-o output] [-T tags...] [-T typdefs] [-N namespace]\n",
+		"Usage: %s [-o output] [-T tags...] [-t typdefs] [-N namespace]\n",
 		argv_0);
 }
 
