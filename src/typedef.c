@@ -36,6 +36,8 @@ storage_to_suffix(enum type_storage storage)
 		return "u8";
 	case TYPE_STORAGE_UINT:
 		return "u";
+	case TYPE_STORAGE_UINTPTR:
+		return "u64: uintptr";
 	default:
 		assert(0);
 	}
@@ -72,6 +74,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case TYPE_STORAGE_U64:
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_UINTPTR:
 		fprintf(out, "%lu%s", val->uval,
 			storage_to_suffix(expr->result->storage));
 		break;
@@ -91,7 +94,6 @@ emit_const(const struct expression *expr, FILE *out)
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // Invariant
 	}

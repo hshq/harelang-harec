@@ -307,8 +307,6 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 			return EVAL_OK;
 		}
 		assert(0); // TODO
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_I16:
@@ -316,15 +314,19 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_U16:
 	case TYPE_STORAGE_U32:
 	case TYPE_STORAGE_U64:
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_SIZE:
+		out->constant.uval = itrunc(to, in->constant.uval);
+		return EVAL_OK;
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_TAGGED_UNION:
