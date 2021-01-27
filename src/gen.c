@@ -873,14 +873,19 @@ gen_cast_from_tagged(struct gen_context *ctx,
 		assert(0); // TODO
 	}
 
-	struct qbe_value ptr = {0}, offs = {0}, temp = {0};
-	gen_temp(ctx, &ptr, &qbe_long, "tagged.%d");
-	gen_expression(ctx, expr->cast.value, &ptr);
+	const struct type *tagged = expr->cast.value->result;
+	struct qbe_value object = {0}, offs = {0}, temp = {0};
+	alloc_temp(ctx, &object, tagged, "from.tagged.%d");
+	gen_expression(ctx, expr->cast.value, &object);
+
+	struct qbe_value ptr = {0};
+	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
 	constl(&offs, expr->cast.value->result->align);
-	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &object, &offs, NULL);
+
 	ptr.type = qtype_for_type(ctx, expr->result, false);
 	qval_deref(&ptr);
-	if (ptr.indirect) {
+	if (object.indirect) {
 		gen_loadtemp(ctx, &temp, &ptr,
 			qtype_for_type(ctx, expr->result, false),
 			type_is_signed(expr->result));
