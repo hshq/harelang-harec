@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "ast.h"
 #include "check.h"
+#include "dump.h"
 #include "emit.h"
 #include "gen.h"
 #include "lex.h"
@@ -132,6 +133,7 @@ main(int argc, char *argv[])
 	builtin_types_init();
 	check(&ts, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
+		dump_unit(&unit);
 		return 0;
 	}
 

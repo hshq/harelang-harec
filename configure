@@ -6,6 +6,7 @@ eval ". $srcdir/config.sh"
 harec() {
 	genrules harec \
 		src/check.c \
+		src/dump.c \
 		src/emit.c \
 		src/eval.c \
 		src/gen.c \
