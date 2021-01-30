@@ -2175,8 +2175,46 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		item->type = QD_VALUE;
 		constl(&item->value, expr->constant.string.len);
 		break;
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
+		def = xcalloc(1, sizeof(struct qbe_def));
+		def->name = gen_name(ctx, "sldata.%d");
+		def->kind = Q_DATA;
+
+		struct qbe_data_item *subitem = &def->data.items;
+		size_t len = 0;
+		for (struct array_constant *c = constant->array;
+				c; c = c->next) {
+			gen_data_item(ctx, c->value, subitem);
+			if (c->next) {
+				subitem->next = xcalloc(1,
+					sizeof(struct qbe_data_item));
+				subitem = subitem->next;
+			}
+			++len;
+		}
+
+		if (len != 0) {
+			qbe_append_def(ctx->out, def);
+			item->type = QD_VALUE;
+			item->value.kind = QV_GLOBAL;
+			item->value.type = &qbe_long;
+			item->value.name = strdup(def->name);
+		} else {
+			free(def);
+			item->type = QD_VALUE;
+			constl(&item->value, 0);
+		}
+
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		constl(&item->value, len);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		constl(&item->value, len);
+		break;
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED_UNION:
 	case TYPE_STORAGE_UNION:

@@ -241,6 +241,7 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 			aconst->expand = arr->expand;
 			aconst->value = xcalloc(sizeof(struct expression), 1);
 			eval_expr(ctx, arr->value, aconst->value);
+			next = &aconst->next;
 		}
 		break;
 	case TYPE_STORAGE_FUNCTION:
@@ -321,14 +322,17 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case TYPE_STORAGE_SIZE:
 		out->constant.uval = itrunc(to, in->constant.uval);
 		return EVAL_OK;
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_SLICE:
+		assert(val.result->storage == TYPE_STORAGE_ARRAY);
+		out->constant = val.constant;
+		return EVAL_OK;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_TAGGED_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_ALIAS:

@@ -8,6 +8,17 @@ fn write() void = {
 	assert(x == 1337);
 };
 
+let ar: [3]int = [1, 2, 3];
+let sl: []int = [1, 2, 3];
+
+fn storage() void = {
+	assert(len(ar) == 3z);
+	assert(ar[0] == 1 && ar[1] == 2 && ar[2] == 3);
+
+	assert(len(sl) == 3z);
+	assert(sl[0] == 1 && sl[1] == 2 && sl[2] == 3);
+};
+
 fn invariants() void = {
 	assert(rt::compile("fn test() int; let x: int = test();") != 0);
 };
@@ -29,6 +40,7 @@ export fn main() void = {
 	// - Declare & validate globals of more types
 	// - Globals which are pointers to other globals
 	write();
+	storage();
 	invariants();
 	static_binding();
 };
