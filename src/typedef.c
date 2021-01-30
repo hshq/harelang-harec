@@ -5,6 +5,7 @@
 #include "expr.h"
 #include "identifier.h"
 #include "typedef.h"
+#include "util.h"
 
 static const char *
 storage_to_suffix(enum type_storage storage)
@@ -99,6 +100,48 @@ emit_const(const struct expression *expr, FILE *out)
 	}
 }
 
+static void emit_type(const struct type *type, FILE *out);
+
+static int
+field_compar(const void *_a, const void *_b)
+{
+	const struct struct_field **a = (const struct struct_field **)_a;
+	const struct struct_field **b = (const struct struct_field **)_b;
+	return (*a)->offset - (*b)->offset;
+}
+
+static void
+emit_struct(const struct type *type, FILE *out)
+{
+	// TODO: This can be greatly simplified when we have explicit field
+	// offsets for structs.
+	size_t n = 0;
+	for (const struct struct_field *f = type->struct_union.fields;
+			f; f = f->next) {
+		++n;
+	}
+	const struct struct_field **fields = xcalloc(
+		sizeof(const struct struct_field *), n);
+	n = 0;
+	for (const struct struct_field *f = type->struct_union.fields;
+			f; f = f->next) {
+		fields[n++] = f;
+	}
+
+	qsort(fields, n, sizeof(fields[0]), field_compar);
+
+	assert(type->struct_union.c_compat); // TODO
+	fprintf(out, "%s { ", type->storage == TYPE_STORAGE_STRUCT
+			? "struct" : "union");
+	for (size_t i = 0; i < n; ++i) {
+		const struct struct_field *f = fields[i]; 
+		fprintf(out, "%s: ", f->name);
+		emit_type(f->type, out);
+		fprintf(out, ", ");
+	}
+	fprintf(out, "}");
+}
+
 static void
 emit_type(const struct type *type, FILE *out)
 {
@@ -166,16 +209,7 @@ emit_type(const struct type *type, FILE *out)
 		break;
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
-		assert(type->struct_union.c_compat); // TODO
-		fprintf(out, "%s { ", type->storage == TYPE_STORAGE_STRUCT
-				? "struct" : "union");
-		for (const struct struct_field *f = type->struct_union.fields;
-				f; f = f->next) {
-			fprintf(out, "%s: ", f->name);
-			emit_type(f->type, out);
-			fprintf(out, ", ");
-		}
-		fprintf(out, "}");
+		emit_struct(type, out);
 		break;
 	case TYPE_STORAGE_FUNCTION:
 		if (type->func.flags & FN_NORETURN) {
