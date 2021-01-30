@@ -1188,6 +1188,10 @@ gen_array(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	const struct type *type = expr->result;
+	assert(type->array.length != SIZE_UNDEFINED);
+	if (type->array.length == 0) {
+		return;
+	}
 
 	// XXX: ARCH
 	struct qbe_value ptr = {0}, val = {0};
