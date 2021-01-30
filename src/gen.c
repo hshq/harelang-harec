@@ -1256,17 +1256,22 @@ gen_string(struct gen_context *ctx,
 	memcpy(def->data.items.str, expr->constant.string.value,
 			expr->constant.string.len);
 	def->data.items.sz = expr->constant.string.len;
-	qbe_append_def(ctx->out, def);
+
+	struct qbe_value size = {0};
+	constl(&size, expr->constant.string.len); // XXX: ARCH
 
 	struct qbe_value str = {0};
 	gen_temp(ctx, &str, &qbe_long, "str.%d"); // XXX: ARCH
 	pushi(ctx->current, &str, Q_COPY, out, NULL);
 	str.indirect = true;
 
-	struct qbe_value size = {0};
-	constl(&size, expr->constant.string.len); // XXX: ARCH
+	if (expr->constant.string.len != 0) {
+		qbe_append_def(ctx->out, def);
+	} else {
+		free(def);
+		constl(&temp, 0);
+	}
 
-	// TODO: generate string members as declaration
 	gen_store(ctx, &str, &temp);
 	constl(&temp, 8); // XXX: ARCH
 	pushi(ctx->current, &str, Q_ADD, &str, &temp, NULL);
@@ -2239,12 +2244,18 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		def->data.items.type = QD_STRING;
 		def->data.items.str = strdup(expr->constant.string.value);
 		def->data.items.sz = expr->constant.string.len;
-		qbe_append_def(ctx->out, def);
 
 		item->type = QD_VALUE;
-		item->value.kind = QV_GLOBAL;
-		item->value.type = &qbe_long;
-		item->value.name = strdup(def->name);
+		if (expr->constant.string.len != 0) {
+			qbe_append_def(ctx->out, def);
+			item->value.kind = QV_GLOBAL;
+			item->value.type = &qbe_long;
+			item->value.name = strdup(def->name);
+		} else {
+			free(def);
+			constl(&item->value, 0);
+		}
+
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 		item->type = QD_VALUE;
@@ -2272,15 +2283,14 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			++len;
 		}
 
+		item->type = QD_VALUE;
 		if (len != 0) {
 			qbe_append_def(ctx->out, def);
-			item->type = QD_VALUE;
 			item->value.kind = QV_GLOBAL;
 			item->value.type = &qbe_long;
 			item->value.name = strdup(def->name);
 		} else {
 			free(def);
-			item->type = QD_VALUE;
 			constl(&item->value, 0);
 		}
 

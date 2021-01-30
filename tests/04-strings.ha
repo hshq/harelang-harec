@@ -36,6 +36,14 @@ fn storage() void = {
 	for (let i = 0z; i < len(expected); i += 1z) {
 		assert(ptr.data[i] == expected[i]);
 	};
+
+	const empty = "";
+	const ptr2 = &empty: *struct {
+		data: nullable *[*]u8,
+		length: size,
+		capacity: size,
+	};
+	assert(ptr2.data == null: nullable *[*]u8); // XXX: Type promotion
 };
 
 fn concat() void = {
