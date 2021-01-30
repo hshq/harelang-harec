@@ -248,7 +248,11 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	case TYPE_STORAGE_SLICE:
 		assert(0); // TODO
 	case TYPE_STORAGE_STRING:
-		out->constant.string.value = strdup(in->constant.string.value);
+		out->constant.string.len = in->constant.string.len;
+		out->constant.string.value = xcalloc(1, in->constant.string.len);
+		memcpy(out->constant.string.value,
+			in->constant.string.value,
+			in->constant.string.len);
 		break;
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:

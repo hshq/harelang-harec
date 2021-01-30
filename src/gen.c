@@ -2222,6 +2222,9 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		for (struct array_constant *c = constant->array;
 				c && n; c = c->next ? c->next : c, --n) {
 			gen_data_item(ctx, c->value, item);
+			while (item->next) {
+				item = item->next;
+			}
 			if (n > 1 || c->next) {
 				item->next = xcalloc(1,
 					sizeof(struct qbe_data_item));

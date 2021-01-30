@@ -10,13 +10,14 @@ fn write() void = {
 
 let ar: [3]int = [1, 2, 3];
 let sl: []int = [1, 2, 3];
+let st: str = "Hello!";
 
 fn storage() void = {
 	assert(len(ar) == 3z);
 	assert(ar[0] == 1 && ar[1] == 2 && ar[2] == 3);
-
 	assert(len(sl) == 3z);
 	assert(sl[0] == 1 && sl[1] == 2 && sl[2] == 3);
+	assert(len(st) == 6z);
 };
 
 fn invariants() void = {
