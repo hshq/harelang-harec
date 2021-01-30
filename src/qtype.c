@@ -121,7 +121,7 @@ tagged_qtype(struct gen_context *ctx, const struct type *type)
 		}
 		field->type = qtype_for_type(ctx, tu->type, true);
 		field->count = 1;
-		if (tu->next) {
+		if (tu->next && tu->next->type->size != 0) {
 			field->next = xcalloc(1, sizeof(struct qbe_field));
 			field = field->next;
 		}
