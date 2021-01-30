@@ -924,15 +924,23 @@ gen_cast_to_tagged(struct gen_context *ctx,
 		gen_expression(ctx, expr->cast.value, &ptr);
 		gen_copy(ctx, out, &ptr);
 		return;
-	}
 
+	}
 	constw(&tag, expr->cast.value->result->id);
 	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
 	pushi(ctx->current, NULL, Q_STOREW, &tag, &ptr, NULL);
-	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
-	ptr.type = qtype_for_type(ctx, expr->cast.value->result, false);
-	ptr.indirect = !type_is_aggregate(expr->cast.value->result);
-	gen_expression(ctx, expr->cast.value, &ptr);
+
+	struct qbe_value *storage;
+	if (expr->cast.value->result->size == 0) {
+		storage = NULL;
+	} else {
+		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+		ptr.type = qtype_for_type(ctx, expr->cast.value->result, false);
+		ptr.indirect = !type_is_aggregate(expr->cast.value->result);
+		storage = &ptr;
+	}
+
+	gen_expression(ctx, expr->cast.value, storage);
 }
 
 static void

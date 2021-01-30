@@ -353,7 +353,8 @@ dump_expr(const struct expression *expr, int depth)
 		fprintf(stderr, "measure");
 		break;
 	case EXPR_RETURN:
-		fprintf(stderr, "return");
+		fprintf(stderr, "return ");
+		dump_expr(expr->_return.value, depth + 1);
 		break;
 	case EXPR_SLICE:
 		fprintf(stderr, "slice");
