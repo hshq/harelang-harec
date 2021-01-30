@@ -45,6 +45,11 @@ fn size2bin(s: size) size = {
 	return (s + (WORD * (ALIGN - 1z) - 1z)) / (WORD * ALIGN);
 };
 
+let nalloc: int = 0;
+let nfree: int = 0;
+
+@fini fn fini() void = assert(nalloc == nfree);
+
 // Allocates n bytes of memory and returns a pointer to them, or null if there
 // is insufficient memory.
 export fn malloc(n: size) nullable *void = {
@@ -52,6 +57,7 @@ export fn malloc(n: size) nullable *void = {
 	let r: nullable *void =
 		if (n > bin2size(len(bins) - 1z)) malloc_large(n)
 		else malloc_small(n);
+	nalloc += 1;
 	return r;
 };
 
@@ -111,6 +117,7 @@ fn list_from_block(s: size, p: uintptr) nullable *void = {
 
 // Frees a pointer previously allocated with [malloc].
 export @symbol("rt.free") fn free_(_p: nullable *void) void = {
+	nfree += 1;
 	if (_p != null: nullable *void) {
 		let p = _p: *void;
 		let bsize = (p: uintptr - size(size): uintptr): *[1]size;
