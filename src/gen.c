@@ -475,13 +475,78 @@ gen_expr_access(struct gen_context *ctx,
 	}
 }
 
-static void gen_alloc(struct gen_context *ctx,
+static void
+gen_slice_alloc(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	struct qbe_value len = {0}, cap = {0}, size = {0}, temp = {0};
+	gen_temp(ctx, &len,
+		qtype_for_type(ctx, &builtin_type_size, true),
+		"slice.len.%d");
+	gen_temp(ctx, &cap,
+		qtype_for_type(ctx, &builtin_type_size, true),
+		"slice.cap.%d");
+	gen_temp(ctx, &size,
+		qtype_for_type(ctx, &builtin_type_size, true),
+		"slice.size.%d");
+
+	const struct expression *initializer = expr->alloc.expr;
+	if (initializer->result->storage == TYPE_STORAGE_ARRAY) {
+		assert(initializer->result->array.length != SIZE_UNDEFINED);
+		constl(&len, initializer->result->array.length);
+	} else {
+		assert(0); // TODO: Initialize one slice from another
+	}
+
+	if (expr->alloc.cap != NULL) {
+		gen_expression(ctx, expr->alloc.cap, &cap);
+		constl(&temp, expr->result->array.members->size);
+		pushi(ctx->current, &size, Q_MUL, &cap, &temp, NULL);
+	} else {
+		assert(0); // TODO: Alloc without explicit capacity
+	}
+
+	struct qbe_value ret = {0};
+	gen_temp(ctx, &ret, &qbe_long, "alloc.ret.%d");
+	struct qbe_value rtalloc = {0};
+	rtalloc.kind = QV_GLOBAL;
+	rtalloc.name = strdup("rt.malloc");
+	rtalloc.type = &qbe_long;
+	pushi(ctx->current, &ret, Q_CALL, &rtalloc, &size, NULL);
+
+	// TODO: Generate abort if it failed
+
+	assert(!out->indirect); // TODO?
+	struct qbe_value ptr = {0};
+	gen_temp(ctx, &ptr, &qbe_long, "alloc.ptr.%d");
+	constl(&temp, 8); // XXX: ARCH
+	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
+	pushi(ctx->current, NULL, Q_STOREL, &ret, &ptr, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
+	pushi(ctx->current, NULL, Q_STOREL, &len, &ptr, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
+	pushi(ctx->current, NULL, Q_STOREL, &cap, &ptr, NULL);
+
+	if (initializer->result->storage == TYPE_STORAGE_ARRAY) {
+		gen_expression(ctx, initializer, &ret);
+	} else {
+		// TODO: I think this will have to be a separate branch once
+		// we've implemented it
+	}
+}
+
+static void
+gen_alloc(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
 	assert(expr->type == EXPR_ALLOC && expr->alloc.kind == AKIND_ALLOC);
-	// TODO: Slices
-	assert(type_dealias(expr->result)->storage == TYPE_STORAGE_POINTER);
+	if (type_dealias(expr->result)->storage == TYPE_STORAGE_SLICE) {
+		gen_slice_alloc(ctx, expr, out);
+		return;
+	}
+
 	// TODO: Explicit capacity
 	assert(expr->alloc.cap == NULL);
 	struct qbe_value ret = {0}, size = {0};
@@ -550,7 +615,14 @@ gen_expr_alloc(struct gen_context *ctx,
 		gen_temp(ctx, &val,
 			qtype_for_type(ctx, expr->alloc.expr->result, true),
 			"free.%d");
-		gen_expression(ctx, expr->alloc.expr, &val);
+		if (type_dealias(expr->alloc.expr->result)->storage == TYPE_STORAGE_SLICE) {
+			qval_address(&val);
+			gen_expression(ctx, expr->alloc.expr, &val);
+			val.type = &qbe_long;
+			pushi(ctx->current, &val, Q_LOADL, &val, NULL);
+		} else {
+			gen_expression(ctx, expr->alloc.expr, &val);
+		}
 		rtfunc.kind = QV_GLOBAL;
 		rtfunc.name = strdup("rt.free");
 		rtfunc.type = &qbe_long;

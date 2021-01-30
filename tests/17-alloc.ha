@@ -51,9 +51,19 @@ fn double_alloc() void = {
 	free(y);
 };
 
+fn slice() void = {
+	let x = alloc([]int, [1, 2, 3], 10z);
+	assert(len(x) == 3z);
+	for (let i = 0z; i < len(x); i += 1z) {
+		assert(x[i] == (i + 1z): int);
+	};
+	free(x);
+};
+
 export fn main() void = {
 	assignment();
 	allocation();
 	double_pointer();
 	double_alloc();
+	slice();
 };
