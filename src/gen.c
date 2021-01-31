@@ -197,6 +197,7 @@ gen_copy(struct gen_context *ctx,
 		}
 	}
 
+	size_t offset = 0;
 	while (field) {
 		temp.type = field->type;
 		if (temp.type->stype == Q_HALF || temp.type->stype == Q_BYTE) {
@@ -232,7 +233,13 @@ gen_copy(struct gen_context *ctx,
 
 			if (!dest->type->is_union) {
 				assert(field->type->size != 0);
-				constl(&size, field->type->size);
+				size_t add = field->type->size;
+				offset += add;
+				if (field->next && offset % field->next->type->size != 0) {
+					add += offset % field->next->type->size;
+					offset += offset % field->next->type->size;
+				}
+				constl(&size, add);
 				pushi(ctx->current, &destp, Q_ADD, &destp, &size, NULL);
 				pushi(ctx->current, &srcp, Q_ADD, &srcp, &size, NULL);
 			}
