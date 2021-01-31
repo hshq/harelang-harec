@@ -227,6 +227,8 @@ emit_type(const struct type *type, FILE *out)
 			} else if (type->func.variadism == VARIADISM_C) {
 				emit_type(param->type, out);
 				fprintf(out, ", ...");
+			} else {
+				emit_type(param->type, out);
 			}
 		}
 		fprintf(out, ") ");
