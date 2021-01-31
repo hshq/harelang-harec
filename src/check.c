@@ -211,6 +211,7 @@ check_expr_assert(struct context *ctx,
 	trace(TR_CHECK, "assert");
 	expr->type = EXPR_ASSERT;
 	expr->result = &builtin_type_void;
+	expr->assert.is_static = aexpr->assert.is_static;
 
 	if (aexpr->assert.cond != NULL) {
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
@@ -241,6 +242,28 @@ check_expr_assert(struct context *ctx,
 		expr->assert.message->result = &builtin_type_const_str;
 		expr->assert.message->constant.string.value = s;
 		expr->assert.message->constant.string.len = n;
+	}
+
+	if (expr->assert.is_static) {
+		bool cond;
+		if (expr->assert.cond != NULL) {
+			struct expression out = {0};
+			enum eval_result r =
+				eval_expr(ctx, expr->assert.cond, &out);
+			expect(&aexpr->assert.cond->loc, r == EVAL_OK,
+				"Unable to evaluate static assertion at compile time");
+			assert(out.result->storage == TYPE_STORAGE_BOOL);
+			cond = out.constant.bval;
+		} else {
+			cond = false; 
+		}
+		if (aexpr->assert.message != NULL) {
+			expect(&aexpr->assert.cond->loc, cond,
+				"Static assertion failed: %s",
+				expr->assert.message->constant.string.value);
+		} else {
+			expect(&aexpr->loc, cond, "Static assertion failed");
+		}
 	}
 }
 

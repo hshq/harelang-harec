@@ -983,7 +983,7 @@ parse_plain_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_assertion_expression(struct lexer *lexer, bool is_static)
 {
-	trace(TR_PARSE, "assertion");
+	trace(TR_PARSE, is_static ? "static assertion" : "assertion");
 
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_ASSERT;
@@ -991,16 +991,11 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 
 	struct token tok;
 	switch (lex(lexer, &tok)) {
-	case T_STATIC:
-		// XXX: The caller should deal with this for us
-		exp->assert.is_static = true;
-		lex(lexer, &tok);
-		break;
 	case T_ASSERT:
 	case T_ABORT:
 		break;
 	default:
-		synassert(false, &tok, T_STATIC, T_ASSERT, T_ABORT, T_EOF);
+		synassert(false, &tok, T_ASSERT, T_ABORT, T_EOF);
 	}
 
 	switch (tok.token) {

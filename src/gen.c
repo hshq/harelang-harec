@@ -644,6 +644,9 @@ gen_expr_assert(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(expr->assert.message); // Invariant
+	if (expr->assert.is_static) {
+		return;
+	}
 
 	struct qbe_statement failedl = {0}, passedl = {0};
 	struct qbe_value bfailed = {0}, bpassed = {0};
