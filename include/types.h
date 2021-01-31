@@ -153,6 +153,9 @@ bool type_is_float(const struct type *type);
 
 uint32_t type_hash(const struct type *type);
 
+bool type_is_assignable(const struct type *to, const struct type *from);
+bool type_is_castable(const struct type *to, const struct type *from);
+
 void builtin_types_init();
 
 // Built-in type singletons

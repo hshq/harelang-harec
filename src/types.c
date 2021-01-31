@@ -332,6 +332,276 @@ type_hash(const struct type *type)
 	return hash;
 }
 
+// Note that the type this returns is NOT a type singleton and cannot be treated
+// as such.
+static const struct type *
+strip_flags(const struct type *t, struct type *secondary)
+{
+	if (!t->flags) {
+		return t;
+	}
+	*secondary = *t;
+	secondary->flags = 0;
+	secondary->id = type_hash(secondary);
+	return secondary;
+}
+
+static const struct type *
+tagged_select_subtype(const struct type *tagged, const struct type *subtype)
+{
+	tagged = type_dealias(tagged);
+	assert(tagged->storage == TYPE_STORAGE_TAGGED_UNION);
+
+	size_t nassign = 0;
+	const struct type *selected = NULL;
+	for (const struct type_tagged_union *tu = &tagged->tagged;
+			tu; tu = tu->next) {
+		if (tu->type->id == subtype->id) {
+			return tu->type;
+		}
+		if (type_dealias(tu->type)->storage == TYPE_STORAGE_VOID) {
+			continue;
+		}
+		if (type_is_assignable(tu->type, subtype)) {
+			selected = tu->type;
+			++nassign;
+		}
+	}
+
+	if (nassign == 1) {
+		return selected;
+	}
+
+	return NULL;
+}
+
+bool
+type_is_assignable(const struct type *to, const struct type *from)
+{
+	// const and non-const types are mutually assignable
+	struct type _to, _from;
+	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
+	if (to->id == from->id) {
+		return true;
+	}
+
+	struct type _to_secondary, _from_secondary;
+	const struct type *to_secondary, *from_secondary;
+	switch (to->storage) {
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+		return type_is_integer(from)
+			&& type_is_signed(from)
+			&& to->size >= from->size;
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+		return type_is_integer(from)
+			&& !type_is_signed(from)
+			&& to->size >= from->size;
+	case TYPE_STORAGE_UINTPTR:
+		return (type_is_integer(from)
+				&& !type_is_signed(from)
+				&& to->size >= from->size)
+			|| from->storage == TYPE_STORAGE_POINTER;
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		return type_is_float(from);
+	case TYPE_STORAGE_POINTER:
+		to_secondary = strip_flags(to->pointer.referent, &_to_secondary);
+		switch (from->storage) {
+		case TYPE_STORAGE_UINTPTR:
+			return true;
+		case TYPE_STORAGE_NULL:
+			return to->pointer.flags & PTR_NULLABLE;
+		case TYPE_STORAGE_POINTER:
+			from_secondary = strip_flags(
+				from->pointer.referent, &_from_secondary);
+			switch (to_secondary->storage) {
+			case TYPE_STORAGE_VOID:
+				return true;
+			case TYPE_STORAGE_ARRAY:
+				if (type_is_assignable(to_secondary, from_secondary)) {
+					return true;
+				}
+				break;
+			default:
+				if (to_secondary != from_secondary) {
+					return false;
+				}
+				break;
+			}
+			if (from->pointer.flags & PTR_NULLABLE) {
+				return to->pointer.flags & PTR_NULLABLE;
+			}
+			return true;
+		case TYPE_STORAGE_STRING:
+			return to->pointer.referent->storage == TYPE_STORAGE_CHAR
+				&& to->pointer.referent->flags & TYPE_CONST;
+		default:
+			return false;
+		}
+		assert(0); // Unreachable
+	case TYPE_STORAGE_ALIAS:
+		return type_is_assignable(to->alias.type, from);
+	case TYPE_STORAGE_STRING:
+		return to->id == builtin_type_const_ptr_char.id;
+	case TYPE_STORAGE_VOID:
+		return true;
+	case TYPE_STORAGE_SLICE:
+		to_secondary = strip_flags(to->array.members, &_to_secondary);
+		from_secondary = strip_flags(from->array.members, &_from_secondary);
+		return (from->storage == TYPE_STORAGE_ARRAY || from->storage == TYPE_STORAGE_SLICE)
+			&& to_secondary->id == from_secondary->id;
+	case TYPE_STORAGE_ARRAY:
+		return from->storage == TYPE_STORAGE_ARRAY
+			&& to->array.length == SIZE_UNDEFINED
+			&& from->array.length != SIZE_UNDEFINED;
+	case TYPE_STORAGE_TAGGED_UNION:
+		// XXX: Needs work!
+		return tagged_select_subtype(to, from) != NULL || true;
+	// The following types are only assignable from themselves, and are
+	// handled above:
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_UNION:
+		return false;
+	}
+
+	assert(0); // Unreachable
+}
+
+static bool
+castable_to_tagged(const struct type *to, const struct type *from)
+{
+	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED_UNION) {
+		return true;
+	}
+
+	size_t ncastable = 0;
+	to = type_dealias(to);
+	for (const struct type_tagged_union *tu = &to->tagged;
+			tu; tu = tu->next) {
+		if (tu->type->id == from->id) {
+			return true;
+		}
+		if (type_is_castable(tu->type, from)) {
+			++ncastable;
+		}
+	}
+
+	return ncastable == 1;
+}
+
+static bool
+castable_from_tagged(const struct type *to, const struct type *from)
+{
+	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED_UNION) {
+		return true;
+	}
+
+	size_t ncastable = 0;
+	from = type_dealias(from);
+	for (const struct type_tagged_union *tu = &from->tagged;
+			tu; tu = tu->next) {
+		if (tu->type->id == to->id) {
+			return true;
+		}
+		if (type_is_castable(tu->type, to)) {
+			++ncastable;
+		}
+	}
+
+	return ncastable == 1;
+}
+
+bool
+type_is_castable(const struct type *to, const struct type *from)
+{
+	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED_UNION) {
+		return castable_to_tagged(to, from);
+	} else if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED_UNION) {
+		return castable_from_tagged(to, from);
+	}
+
+	to = type_dealias(to), from = type_dealias(from);
+	if (to == from) {
+		return true;
+	}
+
+	switch (to->storage) {
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+		return from->storage == TYPE_STORAGE_ENUM || type_is_numeric(from);
+	case TYPE_STORAGE_U8:
+		return from->storage == TYPE_STORAGE_ENUM
+			|| type_is_numeric(from)
+			|| from->storage == TYPE_STORAGE_CHAR;
+	case TYPE_STORAGE_U32:
+		return from->storage == TYPE_STORAGE_ENUM
+			|| type_is_numeric(from)
+			|| from->storage == TYPE_STORAGE_RUNE;
+	case TYPE_STORAGE_CHAR:
+		return from->storage == TYPE_STORAGE_U8;
+	case TYPE_STORAGE_RUNE:
+		return from->storage == TYPE_STORAGE_RUNE;
+	case TYPE_STORAGE_ENUM:
+		return from->storage == TYPE_STORAGE_ENUM || type_is_integer(from);
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		return type_is_numeric(from);
+	case TYPE_STORAGE_UINTPTR:
+		return from->storage == TYPE_STORAGE_POINTER
+			|| from->storage == TYPE_STORAGE_NULL
+			|| type_is_numeric(from);
+	case TYPE_STORAGE_POINTER:
+		if (from->storage == TYPE_STORAGE_STRING
+				&& to->pointer.referent->storage == TYPE_STORAGE_CHAR
+				&& to->pointer.referent->flags & TYPE_CONST) {
+			return true;
+		}
+		return from->storage == TYPE_STORAGE_POINTER
+			|| from->storage == TYPE_STORAGE_NULL
+			|| from->storage == TYPE_STORAGE_UINTPTR;
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_ARRAY:
+		return from->storage == TYPE_STORAGE_SLICE
+			|| from->storage == TYPE_STORAGE_ARRAY;
+	// Cannot be cast:
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_VOID:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_UNION:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_NULL:
+		return false;
+	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_ALIAS:
+		assert(0); // Handled above
+	}
+
+	assert(0); // Unreachable
+}
+
 void
 builtin_types_init()
 {

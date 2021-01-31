@@ -164,8 +164,7 @@ check_alloc(struct context *ctx, const struct ast_expression *aexpr,
 			check_expression(ctx, aexpr->alloc.cap, expr->alloc.cap,
 				&builtin_type_size);
 			expect(&aexpr->alloc.cap->loc,
-				type_is_assignable(ctx->store,
-					&builtin_type_size,
+				type_is_assignable(&builtin_type_size,
 					expr->alloc.cap->result),
 				"Allocation capacity must be assignable to size");
 		}
@@ -271,8 +270,7 @@ check_expr_assign(struct context *ctx,
 			!(object->result->pointer.flags & PTR_NULLABLE),
 			"Cannot dereference nullable pointer type");
 		expect(&aexpr->loc,
-			type_is_assignable(ctx->store,
-				object->result->pointer.referent,
+			type_is_assignable(object->result->pointer.referent,
 				value->result),
 			"Value type is not assignable to pointer type");
 		value = lower_implicit_cast(object->result->pointer.referent, value);
@@ -281,7 +279,7 @@ check_expr_assign(struct context *ctx,
 		expect(&aexpr->loc, !(object->result->flags & TYPE_CONST),
 				"Cannot assign to const object");
 		expect(&aexpr->loc,
-			type_is_assignable(ctx->store, object->result, value->result),
+			type_is_assignable(object->result, value->result),
 			"rvalue type is not assignable to lvalue");
 		value = lower_implicit_cast(object->result, value);
 	}
@@ -410,7 +408,7 @@ check_expr_binding(struct context *ctx,
 			type->size != 0 && type->size != SIZE_UNDEFINED,
 			"Cannot create binding for type of zero or undefined size");
 		expect(&aexpr->loc,
-			type_is_assignable(ctx->store, type, initializer->result),
+			type_is_assignable(type, initializer->result),
 			"Initializer is not assignable to binding type");
 		binding->initializer = lower_implicit_cast(type, initializer);
 
@@ -516,8 +514,7 @@ check_expr_call(struct context *ctx,
 		check_expression(ctx, aarg->value, arg->value, param->type);
 
 		expect(&aarg->value->loc,
-			type_is_assignable(ctx->store,
-				param->type, arg->value->result),
+			type_is_assignable(param->type, arg->value->result),
 			"Argument is not assignable to parameter type");
 		arg->value = lower_implicit_cast(param->type, arg->value);
 
@@ -604,7 +601,7 @@ check_expr_array(struct context *ctx,
 			type = value->result;
 		} else {
 			expect(&item->value->loc,
-				type_is_assignable(ctx->store, type, value->result),
+				type_is_assignable(type, value->result),
 				"Array members must be of a uniform type");
 			cur->value = lower_implicit_cast(type, cur->value);
 		}
@@ -936,8 +933,8 @@ check_expr_match(struct context *ctx,
 			case TYPE_STORAGE_TAGGED_UNION:
 				expect(&acase->type->loc, !is_ptr,
 					"Not matching on tagged union type");
-				expect(&acase->type->loc, type_is_assignable(
-						ctx->store, type, ctype),
+				expect(&acase->type->loc,
+						type_is_assignable(type, ctype),
 					"Invalid type for match case");
 				break;
 			default:
@@ -1069,7 +1066,7 @@ check_expr_return(struct context *ctx,
 		check_expression(ctx, aexpr->_return.value,
 			rval, ctx->fntype->func.result);
 		expect(&aexpr->_return.value->loc,
-			type_is_assignable(ctx->store, ctx->fntype->func.result, rval->result),
+			type_is_assignable(ctx->fntype->func.result, rval->result),
 			"Return value is not assignable to function result type");
 		if (ctx->fntype->func.result != rval->result) {
 			rval = lower_implicit_cast(
@@ -1184,7 +1181,7 @@ check_expr_struct(struct context *ctx,
 		// TODO: Use more specific error location
 		expect(&aexpr->loc, field, "No field by this name exists for this type");
 		expect(&aexpr->loc,
-			type_is_assignable(ctx->store, field->type, sexpr->value->result),
+			type_is_assignable(field->type, sexpr->value->result),
 			"Cannot initialize struct field '%s' from value of this type",
 			field->name);
 		sexpr->field = field;
@@ -1503,7 +1500,7 @@ check_function(struct context *ctx,
 	check_expression(ctx, afndecl->body, body, fntype->func.result);
 
 	expect(&afndecl->body->loc,
-		body->terminates || type_is_assignable(ctx->store, fntype->func.result, body->result),
+		body->terminates || type_is_assignable(fntype->func.result, body->result),
 		"Result value is not assignable to function result type");
 	if (!body->terminates && fntype->func.result != body->result) {
 		body = lower_implicit_cast(fntype->func.result, body);
@@ -1545,7 +1542,7 @@ check_global(struct context *ctx,
 	check_expression(ctx, agdecl->init, initializer, type);
 
 	expect(&agdecl->init->loc,
-		type_is_assignable(ctx->store, type, initializer->result),
+		type_is_assignable(type, initializer->result),
 		"Constant type is not assignable from initializer type");
 	initializer = lower_implicit_cast(type, initializer);
 
@@ -1636,7 +1633,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 		xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
 
-	expect(&decl->init->loc, type_is_assignable(ctx->store, type, initializer->result),
+	expect(&decl->init->loc, type_is_assignable(type, initializer->result),
 		"Constant type is not assignable from initializer type");
 	initializer = lower_implicit_cast(type, initializer);
 
