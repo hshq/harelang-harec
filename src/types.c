@@ -375,6 +375,31 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 	return NULL;
 }
 
+static bool
+tagged_subset_compat(const struct type *to, const struct type *from)
+{
+	// Note: this implementation depends on the invariant that tagged union
+	// member types are sorted by their type ID.
+	to = type_dealias(to), from = type_dealias(from);
+	if (to->storage != TYPE_STORAGE_TAGGED || from->storage != TYPE_STORAGE_TAGGED) {
+		return false;
+	}
+	const struct type_tagged_union *to_tu = &to->tagged,
+	      *from_tu = &from->tagged;
+	while (from_tu && to_tu) {
+		while (to_tu) {
+			if (to_tu->type->id == from_tu->type->id) {
+				from_tu = from_tu->next;
+				to_tu = to_tu->next;
+				break;
+			}
+			to_tu = to_tu->next;
+		}
+	}
+
+	return !from_tu;
+}
+
 bool
 type_is_assignable(const struct type *to, const struct type *from)
 {
@@ -464,8 +489,8 @@ type_is_assignable(const struct type *to, const struct type *from)
 			&& to->array.length == SIZE_UNDEFINED
 			&& from->array.length != SIZE_UNDEFINED;
 	case TYPE_STORAGE_TAGGED:
-		// XXX: Needs work!
-		return tagged_select_subtype(to, from) != NULL || true;
+		return tagged_select_subtype(to, from) != NULL
+			|| tagged_subset_compat(to, from);
 	// The following types are only assignable from themselves, and are
 	// handled above:
 	case TYPE_STORAGE_BOOL:
