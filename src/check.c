@@ -941,13 +941,6 @@ check_expr_match(struct context *ctx,
 
 			// TODO: Figure out alias semantics properly
 			switch (ctype->storage) {
-			case TYPE_STORAGE_POINTER:
-				expect(&acase->type->loc, is_ptr,
-					"Not matching on pointer type");
-				expect(&acase->type->loc,
-					type->pointer.referent == ctype->pointer.referent,
-					"Match case of incompatible pointer type");
-				break;
 			case TYPE_STORAGE_NULL:
 				expect(&acase->type->loc, is_ptr,
 					"Not matching on pointer type");
@@ -959,6 +952,14 @@ check_expr_match(struct context *ctx,
 						type_is_assignable(type, ctype),
 					"Invalid type for match case");
 				break;
+			case TYPE_STORAGE_POINTER:
+				if (is_ptr) {
+					expect(&acase->type->loc,
+						type->pointer.referent == ctype->pointer.referent,
+						"Match case of incompatible pointer type");
+					break;
+				}
+				// Fallthrough
 			default:
 				expect(&acase->type->loc, !is_ptr,
 					"Not matching on tagged union type");
