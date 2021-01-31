@@ -916,17 +916,25 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	const struct qbe_value *out,
 	const struct type *from)
 {
+	const struct type *tagged = expr->result;
+	const struct type *subtype = tagged_select_subtype(tagged, from);
+
 	struct qbe_value tag = {0}, ptr = {0}, offs = {0};
-	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+	gen_temp(ctx, &ptr, &qbe_long, "to_tagged.from.%d");
 	constl(&offs, expr->result->align);
 
-	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
+	if (!subtype) {
+		pushc(ctx->current, "to_tagged; no subtype");
 		gen_expression(ctx, expr->cast.value, &ptr);
 		gen_copy(ctx, out, &ptr);
 		return;
-
 	}
-	constw(&tag, expr->cast.value->result->id);
+
+	pushc(ctx->current, "to_tagged; valid subtype");
+	// TODO: check should lower this to multiple casts:
+	assert(subtype->id == from->id);
+
+	constw(&tag, subtype->id);
 	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
 	pushi(ctx->current, NULL, Q_STOREW, &tag, &ptr, NULL);
 
@@ -1048,16 +1056,18 @@ gen_expr_cast(struct gen_context *ctx,
 		return;
 	}
 
-	const struct type *to = type_dealias(expr->result),
-	      *from = type_dealias(expr->cast.value->result);
-	if (to->storage == from->storage && to->size == from->size) {
-		gen_expression(ctx, expr->cast.value, out);
-		return;
-	} else if (to->storage == TYPE_STORAGE_TAGGED) {
+	const struct type *to = expr->result, *from = expr->cast.value->result;
+	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
 		gen_cast_to_tagged(ctx, expr, out, from);
 		return;
-	} else if (from->storage == TYPE_STORAGE_TAGGED) {
+	} else if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
 		gen_cast_from_tagged(ctx, expr, out, to);
+		return;
+	}
+
+	to = type_dealias(to), from = type_dealias(from);
+	if (to->storage == from->storage && to->size == from->size) {
+		gen_expression(ctx, expr->cast.value, out);
 		return;
 	}
 

@@ -145,6 +145,10 @@ const struct type *type_dealias(const struct type *type);
 const struct struct_field *type_get_field(
 	const struct type *type, const char *name);
 
+const struct type *tagged_select_subtype(
+	const struct type *tagged, const struct type *subtype);
+bool tagged_subset_compat(const struct type *to, const struct type *from);
+
 const char *type_storage_unparse(enum type_storage storage);
 bool type_is_signed(const struct type *type);
 bool type_is_integer(const struct type *type);

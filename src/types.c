@@ -346,7 +346,7 @@ strip_flags(const struct type *t, struct type *secondary)
 	return secondary;
 }
 
-static const struct type *
+const struct type *
 tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 {
 	tagged = type_dealias(tagged);
@@ -375,7 +375,7 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 	return NULL;
 }
 
-static bool
+bool
 tagged_subset_compat(const struct type *to, const struct type *from)
 {
 	// Note: this implementation depends on the invariant that tagged union
