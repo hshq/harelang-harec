@@ -506,6 +506,9 @@ check_expr_call(struct context *ctx,
 		fntype->storage == TYPE_STORAGE_FUNCTION,
 		"Cannot call non-function type");
 	expr->result = fntype->func.result;
+	if (fntype->func.flags & FN_NORETURN) {
+		expr->terminates = true;
+	}
 
 	struct call_argument *arg, **next = &expr->call.args;
 	struct ast_call_argument *aarg = aexpr->call.args;
