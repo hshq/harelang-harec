@@ -508,55 +508,28 @@ type_is_assignable(const struct type *to, const struct type *from)
 }
 
 static bool
-castable_to_tagged(const struct type *to, const struct type *from)
-{
-	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
-		return true;
-	}
-
-	size_t ncastable = 0;
-	to = type_dealias(to);
-	for (const struct type_tagged_union *tu = &to->tagged;
-			tu; tu = tu->next) {
-		if (tu->type->id == from->id) {
-			return true;
-		}
-		if (type_is_castable(tu->type, from)) {
-			++ncastable;
-		}
-	}
-
-	return ncastable == 1;
-}
-
-static bool
 castable_from_tagged(const struct type *to, const struct type *from)
 {
-	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
-		return true;
-	}
-
-	size_t ncastable = 0;
+	// TODO: This may need to be expanded upon
 	from = type_dealias(from);
 	for (const struct type_tagged_union *tu = &from->tagged;
 			tu; tu = tu->next) {
 		if (tu->type->id == to->id) {
 			return true;
 		}
-		if (type_is_castable(tu->type, to)) {
-			++ncastable;
-		}
 	}
-
-	return ncastable == 1;
+	return false;
 }
 
 bool
 type_is_castable(const struct type *to, const struct type *from)
 {
 	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
-		return castable_to_tagged(to, from);
-	} else if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
+		return tagged_select_subtype(to, from) != NULL
+			|| tagged_subset_compat(to, from);
+	}
+
+	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
 		return castable_from_tagged(to, from);
 	}
 
