@@ -153,7 +153,6 @@ emit_type(const struct type *type, FILE *out)
 	switch (type->storage) {
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 	case TYPE_STORAGE_I16:
@@ -233,6 +232,24 @@ emit_type(const struct type *type, FILE *out)
 		}
 		fprintf(out, ") ");
 		emit_type(type->func.result, out);
+		break;
+	case TYPE_STORAGE_ENUM:
+		fprintf(out, "enum %s { ", type_storage_unparse(type->_enum.storage));
+		for (const struct type_enum_value *ev = type->_enum.values;
+				ev; ev = ev->next) {
+			fprintf(out, "%s = ", ev->name);
+			if (type_storage_is_signed(type->_enum.storage)) {
+				fprintf(out, "%zu%s", ev->ival,
+					storage_to_suffix(type->_enum.storage));
+			} else {
+				fprintf(out, "%zd%s", ev->uval,
+					storage_to_suffix(type->_enum.storage));
+			}
+			if (ev->next) {
+				fprintf(out, ", ");
+			}
+		}
+		fprintf(out, "}");
 		break;
 	}
 }

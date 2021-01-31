@@ -199,8 +199,8 @@ type_is_float(const struct type *type)
 	return type->storage == TYPE_STORAGE_F32 || type->storage == TYPE_STORAGE_F64;
 }
 
-static bool
-storage_is_signed(enum type_storage storage)
+bool
+type_storage_is_signed(enum type_storage storage)
 {
 	switch (storage) {
 	case TYPE_STORAGE_VOID:
@@ -242,9 +242,9 @@ bool
 type_is_signed(const struct type *type)
 {
 	if (type->storage == TYPE_STORAGE_ENUM) {
-		return storage_is_signed(type->_enum.storage);
+		return type_storage_is_signed(type->_enum.storage);
 	}
-	return storage_is_signed(type_dealias(type)->storage);
+	return type_storage_is_signed(type_dealias(type)->storage);
 }
 
 uint32_t
