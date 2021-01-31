@@ -446,8 +446,8 @@ type_is_assignable(const struct type *to, const struct type *from)
 		case TYPE_STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case TYPE_STORAGE_POINTER:
-			from_secondary = strip_flags(
-				from->pointer.referent, &_from_secondary);
+			from_secondary = strip_flags(from->pointer.referent,
+					&_from_secondary);
 			switch (to_secondary->storage) {
 			case TYPE_STORAGE_VOID:
 				return true;
@@ -457,7 +457,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 				}
 				break;
 			default:
-				if (to_secondary != from_secondary) {
+				if (to_secondary->id != from_secondary->id) {
 					return false;
 				}
 				break;
