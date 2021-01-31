@@ -1849,7 +1849,10 @@ gen_expr_struct(struct gen_context *ctx,
 	const struct expression_struct *field = &expr->_struct;
 	while (field) {
 		constl(&offset, field->field->offset);
+		ptr.type = &qbe_long;
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
+
+		ptr.type = qtype_for_type(ctx, field->field->type, true);
 		ptr.indirect = !type_is_aggregate(field->field->type);
 		gen_expression(ctx, field->value, &ptr);
 		field = field->next;
