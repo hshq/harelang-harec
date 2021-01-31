@@ -376,7 +376,10 @@ check_expr_binding(struct context *ctx,
 			++ctx->id;
 		}
 
-		if (type) {
+		bool context = abinding->type
+			&& abinding->type->storage == TYPE_STORAGE_ARRAY
+			&& abinding->type->array.contextual;
+		if (type && !context) {
 			// If the type is defined in advance, we can insert the
 			// object into the scope early, which is required for
 			// self-referencing objects.
@@ -391,9 +394,21 @@ check_expr_binding(struct context *ctx,
 
 		check_expression(ctx, abinding->initializer, initializer, type);
 
-		if (!type) {
-			type = type_store_lookup_with_flags(ctx->store,
-				initializer->result, abinding->flags);
+		if (context) {
+			expect(&aexpr->loc,
+				initializer->result->storage == TYPE_STORAGE_ARRAY,
+				"Cannot infer array length from non-array type");
+			expect(&aexpr->loc,
+				initializer->result->array.members == type->array.members,
+				"Initializer is not assignable to binding type");
+			type = initializer->result;
+		}
+
+		if (context || !type) {
+			if (!type) {
+				type = type_store_lookup_with_flags(ctx->store,
+					initializer->result, abinding->flags);
+			}
 
 			if (!abinding->is_static) {
 				binding->object = scope_insert(ctx->scope,
@@ -1581,11 +1596,28 @@ check_global(struct context *ctx,
 
 	const struct type *type = type_store_lookup_atype(
 			ctx->store, agdecl->type);
+	bool context = agdecl->type->storage == TYPE_STORAGE_ARRAY
+			&& agdecl->type->array.contextual;
 
 	// TODO: Free initialier
 	struct expression *initializer =
 		xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, agdecl->init, initializer, type);
+
+	if (context) {
+		expect(&agdecl->init->loc,
+			initializer->result->storage == TYPE_STORAGE_ARRAY,
+			"Cannot infer array length from non-array type");
+		expect(&agdecl->init->loc,
+			initializer->result->array.members == type->array.members,
+			"Initializer is not assignable to binding type");
+		type = initializer->result;
+
+		// Update type of object (drops const, hack!)
+		struct scope_object *obj = (struct scope_object *)scope_lookup(
+				ctx->scope, &agdecl->ident);
+		obj->type = type;
+	}
 
 	expect(&agdecl->init->loc,
 		type_is_assignable(type, initializer->result),

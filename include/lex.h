@@ -11,6 +11,7 @@ enum lexical_token {
 	T_ATTR_NORETURN,
 	T_ATTR_SYMBOL,
 	T_ATTR_TEST,
+	T_UNDERSCORE,
 	T_ABORT,
 	T_ALLOC,
 	T_APPEND,

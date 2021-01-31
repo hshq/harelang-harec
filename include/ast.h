@@ -27,6 +27,7 @@ struct ast_imports {
 struct ast_list_type {
 	struct ast_expression *length; // NULL for slices and unbounded arrays
 	struct ast_type *members;
+	bool contextual;
 };
 
 struct ast_enum_field {

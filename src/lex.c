@@ -20,6 +20,7 @@ static const char *tokens[] = {
 	[T_ATTR_NORETURN] = "@noreturn",
 	[T_ATTR_SYMBOL] = "@symbol",
 	[T_ATTR_TEST] = "@test",
+	[T_UNDERSCORE] = "_",
 	[T_ABORT] = "abort",
 	[T_ALLOC] = "alloc",
 	[T_APPEND] = "append",

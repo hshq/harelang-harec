@@ -631,6 +631,13 @@ parse_type(struct lexer *lexer)
 			want(lexer, T_RBRACKET, NULL);
 			type->array.members = parse_type(lexer);
 			break;
+		case T_UNDERSCORE:
+			type->storage = TYPE_STORAGE_ARRAY;
+			type->array.length = NULL;
+			type->array.contextual = true;
+			want(lexer, T_RBRACKET, NULL);
+			type->array.members = parse_type(lexer);
+			break;
 		default:
 			type->storage = TYPE_STORAGE_ARRAY;
 			unlex(lexer, &tok);
