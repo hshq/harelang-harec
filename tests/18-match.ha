@@ -79,6 +79,16 @@ fn tagged_result() void = {
 	assert(y is uint);
 };
 
+fn implicit_cast() void = {
+	let x: foobar = foo;
+	let y: nullable *int = null;
+	let a: (int | foobar) = match (y) {
+		null => foo: foobar,
+		z: *int => *z,
+	};
+	assert(a is foobar);
+};
+
 export fn main() void = {
 	tagged();
 	termination();
@@ -86,5 +96,6 @@ export fn main() void = {
 	pointer();
 	alias();
 	tagged_result();
+	implicit_cast();
 	// TODO: Test exhaustiveness and dupe detection
 };

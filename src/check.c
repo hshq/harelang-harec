@@ -544,15 +544,15 @@ check_expr_cast(struct context *ctx,
 	const struct type *secondary = expr->cast.secondary =
 		type_store_lookup_atype(ctx->store, aexpr->cast.type);
 	check_expression(ctx, aexpr->cast.value, value, secondary);
-	expect(&aexpr->cast.type->loc,
-		type_is_castable(secondary, value->result),
-		"Invalid cast");
 
 	if (aexpr->cast.kind == C_ASSERTION || aexpr->cast.kind == C_TEST) {
 		const struct type *primary = type_dealias(expr->cast.value->result);
 		expect(&aexpr->cast.value->loc,
 			primary->storage == TYPE_STORAGE_TAGGED,
 			"Expected a tagged union type");
+		expect(&aexpr->cast.type->loc,
+			type_is_castable(value->result, secondary),
+			"Invalid cast");
 		bool found = false;
 		for (const struct type_tagged_union *t = &primary->tagged;
 				t; t = t->next) {
@@ -567,6 +567,10 @@ check_expr_cast(struct context *ctx,
 
 	switch (aexpr->cast.kind) {
 	case C_CAST:
+		expect(&aexpr->cast.type->loc,
+			type_is_castable(secondary, value->result),
+			"Invalid cast");
+		// Fallthrough
 	case C_ASSERTION:
 		expr->result = secondary;
 		break;
