@@ -1139,15 +1139,27 @@ check_expr_struct(struct context *ctx,
 	const struct type *hint)
 {
 	trenter(TR_CHECK, "struct");
-	assert(!aexpr->_struct.autofill); // TODO
-	assert(!aexpr->_struct.type.name); // TODO
 	expr->type = EXPR_STRUCT;
 
-	struct ast_type stype = {
+	assert(!aexpr->_struct.autofill); // TODO
+
+	const struct type *stype = NULL;
+	if (aexpr->_struct.type.name) {
+		const struct scope_object *obj = scope_lookup(ctx->scope,
+				&aexpr->_struct.type);
+		expect(&aexpr->loc, obj, "Unknown type alias");
+		expect(&aexpr->loc, obj->otype == O_TYPE,
+				"Name does not refer to a type");
+		stype = type_dealias(obj->type);
+		expect(&aexpr->loc, stype->storage == TYPE_STORAGE_STRUCT,
+				"Object named is not a struct type");
+	}
+
+	struct ast_type satype = {
 		.storage = TYPE_STORAGE_STRUCT,
 		.flags = TYPE_CONST,
 	};
-	struct ast_struct_union_type *tfield = &stype.struct_union;
+	struct ast_struct_union_type *tfield = &satype.struct_union;
 	struct ast_struct_union_type **tnext = &tfield->next;
 	struct expression_struct *sexpr = &expr->_struct;
 	struct expression_struct **snext = &sexpr->next;
@@ -1156,17 +1168,41 @@ check_expr_struct(struct context *ctx,
 	while (afield) {
 		assert(!afield->is_embedded); // TODO
 
-		tfield->member_type = MEMBER_TYPE_FIELD;
-		tfield->field.name = afield->field.name;
-		tfield->field.type = afield->field.type;
+		const struct type *ftype;
+		if (!stype) {
+			tfield->member_type = MEMBER_TYPE_FIELD;
+			tfield->field.name = afield->field.name;
+			tfield->field.type = afield->field.type;
+			ftype = type_store_lookup_atype(
+				ctx->store, tfield->field.type);
+		} else {
+			expect(&afield->field.initializer->loc, afield->field.name,
+				"Anonymous fields are not permitted for named struct type");
+			// XXX: ^ Is that correct?
+			sexpr->field = type_get_field(stype, afield->field.name);
+			expect(&afield->field.initializer->loc, sexpr->field,
+				"No field by this name exists for this type");
+			ftype = sexpr->field->type;
+		}
+
 		sexpr->value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, afield->field.initializer, sexpr->value,
-			type_store_lookup_atype(ctx->store, tfield->field.type));
+		check_expression(ctx, afield->field.initializer,
+				sexpr->value, ftype);
+
+		if (stype) {
+			expect(&afield->field.initializer->loc,
+				type_is_assignable(sexpr->field->type, sexpr->value->result),
+				"Initializer is not assignable to struct field");
+			sexpr->value = lower_implicit_cast(
+				sexpr->field->type, sexpr->value);
+		}
 
 		if (afield->next) {
-			*tnext = tfield = xcalloc(
-				1, sizeof(struct ast_struct_union_type));
-			tnext = &tfield->next;
+			if (!stype) {
+				*tnext = tfield = xcalloc(
+					1, sizeof(struct ast_struct_union_type));
+				tnext = &tfield->next;
+			}
 			*snext = sexpr = xcalloc(
 				1, sizeof(struct expression_struct));
 			snext = &sexpr->next;
@@ -1175,28 +1211,34 @@ check_expr_struct(struct context *ctx,
 		afield = afield->next;
 	}
 
-	expr->result = type_store_lookup_atype(ctx->store, &stype);
+	if (stype) {
+		// TODO: Test for exhaustiveness
+		expr->result = stype;
+	} else {
+		expr->result = type_store_lookup_atype(ctx->store, &satype);
 
-	tfield = &stype.struct_union;
-	sexpr = &expr->_struct;
-	while (tfield) {
-		const struct struct_field *field = type_get_field(
-			expr->result, tfield->field.name);
-		// TODO: Use more specific error location
-		expect(&aexpr->loc, field, "No field by this name exists for this type");
-		expect(&aexpr->loc,
-			type_is_assignable(field->type, sexpr->value->result),
-			"Cannot initialize struct field '%s' from value of this type",
-			field->name);
-		sexpr->field = field;
-		sexpr->value = lower_implicit_cast(field->type, sexpr->value);
+		tfield = &satype.struct_union;
+		sexpr = &expr->_struct;
+		while (tfield) {
+			const struct struct_field *field = type_get_field(
+				expr->result, tfield->field.name);
+			// TODO: Use more specific error location
+			expect(&aexpr->loc, field,
+				"No field by this name exists for this type");
+			expect(&aexpr->loc,
+				type_is_assignable(field->type, sexpr->value->result),
+				"Cannot initialize struct field '%s' from value of this type",
+				field->name);
+			sexpr->field = field;
+			sexpr->value = lower_implicit_cast(field->type, sexpr->value);
 
-		struct ast_struct_union_type *next = tfield->next;
-		if (tfield != &stype.struct_union) {
-			free(tfield);
+			struct ast_struct_union_type *next = tfield->next;
+			if (tfield != &satype.struct_union) {
+				free(tfield);
+			}
+			tfield = next;
+			sexpr = sexpr->next;
 		}
-		tfield = next;
-		sexpr = sexpr->next;
 	}
 
 	trleave(TR_CHECK, NULL);

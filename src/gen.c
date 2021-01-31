@@ -964,6 +964,10 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	const struct qbe_value *out,
 	const struct type *to)
 {
+	if (type_dealias(to)->storage == TYPE_STORAGE_VOID) {
+		return;
+	}
+
 	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
 		assert(0); // TODO
 	}

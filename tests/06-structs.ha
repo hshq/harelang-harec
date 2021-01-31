@@ -75,16 +75,34 @@ fn nested() void = {
 	assert(s.y.a.c == 7331);
 };
 
+type coords = struct { x: int, y: int };
+
+fn named() void = {
+	let x = coords { y = 10, x = 20 };
+	assert(x.x == 20 && x.y == 10);
+};
+
 fn invariants() void = {
 	const failures = [
 	// Assign field from non-assignable type:
 	"fn test() void = { let x: struct { y: int } = struct { y: int = 10u }; };",
+
+	"
+	type coords = struct { x: int, y: int };
+
+	fn test() void = {
+		let x = coords { x: int = 10u, y: int = 20u };
+	};
+	",
+
 	// Dereference non-nullable pointer:
 	"fn test() void = { let x: nullable *struct { y: int } = null; x.y; };",
 	// Select field from non-struct object:
 	"fn test() void = { let x = 10; x.y; };",
 	// Unknown field:
 	"fn test() void = { let x: struct { y: int } = struct { y: int = 10 }; x.z; };",
+	// Untyped field for unnamed struct:
+	"fn test() void = { let x = struct { x = 10 }; };",
 	];
 	for (let i = 0z; i < len(failures); i += 1z) {
 		assert(rt::compile(failures[i]) != 0);
@@ -98,9 +116,9 @@ export fn main() void = {
 	deref();
 	nested();
 	invariants();
+	named();
 	// TODO:
 	// - Union tests
-	// - Named structs
 	// - Embedded structs
 	// - offset()
 	// - Autofilling (...) and its invariants
