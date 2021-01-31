@@ -13,12 +13,15 @@ fn tagged() void = {
 
 fn termination() void = {
 	let x: (int | uint | str) = 1337;
-	let y: int = match (x) {
-		int  => 42,
-		uint => abort(),
-		str  => abort(),
+	for (true) {
+		let y: int = match (x) {
+			int  => 42,
+			uint => abort(),
+			str  => break,
+		};
+		assert(y == 42);
+		x = "hi";
 	};
-	assert(y == 42);
 };
 
 fn default() void = {

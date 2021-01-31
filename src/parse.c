@@ -2126,9 +2126,14 @@ parse_compound_expression(struct lexer *lexer)
 	case T_LBRACE:
 		unlex(lexer, &tok);
 		return parse_expression_list(lexer);
+	case T_BREAK:
+	case T_CONTINUE:
+	case T_RETURN:
+		unlex(lexer, &tok);
+		return parse_control_statement(lexer);
 	default:
 		unlex(lexer, &tok);
-		return parse_simple_expression(lexer);
+		return parse_complex_expression(lexer);
 	}
 }
 

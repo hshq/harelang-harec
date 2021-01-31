@@ -1597,8 +1597,12 @@ gen_match_tagged(struct gen_context *ctx,
 			pushi(ctx->current, &val, Q_ADD, &mval, &temp, NULL);
 		}
 
-		gen_expression(ctx, _case->value, out);
-		pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		if (_case->value->terminates) {
+			gen_expression(ctx, _case->value, NULL);
+		} else {
+			gen_expression(ctx, _case->value, out);
+			pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		}
 		push(&ctx->current->body, &flabel);
 	}
 

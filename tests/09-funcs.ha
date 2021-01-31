@@ -1,5 +1,7 @@
 use rt;
 
+fn simple() int = return 69;
+
 fn addone(x: *int) void = {
 	*x += 1;
 };
@@ -40,6 +42,7 @@ let x: int = 42;
 };
 
 export fn main() void = {
+	assert(simple() == 69);
 	pointers();
 	vaargs();
 	assert(x == 1337);
