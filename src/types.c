@@ -439,15 +439,16 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_F64:
 		return type_is_float(from);
 	case TYPE_STORAGE_POINTER:
-		to_secondary = strip_flags(to->pointer.referent, &_to_secondary);
+		to_secondary = type_dealias(to->pointer.referent);
+		to_secondary = strip_flags(to_secondary, &_to_secondary);
 		switch (from->storage) {
 		case TYPE_STORAGE_UINTPTR:
 			return true;
 		case TYPE_STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case TYPE_STORAGE_POINTER:
-			from_secondary = strip_flags(from->pointer.referent,
-					&_from_secondary);
+			from_secondary = type_dealias(from->pointer.referent);
+			from_secondary = strip_flags(from_secondary, &_from_secondary);
 			switch (to_secondary->storage) {
 			case TYPE_STORAGE_VOID:
 				return true;
