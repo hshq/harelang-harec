@@ -529,7 +529,7 @@ parse_tagged_union_type(struct lexer *lexer)
 {
 	trenter(TR_PARSE, "tagged union");
 	struct ast_type *type = mktype(&lexer->loc);
-	type->storage = TYPE_STORAGE_TAGGED_UNION;
+	type->storage = TYPE_STORAGE_TAGGED;
 	struct ast_tagged_union_type *next = &type->tagged_union;
 	next->type = parse_type(lexer);
 	struct token tok = {0};

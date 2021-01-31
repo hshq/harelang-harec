@@ -551,7 +551,7 @@ check_expr_cast(struct context *ctx,
 	if (aexpr->cast.kind == C_ASSERTION || aexpr->cast.kind == C_TEST) {
 		const struct type *primary = type_dealias(expr->cast.value->result);
 		expect(&aexpr->cast.value->loc,
-			primary->storage == TYPE_STORAGE_TAGGED_UNION,
+			primary->storage == TYPE_STORAGE_TAGGED,
 			"Expected a tagged union type");
 		bool found = false;
 		for (const struct type_tagged_union *t = &primary->tagged;
@@ -687,7 +687,7 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_UNION:
 		assert(0); // Invariant
 	}
@@ -900,7 +900,7 @@ check_expr_match(struct context *ctx,
 	bool is_ptr = type->storage == TYPE_STORAGE_POINTER
 		&& type->pointer.flags & PTR_NULLABLE;
 	expect(&aexpr->match.value->loc,
-		type->storage == TYPE_STORAGE_TAGGED_UNION || is_ptr,
+		type->storage == TYPE_STORAGE_TAGGED || is_ptr,
 		"match value must be tagged union or nullable pointer type");
 
 	struct type_tagged_union result_type = {0};
@@ -930,7 +930,7 @@ check_expr_match(struct context *ctx,
 				expect(&acase->type->loc, is_ptr,
 					"Not matching on pointer type");
 				break;
-			case TYPE_STORAGE_TAGGED_UNION:
+			case TYPE_STORAGE_TAGGED:
 				expect(&acase->type->loc, !is_ptr,
 					"Not matching on tagged union type");
 				expect(&acase->type->loc,

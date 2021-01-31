@@ -95,7 +95,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 		assert(0); // Invariant
 	}
 }
@@ -196,7 +196,7 @@ emit_type(const struct type *type, FILE *out)
 		fprintf(out, "%s", ident);
 		free(ident);
 		break;
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 		fprintf(out, "(");
 		for (const struct type_tagged_union *tu = &type->tagged;
 				tu; tu = tu->next) {

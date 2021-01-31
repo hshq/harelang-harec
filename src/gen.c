@@ -920,7 +920,7 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
 	constl(&offs, expr->result->align);
 
-	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED_UNION) {
+	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
 		gen_expression(ctx, expr->cast.value, &ptr);
 		gen_copy(ctx, out, &ptr);
 		return;
@@ -949,7 +949,7 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	const struct qbe_value *out,
 	const struct type *to)
 {
-	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED_UNION) {
+	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
 		assert(0); // TODO
 	}
 
@@ -1053,10 +1053,10 @@ gen_expr_cast(struct gen_context *ctx,
 	if (to->storage == from->storage && to->size == from->size) {
 		gen_expression(ctx, expr->cast.value, out);
 		return;
-	} else if (to->storage == TYPE_STORAGE_TAGGED_UNION) {
+	} else if (to->storage == TYPE_STORAGE_TAGGED) {
 		gen_cast_to_tagged(ctx, expr, out, from);
 		return;
-	} else if (from->storage == TYPE_STORAGE_TAGGED_UNION) {
+	} else if (from->storage == TYPE_STORAGE_TAGGED) {
 		gen_cast_from_tagged(ctx, expr, out, to);
 		return;
 	}
@@ -1175,7 +1175,7 @@ gen_expr_cast(struct gen_context *ctx,
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
 	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 		assert(0); // Handled above
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_FUNCTION:
@@ -1537,7 +1537,7 @@ gen_match_tagged(struct gen_context *ctx,
 
 		const struct type_tagged_union *tu;
 		struct type_tagged_union synthetic = {0};
-		if (_case->type->storage != TYPE_STORAGE_TAGGED_UNION) {
+		if (_case->type->storage != TYPE_STORAGE_TAGGED) {
 			synthetic.type = _case->type;
 			tu = &synthetic;
 		} else {
@@ -1663,7 +1663,7 @@ gen_expr_match(struct gen_context *ctx,
 {
 	const struct type *mtype = type_dealias(expr->match.value->result);
 	switch (mtype->storage) {
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 		gen_match_tagged(ctx, expr, out);
 		break;
 	case TYPE_STORAGE_POINTER:
@@ -2313,7 +2313,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_ALIAS:

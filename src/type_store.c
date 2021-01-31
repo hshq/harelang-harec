@@ -76,7 +76,7 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_ENUM:
 		return NULL;
@@ -192,7 +192,7 @@ sum_tagged_memb(struct type_store *store,
 	size_t nmemb = 0;
 	for (; u; u = u->next) {
 		const struct type *type = u->type;
-		if (type->storage == TYPE_STORAGE_TAGGED_UNION) {
+		if (type->storage == TYPE_STORAGE_TAGGED) {
 			nmemb += sum_tagged_memb(store, &type->tagged);
 		} else {
 			++nmemb;
@@ -209,7 +209,7 @@ sum_atagged_memb(struct type_store *store,
 	for (; u; u = u->next) {
 		const struct type *type =
 			type_store_lookup_atype(store, u->type);
-		if (type->storage == TYPE_STORAGE_TAGGED_UNION) {
+		if (type->storage == TYPE_STORAGE_TAGGED) {
 			nmemb += sum_tagged_memb(store, &type->tagged);
 		} else {
 			++nmemb;
@@ -226,7 +226,7 @@ collect_tagged_memb(struct type_store *store,
 {
 	for (; src; src = src->next) {
 		const struct type *type = src->type;
-		if (type->storage == TYPE_STORAGE_TAGGED_UNION) {
+		if (type->storage == TYPE_STORAGE_TAGGED) {
 			collect_tagged_memb(store, ta, &type->tagged, i);
 			continue;
 		}
@@ -246,7 +246,7 @@ collect_atagged_memb(struct type_store *store,
 	for (; atu; atu = atu->next) {
 		const struct type *type =
 			type_store_lookup_atype(store, atu->type);
-		if (type->storage == TYPE_STORAGE_TAGGED_UNION) {
+		if (type->storage == TYPE_STORAGE_TAGGED) {
 			collect_tagged_memb(store, ta, &type->tagged, i);
 			continue;
 		}
@@ -486,7 +486,7 @@ type_init_from_atype(struct type_store *store,
 			&type->align, &type->struct_union.fields,
 			&atype->struct_union);
 		break;
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 		tagged_init_from_atype(store, type, atype);
 		break;
 	}
@@ -618,7 +618,7 @@ type_store_lookup_tagged(struct type_store *store,
 		struct type_tagged_union *tags)
 {
 	struct type type = {
-		.storage = TYPE_STORAGE_TAGGED_UNION,
+		.storage = TYPE_STORAGE_TAGGED,
 	};
 	size_t nmemb = sum_tagged_memb(store, tags);
 	struct type_tagged_union **tu =

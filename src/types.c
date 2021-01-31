@@ -91,7 +91,7 @@ type_storage_unparse(enum type_storage storage)
 		return "str";
 	case TYPE_STORAGE_STRUCT:
 		return "struct";
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 		return "tagged union";
 	case TYPE_STORAGE_U16:
 		return "u16";
@@ -124,7 +124,7 @@ type_is_integer(const struct type *type)
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_NULL:
@@ -164,7 +164,7 @@ type_is_numeric(const struct type *type)
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -212,7 +212,7 @@ storage_is_signed(enum type_storage storage)
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -320,7 +320,7 @@ type_hash(const struct type *type)
 			hash = fnv1a_u32(hash, field->offset);
 		}
 		break;
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 		// Invariant: subtypes must be sorted by ID and must not include
 		// any other tagged union types, nor any duplicates.
 		for (const struct type_tagged_union *tu = &type->tagged;
@@ -350,7 +350,7 @@ static const struct type *
 tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 {
 	tagged = type_dealias(tagged);
-	assert(tagged->storage == TYPE_STORAGE_TAGGED_UNION);
+	assert(tagged->storage == TYPE_STORAGE_TAGGED);
 
 	size_t nassign = 0;
 	const struct type *selected = NULL;
@@ -463,7 +463,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 		return from->storage == TYPE_STORAGE_ARRAY
 			&& to->array.length == SIZE_UNDEFINED
 			&& from->array.length != SIZE_UNDEFINED;
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 		// XXX: Needs work!
 		return tagged_select_subtype(to, from) != NULL || true;
 	// The following types are only assignable from themselves, and are
@@ -485,7 +485,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 static bool
 castable_to_tagged(const struct type *to, const struct type *from)
 {
-	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED_UNION) {
+	if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
 		return true;
 	}
 
@@ -507,7 +507,7 @@ castable_to_tagged(const struct type *to, const struct type *from)
 static bool
 castable_from_tagged(const struct type *to, const struct type *from)
 {
-	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED_UNION) {
+	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
 		return true;
 	}
 
@@ -529,9 +529,9 @@ castable_from_tagged(const struct type *to, const struct type *from)
 bool
 type_is_castable(const struct type *to, const struct type *from)
 {
-	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED_UNION) {
+	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
 		return castable_to_tagged(to, from);
-	} else if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED_UNION) {
+	} else if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
 		return castable_from_tagged(to, from);
 	}
 
@@ -594,7 +594,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_NULL:
 		return false;
-	case TYPE_STORAGE_TAGGED_UNION:
+	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_ALIAS:
 		assert(0); // Handled above
 	}
