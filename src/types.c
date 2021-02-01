@@ -561,7 +561,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_CHAR:
 		return from->storage == TYPE_STORAGE_U8;
 	case TYPE_STORAGE_RUNE:
-		return from->storage == TYPE_STORAGE_RUNE;
+		return from->storage == TYPE_STORAGE_U32;
 	case TYPE_STORAGE_ENUM:
 		return from->storage == TYPE_STORAGE_ENUM || type_is_integer(from);
 	case TYPE_STORAGE_F32:
