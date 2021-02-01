@@ -341,7 +341,9 @@ check_expr_binarithm(struct context *ctx,
 	case BIN_TIMES:
 	case BIN_BXOR:
 		// TODO: Promotion
-		assert(lvalue->result->storage == rvalue->result->storage);
+		expect(&aexpr->loc,
+			lvalue->result->storage == rvalue->result->storage,
+			"TODO: type promotion");
 		expr->result = lvalue->result;
 		break;
 	// Logical arithmetic
@@ -355,7 +357,9 @@ check_expr_binarithm(struct context *ctx,
 	case BIN_LXOR:
 	case BIN_NEQUAL:
 		// TODO: Promotion, comparibility rules
-		assert(lvalue->result->storage == rvalue->result->storage);
+		expect(&aexpr->loc,
+			lvalue->result->storage == rvalue->result->storage,
+			"TODO: type promotion");
 		expr->result = &builtin_type_bool;
 		break;
 	}
