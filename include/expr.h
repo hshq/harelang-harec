@@ -149,6 +149,12 @@ struct array_constant {
 	bool expand;
 };
 
+struct struct_constant {
+	const struct struct_field *field;
+	struct expression *value;
+	struct struct_constant *next;
+};
+
 union expression_constant {
 	bool bval;
 	double fval;
@@ -160,7 +166,7 @@ union expression_constant {
 		char *value;
 	} string;
 	struct array_constant *array;
-	// TODO: Struct constants
+	struct struct_constant *_struct;
 };
 
 struct expression_control {

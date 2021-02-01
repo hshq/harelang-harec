@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include "eval.h"
 #include "expr.h"
@@ -372,6 +373,56 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 	assert(0);
 }
 
+static int
+field_compar(const void *_a, const void *_b)
+{
+	const struct struct_constant **a = (const struct struct_constant **)_a;
+	const struct struct_constant **b = (const struct struct_constant **)_b;
+	return (*a)->field->offset - (*b)->field->offset;
+}
+
+enum eval_result
+eval_struct(struct context *ctx, struct expression *in, struct expression *out)
+{
+	assert(in->type == EXPR_STRUCT);
+	out->type = EXPR_CONSTANT;
+
+	size_t n = 0;
+	for (const struct expression_struct *field = &in->_struct;
+			field; field = field->next) {
+		++n;
+	}
+	assert(n > 0);
+
+	struct struct_constant **fields =
+		xcalloc(n, sizeof(struct struct_constant *));
+	n = 0;
+	for (const struct expression_struct *field = &in->_struct;
+			field; field = field->next) {
+		struct struct_constant *cfield = fields[n] =
+			xcalloc(1, sizeof(struct struct_constant));
+		cfield->field = field->field;
+		cfield->value = xcalloc(1, sizeof(struct expression));
+		enum eval_result r = eval_expr(ctx,
+			field->value, cfield->value);
+		if (r != EVAL_OK) {
+			return r;
+		}
+		++n;
+	}
+
+	qsort(fields, n, sizeof(struct struct_constant *), field_compar);
+
+	for (size_t i = 0; i < n - 1; ++i) {
+		fields[i]->next = fields[i + 1];
+	}
+
+	out->constant._struct = fields[0];
+	out->result = in->result;
+	free(fields);
+	return EVAL_OK;
+}
+
 enum eval_result
 eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 {
@@ -386,8 +437,9 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 		return eval_const(ctx, in, out);
 	case EXPR_MEASURE:
 		return eval_measurement(ctx, in, out);
-	case EXPR_SLICE:
 	case EXPR_STRUCT:
+		return eval_struct(ctx, in, out);
+	case EXPR_SLICE:
 	case EXPR_UNARITHM:
 		assert(0); // TODO
 	case EXPR_ALLOC:
