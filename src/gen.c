@@ -193,6 +193,7 @@ gen_copy(struct gen_context *ctx,
 				f; f = f->next) {
 			if (f->type->size > max) {
 				field = f;
+				max = f->type->size;
 			}
 		}
 	}
