@@ -1902,7 +1902,19 @@ load_import(struct ast_imports *import,
 		for (struct scope_object *obj = mod->objects;
 				obj; obj = obj->next) {
 			scope_insert(scope, obj->otype, &obj->ident,
-					&obj->name, obj->type, obj->value);
+				&obj->name, obj->type, obj->value);
+			if (obj->ident.ns && obj->ident.ns->ns) {
+				struct identifier ns = {
+					.name = obj->ident.ns->name,
+					.ns = NULL
+				};
+				struct identifier name = {
+					.name = obj->ident.name,
+					.ns = &ns,
+				};
+				scope_insert(scope, obj->otype, &obj->ident,
+					&name, obj->type, obj->value);
+			}
 		}
 		break;
 	case AST_IMPORT_ALIAS:
