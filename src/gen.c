@@ -895,18 +895,22 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	// TODO: check should lower this to multiple casts:
 	assert(subtype->id == from->id);
 
-	constw(&tag, subtype->id);
-	pushi(ctx->current, &ptr, Q_COPY, out, NULL);
-	pushi(ctx->current, NULL, Q_STOREW, &tag, &ptr, NULL);
+	if (out) {
+		constw(&tag, subtype->id);
+		pushi(ctx->current, &ptr, Q_COPY, out, NULL);
+		pushi(ctx->current, NULL, Q_STOREW, &tag, &ptr, NULL);
+	}
 
 	struct qbe_value *storage;
 	if (expr->cast.value->result->size == 0) {
 		storage = NULL;
-	} else {
+	} else if (out) {
 		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 		ptr.type = qtype_for_type(ctx, expr->cast.value->result, false);
 		qval_deref(&ptr);
 		storage = &ptr;
+	} else {
+		storage = NULL;
 	}
 
 	gen_expression(ctx, expr->cast.value, storage);
