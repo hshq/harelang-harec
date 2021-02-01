@@ -1192,9 +1192,10 @@ check_expr_struct(struct context *ctx,
 		expect(&aexpr->loc, obj, "Unknown type alias");
 		expect(&aexpr->loc, obj->otype == O_TYPE,
 				"Name does not refer to a type");
-		stype = type_dealias(obj->type);
-		expect(&aexpr->loc, stype->storage == TYPE_STORAGE_STRUCT,
-				"Object named is not a struct type");
+		stype = obj->type;
+		expect(&aexpr->loc,
+			type_dealias(stype)->storage == TYPE_STORAGE_STRUCT,
+			"Object named is not a struct type");
 	}
 
 	struct ast_type satype = {
@@ -1221,7 +1222,8 @@ check_expr_struct(struct context *ctx,
 			expect(&afield->field.initializer->loc, afield->field.name,
 				"Anonymous fields are not permitted for named struct type");
 			// XXX: ^ Is that correct?
-			sexpr->field = type_get_field(stype, afield->field.name);
+			sexpr->field = type_get_field(type_dealias(stype),
+					afield->field.name);
 			expect(&afield->field.initializer->loc, sexpr->field,
 				"No field by this name exists for this type");
 			ftype = sexpr->field->type;
