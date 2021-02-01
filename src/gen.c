@@ -969,6 +969,7 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	const struct type *to)
 {
 	if (type_dealias(to)->storage == TYPE_STORAGE_VOID) {
+		gen_expression(ctx, expr->cast.value, NULL);
 		return;
 	}
 
