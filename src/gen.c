@@ -408,6 +408,7 @@ address_index(struct gen_context *ctx,
 	constl(&temp, atype->array.members->size);
 	pushi(ctx->current, &index, Q_MUL, &index, &temp, NULL);
 	pushi(ctx->current, out, Q_ADD, out, &index, NULL);
+	out->type = qtype_for_type(ctx, atype->array.members, false);
 	if (!type_is_aggregate(atype->array.members)) {
 		qval_deref(out);
 	}
@@ -954,7 +955,7 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	} else {
 		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 		ptr.type = qtype_for_type(ctx, expr->cast.value->result, false);
-		ptr.indirect = !type_is_aggregate(expr->cast.value->result);
+		qval_deref(&ptr);
 		storage = &ptr;
 	}
 
