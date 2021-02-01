@@ -228,7 +228,7 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 		storage = type_dealias(out->result)->_enum.storage;
 	}
 	struct array_constant **next;
-	switch (type_dealias(out->result)->storage) {
+	switch (storage) {
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ENUM:
 		assert(0); // Handled above
@@ -324,7 +324,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_SIZE:
-		out->constant.uval = itrunc(to, in->constant.uval);
+		out->constant.uval = itrunc(to, val.constant.uval);
 		return EVAL_OK;
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_SLICE:
