@@ -149,6 +149,7 @@ struct array_constant {
 	bool expand;
 };
 
+// Invariant: these are sorted by field offset
 struct struct_constant {
 	const struct struct_field *field;
 	struct expression *value;

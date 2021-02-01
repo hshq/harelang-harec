@@ -2260,8 +2260,8 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		def->name = gen_name(ctx, "sldata.%d");
 		def->kind = Q_DATA;
 
-		struct qbe_data_item *subitem = &def->data.items;
 		size_t len = 0;
+		struct qbe_data_item *subitem = &def->data.items;
 		for (struct array_constant *c = constant->array;
 				c; c = c->next) {
 			gen_data_item(ctx, c->value, subitem);
@@ -2293,8 +2293,18 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		item->type = QD_VALUE;
 		constl(&item->value, len);
 		break;
-	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_STRUCT:
+		for (struct struct_constant *f = constant->_struct;
+				f; f = f->next) {
+			gen_data_item(ctx, f->value, item);
+			if (f->next) {
+				item->next = xcalloc(1,
+					sizeof(struct qbe_data_item));
+				item = item->next;
+			}
+		}
+		break;
+	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_UNION:
 		assert(0); // TODO

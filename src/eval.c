@@ -385,6 +385,7 @@ enum eval_result
 eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_STRUCT);
+	assert(type_dealias(in->result)->storage != TYPE_STORAGE_UNION); // TODO
 	out->type = EXPR_CONSTANT;
 
 	size_t n = 0;
