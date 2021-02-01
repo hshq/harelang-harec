@@ -29,6 +29,14 @@ fn storage() void = {
 	};
 };
 
+fn casting() void = {
+	let x: []int = [1, 2, 3, 4, 5];
+	let y = x: *[5]int;
+	for (let i = 0z; i < len(x); i += 1z) {
+		assert(x[i] == y[i]);
+	};
+};
+
 fn measurements() void = {
 	let x: []int = [1, 2, 3, 4, 5];
 	assert(size([]int) == size(*[*]int) + size(size) * 2z);

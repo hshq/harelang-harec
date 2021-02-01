@@ -1042,10 +1042,12 @@ gen_expr_cast(struct gen_context *ctx,
 	struct qbe_value in = {0}, result = {0};
 	gen_temp(ctx, &result, qtype_for_type(ctx, to, false), "cast.out.%d");
 
-	// Special case: str -> *const char
-	if (to->storage == TYPE_STORAGE_POINTER
+	// Special case: str -> *const char; slice -> ptr
+	if ((to->storage == TYPE_STORAGE_POINTER
 			&& to->pointer.referent->storage == TYPE_STORAGE_CHAR
-			&& from->storage == TYPE_STORAGE_STRING) {
+			&& from->storage == TYPE_STORAGE_STRING)
+		|| (to->storage == TYPE_STORAGE_POINTER
+			&& from->storage == TYPE_STORAGE_SLICE)) {
 		alloc_temp(ctx, &in, from, "cast.in.%d");
 		in.indirect = false;
 		gen_expression(ctx, expr->cast.value, &in);
@@ -1123,11 +1125,8 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_F64:
 		assert(0); // TODO
 	case TYPE_STORAGE_ARRAY:
-		if (from->storage == TYPE_STORAGE_ARRAY) {
-			pushi(ctx->current, &result, Q_COPY, &in, NULL);
-			break;
-		}
-		assert(0); // TODO: Convert slice to array
+		assert(from->storage == TYPE_STORAGE_ARRAY);
+		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
 	case TYPE_STORAGE_SLICE:
 		if (from->storage == TYPE_STORAGE_SLICE) {

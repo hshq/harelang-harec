@@ -579,7 +579,9 @@ type_is_castable(const struct type *to, const struct type *from)
 		}
 		return from->storage == TYPE_STORAGE_POINTER
 			|| from->storage == TYPE_STORAGE_NULL
-			|| from->storage == TYPE_STORAGE_UINTPTR;
+			|| from->storage == TYPE_STORAGE_UINTPTR
+			|| (to->pointer.referent->storage == TYPE_STORAGE_ARRAY
+					&& from->storage == TYPE_STORAGE_SLICE);
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_ARRAY:
 		return from->storage == TYPE_STORAGE_SLICE
