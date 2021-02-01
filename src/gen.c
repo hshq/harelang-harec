@@ -186,75 +186,24 @@ gen_copy(struct gen_context *ctx,
 	pushi(ctx->current, &destp, Q_COPY, dest, NULL);
 	pushi(ctx->current, &srcp, Q_COPY, src, NULL);
 
-	const struct qbe_field *field = &dest->type->fields;
-	if (dest->type->is_union) {
-		size_t max = 0;
-		for (const struct qbe_field *f = &dest->type->fields;
-				f; f = f->next) {
-			if (f->type->size > max) {
-				field = f;
-				max = f->type->size;
-			}
-		}
-	}
-
-	size_t offset = 0;
-	while (field) {
-		temp.type = field->type;
-		if (temp.type->stype == Q_HALF || temp.type->stype == Q_BYTE) {
-			temp.type = &qbe_word;
-		}
-
-		for (size_t i = field->count; i > 0; --i) {
-			struct qbe_value a, b;
-			switch (field->type->stype) {
-			case Q_BYTE:
-			case Q_HALF:
-			case Q_WORD:
-			case Q_LONG:
-			case Q_SINGLE:
-			case Q_DOUBLE:
-				pushi(ctx->current, &temp,
-					load_for_type(field->type->stype,
-						field->type->is_signed),
-					&srcp, NULL);
-				pushi(ctx->current, NULL,
-					store_for_type(field->type->stype),
-					&temp, &destp, NULL);
-				break;
-			case Q__AGGREGATE:
-				a = destp, b = srcp;
-				a.type = field->type;
-				b.type = field->type;
-				gen_copy(ctx, &a, &b);
-				break;
-			case Q__VOID:
-				assert(0); // Invariant
-			}
-
-			if (!dest->type->is_union) {
-				assert(field->type->size != 0);
-				size_t add = field->type->size;
-				offset += add;
-				if (field->next && offset % field->next->type->size != 0) {
-					add += offset % field->next->type->size;
-					offset += offset % field->next->type->size;
-				}
-				constl(&size, add);
-				pushi(ctx->current, &destp, Q_ADD, &destp, &size, NULL);
-				pushi(ctx->current, &srcp, Q_ADD, &srcp, &size, NULL);
-			}
-		}
-
-		field = field->next;
-
-		if (dest->type->is_union) {
-			// We only copy the largest field in this case
-			break;
-		}
-	}
-
-	pushc(ctx->current, "end gen_copy for type %s", dest->type->name);
+	// TODO: It would be nice to have a more efficient builtin for
+	// this, especially given that copying around unions is an
+	// important feature of Hare
+	//
+	// NOTE: I suspect that this code may be subtly wrong for some reason
+	// when handling union types. If you have written the full set of test
+	// cases for struct and union types, and ended up here: when you figure
+	// it out, please examine the version of this function from
+	// 1d12f4143e87548b8f876f7ecd336c8eb0255679 and see if you can backport
+	// it with your fix applied. That version was much more efficient than
+	// this is.
+	struct qbe_value rtfunc = {0};
+	rtfunc.kind = QV_GLOBAL;
+	rtfunc.name = strdup("rt.memcpy");
+	rtfunc.type = &qbe_long;
+	constl(&size, dest->type->size);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc,
+			&destp, &srcp, &size, NULL);
 }
 
 static void

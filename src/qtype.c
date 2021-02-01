@@ -111,7 +111,7 @@ tagged_qtype(struct gen_context *ctx, const struct type *type)
 	def->type.name = name;
 	def->type.align = SIZE_UNDEFINED;
 	def->type.is_union = true;
-	def->type.size = type->size - builtin_type_uint.size;
+	def->type.size = type->size - type->align;
 
 	struct qbe_field *field = &def->type.fields;
 	for (const struct type_tagged_union *tu = &type->tagged;
