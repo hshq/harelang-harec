@@ -481,10 +481,13 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_VOID:
 		return true;
 	case TYPE_STORAGE_SLICE:
+		if (from->storage != TYPE_STORAGE_ARRAY
+				&& from->storage != TYPE_STORAGE_SLICE) {
+			return false;
+		}
 		to_secondary = strip_flags(to->array.members, &_to_secondary);
 		from_secondary = strip_flags(from->array.members, &_from_secondary);
-		return (from->storage == TYPE_STORAGE_ARRAY || from->storage == TYPE_STORAGE_SLICE)
-			&& to_secondary->id == from_secondary->id;
+		return to_secondary->id == from_secondary->id;
 	case TYPE_STORAGE_ARRAY:
 		return from->storage == TYPE_STORAGE_ARRAY
 			&& to->array.length == SIZE_UNDEFINED
