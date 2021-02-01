@@ -2199,7 +2199,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_SIZE:
 		item->type = QD_VALUE;
-		constw(&item->value, (uint32_t)constant->uval);
+		constl(&item->value, (uint32_t)constant->uval);
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
