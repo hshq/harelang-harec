@@ -869,6 +869,7 @@ check_expr_if(struct context *ctx,
 				false_branch, NULL);
 
 		if (true_branch->terminates && false_branch->terminates) {
+			expr->terminates = true;
 			expr->result = &builtin_type_void;
 		} else if (true_branch->terminates) {
 			expr->result = false_branch->result;
