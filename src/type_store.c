@@ -293,6 +293,7 @@ tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 
 	struct type_tagged_union **next = &type->tagged.next;
 	for (size_t i = 1; i < nmemb; ++i) {
+		assert(tu[i]->type->size != SIZE_UNDEFINED); // TODO
 		if (tu[i]->type->size > type->size) {
 			type->size = tu[i]->type->size;
 		}
