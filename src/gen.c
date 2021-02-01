@@ -2298,6 +2298,17 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 				f; f = f->next) {
 			gen_data_item(ctx, f->value, item);
 			if (f->next) {
+				const struct struct_field *f1 = f->field;
+				const struct struct_field *f2 = f->next->field;
+				if (f2->offset != f1->offset + f2->type->size) {
+					item->next = xcalloc(1,
+						sizeof(struct qbe_data_item));
+					item = item->next;
+					item->type = QD_ZEROED;
+					item->zeroed = f2->offset -
+						(f1->offset + f1->type->size);
+				}
+
 				item->next = xcalloc(1,
 					sizeof(struct qbe_data_item));
 				item = item->next;
