@@ -1515,17 +1515,37 @@ gen_match_tagged(struct gen_context *ctx,
 		fbranch.kind = QV_LABEL;
 		fbranch.name = strdup(genl(&flabel, &ctx->id, "next.case.%d"));
 
-		const struct type *intermediate =
-			tagged_select_subtype(mtype, _case->type);
-		if (intermediate->id != _case->type->id) {
-			assert(0); // TODO
-		}
+		struct qbe_value temp_tag = {0}, subval = {0}, offs = {0};
+		gen_temp(ctx, &subval, &qbe_long, "subtag.ptr.%d");
+		gen_temp(ctx, &temp_tag, &qbe_word, "subtag.tag.%d");
+		pushi(ctx->current, &subval, Q_COPY, &mval, NULL);
+		struct qbe_value *curtag = &tag;
+		const struct type *subtype = mtype;
+		const struct type *test = _case->type;
+		do {
+			struct qbe_statement slabel = {0};
+			struct qbe_value sbranch = {0};
+			sbranch.kind = QV_LABEL;
+			sbranch.name = strdup(genl(&slabel, &ctx->id, "match.subtype.%d"));
 
-		constw(&match, _case->type->id);
-		pushi(ctx->current, &temp, Q_CEQW, &match, &tag, NULL);
-		pushi(ctx->current, NULL, Q_JNZ, &temp, &tbranch, &fbranch, NULL);
+			test = tagged_select_subtype(subtype, _case->type);
+			constw(&match, test->id);
+			pushi(ctx->current, &temp, Q_CEQW, &match, curtag, NULL);
+			pushi(ctx->current, NULL, Q_JNZ, &temp, &sbranch, &fbranch, NULL);
+			push(&ctx->current->body, &slabel);
+
+			if (test->id != _case->type->id) {
+				constl(&offs, subtype->align);
+				pushi(ctx->current, &subval, Q_ADD, &subval, &offs, NULL);
+				pushi(ctx->current, &temp_tag, Q_LOADUW, &subval, NULL);
+				curtag = &temp_tag;
+			}
+
+			subtype = test;
+		} while (test->id != _case->type->id);
+		pushi(ctx->current, NULL, Q_JMP, &tbranch, NULL);
+
 		push(&ctx->current->body, &tlabel);
-
 		if (_case->object) {
 			struct qbe_value val = {0}, temp = {0};
 			gen_temp(ctx, &val,

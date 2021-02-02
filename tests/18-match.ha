@@ -92,6 +92,65 @@ fn implicit_cast() void = {
 	assert(a is foobar);
 };
 
+type foo = void;
+type bar = void;
+type foobar = (foo | bar);
+type baz = int;
+type foobarbaz = (foobar | baz);
+
+fn transitivity() void = {
+	let x: (foobar | int) = 10;
+	match (x) {
+		i: int => assert(i == 10),
+		foo => abort(),
+		bar => abort(),
+	};
+
+	x = foo;
+	let visit = false;
+	match (x) {
+		int => abort(),
+		foo => {
+			visit = true;
+		},
+		bar => abort(),
+	};
+	assert(visit);
+
+	x = bar;
+	visit = false;
+	match (x) {
+		int    => abort(),
+		foo    => abort(),
+		foobar => {
+			visit = true;
+		},
+	};
+	assert(visit);
+
+	let y: foobarbaz = 10;
+	visit = false;
+	match (y) {
+		baz => {
+			visit = true;
+		},
+		foo => abort(),
+		bar => abort(),
+	};
+	assert(visit);
+
+	y = foo;
+	visit = false;
+	match (y) {
+		baz => abort(),
+		foo => {
+			visit = true;
+		},
+		bar => abort(),
+	};
+	assert(visit);
+};
+
 export fn main() void = {
 	tagged();
 	termination();
@@ -100,5 +159,6 @@ export fn main() void = {
 	alias();
 	tagged_result();
 	implicit_cast();
+	transitivity();
 	// TODO: Test exhaustiveness and dupe detection
 };
