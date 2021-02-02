@@ -1519,20 +1519,22 @@ gen_match_tagged(struct gen_context *ctx,
 		gen_temp(ctx, &subval, &qbe_long, "subtag.ptr.%d");
 		gen_temp(ctx, &temp_tag, &qbe_word, "subtag.tag.%d");
 		pushi(ctx->current, &subval, Q_COPY, &mval, NULL);
+
 		struct qbe_value *curtag = &tag;
 		const struct type *subtype = mtype;
 		const struct type *test = _case->type;
 		do {
 			struct qbe_statement slabel = {0};
 			struct qbe_value sbranch = {0};
-			sbranch.kind = QV_LABEL;
-			sbranch.name = strdup(genl(&slabel, &ctx->id, "match.subtype.%d"));
-
 			test = tagged_select_subtype(subtype, _case->type);
-			if (!test && type_dealias(subtype)->id == _case->type->id) {
-				break;
+			if (!test) {
+				assert(type_dealias(_case->type)->storage == TYPE_STORAGE_TAGGED);
+				assert(tagged_subset_compat(subtype, _case->type));
+				assert(0); // TODO
 			}
 
+			sbranch.kind = QV_LABEL;
+			sbranch.name = strdup(genl(&slabel, &ctx->id, "match.subtype.%d"));
 			constw(&match, test->id);
 			pushi(ctx->current, &temp, Q_CEQW, &match, curtag, NULL);
 			pushi(ctx->current, NULL, Q_JNZ, &temp, &sbranch, &fbranch, NULL);
