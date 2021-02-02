@@ -86,7 +86,8 @@ scope_lookup(struct scope *scope, const struct identifier *ident)
 {
 	struct scope_object *o = scope->objects;
 	while (o) {
-		if (identifier_eq(&o->name, ident)) {
+		if (identifier_eq(&o->ident, ident)
+				|| identifier_eq(&o->name, ident)) {
 			return o;
 		}
 		o = o->next;
