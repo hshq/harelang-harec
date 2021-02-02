@@ -1071,10 +1071,15 @@ check_expr_match(struct context *ctx,
 		}
 
 		struct match_case *_case = expr->match.cases;
+		struct ast_match_case *acase = aexpr->match.cases;
 		while (_case) {
+			expect(&acase->value->loc,
+				type_is_assignable(expr->result, _case->value->result),
+				"Match case is not assignable to result type");
 			_case->value = lower_implicit_cast(
 				expr->result, _case->value);
 			_case = _case->next;
+			acase = acase->next;
 		}
 
 		struct type_tagged_union *tu = result_type.next;
