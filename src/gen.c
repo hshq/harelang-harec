@@ -1628,8 +1628,12 @@ gen_match_nullable(struct gen_context *ctx,
 			gen_store(ctx, &val, &mval);
 		}
 
-		gen_expression(ctx, _case->value, out);
-		pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		if (_case->value->terminates) {
+			gen_expression(ctx, _case->value, NULL);
+		} else {
+			gen_expression(ctx, _case->value, out);
+			pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		}
 		push(&ctx->current->body, &flabel);
 	}
 
