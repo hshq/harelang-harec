@@ -1529,6 +1529,10 @@ gen_match_tagged(struct gen_context *ctx,
 			sbranch.name = strdup(genl(&slabel, &ctx->id, "match.subtype.%d"));
 
 			test = tagged_select_subtype(subtype, _case->type);
+			if (!test && type_dealias(subtype)->id == _case->type->id) {
+				break;
+			}
+
 			constw(&match, test->id);
 			pushi(ctx->current, &temp, Q_CEQW, &match, curtag, NULL);
 			pushi(ctx->current, NULL, Q_JNZ, &temp, &sbranch, &fbranch, NULL);
