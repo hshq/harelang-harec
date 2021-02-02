@@ -1002,24 +1002,14 @@ check_expr_match(struct context *ctx,
 					break;
 				}
 			} else {
-				bool valid = false;
-				switch (ctype->storage) {
-				case TYPE_STORAGE_TAGGED:
-					expect(&acase->type->loc, type_is_assignable(type, ctype),
-						"Invalid type for match case (match is not assignable to this type)");
-					break;
-				default:
-					for (const struct type_tagged_union *tu = &type->tagged;
-							tu; tu = tu->next) {
-						if (tu->type == ctype) {
-							valid = true;
-							break;
-						}
-					}
-					expect(&acase->type->loc, valid,
-						"Invalid type for match case (not a member of the tagged union)");
-					break;
-				}
+				// TODO: Assign a score to tagged compatibility
+				// and choose the branch with the highest score.
+				const struct type *intermediate;
+				expect(&acase->type->loc, type_is_assignable(type, ctype),
+					"Invalid type for match case (match is not assignable to this type)");
+				intermediate = tagged_select_subtype(type, ctype);
+				expect(&acase->type->loc, intermediate->id == ctype->id,
+					"TODO: Compare with transitive tagged type");
 			}
 		}
 
