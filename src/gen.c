@@ -1515,29 +1515,15 @@ gen_match_tagged(struct gen_context *ctx,
 		fbranch.kind = QV_LABEL;
 		fbranch.name = strdup(genl(&flabel, &ctx->id, "next.case.%d"));
 
-		const struct type_tagged_union *tu;
-		struct type_tagged_union synthetic = {0};
-		if (_case->type->storage != TYPE_STORAGE_TAGGED) {
-			synthetic.type = _case->type;
-			tu = &synthetic;
-		} else {
-			tu = &_case->type->tagged;
+		const struct type *intermediate =
+			tagged_select_subtype(mtype, _case->type);
+		if (intermediate->id != _case->type->id) {
+			assert(0); // TODO
 		}
 
-		for (; tu; tu = tu->next) {
-			struct qbe_statement nlabel = {0};
-			struct qbe_value nbranch = {0};
-			nbranch.kind = QV_LABEL;
-			nbranch.name = strdup(genl(&nlabel, &ctx->id, "next.opt.%d"));
-
-			constw(&match, tu->type->id);
-			pushi(ctx->current, &temp, Q_CEQW, &match, &tag, NULL);
-			pushi(ctx->current, NULL, Q_JNZ,
-				&temp, &tbranch, &nbranch, NULL);
-			push(&ctx->current->body, &nlabel);
-		}
-
-		pushi(ctx->current, NULL, Q_JMP, &fbranch, NULL);
+		constw(&match, _case->type->id);
+		pushi(ctx->current, &temp, Q_CEQW, &match, &tag, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &temp, &tbranch, &fbranch, NULL);
 		push(&ctx->current->body, &tlabel);
 
 		if (_case->object) {

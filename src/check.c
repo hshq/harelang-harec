@@ -1004,12 +1004,8 @@ check_expr_match(struct context *ctx,
 			} else {
 				// TODO: Assign a score to tagged compatibility
 				// and choose the branch with the highest score.
-				const struct type *intermediate;
 				expect(&acase->type->loc, type_is_assignable(type, ctype),
 					"Invalid type for match case (match is not assignable to this type)");
-				intermediate = tagged_select_subtype(type, ctype);
-				expect(&acase->type->loc, intermediate->id == ctype->id,
-					"TODO: Compare with transitive tagged type");
 			}
 		}
 
