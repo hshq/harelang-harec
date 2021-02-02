@@ -881,19 +881,20 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	const struct type *subtype = tagged_select_subtype(tagged, from);
 
 	struct qbe_value tag = {0}, ptr = {0}, offs = {0};
-	gen_temp(ctx, &ptr, &qbe_long, "to_tagged.from.%d");
 	constl(&offs, expr->result->align);
 
 	if (!subtype) {
 		pushc(ctx->current, "to_tagged; no subtype");
+		alloc_temp(ctx, &ptr, tagged, "to_tagged.from.%d");
+		qval_deref(&ptr);
 		gen_expression(ctx, expr->cast.value, &ptr);
 		gen_copy(ctx, out, &ptr);
 		return;
 	}
 
+	gen_temp(ctx, &ptr, &qbe_long, "to_tagged.from.%d");
 	pushc(ctx->current, "to_tagged; valid subtype");
-	// TODO: check should lower this to multiple casts:
-	assert(subtype->id == from->id);
+	assert(subtype->id == from->id); // Lowered by check
 
 	if (out) {
 		constw(&tag, subtype->id);

@@ -45,6 +45,15 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 	if (to == expr->result) {
 		return expr;
 	}
+
+	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
+		const struct type *interim =
+			tagged_select_subtype(to, expr->result);
+		if (interim) {
+			expr = lower_implicit_cast(interim, expr);
+		}
+	}
+
 	struct expression *cast = xcalloc(1, sizeof(struct expression));
 	cast->type = EXPR_CAST;
 	cast->result = to;
