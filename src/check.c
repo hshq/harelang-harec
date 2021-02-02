@@ -483,11 +483,14 @@ lower_vaargs(struct context *ctx,
 {
 	struct ast_expression val = {
 		.type = EXPR_CONSTANT,
-		.loc = aarg->value->loc,
 		.constant = {
 			.storage = TYPE_STORAGE_ARRAY,
 		},
 	};
+	// TODO: Provide location some other way
+	if (aarg) {
+		val.loc = aarg->value->loc;
+	}
 	struct ast_array_constant **next = &val.constant.array;
 	while (aarg) {
 		struct ast_array_constant *item = *next =
@@ -567,6 +570,15 @@ check_expr_call(struct context *ctx,
 		param = param->next;
 		next = &arg->next;
 		trleave(TR_CHECK, NULL);
+	}
+
+	if (param && fntype->func.variadism == VARIADISM_HARE) {
+		// No variadic arguments, lower to empty slice
+		arg = *next = xcalloc(1, sizeof(struct call_argument));
+		arg->value = xcalloc(1, sizeof(struct expression));
+		lower_vaargs(ctx, NULL, arg->value, param->type->array.members);
+		arg->value = lower_implicit_cast(param->type, arg->value);
+		param = param->next;
 	}
 
 	expect(&aexpr->loc, !aarg, "Too many parameters for function call");

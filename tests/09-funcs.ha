@@ -29,6 +29,7 @@ fn vaargs() void = {
 	vafn([1, 2, 3], 1, 2, 3);
 	let data = [1, 2, 3];
 	vafn(data, data...);
+	vafn([]);
 };
 
 let x: int = 42;
