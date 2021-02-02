@@ -978,42 +978,39 @@ check_expr_match(struct context *ctx,
 		const struct type *ctype = NULL;
 		if (acase->type) {
 			ctype = type_store_lookup_atype(ctx->store, acase->type);
-
-			// TODO: Figure out alias semantics properly
-			switch (ctype->storage) {
-			case TYPE_STORAGE_NULL:
-				expect(&acase->type->loc, is_ptr,
-					"Not matching on pointer type");
-				break;
-			case TYPE_STORAGE_TAGGED:
-				expect(&acase->type->loc, !is_ptr,
-					"Not matching on tagged union type");
-				expect(&acase->type->loc,
-						type_is_assignable(type, ctype),
-					"Invalid type for match case");
-				break;
-			case TYPE_STORAGE_POINTER:
-				if (is_ptr) {
+			if (is_ptr) {
+				switch (ctype->storage) {
+				case TYPE_STORAGE_NULL:
+					break;
+				case TYPE_STORAGE_POINTER:
 					expect(&acase->type->loc,
 						type->pointer.referent == ctype->pointer.referent,
-						"Match case of incompatible pointer type");
+						"Match case on incompatible pointer type");
+					break;
+				default:
+					expect(&acase->type->loc, false,
+						"Invalid type for match case (expected null or pointer type)");
 					break;
 				}
-				// Fallthrough
-			default:
-				expect(&acase->type->loc, !is_ptr,
-					"Not matching on tagged union type");
+			} else {
 				bool valid = false;
-				for (const struct type_tagged_union *tu = &type->tagged;
-						tu; tu = tu->next) {
-					if (tu->type == ctype) {
-						valid = true;
-						break;
+				switch (ctype->storage) {
+				case TYPE_STORAGE_TAGGED:
+					expect(&acase->type->loc, type_is_assignable(type, ctype),
+						"Invalid type for match case (match is not assignable to this type)");
+					break;
+				default:
+					for (const struct type_tagged_union *tu = &type->tagged;
+							tu; tu = tu->next) {
+						if (tu->type == ctype) {
+							valid = true;
+							break;
+						}
 					}
+					expect(&acase->type->loc, valid,
+						"Invalid type for match case (not a member of the tagged union)");
+					break;
 				}
-				expect(&acase->type->loc, valid,
-					"Invalid type for match case");
-				break;
 			}
 		}
 
