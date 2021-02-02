@@ -1891,8 +1891,12 @@ gen_expr_switch(struct gen_context *ctx,
 
 		pushi(ctx->current, NULL, Q_JMP, &fbranch, NULL);
 		push(&ctx->current->body, &tlabel);
-		gen_expression(ctx, _case->value, out);
-		pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		if (_case->value->terminates) {
+			gen_expression(ctx, _case->value, NULL);
+		} else {
+			gen_expression(ctx, _case->value, out);
+			pushi(ctx->current, NULL, Q_JMP, &obranch, NULL);
+		}
 		push(&ctx->current->body, &flabel);
 	}
 
