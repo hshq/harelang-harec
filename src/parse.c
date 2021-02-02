@@ -1865,7 +1865,7 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 			binding->initializer = parse_complex_expression(lexer);
 			break;
 		case T_EQUAL:
-			binding->initializer = parse_simple_expression(lexer);
+			binding->initializer = parse_complex_expression(lexer);
 			break;
 		default:
 			synassert(false, &tok, T_COLON, T_COMMA, T_EOF);
