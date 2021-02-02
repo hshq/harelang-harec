@@ -281,9 +281,17 @@ emit_decl_func(struct declaration *decl, FILE *out)
 
 	for (struct type_func_param *param = fntype->func.params;
 			param; param = param->next) {
-		emit_type(param->type, out);
 		if (param->next) {
+			emit_type(param->type, out);
 			fprintf(out, ", ");
+		} else if (fntype->func.variadism == VARIADISM_HARE) {
+			emit_type(param->type->array.members, out);
+			fprintf(out, "...");
+		} else if (fntype->func.variadism == VARIADISM_C) {
+			emit_type(param->type, out);
+			fprintf(out, ", ...");
+		} else {
+			emit_type(param->type, out);
 		}
 	}
 
