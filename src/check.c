@@ -1331,7 +1331,7 @@ check_expr_switch(struct context *ctx,
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
-	const struct type *type = value->result;
+	const struct type *type = type_dealias(value->result);
 	expr->_switch.value = value;
 
 	struct type_tagged_union result_type = {0};
@@ -1357,7 +1357,7 @@ check_expr_switch(struct context *ctx,
 			check_expression(ctx, aopt->value, value, type);
 			// XXX: Should this be assignable instead?
 			expect(&aopt->value->loc,
-				type == value->result,
+				type == type_dealias(value->result),
 				"Invalid type for switch case");
 
 			enum eval_result r = eval_expr(ctx, value, evaled);
@@ -1392,14 +1392,23 @@ check_expr_switch(struct context *ctx,
 	}
 
 	if (result_type.next) {
-		expr->result = type_store_lookup_tagged(
-			ctx->store, &result_type);
+		if (hint) {
+			expr->result = hint;
+		} else {
+			expr->result = type_store_lookup_tagged(
+				ctx->store, &result_type);
+		}
 
 		struct switch_case *_case = expr->_switch.cases;
+		struct ast_switch_case *acase = aexpr->_switch.cases;
 		while (_case) {
+			expect(&acase->value->loc,
+				type_is_assignable(expr->result, _case->value->result),
+				"Switch case is not assignable to result type");
 			_case->value = lower_implicit_cast(
 				expr->result, _case->value);
 			_case = _case->next;
+			acase = acase->next;
 		}
 
 		struct type_tagged_union *tu = result_type.next;

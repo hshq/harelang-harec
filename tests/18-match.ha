@@ -86,7 +86,7 @@ fn implicit_cast() void = {
 	let x: foobar = foo;
 	let y: nullable *int = null;
 	let a: (int | foobar) = match (y) {
-		null => foo: foobar,
+		null => foo,
 		z: *int => *z,
 	};
 	assert(a is foobar);
