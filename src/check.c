@@ -1063,8 +1063,12 @@ check_expr_match(struct context *ctx,
 	}
 
 	if (result_type.next) {
-		expr->result = type_store_lookup_tagged(
-			ctx->store, &result_type);
+		if (hint) {
+			expr->result = hint;
+		} else {
+			expr->result = type_store_lookup_tagged(
+				ctx->store, &result_type);
+		}
 
 		struct match_case *_case = expr->match.cases;
 		while (_case) {
