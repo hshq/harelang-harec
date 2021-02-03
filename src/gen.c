@@ -1902,6 +1902,12 @@ gen_expr_struct(struct gen_context *ctx,
 
 	const struct expr_struct_field *field = &expr->_struct.fields;
 	while (field) {
+		if (!field->value) {
+			assert(expr->_struct.autofill);
+			field = field->next;
+			continue;
+		}
+
 		constl(&offset, field->field->offset);
 		ptr.type = &qbe_long;
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
