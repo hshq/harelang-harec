@@ -60,6 +60,17 @@ fn slice() void = {
 	free(x);
 };
 
+fn string() void = {
+	let x = struct {
+		data: *[3]int = alloc(*[3]int, [1, 2, 3]),
+		length: size = 3z,
+		capacity: size = 3z,
+	};
+	let y = *(&x: *str);
+	assert(len(y) == 3z);
+	free(y);
+};
+
 export fn main() void = {
 	assignment();
 	allocation();

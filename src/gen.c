@@ -563,6 +563,7 @@ gen_expr_alloc(struct gen_context *ctx,
 {
 	assert(expr->type == EXPR_ALLOC);
 	struct qbe_value val = {0}, rtfunc = {0};
+	const struct type *type = type_dealias(expr->alloc.expr->result);
 	switch (expr->alloc.kind) {
 	case AKIND_ALLOC:
 		gen_alloc(ctx, expr, out);
@@ -570,15 +571,17 @@ gen_expr_alloc(struct gen_context *ctx,
 	case AKIND_APPEND:
 		assert(0); // TODO
 	case AKIND_FREE:
-		gen_temp(ctx, &val,
-			qtype_for_type(ctx, expr->alloc.expr->result, true),
-			"free.%d");
-		if (type_dealias(expr->alloc.expr->result)->storage == TYPE_STORAGE_SLICE) {
-			qval_address(&val);
+		if (type->storage == TYPE_STORAGE_SLICE
+				|| type->storage == TYPE_STORAGE_STRING) {
+			alloc_temp(ctx, &val, type, "free.%d");
+			val.type = &qbe_long;
 			gen_expression(ctx, expr->alloc.expr, &val);
 			val.type = &qbe_long;
 			pushi(ctx->current, &val, Q_LOADL, &val, NULL);
 		} else {
+			gen_temp(ctx, &val,
+				qtype_for_type(ctx, expr->alloc.expr->result, false),
+				"free.%d");
 			gen_expression(ctx, expr->alloc.expr, &val);
 		}
 		rtfunc.kind = QV_GLOBAL;
@@ -2383,6 +2386,9 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		for (struct struct_constant *f = constant->_struct;
 				f; f = f->next) {
 			gen_data_item(ctx, f->value, item);
+			while (item->next) {
+				item = item->next;
+			}
 			if (f->next) {
 				const struct struct_field *f1 = f->field;
 				const struct struct_field *f2 = f->next->field;
