@@ -160,6 +160,27 @@ fn transitivity() void = {
 	assert(visit);
 };
 
+type signed = (i8 | i16 | i32 | i64 | int);
+type unsigned = (u8 | u16 | u32 | u64 | uint | size);
+type integer = (...signed | ...unsigned);
+
+export fn numeric() void = {
+	// Real-world test
+	let visit = true;
+	let x: integer = 1337;
+	match (x) {
+		s: signed => match (s) {
+			i: int => {
+				visit = true;
+				assert(i == 1337);
+			},
+			* => abort(),
+		},
+		u: unsigned => abort(),
+	};
+	assert(visit);
+};
+
 export fn main() void = {
 	tagged();
 	termination();
@@ -169,5 +190,6 @@ export fn main() void = {
 	tagged_result();
 	implicit_cast();
 	transitivity();
+	numeric();
 	// TODO: Test exhaustiveness and dupe detection
 };

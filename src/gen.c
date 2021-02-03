@@ -1521,6 +1521,27 @@ gen_recursive_match_tests(struct gen_context *ctx, const struct type *mtype,
 }
 
 static void
+gen_match_tagged_subset(struct gen_context *ctx,
+	struct qbe_value *tbranch, struct qbe_value *fbranch,
+	struct qbe_value *tag, struct match_case *_case)
+{
+	struct qbe_value temp = {0}, match = {0};
+	gen_temp(ctx, &temp, &qbe_word, "temp.%d");
+	const struct type_tagged_union *tu = &type_dealias(_case->type)->tagged;
+	while (tu) {
+		struct qbe_statement nlabel = {0};
+		struct qbe_value nbranch = {0};
+		nbranch.kind = QV_LABEL;
+		nbranch.name = strdup(genl(&nlabel, &ctx->id, "match.subtype.%d"));
+		constw(&match, tu->type->id);
+		pushi(ctx->current, &temp, Q_CEQW, &match, tag, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &temp, tbranch, &nbranch, NULL);
+		push(&ctx->current->body, &nlabel);
+		tu = tu->next;
+	}
+}
+
+static void
 gen_match_tagged(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -1566,7 +1587,8 @@ gen_match_tagged(struct gen_context *ctx,
 			// tag, rather than advancing it to the value area,
 			// before initializing a binding for it.
 			reinterpret = true;
-			assert(0); // TODO
+			gen_match_tagged_subset(ctx, &tbranch,
+				&fbranch, &tag, _case);
 		} else {
 			gen_recursive_match_tests(ctx, mtype,
 				&fbranch, &tag, &mval, _case);
