@@ -82,6 +82,11 @@ fn named() void = {
 	assert(x.x == 20 && x.y == 10);
 };
 
+fn autofill() void = {
+	let x = coords { x = 10, ... };
+	assert(x.x == 10 && x.y == 0);
+};
+
 fn invariants() void = {
 	const failures = [
 	// Assign field from non-assignable type:
@@ -115,11 +120,11 @@ export fn main() void = {
 	assignment();
 	deref();
 	nested();
-	invariants();
 	named();
+	autofill();
+	invariants();
 	// TODO:
 	// - Union tests
 	// - Embedded structs
 	// - offset()
-	// - Autofilling (...) and its invariants
 };

@@ -1201,8 +1201,6 @@ check_expr_struct(struct context *ctx,
 	trenter(TR_CHECK, "struct");
 	expr->type = EXPR_STRUCT;
 
-	assert(!aexpr->_struct.autofill); // TODO
-
 	const struct type *stype = NULL;
 	if (aexpr->_struct.type.name) {
 		const struct scope_object *obj = scope_lookup(ctx->scope,
@@ -1222,8 +1220,11 @@ check_expr_struct(struct context *ctx,
 	};
 	struct ast_struct_union_type *tfield = &satype.struct_union;
 	struct ast_struct_union_type **tnext = &tfield->next;
-	struct expression_struct *sexpr = &expr->_struct;
-	struct expression_struct **snext = &sexpr->next;
+	struct expr_struct_field *sexpr = &expr->_struct.fields;
+	struct expr_struct_field **snext = &sexpr->next;
+	expr->_struct.autofill = aexpr->_struct.autofill;
+	expect(&aexpr->loc, stype != NULL || !expr->_struct.autofill,
+			"Autofill is only permitted for named struct initializers");
 
 	struct ast_field_value *afield = aexpr->_struct.fields;
 	while (afield) {
@@ -1265,8 +1266,7 @@ check_expr_struct(struct context *ctx,
 					1, sizeof(struct ast_struct_union_type));
 				tnext = &tfield->next;
 			}
-			*snext = sexpr = xcalloc(
-				1, sizeof(struct expression_struct));
+			*snext = sexpr = xcalloc(1, sizeof(struct expr_struct_field));
 			snext = &sexpr->next;
 		}
 
@@ -1280,7 +1280,7 @@ check_expr_struct(struct context *ctx,
 		expr->result = type_store_lookup_atype(ctx->store, &satype);
 
 		tfield = &satype.struct_union;
-		sexpr = &expr->_struct;
+		sexpr = &expr->_struct.fields;
 		while (tfield) {
 			const struct struct_field *field = type_get_field(
 				expr->result, tfield->field.name);

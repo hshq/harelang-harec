@@ -389,7 +389,7 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 	out->type = EXPR_CONSTANT;
 
 	size_t n = 0;
-	for (const struct expression_struct *field = &in->_struct;
+	for (const struct expr_struct_field *field = &in->_struct.fields;
 			field; field = field->next) {
 		++n;
 	}
@@ -398,7 +398,7 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 	struct struct_constant **fields =
 		xcalloc(n, sizeof(struct struct_constant *));
 	n = 0;
-	for (const struct expression_struct *field = &in->_struct;
+	for (const struct expr_struct_field *field = &in->_struct.fields;
 			field; field = field->next) {
 		struct struct_constant *cfield = fields[n] =
 			xcalloc(1, sizeof(struct struct_constant));

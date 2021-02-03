@@ -1886,7 +1886,18 @@ gen_expr_struct(struct gen_context *ctx,
 	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
 	pushi(ctx->current, &base, Q_COPY, out, NULL);
 
-	const struct expression_struct *field = &expr->_struct;
+	if (expr->_struct.autofill) {
+		struct qbe_value rtfunc = {0}, size = {0}, zero = {0};
+		rtfunc.kind = QV_GLOBAL;
+		rtfunc.name = strdup("rt.memset");
+		rtfunc.type = &qbe_long;
+		constl(&size, expr->result->size);
+		constl(&zero, 0);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc,
+				&base, &zero, &size, NULL);
+	}
+
+	const struct expr_struct_field *field = &expr->_struct.fields;
 	while (field) {
 		constl(&offset, field->field->offset);
 		ptr.type = &qbe_long;

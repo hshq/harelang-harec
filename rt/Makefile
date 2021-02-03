@@ -3,6 +3,7 @@ libhart_srcs+=\
 	rt/compile.ha \
 	rt/malloc.ha \
 	rt/memcpy.ha \
+	rt/memset.ha \
 	rt/rtmain.ha
 
 libhart.a: harec $(libhart_srcs) $(libhart_objs) $(rtstart)

@@ -254,10 +254,15 @@ struct expression_switch {
 	struct switch_case *cases;
 };
 
-struct expression_struct {
+struct expr_struct_field {
 	const struct struct_field *field;
 	struct expression *value;
-	struct expression_struct *next;
+	struct expr_struct_field *next;
+};
+
+struct expression_struct {
+	struct expr_struct_field fields;
+	bool autofill;
 };
 
 enum unarithm_operator {
