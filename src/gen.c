@@ -562,7 +562,90 @@ gen_expr_append(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(expr->type == EXPR_APPEND);
-	assert(0); // TODO
+	struct qbe_value variadic = {0}, vptr = {0}, vlen = {0}, temp = {0};
+	if (expr->append.variadic) {
+		struct qbe_value vlenptr = {0};
+		alloc_temp(ctx, &variadic, expr->append.variadic->result,
+			"append.variadic.%d");
+		gen_expression(ctx, expr->append.variadic, &variadic);
+		qval_deref(&variadic);
+		gen_loadtemp(ctx, &vptr, &variadic, &qbe_long, false);
+		qval_deref(&vptr);
+		gen_temp(ctx, &vlenptr, &qbe_long, "append.vlenptr.%d");
+		constl(&temp, builtin_type_size.size);
+		pushi(ctx->current, &vlenptr, Q_ADD, &vptr, &temp, NULL);
+		qval_deref(&vlenptr);
+		gen_loadtemp(ctx, &vlen, &vlenptr, &qbe_long, false);
+	}
+
+	struct qbe_value val = {0};
+	gen_temp(ctx, &val, &qbe_long, "append.val.%d");
+	if (expr->append.expr->type == EXPR_ACCESS) {
+		struct qbe_value tmp = {0};
+		address_object(ctx, expr->append.expr, &tmp);
+		qval_address(&tmp);
+		gen_store(ctx, &val, &tmp);
+	} else {
+		assert(expr->append.expr->type == EXPR_UNARITHM);
+		assert(expr->append.expr->unarithm.op == UN_DEREF);
+		gen_expression(ctx, expr->append.expr->unarithm.operand, &val);
+	}
+
+	struct qbe_value len = {0}, newlen = {0}, lenptr = {0};
+	gen_temp(ctx, &lenptr, &qbe_long, "append.lenptr.%d");
+	gen_temp(ctx, &newlen, &qbe_long, "append.newlen.%d");
+	gen_loadtemp(ctx, &lenptr, &val, &qbe_long, false);
+	constl(&temp, builtin_type_size.size);
+	pushi(ctx->current, &lenptr, Q_ADD, &lenptr, &temp, NULL);
+	qval_deref(&lenptr);
+	gen_loadtemp(ctx, &len, &lenptr, &qbe_long, false);
+	size_t args = 0;
+	for (struct append_values *value = expr->append.values; value;
+			value = value->next) {
+		args++;
+	}
+	constl(&temp, args);
+	pushi(ctx->current, &newlen, Q_ADD, &len, &temp, NULL);
+	if (expr->append.variadic) {
+		pushi(ctx->current, &newlen, Q_ADD, &newlen, &vlen, NULL);
+	}
+	gen_store(ctx, &lenptr, &newlen);
+
+	struct qbe_value rtfunc = {0}, membsz = {0};
+	constl(&membsz, expr->append.expr->result->array.members->size);
+	rtfunc.kind = QV_GLOBAL;
+	rtfunc.name = strdup("rt.ensure");
+	rtfunc.type = &qbe_long;
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, &newlen, NULL);
+
+	struct qbe_value ptr = {0};
+	const struct qbe_type *type =
+		qtype_for_type(ctx, expr->append.expr->result->array.members, false);
+	qval_deref(&val);
+	gen_loadtemp(ctx, &ptr, &val, &qbe_long, "append.ptr.%d");
+	qval_address(&ptr);
+	pushi(ctx->current, &len, Q_MUL, &len, &membsz, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &len, NULL);
+	for (struct append_values *value = expr->append.values; value;
+			value = value->next) {
+		struct qbe_value v = {0};
+		alloc_temp(ctx, &v, value->expr->result, "append.value.%d");
+		gen_expression(ctx, value->expr, &v);
+		v.indirect = false;
+		ptr.type = type;
+		gen_copy(ctx, &ptr, &v);
+		ptr.type = &qbe_long;
+		pushi(ctx->current, &ptr, Q_ADD, &ptr, &membsz, NULL);
+	}
+	if (expr->append.variadic) {
+		struct qbe_value rtmemcpy = {0}, v = {0};
+		gen_loadtemp(ctx, &v, &vptr, &qbe_long, false);
+		rtmemcpy.kind = QV_GLOBAL;
+		rtmemcpy.name = strdup("rt.memcpy");
+		rtmemcpy.type = &qbe_long;
+		pushi(ctx->current, &vlen, Q_MUL, &vlen, &membsz, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &ptr, &v, &vlen, NULL);
+	}
 }
 
 static void
