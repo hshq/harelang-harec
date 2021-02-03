@@ -4,7 +4,8 @@ libhart_srcs+=\
 	rt/malloc.ha \
 	rt/memcpy.ha \
 	rt/memset.ha \
-	rt/rtmain.ha
+	rt/rtmain.ha \
+	rt/strcmp.ha
 
 libhart.a: harec $(libhart_srcs) $(libhart_objs) $(rtstart)
 	@printf 'HAREC\t$@\n'

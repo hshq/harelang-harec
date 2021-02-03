@@ -58,9 +58,16 @@ fn concat() void = {
 	};
 };
 
+fn equality() void = {
+	assert("foo" != "bar");
+	assert("foo" != "foobar");
+	assert("foobar" == "foobar");
+};
+
 export fn main() void = {
 	measurements();
 	charptr();
 	storage();
 	concat();
+	equality();
 };

@@ -788,9 +788,16 @@ gen_expr_binarithm(struct gen_context *ctx,
 	}
 
 	struct qbe_value lvalue = {0}, rvalue = {0}, result = {0};
-	gen_temp(ctx, &lvalue, ltype, "lvalue.%d");
-	gen_temp(ctx, &rvalue, rtype, "rvalue.%d");
 	gen_temp(ctx, &result, etype, "result.%d");
+	if (type_is_aggregate(expr->binarithm.lvalue->result)) {
+		alloc_temp(ctx, &lvalue, expr->binarithm.lvalue->result, "lvalue.%d");
+		alloc_temp(ctx, &rvalue, expr->binarithm.lvalue->result, "rvalue.%d");
+		qval_deref(&lvalue);
+		qval_deref(&rvalue);
+	} else {
+		gen_temp(ctx, &lvalue, ltype, "lvalue.%d");
+		gen_temp(ctx, &rvalue, rtype, "rvalue.%d");
+	}
 
 	gen_expression(ctx, expr->binarithm.lvalue, &lvalue);
 	gen_expression(ctx, expr->binarithm.rvalue, &rvalue);
@@ -807,6 +814,23 @@ gen_expr_binarithm(struct gen_context *ctx,
 		break;
 	default:
 		break;
+	}
+
+	if (type_dealias(expr->binarithm.lvalue->result)->storage
+			== TYPE_STORAGE_STRING) {
+		struct qbe_value rtfunc = {0};
+		rtfunc.kind = QV_GLOBAL;
+		rtfunc.name = strdup("rt.strcmp");
+		rtfunc.type = &qbe_long;
+		pushi(ctx->current, &result, Q_CALL,
+			&rtfunc, &lvalue, &rvalue, NULL);
+		if (expr->binarithm.op == BIN_NEQUAL) {
+			struct qbe_value temp = {0};
+			constw(&temp, 1);
+			pushi(ctx->current, &result, Q_XOR, &result, &temp, NULL);
+		}
+		gen_store(ctx, out, &result);
+		return;
 	}
 
 	pushi(ctx->current, &result,
