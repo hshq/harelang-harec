@@ -200,7 +200,46 @@ check_expr_append(struct context *ctx,
 	assert(aexpr->type == EXPR_APPEND);
 	trace(TR_CHECK, "append");
 	expr->type = EXPR_APPEND;
-	assert(0); // TODO
+	expr->result = &builtin_type_void;
+	expr->append.expr = xcalloc(sizeof(struct expression), 1);
+	check_expression(ctx, aexpr->append.expr, expr->append.expr, NULL);
+	expect(&aexpr->append.expr->loc,
+		expr->append.expr->result->storage == TYPE_STORAGE_SLICE,
+		"append must operate on a slice");
+	expect(&aexpr->append.expr->loc,
+		!(expr->append.expr->result->flags & TYPE_CONST),
+		"append must operate on a mutable slice");
+	expect(&aexpr->append.expr->loc,
+		expr->append.expr->type == EXPR_ACCESS
+		|| (expr->append.expr->type == EXPR_UNARITHM
+			&& expr->append.expr->unarithm.op == UN_DEREF),
+		"append must operate on a slice object");
+	const struct type *memb = expr->append.expr->result->array.members;
+	struct append_values **next = &expr->append.values;
+	for (struct ast_append_values *avalue = aexpr->append.values; avalue;
+			avalue = avalue->next) {
+		struct append_values *value = *next =
+			xcalloc(sizeof(struct append_values), 1);
+		value->expr = 
+			xcalloc(sizeof(struct expression), 1);
+		check_expression(ctx, avalue->expr, value->expr, memb);
+		expect(&avalue->expr->loc,
+			type_is_assignable(memb, value->expr->result),
+			"appended value must be assignable to member type");
+		value->expr = lower_implicit_cast(memb, value->expr);
+		next = &value->next;
+	}
+	if (aexpr->append.variadic != NULL) {
+		const struct type *type = expr->append.expr->result;
+		expr->append.variadic = xcalloc(sizeof(struct expression), 1);
+		check_expression(ctx, aexpr->append.variadic,
+			expr->append.variadic, type);
+		expect(&aexpr->append.variadic->loc,
+			type_is_assignable(type, expr->append.variadic->result),
+			"appended slice must be assignable to slice type");
+		expr->append.variadic =
+			lower_implicit_cast(type, expr->append.variadic);
+	}
 }
 
 static void
