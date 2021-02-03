@@ -5,6 +5,7 @@
 #include "types.h"
 #include "type_store.h"
 
+struct build_tags;
 struct expression;
 struct scope;
 
@@ -12,6 +13,7 @@ struct context {
 	struct type_store *store;
 	const struct type *fntype;
 	struct identifier *ns;
+	struct build_tags *tags;
 	struct scope *unit;
 	struct scope *scope;
 	bool deferring;
@@ -81,6 +83,7 @@ struct ast_expression;
 struct ast_unit;
 
 struct scope *check(struct type_store *ts,
+	struct build_tags *tags,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 

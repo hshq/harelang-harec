@@ -9,6 +9,7 @@
 #include "expr.h"
 #include "mod.h"
 #include "scope.h"
+#include "tags.h"
 #include "trace.h"
 #include "type_store.h"
 #include "types.h"
@@ -1568,8 +1569,11 @@ check_function(struct context *ctx,
 	}
 
 	const struct ast_function_decl *afndecl = &adecl->function;
-	trenter(TR_CHECK, "function");
+	if ((adecl->function.flags & FN_TEST) && !tag_enabled(ctx->tags, "test")) {
+		return NULL;
+	}
 
+	trenter(TR_CHECK, "function");
 	const struct ast_type fn_atype = {
 		.storage = TYPE_STORAGE_FUNCTION,
 		.flags = TYPE_CONST,
@@ -1788,6 +1792,9 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 static void
 scan_function(struct context *ctx, const struct ast_function_decl *decl)
 {
+	if ((decl->flags & FN_TEST) && !tag_enabled(ctx->tags, "test")) {
+		return;
+	}
 	trenter(TR_SCAN, "function");
 	const struct ast_type fn_atype = {
 		.storage = TYPE_STORAGE_FUNCTION,
@@ -1947,10 +1954,12 @@ load_import(struct ast_imports *import,
 }
 
 struct scope *
-check(struct type_store *ts, const struct ast_unit *aunit, struct unit *unit)
+check(struct type_store *ts, struct build_tags *tags,
+		const struct ast_unit *aunit, struct unit *unit)
 {
 	struct context ctx = {0};
 	ctx.ns = unit->ns;
+	ctx.tags = tags;
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
 

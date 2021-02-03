@@ -19,6 +19,7 @@ harec() {
 		src/qinstr.c \
 		src/qtype.c \
 		src/scope.c \
+		src/tags.c \
 		src/trace.c \
 		src/type_store.c \
 		src/typedef.c \

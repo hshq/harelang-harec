@@ -12,8 +12,9 @@
 #include "lex.h"
 #include "parse.h"
 #include "qbe.h"
-#include "typedef.h"
+#include "tags.h"
 #include "type_store.h"
+#include "typedef.h"
 #include "util.h"
 
 static void
@@ -57,6 +58,7 @@ int
 main(int argc, char *argv[])
 {
 	char *output = NULL, *typedefs = NULL;
+	struct build_tags *tags = NULL;
 	struct unit unit = {0};
 	struct lexer lexer;
 
@@ -67,7 +69,12 @@ main(int argc, char *argv[])
 			output = optarg;
 			break;
 		case 'T':
-			assert(0); // TODO: Build tags
+			tags = parse_tags(optarg);
+			if (!tags) {
+				fprintf(stderr, "Invalid tags\n");
+				return 1;
+			}
+			break;
 		case 't':
 			typedefs = optarg;
 			break;
@@ -131,7 +138,7 @@ main(int argc, char *argv[])
 
 	struct type_store ts = {0};
 	builtin_types_init();
-	check(&ts, &aunit, &unit);
+	check(&ts, tags, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
 		dump_unit(&unit);
 		return 0;
