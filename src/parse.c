@@ -1178,7 +1178,6 @@ parse_allocation_expression(struct lexer *lexer)
 	case T_ALLOC:
 		trace(TR_PARSE, "alloc");
 		exp->type = EXPR_ALLOC;
-		exp->alloc.kind = AKIND_ALLOC;
 		want(lexer, T_LPAREN, NULL);
 		exp->alloc.type = parse_type(lexer);
 		want(lexer, T_COMMA, NULL);
@@ -1196,25 +1195,26 @@ parse_allocation_expression(struct lexer *lexer)
 		break;
 	case T_APPEND:
 		trace(TR_PARSE, "append");
-		exp->type = EXPR_ALLOC;
-		exp->alloc.kind = AKIND_APPEND;
+		exp->type = EXPR_APPEND;
 		want(lexer, T_LPAREN, NULL);
-		exp->alloc.expr = parse_simple_expression(lexer);
+		// Easier to parse a simple-expression and let check limit it to
+		// object-selector/*unary-expression
+		exp->append.expr = parse_simple_expression(lexer);
 		want(lexer, T_COMMA, NULL);
-		struct ast_append_values **next = &exp->alloc.values;
+		struct ast_append_values **next = &exp->append.values;
 		while (tok.token != T_RPAREN) {
-			*next = xcalloc(1, sizeof(struct ast_append_values));
 			if (lex(lexer, &tok) == T_ELLIPSIS) {
-				exp->alloc.variadic = true;
-				(*next)->value = parse_simple_expression(lexer);
+				exp->append.variadic =
+					parse_simple_expression(lexer);
 				if (lex(lexer, &tok) != T_COMMA) {
 					unlex(lexer, &tok);
 				}
 				want(lexer, T_RPAREN, &tok);
 				break;
 			}
+			*next = xcalloc(1, sizeof(struct ast_append_values));
 			unlex(lexer, &tok);
-			(*next)->value = parse_simple_expression(lexer);
+			(*next)->expr = parse_simple_expression(lexer);
 			if (lex(lexer, &tok) != T_COMMA) {
 				unlex(lexer, &tok);
 				want(lexer, T_RPAREN, &tok);
@@ -1224,10 +1224,9 @@ parse_allocation_expression(struct lexer *lexer)
 		break;
 	case T_FREE:
 		trace(TR_PARSE, "free");
-		exp->type = EXPR_ALLOC;
-		exp->alloc.kind = AKIND_FREE;
+		exp->type = EXPR_FREE;
 		want(lexer, T_LPAREN, NULL);
-		exp->alloc.expr = parse_simple_expression(lexer);
+		exp->free.expr = parse_simple_expression(lexer);
 		want(lexer, T_RPAREN, NULL);
 		break;
 	default:

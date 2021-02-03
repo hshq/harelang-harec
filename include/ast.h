@@ -118,19 +118,20 @@ struct ast_expression_access {
 	};
 };
 
+struct ast_expression_alloc {
+	struct ast_expression *expr;
+	struct ast_type *type;
+	struct ast_expression *cap;
+};
+
 struct ast_append_values {
-	struct ast_expression *value;
+	struct ast_expression *expr;
 	struct ast_append_values *next;
 };
 
-struct ast_expression_allocation {
-	enum alloc_kind kind;
+struct ast_expression_append {
 	struct ast_expression *expr;
-	// For allocs only
-	struct ast_type *type;
-	struct ast_expression *cap;
-	// For appends only
-	bool variadic;
+	struct ast_expression *variadic;
 	struct ast_append_values *values;
 };
 
@@ -213,6 +214,10 @@ struct ast_expression_for {
 	struct ast_expression *cond;
 	struct ast_expression *afterthought;
 	struct ast_expression *body;
+};
+
+struct ast_expression_free {
+	struct ast_expression *expr;
 };
 
 struct ast_expression_if {
@@ -302,7 +307,8 @@ struct ast_expression {
 	enum expr_type type;
 	union {
 		struct ast_expression_access access;
-		struct ast_expression_allocation alloc;
+		struct ast_expression_alloc alloc;
+		struct ast_expression_append append;
 		struct ast_expression_assert assert;
 		struct ast_expression_assign assign;
 		struct ast_expression_binarithm binarithm;
@@ -313,6 +319,7 @@ struct ast_expression {
 		struct ast_expression_control control;
 		struct ast_expression_defer defer;
 		struct ast_expression_for _for;
+		struct ast_expression_free free;
 		struct ast_expression_if _if;
 		struct ast_expression_list list;
 		struct ast_expression_match match;

@@ -10,6 +10,7 @@ struct scope_object;
 enum expr_type {
 	EXPR_ACCESS,
 	EXPR_ALLOC,
+	EXPR_APPEND,
 	EXPR_ASSERT,
 	EXPR_ASSIGN,
 	EXPR_BINARITHM,
@@ -21,6 +22,7 @@ enum expr_type {
 	EXPR_CONTINUE,
 	EXPR_DEFER,
 	EXPR_FOR,
+	EXPR_FREE,
 	EXPR_IF,
 	EXPR_LIST,
 	EXPR_MATCH,
@@ -53,25 +55,19 @@ struct expression_access {
 	};
 };
 
-enum alloc_kind {
-	AKIND_ALLOC,
-	AKIND_APPEND,
-	AKIND_FREE,
+struct expression_alloc {
+	struct expression *expr;
+	struct expression *cap;
 };
 
 struct append_values {
-	struct expression *value;
+	struct expression *expr;
 	struct append_values *next;
 };
 
-struct expression_alloc {
-	enum alloc_kind kind;
+struct expression_append {
 	struct expression *expr;
-	// For allocs only
-	// Allocated type goes in expr->result
-	struct expression *cap;
-	// For appends only
-	bool variadic;
+	struct expression *variadic;
 	struct append_values *values;
 };
 
@@ -187,6 +183,10 @@ struct expression_for {
 	struct expression *body;
 };
 
+struct expression_free {
+	struct expression *expr;
+};
+
 struct expression_if {
 	struct expression *cond;
 	struct expression *true_branch, *false_branch;
@@ -286,6 +286,7 @@ struct expression {
 	union {
 		struct expression_access access;
 		struct expression_alloc alloc;
+		struct expression_append append;
 		struct expression_assert assert;
 		struct expression_assign assign;
 		struct expression_binarithm binarithm;
@@ -296,6 +297,7 @@ struct expression {
 		struct expression_defer defer;
 		struct expression_control control;
 		struct expression_for _for;
+		struct expression_free free;
 		struct expression_if _if;
 		struct expression_list list;
 		struct expression_match match;

@@ -262,6 +262,9 @@ dump_expr(const struct expression *expr, int depth)
 	case EXPR_ALLOC:
 		fprintf(stderr, "alloc");
 		break;
+	case EXPR_APPEND:
+		fprintf(stderr, "append");
+		break;
 	case EXPR_ASSERT:
 		fprintf(stderr, "assert");
 		break;
@@ -330,6 +333,9 @@ dump_expr(const struct expression *expr, int depth)
 		break;
 	case EXPR_FOR:
 		fprintf(stderr, "for");
+		break;
+	case EXPR_FREE:
+		fprintf(stderr, "free");
 		break;
 	case EXPR_IF:
 		fprintf(stderr, "if");

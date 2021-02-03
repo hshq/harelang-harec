@@ -509,6 +509,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_UNARITHM:
 		assert(0); // TODO
 	case EXPR_ALLOC:
+	case EXPR_APPEND:
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINDING:
@@ -517,6 +518,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_CALL:
 	case EXPR_DEFER:
 	case EXPR_FOR:
+	case EXPR_FREE:
 	case EXPR_IF:
 	case EXPR_LIST:
 	case EXPR_MATCH:

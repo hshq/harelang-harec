@@ -150,9 +150,14 @@ check_expr_access(struct context *ctx,
 }
 
 static void
-check_alloc(struct context *ctx, const struct ast_expression *aexpr,
-	struct expression *expr)
+check_expr_alloc(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
 {
+	assert(aexpr->type == EXPR_ALLOC);
+	trace(TR_CHECK, "alloc");
+	expr->type = EXPR_ALLOC;
 	expr->alloc.expr = xcalloc(sizeof(struct expression), 1);
 	expr->result =
 		type_store_lookup_atype(ctx->store, aexpr->alloc.type);
@@ -187,29 +192,15 @@ check_alloc(struct context *ctx, const struct ast_expression *aexpr,
 }
 
 static void
-check_expr_alloc(struct context *ctx,
+check_expr_append(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
 	const struct type *hint)
 {
-	assert(aexpr->type == EXPR_ALLOC);
-	expr->type = EXPR_ALLOC;
-	expr->alloc.kind = aexpr->alloc.kind;
-	switch (expr->alloc.kind) {
-	case AKIND_ALLOC:
-		trace(TR_CHECK, "alloc");
-		check_alloc(ctx, aexpr, expr);
-		break;
-	case AKIND_APPEND:
-		trace(TR_CHECK, "append");
-		assert(0); // TODO
-	case AKIND_FREE:
-		trace(TR_CHECK, "free");
-		expr->alloc.expr = xcalloc(sizeof(struct expression), 1);
-		check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr, NULL);
-		expr->result = &builtin_type_void;
-		break;
-	}
+	assert(aexpr->type == EXPR_APPEND);
+	trace(TR_CHECK, "append");
+	expr->type = EXPR_APPEND;
+	assert(0); // TODO
 }
 
 static void
@@ -869,6 +860,20 @@ check_expr_for(struct context *ctx,
 }
 
 static void
+check_expr_free(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	assert(aexpr->type == EXPR_FREE);
+	expr->type = EXPR_FREE;
+	trace(TR_CHECK, "free");
+	expr->free.expr = xcalloc(sizeof(struct expression), 1);
+	check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL);
+	expr->result = &builtin_type_void;
+}
+
+static void
 check_expr_if(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -1480,6 +1485,9 @@ check_expression(struct context *ctx,
 	case EXPR_ALLOC:
 		check_expr_alloc(ctx, aexpr, expr, hint);
 		break;
+	case EXPR_APPEND:
+		check_expr_append(ctx, aexpr, expr, hint);
+		break;
 	case EXPR_ASSERT:
 		check_expr_assert(ctx, aexpr, expr, hint);
 		break;
@@ -1510,6 +1518,9 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_FOR:
 		check_expr_for(ctx, aexpr, expr, hint);
+		break;
+	case EXPR_FREE:
+		check_expr_free(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_IF:
 		check_expr_if(ctx, aexpr, expr, hint);

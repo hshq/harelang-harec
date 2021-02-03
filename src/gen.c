@@ -495,11 +495,11 @@ gen_slice_alloc(struct gen_context *ctx,
 }
 
 static void
-gen_alloc(struct gen_context *ctx,
+gen_expr_alloc(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	assert(expr->type == EXPR_ALLOC && expr->alloc.kind == AKIND_ALLOC);
+	assert(expr->type == EXPR_ALLOC);
 	if (type_dealias(expr->result)->storage == TYPE_STORAGE_SLICE) {
 		gen_slice_alloc(ctx, expr, out);
 		return;
@@ -557,39 +557,12 @@ gen_alloc(struct gen_context *ctx,
 }
 
 static void
-gen_expr_alloc(struct gen_context *ctx,
+gen_expr_append(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	assert(expr->type == EXPR_ALLOC);
-	struct qbe_value val = {0}, rtfunc = {0};
-	const struct type *type = type_dealias(expr->alloc.expr->result);
-	switch (expr->alloc.kind) {
-	case AKIND_ALLOC:
-		gen_alloc(ctx, expr, out);
-		break;
-	case AKIND_APPEND:
-		assert(0); // TODO
-	case AKIND_FREE:
-		if (type->storage == TYPE_STORAGE_SLICE
-				|| type->storage == TYPE_STORAGE_STRING) {
-			alloc_temp(ctx, &val, type, "free.%d");
-			val.type = &qbe_long;
-			gen_expression(ctx, expr->alloc.expr, &val);
-			val.type = &qbe_long;
-			pushi(ctx->current, &val, Q_LOADL, &val, NULL);
-		} else {
-			gen_temp(ctx, &val,
-				qtype_for_type(ctx, expr->alloc.expr->result, false),
-				"free.%d");
-			gen_expression(ctx, expr->alloc.expr, &val);
-		}
-		rtfunc.kind = QV_GLOBAL;
-		rtfunc.name = strdup("rt.free");
-		rtfunc.type = &qbe_long;
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, NULL);
-		break;
-	}
+	assert(expr->type == EXPR_APPEND);
+	assert(0); // TODO
 }
 
 static void
@@ -1444,6 +1417,32 @@ gen_expr_for(struct gen_context *ctx,
 }
 
 static void
+gen_expr_free(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	struct qbe_value val = {0}, rtfunc = {0};
+	const struct type *type = type_dealias(expr->alloc.expr->result);
+	if (type->storage == TYPE_STORAGE_SLICE
+			|| type->storage == TYPE_STORAGE_STRING) {
+		alloc_temp(ctx, &val, type, "free.%d");
+		val.type = &qbe_long;
+		gen_expression(ctx, expr->alloc.expr, &val);
+		val.type = &qbe_long;
+		pushi(ctx->current, &val, Q_LOADL, &val, NULL);
+	} else {
+		gen_temp(ctx, &val,
+			qtype_for_type(ctx, expr->alloc.expr->result, false),
+			"free.%d");
+		gen_expression(ctx, expr->alloc.expr, &val);
+	}
+	rtfunc.kind = QV_GLOBAL;
+	rtfunc.name = strdup("rt.free");
+	rtfunc.type = &qbe_long;
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, NULL);
+}
+
+static void
 gen_expr_if(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -2087,6 +2086,9 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_ALLOC:
 		gen_expr_alloc(ctx, expr, out);
 		break;
+	case EXPR_APPEND:
+		gen_expr_append(ctx, expr, out);
+		break;
 	case EXPR_ASSERT:
 		gen_expr_assert(ctx, expr, out);
 		break;
@@ -2117,6 +2119,9 @@ gen_expression(struct gen_context *ctx,
 		break;
 	case EXPR_FOR:
 		gen_expr_for(ctx, expr, out);
+		break;
+	case EXPR_FREE:
+		gen_expr_free(ctx, expr, out);
 		break;
 	case EXPR_IF:
 		gen_expr_if(ctx, expr, out);
