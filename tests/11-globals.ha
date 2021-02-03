@@ -8,11 +8,16 @@ fn write() void = {
 	assert(x == 1337);
 };
 
-type coords = struct { x: int, y: int };
 let ar: [3]int = [1, 2, 3];
 let sl: []int = [1, 2, 3];
 let st: str = "Hello!";
+
+type coords = struct { x: int, y: int };
 let su: coords = coords { y = 10, x = 20 };
+let au: coords = coords { ... };
+
+type coords3 = struct { coords: coords, z: int };
+let a3: coords3 = coords3 { ... };
 
 fn storage() void = {
 	assert(len(ar) == 3z);
@@ -21,6 +26,8 @@ fn storage() void = {
 	assert(sl[0] == 1 && sl[1] == 2 && sl[2] == 3);
 	assert(len(st) == 6z);
 	assert(su.x == 20 && su.y == 10);
+	assert(au.x == 0 && au.y == 0);
+	assert(a3.coords.x == 0 && a3.coords.y == 0 && a3.z == 0);
 };
 
 fn invariants() void = {

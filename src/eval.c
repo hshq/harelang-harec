@@ -373,6 +373,56 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 	assert(0);
 }
 
+static void
+constant_default(struct context *ctx, struct expression *v)
+{
+	struct expression b = {0};
+	switch (type_dealias(v->result)->storage) {
+	case TYPE_STORAGE_POINTER:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_BOOL:
+		break; // calloc does this for us
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_UNION:
+		b.type = EXPR_STRUCT;
+		b.result = v->result;
+		b._struct.autofill = true;
+		enum eval_result r = eval_expr(ctx, &b, v);
+		assert(r == EVAL_OK);
+		break;
+	case TYPE_STORAGE_STRING:
+		v->constant.string.value = strdup("");
+		v->constant.string.len = 0;
+		break;
+	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_SLICE:
+		assert(0); // TODO
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_FUNCTION:
+		assert(0); // Invariant
+	case TYPE_STORAGE_VOID:
+		break; // no-op
+	}
+}
+
 static int
 field_compar(const void *_a, const void *_b)
 {
@@ -386,30 +436,45 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_STRUCT);
 	assert(type_dealias(in->result)->storage != TYPE_STORAGE_UNION); // TODO
+	const struct type *type = type_dealias(in->result);
 	out->type = EXPR_CONSTANT;
 
 	size_t n = 0;
-	for (const struct expr_struct_field *field = &in->_struct.fields;
+	for (const struct struct_field *field = type->struct_union.fields;
 			field; field = field->next) {
 		++n;
 	}
 	assert(n > 0);
 
+	size_t i = 0;
 	struct struct_constant **fields =
 		xcalloc(n, sizeof(struct struct_constant *));
-	n = 0;
-	for (const struct expr_struct_field *field = &in->_struct.fields;
-			field; field = field->next) {
-		struct struct_constant *cfield = fields[n] =
-			xcalloc(1, sizeof(struct struct_constant));
-		cfield->field = field->field;
-		cfield->value = xcalloc(1, sizeof(struct expression));
-		enum eval_result r = eval_expr(ctx,
-			field->value, cfield->value);
-		if (r != EVAL_OK) {
-			return r;
+	for (const struct struct_field *field = type->struct_union.fields;
+			field; field = field->next, ++i) {
+		const struct expr_struct_field *field_in = NULL;
+		for (field_in = &in->_struct.fields; field_in; field_in = field_in->next) {
+			if (field_in->field == field) {
+				break;
+			}
 		}
-		++n;
+
+		struct struct_constant *cfield = fields[i] =
+			xcalloc(1, sizeof(struct struct_constant));
+		cfield->field = field;
+		cfield->value = xcalloc(1, sizeof(struct expression));
+
+		if (!field_in) {
+			assert(in->_struct.autofill);
+			cfield->value->type = EXPR_CONSTANT;
+			cfield->value->result = field->type;
+			constant_default(ctx, cfield->value);
+		} else {
+			enum eval_result r = eval_expr(ctx,
+				field_in->value, cfield->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
+		}
 	}
 
 	qsort(fields, n, sizeof(struct struct_constant *), field_compar);
