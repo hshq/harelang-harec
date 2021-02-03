@@ -1,6 +1,7 @@
 libhart_srcs+=\
 	rt/abort.ha \
 	rt/compile.ha \
+	rt/ensure.ha \
 	rt/malloc.ha \
 	rt/memcpy.ha \
 	rt/memset.ha \
