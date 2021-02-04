@@ -2148,13 +2148,178 @@ gen_expression(struct gen_context *ctx,
 	}
 }
 
+static struct qbe_data_item *
+gen_data_item(struct gen_context *ctx, struct expression *expr,
+	struct qbe_data_item *item)
+{
+	assert(expr->type == EXPR_CONSTANT);
+
+	struct qbe_def *def;
+	const union expression_constant *constant = &expr->constant;
+	const struct type *type = type_dealias(expr->result);
+	switch (type->storage) {
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_U8:
+		item->type = QD_VALUE;
+		constw(&item->value, (uint8_t)constant->uval);
+		item->value.type = &qbe_byte;
+		break;
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_U16:
+		item->type = QD_VALUE;
+		constw(&item->value, (uint16_t)constant->uval);
+		item->value.type = &qbe_half;
+		break;
+	case TYPE_STORAGE_BOOL:
+		item->type = QD_VALUE;
+		constw(&item->value, constant->bval ? 1 : 0);
+		break;
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_INT:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_RUNE:
+		item->type = QD_VALUE;
+		constw(&item->value, (uint32_t)constant->uval);
+		break;
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_SIZE:
+		item->type = QD_VALUE;
+		constl(&item->value, (uint32_t)constant->uval);
+		break;
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		assert(0); // TODO
+	case TYPE_STORAGE_UINTPTR:
+		assert(0); // TODO: What are the semantics for this?
+	case TYPE_STORAGE_POINTER:
+		assert(expr->type == EXPR_CONSTANT); // TODO?
+		item->type = QD_VALUE;
+		constl(&item->value, (uint64_t)constant->uval); // XXX: ARCH
+		break;
+	case TYPE_STORAGE_ARRAY:
+		assert(type->array.length != SIZE_UNDEFINED);
+		size_t n = type->array.length;
+		for (struct array_constant *c = constant->array;
+				c && n; c = c->next ? c->next : c, --n) {
+			item = gen_data_item(ctx, c->value, item);
+			if (n > 1 || c->next) {
+				item->next = xcalloc(1,
+					sizeof(struct qbe_data_item));
+				item = item->next;
+			}
+		}
+		break;
+	case TYPE_STORAGE_STRING:
+		def = xcalloc(1, sizeof(struct qbe_def));
+		def->name = gen_name(ctx, "strdata.%d");
+		def->kind = Q_DATA;
+		def->data.items.type = QD_STRING;
+		def->data.items.str = strdup(expr->constant.string.value);
+		def->data.items.sz = expr->constant.string.len;
+
+		item->type = QD_VALUE;
+		if (expr->constant.string.len != 0) {
+			qbe_append_def(ctx->out, def);
+			item->value.kind = QV_GLOBAL;
+			item->value.type = &qbe_long;
+			item->value.name = strdup(def->name);
+		} else {
+			free(def);
+			constl(&item->value, 0);
+		}
+
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		constl(&item->value, expr->constant.string.len);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		constl(&item->value, expr->constant.string.len);
+		break;
+	case TYPE_STORAGE_SLICE:
+		def = xcalloc(1, sizeof(struct qbe_def));
+		def->name = gen_name(ctx, "sldata.%d");
+		def->kind = Q_DATA;
+
+		size_t len = 0;
+		struct qbe_data_item *subitem = &def->data.items;
+		for (struct array_constant *c = constant->array;
+				c; c = c->next) {
+			gen_data_item(ctx, c->value, subitem);
+			if (c->next) {
+				subitem->next = xcalloc(1,
+					sizeof(struct qbe_data_item));
+				subitem = subitem->next;
+			}
+			++len;
+		}
+
+		item->type = QD_VALUE;
+		if (len != 0) {
+			qbe_append_def(ctx->out, def);
+			item->value.kind = QV_GLOBAL;
+			item->value.type = &qbe_long;
+			item->value.name = strdup(def->name);
+		} else {
+			free(def);
+			constl(&item->value, 0);
+		}
+
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		constl(&item->value, len);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		constl(&item->value, len);
+		break;
+	case TYPE_STORAGE_STRUCT:
+		for (struct struct_constant *f = constant->_struct;
+				f; f = f->next) {
+			item = gen_data_item(ctx, f->value, item);
+			if (f->next) {
+				const struct struct_field *f1 = f->field;
+				const struct struct_field *f2 = f->next->field;
+				if (f2->offset != f1->offset + f2->type->size) {
+					item->next = xcalloc(1,
+						sizeof(struct qbe_data_item));
+					item = item->next;
+					item->type = QD_ZEROED;
+					item->zeroed = f2->offset -
+						(f1->offset + f1->type->size);
+				}
+
+				item->next = xcalloc(1,
+					sizeof(struct qbe_data_item));
+				item = item->next;
+			}
+		}
+		break;
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_UNION:
+		assert(0); // TODO
+	case TYPE_STORAGE_ALIAS:
+	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_NULL:
+	case TYPE_STORAGE_VOID:
+		assert(0); // Invariant
+	}
+
+	return item;
+}
+
 static void
 gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 {
 	assert(decl->type == DECL_FUNC);
 	const struct function_decl *func = &decl->func;
 	const struct type *fntype = func->type;
-	assert(!(func->flags & FN_TEST)); // TODO
 
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_FUNC;
@@ -2278,175 +2443,32 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		fdef->data.items.value.name = strdup(qdef->name);
 		qbe_append_def(ctx->out, fdef);
 	}
-}
 
-static void
-gen_data_item(struct gen_context *ctx, struct expression *expr,
-	struct qbe_data_item *item)
-{
-	assert(expr->type == EXPR_CONSTANT);
+	if (func->flags & FN_TEST) {
+		struct qbe_def *tdef = xcalloc(1, sizeof(struct qbe_def));
+		tdef->kind = Q_DATA;
+		int l = snprintf(NULL, 0, ".test.%s", qdef->name);
+		tdef->name = xcalloc(l + 1, 1);
+		snprintf(tdef->name, l + 1, ".test.%s", qdef->name);
+		tdef->data.align = 8;
+		tdef->data.section = strdup(".test_array");
+		tdef->data.secflags = strdup("aw");
 
-	struct qbe_def *def;
-	const union expression_constant *constant = &expr->constant;
-	const struct type *type = type_dealias(expr->result);
-	switch (type->storage) {
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_U8:
-		item->type = QD_VALUE;
-		constw(&item->value, (uint8_t)constant->uval);
-		item->value.type = &qbe_byte;
-		break;
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_U16:
-		item->type = QD_VALUE;
-		constw(&item->value, (uint16_t)constant->uval);
-		item->value.type = &qbe_half;
-		break;
-	case TYPE_STORAGE_BOOL:
-		item->type = QD_VALUE;
-		constw(&item->value, constant->bval ? 1 : 0);
-		break;
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_RUNE:
-		item->type = QD_VALUE;
-		constw(&item->value, (uint32_t)constant->uval);
-		break;
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_SIZE:
-		item->type = QD_VALUE;
-		constl(&item->value, (uint32_t)constant->uval);
-		break;
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-		assert(0); // TODO
-	case TYPE_STORAGE_UINTPTR:
-		assert(0); // TODO: What are the semantics for this?
-	case TYPE_STORAGE_POINTER:
-		assert(expr->type == EXPR_CONSTANT); // TODO?
-		item->type = QD_VALUE;
-		constl(&item->value, (uint64_t)constant->uval); // XXX: ARCH
-		break;
-	case TYPE_STORAGE_ARRAY:
-		assert(type->array.length != SIZE_UNDEFINED);
-		size_t n = type->array.length;
-		for (struct array_constant *c = constant->array;
-				c && n; c = c->next ? c->next : c, --n) {
-			gen_data_item(ctx, c->value, item);
-			while (item->next) {
-				item = item->next;
-			}
-			if (n > 1 || c->next) {
-				item->next = xcalloc(1,
-					sizeof(struct qbe_data_item));
-				item = item->next;
-			}
-		}
-		break;
-	case TYPE_STORAGE_STRING:
-		def = xcalloc(1, sizeof(struct qbe_def));
-		def->name = gen_name(ctx, "strdata.%d");
-		def->kind = Q_DATA;
-		def->data.items.type = QD_STRING;
-		def->data.items.str = strdup(expr->constant.string.value);
-		def->data.items.sz = expr->constant.string.len;
-
-		item->type = QD_VALUE;
-		if (expr->constant.string.len != 0) {
-			qbe_append_def(ctx->out, def);
-			item->value.kind = QV_GLOBAL;
-			item->value.type = &qbe_long;
-			item->value.name = strdup(def->name);
-		} else {
-			free(def);
-			constl(&item->value, 0);
-		}
-
+		struct qbe_data_item *item = &tdef->data.items;
+		struct expression name = {
+			.type = EXPR_CONSTANT,
+			.result = &builtin_type_str,
+		};
+		name.constant.string.value = identifier_unparse(&decl->ident);
+		name.constant.string.len = strlen(name.constant.string.value);
+		item = gen_data_item(ctx, &name, item);
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 		item->type = QD_VALUE;
-		constl(&item->value, expr->constant.string.len);
-		item->next = xcalloc(1, sizeof(struct qbe_data_item));
-		item = item->next;
-		item->type = QD_VALUE;
-		constl(&item->value, expr->constant.string.len);
-		break;
-	case TYPE_STORAGE_SLICE:
-		def = xcalloc(1, sizeof(struct qbe_def));
-		def->name = gen_name(ctx, "sldata.%d");
-		def->kind = Q_DATA;
-
-		size_t len = 0;
-		struct qbe_data_item *subitem = &def->data.items;
-		for (struct array_constant *c = constant->array;
-				c; c = c->next) {
-			gen_data_item(ctx, c->value, subitem);
-			if (c->next) {
-				subitem->next = xcalloc(1,
-					sizeof(struct qbe_data_item));
-				subitem = subitem->next;
-			}
-			++len;
-		}
-
-		item->type = QD_VALUE;
-		if (len != 0) {
-			qbe_append_def(ctx->out, def);
-			item->value.kind = QV_GLOBAL;
-			item->value.type = &qbe_long;
-			item->value.name = strdup(def->name);
-		} else {
-			free(def);
-			constl(&item->value, 0);
-		}
-
-		item->next = xcalloc(1, sizeof(struct qbe_data_item));
-		item = item->next;
-		item->type = QD_VALUE;
-		constl(&item->value, len);
-		item->next = xcalloc(1, sizeof(struct qbe_data_item));
-		item = item->next;
-		item->type = QD_VALUE;
-		constl(&item->value, len);
-		break;
-	case TYPE_STORAGE_STRUCT:
-		for (struct struct_constant *f = constant->_struct;
-				f; f = f->next) {
-			gen_data_item(ctx, f->value, item);
-			while (item->next) {
-				item = item->next;
-			}
-			if (f->next) {
-				const struct struct_field *f1 = f->field;
-				const struct struct_field *f2 = f->next->field;
-				if (f2->offset != f1->offset + f2->type->size) {
-					item->next = xcalloc(1,
-						sizeof(struct qbe_data_item));
-					item = item->next;
-					item->type = QD_ZEROED;
-					item->zeroed = f2->offset -
-						(f1->offset + f1->type->size);
-				}
-
-				item->next = xcalloc(1,
-					sizeof(struct qbe_data_item));
-				item = item->next;
-			}
-		}
-		break;
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_UNION:
-		assert(0); // TODO
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_VOID:
-		assert(0); // Invariant
+		item->value.kind = QV_GLOBAL;
+		item->value.type = &qbe_long;
+		item->value.name = strdup(qdef->name);
+		qbe_append_def(ctx->out, tdef);
 	}
 }
 

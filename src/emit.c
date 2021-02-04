@@ -235,8 +235,10 @@ emit_data(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_DATA);
 	fprintf(out, "%sdata ", def->exported ? "export " : "");
-	if (def->data.section) {
-		// XXX: Presumes section name does not need to be escaped
+	if (def->data.section && def->data.secflags) {
+		fprintf(out, "section \"%s\" \"%s\" ",
+				def->data.section, def->data.secflags);
+	} else if (def->data.section) {
 		fprintf(out, "section \"%s\" ", def->data.section);
 	}
 	fprintf(out, "$%s = { ", def->name);
