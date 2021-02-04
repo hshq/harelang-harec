@@ -332,6 +332,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 					goto finalize;
 				}
 				suff = &lexer->buf[lexer->buflen - 1];
+				basechrs = "0123456789";
 				break;
 			default:
 				push(lexer, c, true);
