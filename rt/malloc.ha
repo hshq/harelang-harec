@@ -155,7 +155,7 @@ export fn realloc(_p: nullable *void, n: size) nullable *void = {
 	let p = _p: *void;
 	let bsize = (p: uintptr - size(size): uintptr): *size;
 	let s = *bsize;
-	if (s > n) {
+	if (s >= n) {
 		return p;
 	};
 
