@@ -2324,7 +2324,12 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_FUNC;
 	qdef->exported = decl->exported;
-	qdef->name = decl->symbol ? strdup(decl->symbol) : ident_to_sym(&decl->ident);
+	if (func->flags & FN_TEST) {
+		qdef->name = gen_name(ctx, "testfunc.%d");
+	} else {
+		qdef->name = decl->symbol ? strdup(decl->symbol)
+			: ident_to_sym(&decl->ident);
+	}
 	qdef->func.returns = qtype_for_type(ctx, fntype->func.result, false);
 	ctx->current = &qdef->func;
 

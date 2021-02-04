@@ -1805,15 +1805,17 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 			ctx->store, &fn_atype);
 	assert(fntype); // TODO: Forward references
 
-	struct identifier ident = {0};
-	if (decl->symbol) {
-		ident.name = strdup(decl->symbol);
-	} else if (!decl->ident.ns) {
-		mkident(ctx, &ident, &decl->ident);
-	} else {
-		ident = decl->ident;
+	if (!(decl->flags & FN_TEST)) {
+		struct identifier ident = {0};
+		if (decl->symbol) {
+			ident.name = strdup(decl->symbol);
+		} else if (!decl->ident.ns) {
+			mkident(ctx, &ident, &decl->ident);
+		} else {
+			ident = decl->ident;
+		}
+		scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, fntype, NULL);
 	}
-	scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, fntype, NULL);
 
 	char buf[1024];
 	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
