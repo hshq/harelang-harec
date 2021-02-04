@@ -411,8 +411,16 @@ constant_default(struct context *ctx, struct expression *v)
 		v->constant.string.value = strdup("");
 		v->constant.string.len = 0;
 		break;
-	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_ARRAY:
+		v->constant.array = xcalloc(1, sizeof(struct array_constant));
+		v->constant.array->expand = true;
+		v->constant.array->value = xcalloc(1, sizeof(struct expression));
+		v->constant.array->value->type = EXPR_CONSTANT;
+		v->constant.array->value->result =
+			type_dealias(v->result)->array.members;
+		constant_default(ctx, v->constant.array->value);
+		break;
+	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_SLICE:
 		assert(0); // TODO
 	case TYPE_STORAGE_ALIAS:

@@ -7,6 +7,7 @@
 static void
 emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
 {
+	assert(type);
 	switch (type->stype) {
 	case Q_BYTE:
 	case Q_HALF:
