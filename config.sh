@@ -142,6 +142,16 @@ run_configure() {
 		echo no
 	fi
 
+	printf "Checking for qbe... "
+	if $QBE -h > /dev/null 2>&1
+	then
+		echo yes
+	else
+		echo no
+		echo "Error: no qbe binary found"
+		exit 1
+	fi
+
 	printf "Creating $outdir/config.mk... "
 	cat <<-EOF > "$outdir"/config.mk
 	CC=$CC
