@@ -134,7 +134,7 @@ run_configure() {
 	done
 
 	printf "Checking for scdoc... "
-	if scdoc -v >/dev/null 2>&1
+	if $SCDOC -v >/dev/null 2>&1
 	then
 		echo yes
 		all="$all docs"
