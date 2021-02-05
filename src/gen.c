@@ -812,7 +812,6 @@ gen_expr_binarithm(struct gen_context *ctx,
 	const struct qbe_type *rtype =
 		qtype_for_type(ctx, expr->binarithm.rvalue->result, false);
 	const struct qbe_type *etype = qtype_for_type(ctx, expr->result, false);
-	assert(ltype == rtype); // TODO: Type promotion
 
 	if (expr->binarithm.op == BIN_LAND || expr->binarithm.op == BIN_LOR) {
 		struct qbe_statement rlabel = {0}, slabel = {0};
