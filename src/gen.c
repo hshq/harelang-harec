@@ -1610,8 +1610,8 @@ gen_expr_list(struct gen_context *ctx,
 
 static void
 gen_recursive_match_tests(struct gen_context *ctx, const struct type *mtype,
-	struct qbe_value *fbranch, struct qbe_value *tag,
-	struct qbe_value *mval, struct match_case *_case)
+	struct qbe_value *tbranch, struct qbe_value *fbranch,
+	struct qbe_value *tag, struct qbe_value *mval, struct match_case *_case)
 {
 	pushc(ctx->current, "recursive match");
 	struct qbe_value temp = {0}, temp_tag = {0}, subval = {0}, offs = {0};
@@ -1651,6 +1651,7 @@ gen_recursive_match_tests(struct gen_context *ctx, const struct type *mtype,
 
 		subtype = test;
 	} while (test->id != _case->type->id);
+	pushi(ctx->current, NULL, Q_JMP, tbranch, NULL);
 }
 
 static void
@@ -1676,6 +1677,7 @@ gen_match_tagged_subset(struct gen_context *ctx,
 		push(&ctx->current->body, &nlabel);
 		tu = tu->next;
 	}
+	pushi(ctx->current, NULL, Q_JMP, fbranch, NULL);
 }
 
 static void
@@ -1728,10 +1730,8 @@ gen_match_tagged(struct gen_context *ctx,
 				&fbranch, &tag, _case);
 		} else {
 			gen_recursive_match_tests(ctx, mtype,
-				&fbranch, &tag, &mval, _case);
+				&tbranch, &fbranch, &tag, &mval, _case);
 		}
-
-		pushi(ctx->current, NULL, Q_JMP, &tbranch, NULL);
 
 		push(&ctx->current->body, &tlabel);
 		if (_case->object) {
