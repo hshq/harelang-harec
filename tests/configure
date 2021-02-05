@@ -22,7 +22,8 @@ tests() {
 		16-defer \
 		17-alloc \
 		18-match \
-		19-append
+		19-append \
+		20-if
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
