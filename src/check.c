@@ -941,6 +941,9 @@ check_expr_if(struct context *ctx,
 			expr->result = false_branch->result;
 		} else if (false_branch->terminates) {
 			expr->result = true_branch->result;
+		} else if (hint && type_is_assignable(hint, true_branch->result)
+				&& type_is_assignable(hint, false_branch->result)) {
+			expr->result = hint;
 		} else if (true_branch->result == false_branch->result) {
 			expr->result = true_branch->result;
 		} else {

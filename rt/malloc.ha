@@ -83,15 +83,15 @@ fn malloc_small(n: size) nullable *void = {
 	return if (p != null: nullable *void) {
 		let q = *(p: **void);
 		bins[b] = q;
-		p: nullable *void;
-	} else null: nullable *void;
+		p;
+	} else null;
 };
 
 fn fill_bin(b: size) nullable *void = {
 	const s = bin2size(b);
 	let p = segmalloc(BIGBLOCK);
-	return if (p == null: nullable *void) null: nullable *void
-	else list_from_block(s, p: uintptr);
+	return if (p == null: nullable *void) null
+		else list_from_block(s, p: uintptr);
 };
 
 fn list_from_block(s: size, p: uintptr) nullable *void = {

@@ -3,10 +3,7 @@ fn segmalloc(n: size) nullable *void = {
 	let p: *void = mmap(null, n,
 		PROT_READ | PROT_WRITE,
 		MAP_PRIVATE | MAP_ANON, -1, 0z);
-	// TODO: remove the cast to nullable *void
-	return
-		if (p: uintptr: int == -ENOMEM) null: nullable *void
-		else p: nullable *void;
+	return if (p: uintptr: int == -ENOMEM) null else p;
 };
 
 // Frees a segment allocated with segmalloc.
