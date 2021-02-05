@@ -941,11 +941,21 @@ check_expr_if(struct context *ctx,
 			expr->result = false_branch->result;
 		} else if (false_branch->terminates) {
 			expr->result = true_branch->result;
-		} else {
-			// TODO: Tagged unions
-			assert(true_branch->result == false_branch->result);
+		} else if (true_branch->result == false_branch->result) {
 			expr->result = true_branch->result;
+		} else {
+			struct type_tagged_union _tags = {
+				.type = false_branch->result,
+				.next = NULL,
+			}, tags = {
+				.type = true_branch->result,
+				.next = &_tags,
+			};
+			expr->result =
+				type_store_lookup_tagged(ctx->store, &tags);
 		}
+		true_branch = lower_implicit_cast(expr->result, true_branch);
+		false_branch = lower_implicit_cast(expr->result, false_branch);
 	} else {
 		expr->result = &builtin_type_void;
 		expr->terminates = true_branch->terminates;
