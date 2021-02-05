@@ -11,6 +11,7 @@
 #include "qbe.h"
 #include "scope.h"
 #include "trace.h"
+#include "typedef.h"
 #include "types.h"
 #include "util.h"
 
@@ -75,6 +76,17 @@ gen_temp(struct gen_context *ctx, struct qbe_value *val,
 	val->type = type;
 	val->name = gen_name(ctx, fmt);
 	val->indirect = false;
+}
+
+static char *
+gen_typename(const struct type *type)
+{
+	size_t sz = 0;
+	char *ptr = NULL;
+	FILE *f = open_memstream(&ptr, &sz);
+	emit_type(type, f);
+	fclose(f);
+	return ptr;
 }
 
 static void
@@ -979,6 +991,9 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	assert(subtype->id == from->id); // Lowered by check
 
 	if (out) {
+		char *type = gen_typename(subtype);
+		pushc(ctx->current, "%u => %s", subtype->id, type);
+		free(type);
 		constw(&tag, subtype->id);
 		pushi(ctx->current, &ptr, Q_COPY, out, NULL);
 		pushi(ctx->current, NULL, Q_STOREW, &tag, &ptr, NULL);
@@ -1050,6 +1065,9 @@ gen_expr_type_test(struct gen_context *ctx,
 	qval_address(&in);
 	gen_expression(ctx, expr->cast.value, &in);
 	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
+	char *type = gen_typename(want);
+	pushc(ctx->current, "%u => %s", want->id, want);
+	free(type);
 	constl(&id, want->id);
 	pushi(ctx->current, out, Q_CEQW, &tag, &id, NULL);
 }
@@ -1069,6 +1087,9 @@ gen_expr_type_assertion(struct gen_context *ctx,
 	gen_expression(ctx, expr->cast.value, &in);
 	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
 	constw(&id, want->id);
+	char *type = gen_typename(want);
+	pushc(ctx->current, "%u => %s", want->id, type);
+	free(type);
 	gen_temp(ctx, &result, &qbe_word, "valid.%d");
 	pushi(ctx->current, &result, Q_CEQW, &tag, &id, NULL);
 
@@ -1592,6 +1613,7 @@ gen_recursive_match_tests(struct gen_context *ctx, const struct type *mtype,
 	struct qbe_value *fbranch, struct qbe_value *tag,
 	struct qbe_value *mval, struct match_case *_case)
 {
+	pushc(ctx->current, "recursive match");
 	struct qbe_value temp = {0}, temp_tag = {0}, subval = {0}, offs = {0};
 	gen_temp(ctx, &subval, &qbe_long, "subtag.ptr.%d");
 	gen_temp(ctx, &temp_tag, &qbe_word, "subtag.tag.%d");
@@ -1613,6 +1635,9 @@ gen_recursive_match_tests(struct gen_context *ctx, const struct type *mtype,
 		sbranch.kind = QV_LABEL;
 		sbranch.name = strdup(genl(&slabel, &ctx->id, "match.subtype.%d"));
 		constw(&match, test->id);
+		char *type = gen_typename(test);
+		pushc(ctx->current, "%u => %s", test->id, type);
+		free(type);
 		pushi(ctx->current, &temp, Q_CEQW, &match, curtag, NULL);
 		pushi(ctx->current, NULL, Q_JNZ, &temp, &sbranch, fbranch, NULL);
 		push(&ctx->current->body, &slabel);
@@ -1633,6 +1658,7 @@ gen_match_tagged_subset(struct gen_context *ctx,
 	struct qbe_value *tbranch, struct qbe_value *fbranch,
 	struct qbe_value *tag, struct match_case *_case)
 {
+	pushc(ctx->current, "match subset-compatible type");
 	struct qbe_value temp = {0}, match = {0};
 	gen_temp(ctx, &temp, &qbe_word, "temp.%d");
 	const struct type_tagged_union *tu = &type_dealias(_case->type)->tagged;
@@ -1642,6 +1668,9 @@ gen_match_tagged_subset(struct gen_context *ctx,
 		nbranch.kind = QV_LABEL;
 		nbranch.name = strdup(genl(&nlabel, &ctx->id, "match.subtype.%d"));
 		constw(&match, tu->type->id);
+		char *type = gen_typename(tu->type);
+		pushc(ctx->current, "%u => %s", tu->type->id, type);
+		free(type);
 		pushi(ctx->current, &temp, Q_CEQW, &match, tag, NULL);
 		pushi(ctx->current, NULL, Q_JNZ, &temp, tbranch, &nbranch, NULL);
 		push(&ctx->current->body, &nlabel);

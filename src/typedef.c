@@ -100,8 +100,6 @@ emit_const(const struct expression *expr, FILE *out)
 	}
 }
 
-static void emit_type(const struct type *type, FILE *out);
-
 static int
 field_compar(const void *_a, const void *_b)
 {
@@ -142,7 +140,7 @@ emit_struct(const struct type *type, FILE *out)
 	fprintf(out, "}");
 }
 
-static void
+void
 emit_type(const struct type *type, FILE *out)
 {
 	if (type->flags & TYPE_CONST) {
