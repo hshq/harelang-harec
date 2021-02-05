@@ -399,6 +399,7 @@ address_field(struct gen_context *ctx,
 	struct qbe_value offset = {0};
 	constl(&offset, field->offset);
 	pushi(ctx->current, out, Q_ADD, out, &offset, NULL);
+	out->type = qtype_for_type(ctx, field->type, false);
 	if (!type_is_aggregate(field->type)) {
 		qval_deref(out);
 	}
@@ -1061,7 +1062,7 @@ gen_expr_type_test(struct gen_context *ctx,
 	      *tagged = type_dealias(expr->cast.value->result);
 	struct qbe_value tag = {0}, in = {0}, id = {0};
 	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
-	gen_temp(ctx, &in, qtype_for_type(ctx, tagged, false), "cast.in.%d");
+	alloc_temp(ctx, &in, tagged, "cast.in.%d");
 	qval_address(&in);
 	gen_expression(ctx, expr->cast.value, &in);
 	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
