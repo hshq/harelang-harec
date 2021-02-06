@@ -78,13 +78,13 @@ binarithm_for_op(enum binarithm_operator op,
 	case BIN_BAND:
 		return Q_AND;
 	case BIN_DIV:
-		return Q_DIV;
+		return is_signed ? Q_DIV : Q_UDIV;
 	case BIN_MINUS:
 		return Q_SUB;
 	case BIN_TIMES:
 		return Q_MUL;
 	case BIN_MODULO:
-		return Q_REM;
+		return is_signed ? Q_REM : Q_UREM;
 	case BIN_BOR:
 		return Q_OR;
 	case BIN_BXOR:
