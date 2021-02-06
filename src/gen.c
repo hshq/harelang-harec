@@ -711,6 +711,14 @@ gen_expr_assert(struct gen_context *ctx,
 }
 
 static void
+gen_expr_assign_slice(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(0); // TODO
+}
+
+static void
 gen_expr_assign(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -718,6 +726,11 @@ gen_expr_assign(struct gen_context *ctx,
 	assert(out == NULL); // Invariant
 
 	struct expression *object = expr->assign.object;
+	if (object->type == EXPR_SLICE) {
+		gen_expr_assign_slice(ctx, expr, out);
+		return;
+	}
+
 	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
 
 	const struct expression *value = expr->assign.value;

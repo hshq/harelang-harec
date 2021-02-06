@@ -1975,7 +1975,8 @@ parse_scope_expression(struct lexer *lexer)
 	default:
 		unlex(lexer, &tok);
 		value = parse_cast_expression(lexer, NULL);
-		if (!indirect && value->type != EXPR_ACCESS) {
+		if (!indirect && value->type != EXPR_ACCESS
+				&& value->type != EXPR_SLICE) {
 			return parse_bin_expression(lexer, value, 0);
 		}
 		// Is possible object-selector, try for assignment

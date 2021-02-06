@@ -338,7 +338,8 @@ check_expr_assign(struct context *ctx,
 			"Value type is not assignable to pointer type");
 		value = lower_implicit_cast(object->result->pointer.referent, value);
 	} else {
-		assert(object->type == EXPR_ACCESS); // Invariant
+		assert(object->type == EXPR_ACCESS
+				|| object->type == EXPR_SLICE); // Invariant
 		expect(&aexpr->loc, !(object->result->flags & TYPE_CONST),
 				"Cannot assign to const object");
 		expect(&aexpr->loc,
