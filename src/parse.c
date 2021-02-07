@@ -1641,6 +1641,9 @@ parse_case_options(struct lexer *lexer)
 				break;
 			default:
 				unlex(lexer, &tok);
+				opt = xcalloc(1, sizeof(struct ast_case_option));
+				*next = opt;
+				next = &opt->next;
 				break;
 			}
 			break;
@@ -1648,13 +1651,8 @@ parse_case_options(struct lexer *lexer)
 			more = false;
 			break;
 		default:
-			unlex(lexer, &tok);
+			synassert(false, &tok, T_CASE, T_COMMA, T_EOF);
 			break;
-		}
-		if (more) {
-			opt = xcalloc(1, sizeof(struct ast_case_option));
-			*next = opt;
-			next = &opt->next;
 		}
 	}
 
