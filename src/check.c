@@ -99,7 +99,8 @@ check_expr_access(struct context *ctx,
 		case O_TYPE:
 			expect(&aexpr->loc,
 				type_dealias(obj->type)->storage == TYPE_STORAGE_VOID,
-				"Cannot use non-void type alias as constant");
+				"Cannot use non-void type alias '%s' as constant",
+				identifier_unparse(&obj->type->alias.ident));
 			expr->type = EXPR_CONSTANT;
 			expr->result = obj->type;
 			break;
