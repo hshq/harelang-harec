@@ -691,7 +691,28 @@ check_expr_array(struct context *ctx,
 	struct array_constant *cur, **next = &expr->constant.array;
 	const struct type *type = NULL;
 	if (hint) {
-		type = hint->array.members;
+		hint = type_dealias(hint);
+		if (hint->storage == TYPE_STORAGE_ARRAY
+				|| hint->storage == TYPE_STORAGE_SLICE) {
+			type = hint->array.members;
+		} else if (hint->storage == TYPE_STORAGE_TAGGED) {
+			size_t narray = 0;
+			for (const struct type_tagged_union *tu = &hint->tagged;
+					tu; tu = tu->next) {
+				const struct type *t = type_dealias(tu->type);
+				if (t->storage == TYPE_STORAGE_ARRAY
+						|| t->storage == TYPE_STORAGE_SLICE) {
+					hint = t;
+					type = hint->array.members;
+					++narray;
+				}
+			}
+			if (narray != 1) {
+				type = hint = NULL;
+			}
+		} else {
+			hint = NULL;
+		}
 	}
 
 	while (item) {
@@ -730,6 +751,8 @@ check_expr_array(struct context *ctx,
 		expr->result = type_store_lookup_array(ctx->store,
 				type, hint->array.length);
 	} else {
+		expect(&aexpr->loc, type != NULL,
+			"Cannot infer array type from context, try casting it to the desired type");
 		expr->result = type_store_lookup_array(ctx->store, type, len);
 	}
 }
