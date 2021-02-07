@@ -7,7 +7,7 @@ export fn compile(src: const str) int = {
 	const child = fork();
 	if (child == 0) {
 		close(pipefd[1]);
-		dup2(pipefd[0], 0);
+		dup3(pipefd[0], 0, 0);
 		close(1);
 		close(2);
 

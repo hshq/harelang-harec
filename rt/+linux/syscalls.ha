@@ -11,14 +11,14 @@ export fn write(fd: int, buf: *const void, count: size) size =
 
 export fn close(fd: int) int = syscall1(SYS_close, fd: u64): int;
 
-export fn dup2(old: int, new: int) int =
-	syscall2(SYS_dup2, old: u64, new: u64): int;
+export fn dup3(old: int, new: int, flags: int) int =
+	syscall3(SYS_dup3, old: u64, new: u64, flags: u64): int;
 
 export fn getpid() int = syscall0(SYS_getpid): int;
 
 export @noreturn fn exit(status: int) void = syscall1(SYS_exit, status: u64);
 
-export fn fork() int = syscall0(SYS_fork): int;
+export fn fork() int = syscall2(SYS_clone, SIGCHLD: u64, 0u64): int;
 
 export fn execve(
 	path: *const char,
@@ -104,3 +104,4 @@ export fn mprotect(addr: *void, length: size, prot: uint) int =
 	syscall3(SYS_mprotect, addr: uintptr: u64, length: u64, prot: u64): int;
 
 export def SIGABRT: int	= 6;
+export def SIGCHLD: int	= 17;

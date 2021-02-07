@@ -2,22 +2,23 @@
 all="$all rt"
 
 rt() {
+	arch=$(uname -m)
 	case $(uname) in
 		Linux)
-			rtstart=rt/+linux/start.o
+			rtstart=rt/+linux/start+$arch.o
 			cat <<-EOF
-			rtstart=rt/+linux/start.o
+			rtstart=rt/+linux/start+$arch.o
 
 			libhart_srcs=\
 				rt/+linux/errno.ha \
 				rt/+linux/segmalloc.ha \
-				rt/+linux/syscallno+x86_64.ha \
+				rt/+linux/syscallno+$arch.ha \
 				rt/+linux/syscalls.ha
 
 			libhart_objs=\
-				rt/+linux/syscall+x86_64.o
+				rt/+linux/syscall+$arch.o
 
-			rt: libhart.a rt/+linux/start.o
+			rt: libhart.a rt/+linux/start+$arch.o
 			EOF
 			;;
 		*)
