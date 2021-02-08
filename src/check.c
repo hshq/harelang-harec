@@ -934,6 +934,11 @@ check_expr_free(struct context *ctx,
 	trace(TR_CHECK, "free");
 	expr->free.expr = xcalloc(sizeof(struct expression), 1);
 	check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL);
+	enum type_storage storage = type_dealias(expr->free.expr->result)->storage;
+	expect(&aexpr->free.expr->loc,
+		storage == TYPE_STORAGE_SLICE || storage == TYPE_STORAGE_STRING
+		|| storage == TYPE_STORAGE_POINTER,
+		"free must operate on slice, string, or pointer");
 	expr->result = &builtin_type_void;
 }
 
