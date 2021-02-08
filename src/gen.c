@@ -1617,7 +1617,9 @@ gen_expr_list(struct gen_context *ctx,
 		exprs = exprs->next;
 	}
 
-	gen_defers(ctx, ctx->scope);
+	if (!expr->terminates) {
+		gen_defers(ctx, ctx->scope);
+	}
 	pop_scope(ctx);
 	push(&ctx->current->body, &endl);
 }
