@@ -150,7 +150,6 @@ const struct type *tagged_select_subtype(
 bool tagged_subset_compat(const struct type *to, const struct type *from);
 
 const char *type_storage_unparse(enum type_storage storage);
-bool type_storage_is_signed(enum type_storage storage);
 bool type_is_signed(const struct type *type);
 bool type_is_integer(const struct type *type);
 bool type_is_numeric(const struct type *type);

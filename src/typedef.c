@@ -236,7 +236,7 @@ emit_type(const struct type *type, FILE *out)
 		for (const struct type_enum_value *ev = type->_enum.values;
 				ev; ev = ev->next) {
 			fprintf(out, "%s = ", ev->name);
-			if (type_storage_is_signed(type->_enum.storage)) {
+			if (type_is_signed(type)) {
 				fprintf(out, "%zu%s", ev->ival,
 					storage_to_suffix(type->_enum.storage));
 			} else {
