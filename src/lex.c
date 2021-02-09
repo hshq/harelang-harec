@@ -266,7 +266,6 @@ lex_name(struct lexer *lexer, struct token *out)
 static uint32_t
 lex_literal(struct lexer *lexer, struct token *out)
 {
-	bool neg = false;
 	uint32_t c = next(lexer, &out->loc, true);
 	if (c == '-') {
 		c = next(lexer, NULL, true);
@@ -404,9 +403,6 @@ finalize:
 		for (uintmax_t i = 0; i < exponent; i++) {
 			out->uval *= 10;
 		}
-		if (neg) {
-			out->uval = -out->uval;
-		}
 		break;
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
@@ -417,16 +413,10 @@ finalize:
 		for (uintmax_t i = 0; i < exponent; i++) {
 			out->ival *= 10;
 		}
-		if (neg) {
-			out->ival = -out->ival;
-		}
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 		out->fval = strtod(lexer->buf, NULL);
-		if (neg) {
-			out->fval = -out->fval;
-		}
 		break;
 	default:
 		assert(0);
