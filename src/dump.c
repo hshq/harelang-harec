@@ -65,6 +65,7 @@ dump_const(const struct expression *expr)
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 		fprintf(stderr, "%lf%s", val->fval,
 			storage_to_suffix(expr->result->storage));
 		break;
@@ -72,6 +73,7 @@ dump_const(const struct expression *expr)
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 		fprintf(stderr, "%ld%s", val->ival,
 			storage_to_suffix(expr->result->storage));
@@ -128,10 +130,12 @@ dump_type(const struct type *type)
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:

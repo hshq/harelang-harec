@@ -38,6 +38,8 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return is_const ? &builtin_type_const_f32 : &builtin_type_f32;
 	case TYPE_STORAGE_F64:
 		return is_const ? &builtin_type_const_f64 : &builtin_type_f64;
+	case TYPE_STORAGE_FCONST:
+		return is_const ? &builtin_type_const_fconst : &builtin_type_fconst;
 	case TYPE_STORAGE_I8:
 		return is_const ? &builtin_type_const_i8 : &builtin_type_i8;
 	case TYPE_STORAGE_I16:
@@ -46,6 +48,8 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return is_const ? &builtin_type_const_i32 : &builtin_type_i32;
 	case TYPE_STORAGE_I64:
 		return is_const ? &builtin_type_const_i64 : &builtin_type_i64;
+	case TYPE_STORAGE_ICONST:
+		return is_const ? &builtin_type_const_iconst : &builtin_type_iconst;
 	case TYPE_STORAGE_INT:
 		return is_const ? &builtin_type_const_int : &builtin_type_int;
 	case TYPE_STORAGE_RUNE:
@@ -370,10 +374,12 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:

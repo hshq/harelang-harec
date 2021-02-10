@@ -15,6 +15,8 @@ storage_to_suffix(enum type_storage storage)
 		return "f32";
 	case TYPE_STORAGE_F64:
 		return "f64";
+	case TYPE_STORAGE_FCONST:
+		return "";
 	case TYPE_STORAGE_I16:
 		return "i16";
 	case TYPE_STORAGE_I32:
@@ -23,6 +25,8 @@ storage_to_suffix(enum type_storage storage)
 		return "i64";
 	case TYPE_STORAGE_I8:
 		return "i8";
+	case TYPE_STORAGE_ICONST:
+		return "";
 	case TYPE_STORAGE_INT:
 		return "i";
 	case TYPE_STORAGE_SIZE:
@@ -55,6 +59,7 @@ emit_const(const struct expression *expr, FILE *out)
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 		fprintf(out, "%lf%s", val->fval,
 			storage_to_suffix(expr->result->storage));
 		break;
@@ -62,6 +67,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 		fprintf(out, "%ld%s", val->ival,
 			storage_to_suffix(expr->result->storage));
@@ -261,6 +267,9 @@ emit_type(const struct type *type, FILE *out)
 		}
 		fprintf(out, ")");
 		break;
+	case TYPE_STORAGE_FCONST:
+	case TYPE_STORAGE_ICONST:
+		assert(0); // Invariant
 	}
 }
 

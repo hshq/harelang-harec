@@ -27,14 +27,14 @@ fn termination() void = {
 fn tagged_result() void = {
 	let x = 42;
 	let y: (int | uint) = switch (x) {
-		42 => 1337,
+		42 => 1337i,
 		*  => 1337u,
 	};
 	assert(y is int);
 
 	x = 24;
 	y = switch (x) {
-		42 => 1337,
+		42 => 1337i,
 		*  => 1337u,
 	};
 	assert(y is uint);

@@ -42,6 +42,8 @@ qstype_for_type(const struct type *type)
 	case TYPE_STORAGE_ENUM:
 		return qstype_for_type(builtin_type_for_storage(type->_enum.storage, true));
 	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_FCONST:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
@@ -92,6 +94,9 @@ qxtype_for_type(const struct type *type)
 		return qstype_for_type(type);
 	case TYPE_STORAGE_ENUM:
 		return qxtype_for_type(builtin_type_for_storage(type->_enum.storage, true));
+	case TYPE_STORAGE_FCONST:
+	case TYPE_STORAGE_ICONST:
+		assert(0); // Lowered in check
 	}
 	assert(0);
 }
@@ -228,12 +233,14 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 	case TYPE_STORAGE_UINT:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_UINTPTR:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_VOID:
 	case TYPE_STORAGE_FUNCTION:
 		assert(0); // Invariant
@@ -287,6 +294,9 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 		return qtype_for_xtype(Q__AGGREGATE, false);
 	case TYPE_STORAGE_ALIAS:
 		return qtype_for_type(ctx, type->alias.type, extended);
+	case TYPE_STORAGE_FCONST:
+	case TYPE_STORAGE_ICONST:
+		assert(0); // Lowered in check
 	}
 	assert(0); // Unreachable
 }
@@ -328,6 +338,9 @@ type_is_aggregate(const struct type *type)
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_FUNCTION:
 		return true;
+	case TYPE_STORAGE_FCONST:
+	case TYPE_STORAGE_ICONST:
+		assert(0); // Lowered in check
 	}
 	assert(0); // Unreachable
 }

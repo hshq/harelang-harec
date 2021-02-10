@@ -67,7 +67,7 @@ fn reduction() void = {
 	assert(size((i8 | i16 | i32)) == size((i8 | (i16 | i32))));
 	assert(size(integer) == size(signed));
 	assert(size(integer) != size((signed | unsigned)));
-	const i: integer = 10;
+	const i: integer = 10i;
 	assert(i is int);
 };
 

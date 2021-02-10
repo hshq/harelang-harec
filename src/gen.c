@@ -1307,7 +1307,9 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_TAGGED:
 		assert(0); // Handled above
 	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TUPLE:
@@ -2501,7 +2503,9 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		assert(0); // TODO
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_CHAR:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_VOID:
 		assert(0); // Invariant

@@ -34,6 +34,7 @@ itrunc(const struct type *type, uintmax_t val)
 	case TYPE_STORAGE_UINT:
 		return (unsigned int)val;
 	case TYPE_STORAGE_ARRAY:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_UINTPTR:
@@ -49,6 +50,7 @@ itrunc(const struct type *type, uintmax_t val)
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_SLICE:
@@ -265,10 +267,12 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_POINTER:
@@ -319,6 +323,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_U16:
 	case TYPE_STORAGE_U32:
@@ -336,6 +341,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		return EVAL_OK;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_NULL:
@@ -386,6 +392,7 @@ constant_default(struct context *ctx, struct expression *v)
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
 	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_U16:
 	case TYPE_STORAGE_U32:
@@ -396,6 +403,7 @@ constant_default(struct context *ctx, struct expression *v)
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_NULL:

@@ -1,5 +1,5 @@
 fn tagged() void = {
-	let cases: [3](int | uint | str) = [10, 10u, "hello"];
+	let cases: [3](int | uint | str) = [10i, 10u, "hello"];
 	let expected = [1z, 2z, 5z];
 	for (let i = 0z; i < len(cases); i += 1z) {
 		let y: size = match (cases[i]) {
@@ -12,7 +12,7 @@ fn tagged() void = {
 };
 
 fn termination() void = {
-	let x: (int | uint | str) = 1337;
+	let x: (int | uint | str) = 1337i;
 	for (true) {
 		let y: int = match (x) {
 			int  => 42,
@@ -67,7 +67,7 @@ fn alias() void = {
 };
 
 fn tagged_result() void = {
-	let x: (int | uint) = 42;
+	let x: (int | uint) = 42i;
 	let y: (int | uint) = match (x) {
 		x: int  => x,
 		x: uint => x,
@@ -167,7 +167,7 @@ type integer = (...signed | ...unsigned);
 export fn numeric() void = {
 	// Real-world test
 	let visit = true;
-	let x: integer = 1337;
+	let x: integer = 1337i;
 	match (x) {
 		s: signed => match (s) {
 			i: int => {

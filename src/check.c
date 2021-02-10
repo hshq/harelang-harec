@@ -790,6 +790,81 @@ check_expr_array(struct context *ctx,
 	}
 }
 
+static const struct type *
+lower_constant(const struct type *type, struct expression *expr)
+{
+	assert(expr->type == EXPR_CONSTANT);
+	type = type_dealias(type);
+	if (type_is_float(type)) {
+		assert(0); // TODO
+	}
+	if (type->storage == TYPE_STORAGE_TAGGED) {
+		const struct type *tag = NULL;
+		for (const struct type_tagged_union *tu = &type->tagged; tu;
+				tu = tu->next) {
+			if (lower_constant(tu->type, expr)) {
+				if (tag != NULL) {
+					// Ambiguous
+					return NULL;
+				}
+				tag = tu->type;
+			}
+		}
+		return tag;
+	}
+	if (!type_is_integer(type)) {
+		return NULL;
+	}
+	if (type_is_signed(type)) {
+		intmax_t max, min;
+		switch (type->size) {
+		case 1:
+			max = INT8_MAX;
+			min = INT8_MIN;
+			break;
+		case 2:
+			max = INT16_MAX;
+			min = INT16_MIN;
+			break;
+		case 4:
+			max = INT32_MAX;
+			min = INT32_MIN;
+			break;
+		case 8:
+			max = INT64_MAX;
+			min = INT64_MIN;
+			break;
+		default:
+			assert(0);
+		}
+		if (expr->constant.ival <= max && expr->constant.ival >= min) {
+			return type;
+		}
+		return NULL;
+	}
+	uintmax_t max;
+	switch (type->size) {
+	case 1:
+		max = UINT8_MAX;
+		break;
+	case 2:
+		max = UINT16_MAX;
+		break;
+	case 4:
+		max = UINT32_MAX;
+		break;
+	case 8:
+		max = UINT64_MAX;
+		break;
+	default:
+		assert(0);
+	}
+	if (expr->constant.uval <= max) {
+		return type;
+	}
+	return NULL;
+}
+
 static void
 check_expr_constant(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -800,11 +875,23 @@ check_expr_constant(struct context *ctx,
 	expr->type = EXPR_CONSTANT;
 	expr->result = builtin_type_for_storage(aexpr->constant.storage, false);
 
+	if (expr->result && expr->result->storage == TYPE_STORAGE_ICONST) {
+		if (hint == NULL) {
+			hint = builtin_type_for_storage(TYPE_STORAGE_INT, false);
+		}
+		expr->constant.ival = aexpr->constant.ival;
+		const struct type *type = lower_constant(hint, expr);
+		// TODO: This error message is awful
+		expect(&aexpr->loc, type, "Integer constant out of range");
+		expr->result = type;
+	}
+
 	switch (aexpr->constant.storage) {
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 		expr->constant.ival = aexpr->constant.ival;
 		break;
@@ -837,7 +924,7 @@ check_expr_constant(struct context *ctx,
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_FCONST:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_ENUM:
@@ -848,6 +935,7 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_TUPLE:
+	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 		assert(0); // Invariant
 	}

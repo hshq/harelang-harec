@@ -343,9 +343,9 @@ lex_literal(struct lexer *lexer, struct token *out)
 finalize:
 	out->token = T_LITERAL;
 	if (isfloat) {
-		out->storage = TYPE_STORAGE_F64;
+		out->storage = TYPE_STORAGE_FCONST;
 	} else {
-		out->storage = TYPE_STORAGE_INT;
+		out->storage = TYPE_STORAGE_ICONST;
 	}
 	if (suff) {
 		const char *suffs[] = {
@@ -404,6 +404,19 @@ finalize:
 			out->uval *= 10;
 		}
 		break;
+	case TYPE_STORAGE_ICONST:
+		if (lexer->buf[0] != '-') {
+			uintmax_t uval = strtoumax(lexer->buf, NULL, base);
+			for (uintmax_t i = 0; i < exponent; i++) {
+				uval *= 10;
+			}
+			if (uval > (uintmax_t)INT64_MAX) {
+				out->storage = TYPE_STORAGE_U64;
+				out->uval = uval;
+				break;
+			}
+		}
+		// Fallthrough
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
@@ -416,6 +429,7 @@ finalize:
 		break;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 		out->fval = strtod(lexer->buf, NULL);
 		break;
 	default:
@@ -1030,11 +1044,13 @@ token_str(const struct token *tok)
 		case TYPE_STORAGE_I16:
 		case TYPE_STORAGE_I32:
 		case TYPE_STORAGE_I64:
+		case TYPE_STORAGE_ICONST:
 		case TYPE_STORAGE_INT:
 			snprintf(buf, sizeof(buf), "%jd", tok->ival);
 			break;
 		case TYPE_STORAGE_F32:
 		case TYPE_STORAGE_F64:
+		case TYPE_STORAGE_FCONST:
 			snprintf(buf, sizeof(buf), "%lf", tok->fval);
 			break;
 		case TYPE_STORAGE_RUNE:

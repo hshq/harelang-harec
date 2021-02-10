@@ -783,6 +783,7 @@ parse_constant(struct lexer *lexer)
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 		exp->constant.ival = (intmax_t)tok.ival;
 		break;

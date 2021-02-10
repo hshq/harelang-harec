@@ -80,6 +80,8 @@ type_storage_unparse(enum type_storage storage)
 		return "f32";
 	case TYPE_STORAGE_F64:
 		return "f64";
+	case TYPE_STORAGE_FCONST:
+		return "fconst";
 	case TYPE_STORAGE_FUNCTION:
 		return "function";
 	case TYPE_STORAGE_I16:
@@ -90,6 +92,8 @@ type_storage_unparse(enum type_storage storage)
 		return "i64";
 	case TYPE_STORAGE_I8:
 		return "i8";
+	case TYPE_STORAGE_ICONST:
+		return "iconst";
 	case TYPE_STORAGE_INT:
 		return "int";
 	case TYPE_STORAGE_POINTER:
@@ -149,6 +153,7 @@ type_is_integer(const struct type *type)
 	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 		return false;
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_ENUM:
@@ -156,6 +161,7 @@ type_is_integer(const struct type *type)
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_U8:
@@ -195,9 +201,11 @@ type_is_numeric(const struct type *type)
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_SIZE:
 	case TYPE_STORAGE_U8:
 	case TYPE_STORAGE_U16:
@@ -253,7 +261,10 @@ type_storage_is_signed(enum type_storage storage)
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 		return true;
+	case TYPE_STORAGE_ICONST:
+		assert(0); // XXX
 	}
 	assert(0); // Unreachable
 }
@@ -279,10 +290,12 @@ type_hash(const struct type *type)
 	case TYPE_STORAGE_CHAR:
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
+	case TYPE_STORAGE_FCONST:
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
 	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_ICONST:
 	case TYPE_STORAGE_INT:
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
@@ -438,6 +451,9 @@ type_is_assignable(const struct type *to, const struct type *from)
 	struct type _to_secondary, _from_secondary;
 	const struct type *to_secondary, *from_secondary;
 	switch (to->storage) {
+	case TYPE_STORAGE_ICONST:
+	case TYPE_STORAGE_FCONST:
+		assert(0); // Invariant
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
@@ -569,6 +585,9 @@ type_is_castable(const struct type *to, const struct type *from)
 	}
 
 	switch (to->storage) {
+	case TYPE_STORAGE_FCONST:
+	case TYPE_STORAGE_ICONST:
+		assert(0); // TODO
 	case TYPE_STORAGE_I8:
 	case TYPE_STORAGE_I16:
 	case TYPE_STORAGE_I32:
@@ -638,22 +657,24 @@ builtin_types_init()
 {
 	struct type *builtins[] = {
 		&builtin_type_bool, &builtin_type_char, &builtin_type_f32,
-		&builtin_type_f64, &builtin_type_i8, &builtin_type_i16,
-		&builtin_type_i32, &builtin_type_i64, &builtin_type_int,
-		&builtin_type_u8, &builtin_type_u16, &builtin_type_u32,
-		&builtin_type_u64, &builtin_type_uint, &builtin_type_uintptr,
-		&builtin_type_null, &builtin_type_rune, &builtin_type_size,
-		&builtin_type_void, &builtin_type_const_bool,
-		&builtin_type_const_char, &builtin_type_const_f32,
-		&builtin_type_const_f64, &builtin_type_const_i8,
+		&builtin_type_f64, &builtin_type_fconst, &builtin_type_i8,
+		&builtin_type_i16, &builtin_type_i32, &builtin_type_i64,
+		&builtin_type_iconst, &builtin_type_int, &builtin_type_u8,
+		&builtin_type_u16, &builtin_type_u32, &builtin_type_u64,
+		&builtin_type_uint, &builtin_type_uintptr, &builtin_type_null,
+		&builtin_type_rune, &builtin_type_size, &builtin_type_void,
+		&builtin_type_const_bool, &builtin_type_const_char,
+		&builtin_type_const_f32, &builtin_type_const_f64,
+		&builtin_type_const_fconst, &builtin_type_const_i8,
 		&builtin_type_const_i16, &builtin_type_const_i32,
-		&builtin_type_const_i64, &builtin_type_const_int,
-		&builtin_type_const_u8, &builtin_type_const_u16,
-		&builtin_type_const_u32, &builtin_type_const_u64,
-		&builtin_type_const_uint, &builtin_type_const_uintptr,
-		&builtin_type_const_rune, &builtin_type_const_size,
-		&builtin_type_const_void, &builtin_type_const_ptr_char,
-		&builtin_type_str, &builtin_type_const_str,
+		&builtin_type_const_i64, &builtin_type_const_iconst,
+		&builtin_type_const_int, &builtin_type_const_u8,
+		&builtin_type_const_u16, &builtin_type_const_u32,
+		&builtin_type_const_u64, &builtin_type_const_uint,
+		&builtin_type_const_uintptr, &builtin_type_const_rune,
+		&builtin_type_const_size, &builtin_type_const_void,
+		&builtin_type_const_ptr_char, &builtin_type_str,
+		&builtin_type_const_str,
 	};
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
 		builtins[i]->id = type_hash(builtins[i]);
@@ -681,6 +702,11 @@ builtin_type_f64 = {
 	.size = 8,
 	.align = 8,
 },
+builtin_type_fconst = {
+	.storage = TYPE_STORAGE_FCONST,
+	.size = SIZE_UNDEFINED,
+	.align = ALIGN_UNDEFINED,
+},
 builtin_type_i8 = {
 	.storage = TYPE_STORAGE_I8,
 	.size = 1,
@@ -700,6 +726,11 @@ builtin_type_i64 = {
 	.storage = TYPE_STORAGE_I64,
 	.size = 8,
 	.align = 8,
+},
+builtin_type_iconst = {
+	.storage = TYPE_STORAGE_ICONST,
+	.size = SIZE_UNDEFINED,
+	.align = ALIGN_UNDEFINED,
 },
 builtin_type_int = {
 	.storage = TYPE_STORAGE_INT,
@@ -780,6 +811,12 @@ builtin_type_const_f64 = {
 	.size = 8,
 	.align = 8,
 },
+builtin_type_const_fconst = {
+	.storage = TYPE_STORAGE_FCONST,
+	.flags = TYPE_CONST,
+	.size = SIZE_UNDEFINED,
+	.align = ALIGN_UNDEFINED,
+},
 builtin_type_const_i8 = {
 	.storage = TYPE_STORAGE_I8,
 	.flags = TYPE_CONST,
@@ -803,6 +840,12 @@ builtin_type_const_i64 = {
 	.flags = TYPE_CONST,
 	.size = 8,
 	.align = 8,
+},
+builtin_type_const_iconst = {
+	.storage = TYPE_STORAGE_ICONST,
+	.flags = TYPE_CONST,
+	.size = SIZE_UNDEFINED,
+	.align = ALIGN_UNDEFINED,
 },
 builtin_type_const_int = {
 	.storage = TYPE_STORAGE_INT,
