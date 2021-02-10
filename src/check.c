@@ -386,6 +386,126 @@ check_expr_assign(struct context *ctx,
 	expr->assign.value = value;
 }
 
+static const struct type *
+type_promote(struct type_store *store,
+	const struct type *_a,
+	const struct type *_b)
+{
+	bool is_const = (_a->flags & TYPE_CONST) || (_b->flags & TYPE_CONST);
+	const struct type *a =
+		type_store_lookup_with_flags(store, _a, _a->flags & ~TYPE_CONST);
+	const struct type *b =
+		type_store_lookup_with_flags(store, _b, _b->flags & ~TYPE_CONST);
+
+	if (a->storage == TYPE_STORAGE_ALIAS) {
+		return a == b || a->alias.type == b ? _b : NULL;
+	}
+	if (b->storage == TYPE_STORAGE_ALIAS) {
+		return a == b || a == b->alias.type ? _a : NULL;
+	}
+
+	const struct type *base = a == b ? a : NULL;
+
+	switch (a->storage) {
+	case TYPE_STORAGE_ARRAY:
+		if (a->array.length == SIZE_UNDEFINED && a->array.members) {
+			base = b;
+			break;
+		}
+		if (b->array.length == SIZE_UNDEFINED && b->array.members) {
+			base = a;
+			break;
+		}
+		break;
+	case TYPE_STORAGE_I8:
+	case TYPE_STORAGE_I16:
+	case TYPE_STORAGE_I32:
+	case TYPE_STORAGE_I64:
+	case TYPE_STORAGE_INT:
+		if (!type_is_integer(b) || !type_is_signed(b)
+				|| b->size == a->size) {
+			break;
+		}
+		base = a->size > b->size ? a : b;
+		break;
+	case TYPE_STORAGE_U32:
+	case TYPE_STORAGE_U16:
+	case TYPE_STORAGE_U64:
+	case TYPE_STORAGE_UINT:
+	case TYPE_STORAGE_SIZE:
+	case TYPE_STORAGE_U8:
+	case TYPE_STORAGE_CHAR:
+		if (!type_is_integer(b) || type_is_signed(b)
+				|| b->size == a->size) {
+			break;
+		}
+		base = a->size > b->size ? a : b;
+		break;
+	case TYPE_STORAGE_F32:
+	case TYPE_STORAGE_F64:
+		if (!type_is_float(b) || b->size == a->size) {
+			break;
+		}
+		base = a->size > b->size ? a : b;
+		break;
+	case TYPE_STORAGE_POINTER:
+		if (b->storage == TYPE_STORAGE_NULL) {
+			base = a;
+			break;
+		}
+		if (b->storage != TYPE_STORAGE_POINTER) {
+			break;
+		}
+		base = type_promote(store, a->pointer.referent,
+			b->pointer.referent);
+		if (base) {
+			base = type_store_lookup_pointer(store, base,
+				a->pointer.flags | b->pointer.flags);
+		}
+		break;
+	case TYPE_STORAGE_NULL:
+		if (b->storage == TYPE_STORAGE_POINTER
+				|| b->storage == TYPE_STORAGE_NULL) {
+			base = b;
+		}
+		break;
+	// Cannot be promoted
+	case TYPE_STORAGE_BOOL:
+	case TYPE_STORAGE_ENUM:
+	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_RUNE:
+	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_STRING:
+	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
+	case TYPE_STORAGE_UINTPTR:
+	case TYPE_STORAGE_UNION:
+	case TYPE_STORAGE_VOID:
+		break;
+	// Handled above
+	case TYPE_STORAGE_ALIAS:
+		break;
+	// Invariant
+	case TYPE_STORAGE_FCONST:
+	case TYPE_STORAGE_ICONST:
+		assert(0);
+	}
+
+	if (is_const && base) {
+		base = type_store_lookup_with_flags(store, base,
+			base->flags | TYPE_CONST);
+	}
+	return base;
+}
+
+static bool
+aexpr_is_flexible(const struct ast_expression *expr)
+{
+	return expr->type == EXPR_CONSTANT
+		&& storage_is_flexible(expr->constant.storage);
+}
+
 static void
 check_expr_binarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -396,13 +516,7 @@ check_expr_binarithm(struct context *ctx,
 	expr->type = EXPR_BINARITHM;
 	expr->binarithm.op = aexpr->binarithm.op;
 
-	struct expression *lvalue = xcalloc(1, sizeof(struct expression)),
-		*rvalue = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->binarithm.lvalue, lvalue, NULL);
-	check_expression(ctx, aexpr->binarithm.rvalue, rvalue, NULL);
-	expr->binarithm.lvalue = lvalue;
-	expr->binarithm.rvalue = rvalue;
-
+	bool numeric;
 	switch (expr->binarithm.op) {
 	// Numeric arithmetic
 	case BIN_BAND:
@@ -415,11 +529,7 @@ check_expr_binarithm(struct context *ctx,
 	case BIN_RSHIFT:
 	case BIN_TIMES:
 	case BIN_BXOR:
-		// TODO: Promotion
-		expect(&aexpr->loc,
-			lvalue->result->storage == rvalue->result->storage,
-			"TODO: type promotion");
-		expr->result = lvalue->result;
+		numeric = true;
 		break;
 	// Logical arithmetic
 	case BIN_GREATER:
@@ -431,12 +541,78 @@ check_expr_binarithm(struct context *ctx,
 	case BIN_LOR:
 	case BIN_LXOR:
 	case BIN_NEQUAL:
-		// TODO: Promotion, comparibility rules
-		expect(&aexpr->loc,
-			lvalue->result->storage == rvalue->result->storage,
-			"TODO: type promotion");
-		expr->result = &builtin_type_bool;
+		numeric = false;
+		hint = NULL;
 		break;
+	}
+
+	bool lflex = aexpr_is_flexible(aexpr->binarithm.lvalue),
+		rflex = aexpr_is_flexible(aexpr->binarithm.rvalue);
+	struct expression *lvalue = xcalloc(1, sizeof(struct expression)),
+		*rvalue = xcalloc(1, sizeof(struct expression));
+
+	if (hint && lflex && rflex) {
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
+	} else if (lflex && rflex) {
+		intmax_t l = aexpr->binarithm.lvalue->constant.ival,
+			r = aexpr->binarithm.rvalue->constant.ival,
+			max = l > r ? l : r, min = l < r ? l : r;
+		enum type_storage storage = TYPE_STORAGE_ICONST;
+		if (min < 0) {
+			if (max < ((intmax_t)1 << 7) - 1
+					&& min > -((intmax_t)1 << 8)) {
+				storage = TYPE_STORAGE_I8;
+			} else if (max < ((intmax_t)1 << 15) - 1
+					&& min > -((intmax_t)1 << 16)) {
+				storage = TYPE_STORAGE_I16;
+			} else if (max < ((intmax_t)1 << 31) - 1
+					&& min > -((intmax_t)1 << 32)) {
+				storage = TYPE_STORAGE_I32;
+			} else {
+				storage = TYPE_STORAGE_I64;
+			}
+		} else {
+			if (max < ((intmax_t)1 << 8)) {
+				storage = TYPE_STORAGE_U8;
+			} else if (max < ((intmax_t)1 << 16)) {
+				storage = TYPE_STORAGE_U16;
+			} else if (max < ((intmax_t)1 << 32)) {
+				storage = TYPE_STORAGE_U32;
+			} else {
+				storage = TYPE_STORAGE_U64;
+			}
+		}
+		assert(storage != TYPE_STORAGE_ICONST);
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue,
+			builtin_type_for_storage(storage, false));
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue,
+			builtin_type_for_storage(storage, false));
+	} else if (!lflex && rflex) {
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue,
+			lvalue->result);
+	} else if (lflex && !rflex) {
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue,
+			rvalue->result);
+	} else {
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
+	}
+
+	expr->binarithm.lvalue = lvalue;
+	expr->binarithm.rvalue = rvalue;
+
+	const struct type *p =
+		type_promote(ctx->store, lvalue->result, rvalue->result);
+	expect(&aexpr->loc, p != NULL, "Cannot promote lvalue and rvalue");
+	lvalue = lower_implicit_cast(p, lvalue);
+	rvalue = lower_implicit_cast(p, rvalue);
+	if (numeric) {
+		expr->result = p;
+	} else {
+		expr->result = &builtin_type_bool;
 	}
 }
 

@@ -83,7 +83,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		 irval = itrunc(rvalue.result, rvalue.constant.ival), ival;
 	uintmax_t ulval = itrunc(lvalue.result, lvalue.constant.uval),
 		  urval = itrunc(rvalue.result, rvalue.constant.uval), uval;
-	assert(lvalue.result->storage == rvalue.result->storage); // TODO: promotion
+	// Type promotion is lowered in check
+	assert(lvalue.result->storage == rvalue.result->storage);
 	switch (in->binarithm.op) {
 	case BIN_BAND:
 		if (type_is_signed(lvalue.result)) {
