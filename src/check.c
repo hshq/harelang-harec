@@ -190,10 +190,11 @@ check_expr_alloc(struct context *ctx,
 	expr->alloc.expr = xcalloc(sizeof(struct expression), 1);
 	expr->result =
 		type_store_lookup_atype(ctx->store, aexpr->alloc.type);
-	check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr, expr->result);
 	enum type_storage storage = type_dealias(expr->result)->storage;
 	switch (storage) {
 	case TYPE_STORAGE_POINTER:
+		check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr,
+			expr->result->pointer.referent);
 		if (aexpr->alloc.cap != NULL) {
 			// We can't just expect(aexpr->alloc.cap != NULL)
 			// because we want to use aexpr->alloc.cap->loc
@@ -203,6 +204,8 @@ check_expr_alloc(struct context *ctx,
 		}
 		break;
 	case TYPE_STORAGE_SLICE:
+		check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr,
+			expr->result);
 		if (aexpr->alloc.cap != NULL) {
 			expr->alloc.cap = xcalloc(sizeof(struct expression), 1);
 			check_expression(ctx, aexpr->alloc.cap, expr->alloc.cap,
@@ -350,7 +353,6 @@ check_expr_assign(struct context *ctx,
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 
 	check_expression(ctx, aexpr->assign.object, object, NULL);
-	check_expression(ctx, aexpr->assign.value, value, object->result);
 
 	expr->assign.op = aexpr->assign.op;
 
@@ -361,12 +363,15 @@ check_expr_assign(struct context *ctx,
 		expect(&aexpr->loc,
 			!(object->result->pointer.flags & PTR_NULLABLE),
 			"Cannot dereference nullable pointer type");
+		check_expression(ctx, aexpr->assign.value, value,
+			object->result->pointer.referent);
 		expect(&aexpr->loc,
 			type_is_assignable(object->result->pointer.referent,
 				value->result),
 			"Value type is not assignable to pointer type");
 		value = lower_implicit_cast(object->result->pointer.referent, value);
 	} else {
+		check_expression(ctx, aexpr->assign.value, value, object->result);
 		assert(object->type == EXPR_ACCESS
 				|| object->type == EXPR_SLICE); // Invariant
 		expect(&aexpr->loc, !(object->result->flags & TYPE_CONST),
@@ -986,12 +991,12 @@ check_expr_if(struct context *ctx,
 	check_expression(ctx, aexpr->_if.cond, cond, &builtin_type_bool);
 
 	true_branch = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->_if.true_branch, true_branch, NULL);
+	check_expression(ctx, aexpr->_if.true_branch, true_branch, hint);
 
 	if (aexpr->_if.false_branch) {
 		false_branch = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_if.false_branch,
-				false_branch, NULL);
+				false_branch, hint);
 
 		if (true_branch->terminates && false_branch->terminates) {
 			expr->terminates = true;
@@ -1139,7 +1144,7 @@ check_expr_match(struct context *ctx,
 
 		_case->value = xcalloc(1, sizeof(struct expression));
 		_case->type = ctype;
-		check_expression(ctx, acase->value, _case->value, NULL);
+		check_expression(ctx, acase->value, _case->value, hint);
 
 		if (acase->name) {
 			scope_pop(&ctx->scope, TR_CHECK);
@@ -1473,7 +1478,7 @@ check_expr_switch(struct context *ctx,
 		}
 
 		_case->value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, acase->value, _case->value, type);
+		check_expression(ctx, acase->value, _case->value, hint);
 		if (_case->value->terminates) {
 			continue;
 		}

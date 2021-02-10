@@ -451,7 +451,7 @@ type_init_from_atype(struct type_store *store,
 			if (avalue->value != NULL) {
 				struct expression in, out;
 				check_expression(store->check_context,
-					avalue->value, &in, NULL);
+					avalue->value, &in, storage);
 				enum eval_result r =
 					eval_expr(store->check_context, &in, &out);
 				// TODO: Bubble this up
