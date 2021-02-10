@@ -504,11 +504,11 @@ gen_slice_alloc(struct gen_context *ctx,
 
 	if (expr->alloc.cap != NULL) {
 		gen_expression(ctx, expr->alloc.cap, &cap);
-		constl(&temp, expr->result->array.members->size);
-		pushi(ctx->current, &size, Q_MUL, &cap, &temp, NULL);
 	} else {
-		assert(0); // TODO: Alloc without explicit capacity
+		cap = len;
 	}
+	constl(&temp, expr->result->array.members->size);
+	pushi(ctx->current, &size, Q_MUL, &cap, &temp, NULL);
 
 	struct qbe_value ret = {0};
 	gen_temp(ctx, &ret, &qbe_long, "alloc.ret.%d");

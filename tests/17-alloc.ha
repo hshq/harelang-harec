@@ -57,6 +57,13 @@ fn slice() void = {
 		assert(x[i] == (i + 1): int);
 	};
 	free(x);
+
+	let y = alloc([]int, [1, 2, 3]);
+	assert(len(x) == 3);
+	for (let i = 0z; i < len(y); i += 1) {
+		assert(y[i] == (i + 1): int);
+	};
+	free(y);
 };
 
 fn string() void = {
