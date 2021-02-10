@@ -1,26 +1,26 @@
 use rt;
 
 fn padding() void = {
-	assert(size(struct { x: i32, y: i32 }) == 8z);
-	assert(size(struct { x: i32, y: i64 }) == 16z);
-	assert(size(union { x: i8, y: i16, z: i32 }) == 4z);
+	assert(size(struct { x: i32, y: i32 }) == 8);
+	assert(size(struct { x: i32, y: i64 }) == 16);
+	assert(size(union { x: i8, y: i16, z: i32 }) == 4);
 
 	const s = struct {
-		x: i8 = 10i8,
-		y: i16 = 20i16,
-		z: i32 = 30i32,
-		q: i64 = 40i32,
+		x: i8 = 10,
+		y: i16 = 20,
+		z: i32 = 30,
+		q: i64 = 40,
 	};
-	assert(&s.x: uintptr: size % 1z == 0z);
-	assert(&s.y: uintptr: size % 2z == 0z);
-	assert(&s.z: uintptr: size % 4z == 0z);
-	assert(&s.q: uintptr: size % 8z == 0z);
+	assert(&s.x: uintptr: size % 1 == 0);
+	assert(&s.y: uintptr: size % 2 == 0);
+	assert(&s.z: uintptr: size % 4 == 0);
+	assert(&s.q: uintptr: size % 8 == 0);
 };
 
 fn storage() void = {
-	let coords = struct { x: i32 = 10i32, y: i32 = 20i32 };
+	let coords = struct { x: i32 = 10, y: i32 = 20 };
 	let ptr = &coords: *[*]i32;
-	assert(ptr[0] == 10i32 && ptr[1] == 20i32);
+	assert(ptr[0] == 10 && ptr[1] == 20);
 };
 
 fn assignment() void = {
@@ -109,7 +109,7 @@ fn invariants() void = {
 	// Untyped field for unnamed struct:
 	"fn test() void = { let x = struct { x = 10 }; };",
 	];
-	for (let i = 0z; i < len(failures); i += 1z) {
+	for (let i = 0z; i < len(failures); i += 1) {
 		assert(rt::compile(failures[i]) != 0);
 	};
 };

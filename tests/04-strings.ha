@@ -1,12 +1,12 @@
 fn measurements() void = {
 	const x = "Hello!";
-	assert(len(x) == 6z);
-	assert(len("Hello!") == 6z);
-	assert(size(str) == size(*u8) + size(size) * 2z);
+	assert(len(x) == 6);
+	assert(len("Hello!") == 6);
+	assert(size(str) == size(*u8) + size(size) * 2);
 	const align: size =
 		if (size(*u8) > size(size)) size(*u8)
 		else size(size);
-	assert(&x: uintptr: size % align == 0z);
+	assert(&x: uintptr: size % align == 0);
 };
 
 fn charptr() void = {
@@ -14,7 +14,7 @@ fn charptr() void = {
 	const y = x: *const char;
 	const z = y: *[*]u8;
 	const expected = ['H', 'e', 'l', 'l', 'o', '!', '\0'];
-	for (let i = 0z; i < len(expected); i += 1z) {
+	for (let i = 0z; i < len(expected); i += 1) {
 		assert(z[i] == expected[i]: u32: u8);
 	};
 };
@@ -26,14 +26,14 @@ fn storage() void = {
 		length: size,
 		capacity: size,
 	};
-	assert(ptr.length == 15z && ptr.capacity == 15z);
+	assert(ptr.length == 15 && ptr.capacity == 15);
 
 	// UTF-8 encoded
-	const expected = [
-		0xE3u8, 0x81u8, 0x93u8, 0xE3u8, 0x82u8, 0x93u8, 0xE3u8, 0x81u8,
-		0xABu8, 0xE3u8, 0x81u8, 0xA1u8, 0xE3u8, 0x81u8, 0xAFu8, 0x00u8,
+	const expected: [_]u8 = [
+		0xE3, 0x81, 0x93, 0xE3, 0x82, 0x93, 0xE3, 0x81,
+		0xAB, 0xE3, 0x81, 0xA1, 0xE3, 0x81, 0xAF, 0x00,
 	];
-	for (let i = 0z; i < len(expected); i += 1z) {
+	for (let i = 0z; i < len(expected); i += 1) {
 		assert(ptr.data[i] == expected[i]);
 	};
 
@@ -43,7 +43,7 @@ fn storage() void = {
 		length: size,
 		capacity: size,
 	};
-	assert(ptr2.data == null: nullable *[*]u8); // XXX: Type promotion
+	assert(ptr2.data == null);
 };
 
 fn concat() void = {
@@ -53,7 +53,7 @@ fn concat() void = {
 		'H', 'e', 'l', 'l', 'o', ',', ' ',
 		'w', 'o', 'r', 'l', 'd', '!', '\0',
 	];
-	for (let i = 0z; i < len(expected); i += 1z) {
+	for (let i = 0z; i < len(expected); i += 1) {
 		assert(t[i] == expected[i]: u32: u8);
 	};
 };

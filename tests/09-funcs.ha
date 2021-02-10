@@ -20,7 +20,7 @@ fn pointers() void = {
 
 fn vafn(expected: []int, values: int...) void = {
 	assert(len(expected) == len(values));
-	for (let i = 0z; i < len(values); i += 1z) {
+	for (let i = 0z; i < len(values); i += 1) {
 		assert(expected[i] == values[i]);
 	};
 };

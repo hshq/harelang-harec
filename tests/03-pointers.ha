@@ -10,7 +10,7 @@ fn basics() void = {
 
 fn _nullable() void = {
 	let x: nullable *int = null;
-	assert(x == null: nullable *int); // TODO: type promotion
+	assert(x == null);
 	let y = 42;
 	x = &y;
 	assert(*(x: *int) == 42);

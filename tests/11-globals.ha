@@ -20,11 +20,11 @@ type coords3 = struct { coords: coords, z: int };
 let a3: coords3 = coords3 { ... };
 
 fn storage() void = {
-	assert(len(ar) == 3z);
+	assert(len(ar) == 3);
 	assert(ar[0] == 1 && ar[1] == 2 && ar[2] == 3);
-	assert(len(sl) == 3z);
+	assert(len(sl) == 3);
 	assert(sl[0] == 1 && sl[1] == 2 && sl[2] == 3);
-	assert(len(st) == 6z);
+	assert(len(st) == 6);
 	assert(su.x == 20 && su.y == 10);
 	assert(au.x == 0 && au.y == 0);
 	assert(a3.coords.x == 0 && a3.coords.y == 0 && a3.z == 0);

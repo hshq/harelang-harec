@@ -21,10 +21,10 @@ fn storage() void = {
 		capacity: size,
 	};
 
-	assert(len(x) == 5z);
-	assert(ptr.length == 5z && ptr.capacity == 5z);
+	assert(len(x) == 5);
+	assert(ptr.length == 5 && ptr.capacity == 5);
 
-	for (let i = 0z; i < len(expected); i += 1z) {
+	for (let i = 0z; i < len(expected); i += 1) {
 		assert(x[i] == expected[i]);
 	};
 };
@@ -32,16 +32,16 @@ fn storage() void = {
 fn casting() void = {
 	let x: []int = [1, 2, 3, 4, 5];
 	let y = x: *[5]int;
-	for (let i = 0z; i < len(x); i += 1z) {
+	for (let i = 0z; i < len(x); i += 1) {
 		assert(x[i] == y[i]);
 	};
 };
 
 fn measurements() void = {
 	let x: []int = [1, 2, 3, 4, 5];
-	assert(size([]int) == size(*[*]int) + size(size) * 2z);
-	assert(len(x) == 5z);
-	assert(&x: uintptr: size % size(int) == 0z);
+	assert(size([]int) == size(*[*]int) + size(size) * 2);
+	assert(len(x) == 5);
+	assert(&x: uintptr: size % size(int) == 0);
 };
 
 fn indexing() void = {
@@ -74,7 +74,7 @@ fn assignment() void = {
 
 fn assert_slice_eq(actual: []int, expected: []int) void = {
 	assert(len(expected) == len(actual));
-	for (let i = 0z; i < len(expected); i += 1z) {
+	for (let i = 0z; i < len(expected); i += 1) {
 		assert(expected[i] == actual[i]);
 	};
 };

@@ -24,7 +24,7 @@ fn rules() void = {
 	_u16 = 42u8;
 
 	// Implementation-defined precision
-	if (size(int) == 8z) {
+	if (size(int) == 8) {
 		assert(rt::compile("fn test() void = { let i: int = 42i64; };") == 0);
 	};
 	let i: int = 42i;
@@ -32,7 +32,7 @@ fn rules() void = {
 	i = 42i16;
 	i = 42i8;
 
-	if (size(uint) == 8z) {
+	if (size(uint) == 8) {
 		assert(rt::compile("fn test() void = { let u: uint = 42u64; };") == 0);
 	};
 	let u: uint = 42u;

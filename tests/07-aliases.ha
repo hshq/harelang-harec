@@ -2,8 +2,7 @@ type my_int = int;
 
 fn alias_builtin() void = {
 	let i: my_int = 1234;
-	// TODO: type promotion
-	assert(i == 1234: my_int, "built-in alias");
+	assert(i == 1234, "built-in alias");
 };
 
 fn unwrap() void = {

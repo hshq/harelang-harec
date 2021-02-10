@@ -1,6 +1,6 @@
 fn basics() void = {
 	let cases = [[0, 1], [1, 3], [10, 20], [11, 21], [12, 22], [13, 13]];
-	for (let i = 0z; i < len(cases); i += 1z) {
+	for (let i = 0z; i < len(cases); i += 1) {
 		let x = cases[i][0];
 		let y: int = switch (x) {
 			0          => x + 1,

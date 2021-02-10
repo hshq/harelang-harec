@@ -22,7 +22,7 @@ export fn compile(src: const str) int = {
 		const buf = src: *const char: *const [*]u8;
 		for (let n = 0z; n < len(src)) {
 			let m = write(pipefd[1], &buf[n], len(src) - n);
-			assert(m: i64 > 0i64, "write(2) failed");
+			assert(m > 0, "write(2) failed");
 			n += m;
 		};
 

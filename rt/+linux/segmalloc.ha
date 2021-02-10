@@ -2,7 +2,7 @@
 fn segmalloc(n: size) nullable *void = {
 	let p: *void = mmap(null, n,
 		PROT_READ | PROT_WRITE,
-		MAP_PRIVATE | MAP_ANON, -1, 0z);
+		MAP_PRIVATE | MAP_ANON, -1, 0);
 	return if (p: uintptr: int == -ENOMEM) null else p;
 };
 

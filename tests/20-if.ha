@@ -54,8 +54,8 @@ fn or() void = {
 };
 
 fn tagged() void = {
-	assert((if (true) 1u8 else 0i8) as u8 == 1u8); 
-	assert((if (false) 1u8 else 0i8) as i8 == 0i8); 
+	assert((if (true) 1u8 else 0i8) as u8 == 1); 
+	assert((if (false) 1u8 else 0i8) as i8 == 0); 
 };
 
 export fn main() void = {

@@ -1,10 +1,10 @@
 fn tagged() void = {
 	let cases: [3](int | uint | str) = [10i, 10u, "hello"];
-	let expected = [1z, 2z, 5z];
-	for (let i = 0z; i < len(cases); i += 1z) {
+	let expected: [_]size = [1, 2, 5];
+	for (let i = 0z; i < len(cases); i += 1) {
 		let y: size = match (cases[i]) {
-			int    => 1z,
-			uint   => 2z,
+			int    => 1,
+			uint   => 2,
 			s: str => len(s),
 		};
 		assert(y == expected[i]);
@@ -57,7 +57,7 @@ type foobar = (foo | bar);
 fn alias() void = {
 	let cases: []foobar = [foo, bar];
 	let expected = [42, 24];
-	for (let i = 0z; i < len(cases); i += 1z) {
+	for (let i = 0z; i < len(cases); i += 1) {
 		let y: int = match (cases[i]) {
 			foo => 42,
 			bar => 24,

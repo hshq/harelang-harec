@@ -11,8 +11,7 @@ fn allocation() void = {
 	free(x);
 
 	let y = alloc(nullable *int, 1234);
-	// TODO: Type promotion
-	if (y != null: nullable *int) {
+	if (y != null) {
 		assert(*(y: *int) == 1234);
 	};
 	free(y);
@@ -52,10 +51,10 @@ fn double_alloc() void = {
 };
 
 fn slice() void = {
-	let x = alloc([]int, [1, 2, 3], 10z);
-	assert(len(x) == 3z);
-	for (let i = 0z; i < len(x); i += 1z) {
-		assert(x[i] == (i + 1z): int);
+	let x = alloc([]int, [1, 2, 3], 10);
+	assert(len(x) == 3);
+	for (let i = 0z; i < len(x); i += 1) {
+		assert(x[i] == (i + 1): int);
 	};
 	free(x);
 };
@@ -63,11 +62,11 @@ fn slice() void = {
 fn string() void = {
 	let x = struct {
 		data: *[3]int = alloc(*[3]int, [1, 2, 3]),
-		length: size = 3z,
-		capacity: size = 3z,
+		length: size = 3,
+		capacity: size = 3,
 	};
 	let y = *(&x: *str);
-	assert(len(y) == 3z);
+	assert(len(y) == 3);
 	free(y);
 };
 

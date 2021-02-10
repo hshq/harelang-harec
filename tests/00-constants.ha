@@ -8,5 +8,4 @@ export fn main() void = {
 		r6 = '\b', r7 = '\f', r8 = '\n', r9 = '\r', r10 = '\t',
 		r11 = '\v', r12 = '\\', r13 = '\'', r14 = '\"';
 	// TODO: Floating constants
-	return void;
 };
