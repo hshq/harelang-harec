@@ -55,6 +55,7 @@ itrunc(const struct type *type, uintmax_t val)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_VOID:
 		assert(0);
@@ -258,6 +259,7 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 		assert(0); // TODO
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -346,6 +348,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 		assert(0); // Invariant
 	case TYPE_STORAGE_VOID:
@@ -422,6 +425,7 @@ constant_default(struct context *ctx, struct expression *v)
 		break;
 	case TYPE_STORAGE_TAGGED:
 	case TYPE_STORAGE_SLICE:
+	case TYPE_STORAGE_TUPLE:
 		assert(0); // TODO
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_FUNCTION:
@@ -514,6 +518,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_STRUCT:
 		return eval_struct(ctx, in, out);
 	case EXPR_SLICE:
+	case EXPR_TUPLE:
 	case EXPR_UNARITHM:
 		assert(0); // TODO
 	case EXPR_ALLOC:

@@ -1056,6 +1056,7 @@ token_str(const struct token *tok)
 		case TYPE_STORAGE_SLICE:
 		case TYPE_STORAGE_STRUCT:
 		case TYPE_STORAGE_TAGGED:
+		case TYPE_STORAGE_TUPLE:
 		case TYPE_STORAGE_UNION:
 		case TYPE_STORAGE_VOID:
 			assert(0);

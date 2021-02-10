@@ -47,6 +47,21 @@ type_get_field(const struct type *type, const char *name)
 	return NULL;
 }
 
+const struct type_tuple *
+type_get_value(const struct type *type, uintmax_t index)
+{
+	assert(type->storage == TYPE_STORAGE_TUPLE);
+	const struct type_tuple *tuple = &type->tuple;
+	while (tuple) {
+		if (index == 0) {
+			return tuple;
+		}
+		tuple = tuple->next;
+		--index;
+	}
+	return NULL;
+}
+
 const char *
 type_storage_unparse(enum type_storage storage)
 {
@@ -93,6 +108,8 @@ type_storage_unparse(enum type_storage storage)
 		return "struct";
 	case TYPE_STORAGE_TAGGED:
 		return "tagged union";
+	case TYPE_STORAGE_TUPLE:
+		return "tuple";
 	case TYPE_STORAGE_U16:
 		return "u16";
 	case TYPE_STORAGE_U32:
@@ -125,6 +142,7 @@ type_is_integer(const struct type *type)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_NULL:
@@ -165,6 +183,7 @@ type_is_numeric(const struct type *type)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -213,6 +232,7 @@ type_storage_is_signed(enum type_storage storage)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_CHAR:
@@ -328,6 +348,11 @@ type_hash(const struct type *type)
 			hash = fnv1a_u32(hash, type_hash(tu->type));
 		}
 		break;
+	case TYPE_STORAGE_TUPLE:
+		for (const struct type_tuple *tuple = &type->tuple;
+				tuple; tuple = tuple->next) {
+			hash = fnv1a_u32(hash, type_hash(tuple->type));
+		}
 	}
 	return hash;
 }
@@ -504,6 +529,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_NULL:
 	case TYPE_STORAGE_RUNE:
 	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 		return false;
 	}
@@ -593,6 +619,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_BOOL:
 	case TYPE_STORAGE_VOID:
 	case TYPE_STORAGE_FUNCTION:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_STRING:

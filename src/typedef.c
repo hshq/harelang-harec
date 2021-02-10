@@ -90,6 +90,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
@@ -248,6 +249,17 @@ emit_type(const struct type *type, FILE *out)
 			}
 		}
 		fprintf(out, "}");
+		break;
+	case TYPE_STORAGE_TUPLE:
+		fprintf(out, "(");
+		for (const struct type_tuple *tuple = &type->tuple;
+				tuple; tuple = tuple->next) {
+			emit_type(tuple->type, out);
+			if (tuple->next) {
+				fprintf(out, ", ");
+			}
+		}
+		fprintf(out, ")");
 		break;
 	}
 }

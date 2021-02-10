@@ -77,6 +77,7 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_ENUM:
 		return NULL;
@@ -328,6 +329,29 @@ tagged_init_from_atype(struct type_store *store,
 	tagged_init(type, tu, nmemb);
 }
 
+static void
+tuple_init_from_atype(struct type_store *store,
+	struct type *type, const struct ast_type *atype)
+{
+	type->size = 0, type->align = 0;
+	const struct ast_tuple_type *atuple = &atype->tuple;
+	struct type_tuple *cur = &type->tuple;
+	while (atuple) {
+		cur->type = type_store_lookup_atype(store, atuple->type);
+		cur->offset = type->size % cur->type->align + type->size;
+		type->size += type->size % cur->type->align + cur->type->size;
+		if (type->align < cur->type->align) {
+			type->align = cur->type->align;
+		}
+
+		atuple = atuple->next;
+		if (atuple) {
+			cur->next = xcalloc(1, sizeof(struct type_tuple));
+			cur = cur->next;
+		}
+	}
+}
+
 static const struct type *type_store_lookup_type(struct type_store *store, const struct type *type);
 
 static void
@@ -493,6 +517,9 @@ type_init_from_atype(struct type_store *store,
 	case TYPE_STORAGE_TAGGED:
 		tagged_init_from_atype(store, type, atype);
 		break;
+	case TYPE_STORAGE_TUPLE:
+		tuple_init_from_atype(store, type, atype);
+		break;
 	}
 }
 
@@ -630,5 +657,21 @@ type_store_lookup_tagged(struct type_store *store,
 	size_t i = 0;
 	collect_tagged_memb(store, tu, tags, &i);
 	tagged_init(&type, tu, nmemb);
+	return type_store_lookup_type(store, &type);
+}
+
+const struct type *
+type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
+{
+	struct type type = {
+		.storage = TYPE_STORAGE_TUPLE,
+		.tuple = *values,
+	};
+	for (struct type_tuple *t = values; t; t = t->next) {
+		if (t->type->align > type.align) {
+			type.align = t->type->align;
+		}
+		type.size = (type.size % t->type->align) + t->type->size;
+	}
 	return type_store_lookup_type(store, &type);
 }

@@ -31,6 +31,7 @@ enum expr_type {
 	EXPR_SLICE,
 	EXPR_STRUCT,
 	EXPR_SWITCH,
+	EXPR_TUPLE,
 	EXPR_UNARITHM,
 };
 
@@ -38,6 +39,7 @@ enum access_type {
 	ACCESS_IDENTIFIER,
 	ACCESS_INDEX,
 	ACCESS_FIELD,
+	ACCESS_TUPLE,
 };
 
 struct expression_access {
@@ -51,6 +53,11 @@ struct expression_access {
 		struct {
 			struct expression *_struct;
 			const struct struct_field *field;
+		};
+		struct {
+			struct expression *tuple;
+			struct expression *value;
+			const struct type_tuple *tvalue;
 		};
 	};
 };
@@ -265,6 +272,11 @@ struct expression_struct {
 	bool autofill;
 };
 
+struct expression_tuple {
+	struct expression *value;
+	struct expression_tuple *next;
+};
+
 enum unarithm_operator {
 	UN_ADDRESS,	// &
 	UN_BNOT,	// ~
@@ -306,6 +318,7 @@ struct expression {
 		struct expression_switch _switch;
 		struct expression_struct _struct;
 		struct expression_slice slice;
+		struct expression_tuple tuple;
 		struct expression_unarithm unarithm;
 	};
 };

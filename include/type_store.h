@@ -43,4 +43,7 @@ const struct type *type_store_lookup_alias(struct type_store *store,
 const struct type *type_store_lookup_tagged(struct type_store *store,
 	struct type_tagged_union *tags);
 
+const struct type *type_store_lookup_tuple(struct type_store *store,
+	struct type_tuple *values);
+
 #endif

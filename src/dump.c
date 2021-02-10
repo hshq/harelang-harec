@@ -103,6 +103,7 @@ dump_const(const struct expression *expr)
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_CHAR:
@@ -212,6 +213,8 @@ dump_type(const struct type *type)
 		fprintf(stderr, ") ");
 		dump_type(type->func.result);
 		break;
+	case TYPE_STORAGE_TUPLE:
+		assert(0); // TODO
 	}
 }
 
@@ -256,6 +259,8 @@ dump_expr(const struct expression *expr, int depth)
 		case ACCESS_INDEX:
 			assert(0);
 		case ACCESS_FIELD:
+			assert(0);
+		case ACCESS_TUPLE:
 			assert(0);
 		}
 		break;
@@ -370,6 +375,9 @@ dump_expr(const struct expression *expr, int depth)
 		break;
 	case EXPR_SWITCH:
 		fprintf(stderr, "switch");
+		break;
+	case EXPR_TUPLE:
+		fprintf(stderr, "tuple");
 		break;
 	case EXPR_UNARITHM:
 		fprintf(stderr, "unarithm");

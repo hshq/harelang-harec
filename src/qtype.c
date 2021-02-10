@@ -46,6 +46,7 @@ qstype_for_type(const struct type *type)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_FUNCTION:
 		assert(0); // Invariant
@@ -85,6 +86,7 @@ qxtype_for_type(const struct type *type)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_FUNCTION:
 		return qstype_for_type(type);
@@ -197,6 +199,19 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 			field->count = 1;
 		}
 		break;
+	case TYPE_STORAGE_TUPLE:
+		def->type.align = type->align;
+		for (const struct type_tuple *tuple = &type->tuple;
+				tuple; tuple = tuple->next) {
+			field->type = qtype_for_type(ctx, tuple->type, true);
+			field->count = 1;
+
+			if (tuple->next) {
+				field->next = xcalloc(1, sizeof(struct qbe_field));
+				field = field->next;
+			}
+		}
+		break;
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ALIAS:
@@ -265,6 +280,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 		return lookup_aggregate(ctx, type);
 	case TYPE_STORAGE_FUNCTION:
@@ -308,6 +324,7 @@ type_is_aggregate(const struct type *type)
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 	case TYPE_STORAGE_FUNCTION:
 		return true;

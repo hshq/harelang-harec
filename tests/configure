@@ -23,7 +23,8 @@ tests() {
 		17-alloc \
 		18-match \
 		19-append \
-		20-if
+		20-if \
+		21-tuples
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha

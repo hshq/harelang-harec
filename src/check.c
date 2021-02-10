@@ -141,11 +141,39 @@ check_expr_access(struct context *ctx,
 			"Cannot dereference nullable pointer for field selection");
 		expect(&aexpr->access._struct->loc,
 			stype->storage == TYPE_STORAGE_STRUCT || stype->storage == TYPE_STORAGE_UNION,
-			"Cannot index non-struct, non-union object");
+			"Cannot select field from non-struct, non-union object");
 		expr->access.field = type_get_field(stype, aexpr->access.field);
 		expect(&aexpr->access._struct->loc, expr->access.field,
 			"No such struct field '%s'", aexpr->access.field);
 		expr->result = expr->access.field->type;
+		break;
+	case ACCESS_TUPLE:
+		expr->access.tuple = xcalloc(1, sizeof(struct expression));
+		expr->access.value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->access.tuple,
+			expr->access.tuple, NULL);
+		check_expression(ctx, aexpr->access.value,
+			expr->access.value, NULL);
+		assert(expr->access.value->type == EXPR_CONSTANT);
+
+		const struct type *ttype =
+			type_dereference(expr->access.tuple->result);
+		expect(&aexpr->access.tuple->loc, ttype,
+			"Cannot dereference nullable pointer for value selection");
+		expect(&aexpr->access.tuple->loc,
+			ttype->storage == TYPE_STORAGE_TUPLE,
+			"Cannot select value from non-tuple object");
+		expect(&aexpr->access.tuple->loc,
+			type_is_integer(expr->access.value->result),
+			"Cannot use non-integer constant to select tuple value");
+
+		expr->access.tvalue = type_get_value(ttype,
+			aexpr->access.value->constant.uval);
+		expect(&aexpr->access.tuple->loc, expr->access.tvalue,
+			"No such tuple value '%zu'",
+			aexpr->access.value->constant.uval);
+
+		expr->result = expr->access.tvalue->type;
 		break;
 	}
 }
@@ -814,6 +842,7 @@ check_expr_constant(struct context *ctx,
 	case TYPE_STORAGE_POINTER:
 	case TYPE_STORAGE_SLICE:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 		assert(0); // Invariant
 	}
@@ -1495,6 +1524,67 @@ check_expr_switch(struct context *ctx,
 }
 
 static void
+check_expr_tuple(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	trenter(TR_CHECK, "tuple");
+	expr->type = EXPR_TUPLE;
+
+	const struct type_tuple *ttuple = NULL;
+	if (hint && type_dealias(hint)->storage == TYPE_STORAGE_TUPLE) {
+		ttuple = &type_dealias(hint)->tuple;
+	}
+
+	struct type_tuple result = {0};
+	struct type_tuple *rtype = &result;
+
+	struct expression_tuple *tuple = &expr->tuple;
+	for (const struct ast_expression_tuple *atuple = &aexpr->tuple;
+			atuple; atuple = atuple->next) {
+		tuple->value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, atuple->expr, tuple->value,
+				ttuple ? ttuple->type : NULL);
+		rtype->type = tuple->value->result;
+
+		if (atuple->next) {
+			rtype->next = xcalloc(1, sizeof(struct type_tuple));
+			rtype = rtype->next;
+			tuple->next = xcalloc(1, sizeof(struct expression_tuple));
+			tuple = tuple->next;
+		}
+
+		if (ttuple) {
+			ttuple = ttuple->next;
+		}
+	}
+
+	if (hint) {
+		expr->result = hint;
+	} else {
+		expr->result = type_store_lookup_tuple(ctx->store, &result);
+	}
+
+	ttuple = &type_dealias(expr->result)->tuple;
+	struct expression_tuple *etuple = &expr->tuple;
+	const struct ast_expression_tuple *atuple = &aexpr->tuple;
+	while (etuple) {
+		expect(&atuple->expr->loc, ttuple,
+			"Too many values for tuple type");
+		expect(&atuple->expr->loc,
+			type_is_assignable(ttuple->type, etuple->value->result),
+			"Value is not assignable to tuple value type");
+		etuple->value = lower_implicit_cast(ttuple->type, etuple->value);
+		etuple = etuple->next;
+		atuple = atuple->next;
+		ttuple = ttuple->next;
+	}
+
+	trleave(TR_CHECK, NULL);
+}
+
+static void
 check_expr_unarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -1627,6 +1717,9 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_SWITCH:
 		check_expr_switch(ctx, aexpr, expr, hint);
+		break;
+	case EXPR_TUPLE:
+		check_expr_tuple(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr, hint);

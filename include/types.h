@@ -35,6 +35,7 @@ enum type_storage {
 	TYPE_STORAGE_STRING,
 	TYPE_STORAGE_STRUCT,
 	TYPE_STORAGE_TAGGED,
+	TYPE_STORAGE_TUPLE,
 	TYPE_STORAGE_UNION,
 };
 
@@ -115,6 +116,12 @@ struct type_struct_union {
 	struct struct_field *fields;
 };
 
+struct type_tuple {
+	const struct type *type;
+	size_t offset;
+	struct type_tuple *next;
+};
+
 struct type_tagged_union {
 	const struct type *type;
 	struct type_tagged_union *next;
@@ -137,6 +144,7 @@ struct type {
 		struct type_pointer pointer;
 		struct type_struct_union struct_union;
 		struct type_tagged_union tagged;
+		struct type_tuple tuple;
 	};
 };
 
@@ -144,6 +152,8 @@ const struct type *type_dereference(const struct type *type);
 const struct type *type_dealias(const struct type *type);
 const struct struct_field *type_get_field(
 	const struct type *type, const char *name);
+const struct type_tuple *type_get_value(
+	const struct type *type, uintmax_t index);
 
 const struct type *tagged_select_subtype(
 	const struct type *tagged, const struct type *subtype);

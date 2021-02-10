@@ -406,6 +406,35 @@ address_field(struct gen_context *ctx,
 }
 
 static void
+address_value(struct gen_context *ctx,
+		const struct expression *expr,
+		struct qbe_value *out)
+{
+	gen_temp(ctx, out, &qbe_long, "object.%d"); // XXX: ARCH
+	gen_expression(ctx, expr->access.tuple, out);
+
+	const struct type *ttype = type_dealias(expr->access.tuple->result);
+	if (ttype->storage == TYPE_STORAGE_POINTER) {
+		// We get one dereference for free for aggregate types
+		ttype = type_dealias(ttype->pointer.referent);
+	}
+	while (ttype->storage == TYPE_STORAGE_POINTER) {
+		pushi(ctx->current, out, Q_LOADL, out, NULL);
+		ttype = type_dealias(ttype->pointer.referent);
+	}
+
+	const struct type_tuple *value = expr->access.tvalue;
+
+	struct qbe_value offset = {0};
+	constl(&offset, value->offset);
+	pushi(ctx->current, out, Q_ADD, out, &offset, NULL);
+	out->type = qtype_for_type(ctx, value->type, false);
+	if (!type_is_aggregate(value->type)) {
+		qval_deref(out);
+	}
+}
+
+static void
 address_object(struct gen_context *ctx,
 		const struct expression *expr,
 		struct qbe_value *out)
@@ -420,6 +449,9 @@ address_object(struct gen_context *ctx,
 		break;
 	case ACCESS_FIELD:
 		address_field(ctx, expr, out);
+		break;
+	case ACCESS_TUPLE:
+		address_value(ctx, expr, out);
 		break;
 	}
 }
@@ -1278,6 +1310,7 @@ gen_expr_cast(struct gen_context *ctx,
 	case TYPE_STORAGE_FUNCTION:
 	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 		assert(0); // Invariant
 	case TYPE_STORAGE_VOID:
@@ -2140,6 +2173,33 @@ gen_expr_switch(struct gen_context *ctx,
 }
 
 static void
+gen_expr_tuple(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	// XXX: ARCH
+	struct qbe_value base = {0}, ptr = {0}, offset = {0};
+	gen_temp(ctx, &base, &qbe_long, "base.%d");
+	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
+	pushi(ctx->current, &base, Q_COPY, out, NULL);
+
+	const struct type_tuple *type = &type_dealias(expr->result)->tuple;
+	const struct expression_tuple *tuple = &expr->tuple;
+	while (tuple) {
+		constl(&offset, type->offset);
+		ptr.type = &qbe_long;
+		pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
+
+		ptr.type = qtype_for_type(ctx, type->type, true);
+		ptr.indirect = !type_is_aggregate(type->type);
+		gen_expression(ctx, tuple->value, &ptr);
+
+		tuple = tuple->next;
+		type = type->next;
+	}
+}
+
+static void
 gen_expr_address(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -2273,6 +2333,9 @@ gen_expression(struct gen_context *ctx,
 		break;
 	case EXPR_SWITCH:
 		gen_expr_switch(ctx, expr, out);
+		break;
+	case EXPR_TUPLE:
+		gen_expr_tuple(ctx, expr, out);
 		break;
 	case EXPR_UNARITHM:
 		gen_expr_unarithm(ctx, expr, out);
@@ -2433,6 +2496,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_TAGGED:
+	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
 		assert(0); // TODO
 	case TYPE_STORAGE_ALIAS:

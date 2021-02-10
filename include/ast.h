@@ -65,6 +65,11 @@ struct ast_tagged_union_type {
 	struct ast_tagged_union_type *next;
 };
 
+struct ast_tuple_type {
+	struct ast_type *type;
+	struct ast_tuple_type *next;
+};
+
 enum struct_union_member_type {
 	MEMBER_TYPE_FIELD,
 	MEMBER_TYPE_EMBEDDED,
@@ -96,6 +101,7 @@ struct ast_type {
 		struct ast_list_type slice;
 		struct ast_struct_union_type struct_union;
 		struct ast_tagged_union_type tagged_union;
+		struct ast_tuple_type tuple;
 		struct {
 			struct identifier alias;
 			bool unwrap;
@@ -114,6 +120,10 @@ struct ast_expression_access {
 		struct {
 			struct ast_expression *_struct;
 			char *field;
+		};
+		struct {
+			struct ast_expression *tuple;
+			struct ast_expression *value;
 		};
 	};
 };
@@ -297,6 +307,11 @@ struct ast_expression_struct {
 	struct ast_field_value *fields;
 };
 
+struct ast_expression_tuple {
+	struct ast_expression *expr;
+	struct ast_expression_tuple *next;
+};
+
 struct ast_expression_unarithm {
 	enum unarithm_operator op;
 	struct ast_expression *operand;
@@ -328,6 +343,7 @@ struct ast_expression {
 		struct ast_expression_slice slice;
 		struct ast_expression_struct _struct;
 		struct ast_expression_switch _switch;
+		struct ast_expression_tuple tuple;
 		struct ast_expression_unarithm unarithm;
 	};
 };

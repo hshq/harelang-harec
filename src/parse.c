@@ -525,15 +525,14 @@ parse_struct_union_type(struct lexer *lexer)
 }
 
 static struct ast_type *
-parse_tagged_union_type(struct lexer *lexer)
+parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 {
 	trenter(TR_PARSE, "tagged union");
-	struct ast_type *type = mktype(&lexer->loc);
+	struct ast_type *type = mktype(&first->loc);
 	type->storage = TYPE_STORAGE_TAGGED;
 	struct ast_tagged_union_type *next = &type->tagged_union;
-	next->type = parse_type(lexer);
+	next->type = first;
 	struct token tok = {0};
-	want(lexer, T_BOR, &tok);
 	while (tok.token != T_RPAREN) {
 		next->next = xcalloc(sizeof(struct ast_tagged_union_type), 1);
 		next = next->next;
@@ -552,6 +551,51 @@ parse_tagged_union_type(struct lexer *lexer)
 	}
 	trleave(TR_PARSE, NULL);
 	return type;
+}
+
+static struct ast_type *
+parse_tuple_type(struct lexer *lexer, struct ast_type *first)
+{
+	trenter(TR_PARSE, "tuple");
+	struct ast_type *type = mktype(&first->loc);
+	type->storage = TYPE_STORAGE_TUPLE;
+	struct ast_tuple_type *next = &type->tuple;
+	next->type = first;
+	struct token tok = {0};
+	while (tok.token != T_RPAREN) {
+		next->next = xcalloc(sizeof(struct ast_tuple_type), 1);
+		next = next->next;
+		next->type = parse_type(lexer);
+		switch (lex(lexer, &tok)) {
+		case T_COMMA:
+			if (lex(lexer, &tok) != T_RPAREN) {
+				unlex(lexer, &tok);
+			}
+			break;
+		case T_RPAREN:
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
+		}
+	}
+	trleave(TR_PARSE, NULL);
+	return type;
+}
+
+static struct ast_type *
+parse_tagged_or_tuple_type(struct lexer *lexer)
+{
+	struct ast_type *type = parse_type(lexer);
+	struct token tok = {0};
+	switch (lex(lexer, &tok)) {
+	case T_BOR:
+		return parse_tagged_type(lexer, type);
+	case T_COMMA:
+		return parse_tuple_type(lexer, type);
+	default:
+		synassert(false, &tok, T_BOR, T_COMMA, T_EOF);
+	}
+	assert(0); // Unreachable
 }
 
 static struct ast_type *
@@ -616,7 +660,7 @@ parse_type(struct lexer *lexer)
 		type = parse_struct_union_type(lexer);
 		break;
 	case T_LPAREN:
-		type = parse_tagged_union_type(lexer);
+		type = parse_tagged_or_tuple_type(lexer);
 		break;
 	case T_LBRACKET:
 		type = mktype(&lexer->loc);
@@ -933,6 +977,44 @@ parse_struct_literal(struct lexer *lexer, struct identifier ident)
 }
 
 static struct ast_expression *
+parse_tuple_expression(struct lexer *lexer, struct ast_expression *first)
+{
+	struct ast_expression *exp = mkexpr(&first->loc);
+	exp->type = EXPR_TUPLE;
+
+	bool more = true;
+	struct token tok = {0};
+	struct ast_expression_tuple *tuple = &exp->tuple;
+	tuple->expr = first;
+	tuple->next = xcalloc(1, sizeof(struct ast_expression_tuple));
+	tuple = tuple->next;
+
+	while (more) {
+		tuple->expr = parse_complex_expression(lexer);
+
+		switch (lex(lexer, &tok)) {
+		case T_RPAREN:
+			more = false;
+			break;
+		case T_COMMA:
+			if (lex(lexer, &tok) == T_RPAREN) {
+				more = false;
+			} else {
+				unlex(lexer, &tok);
+				tuple->next = xcalloc(1,
+					sizeof(struct ast_expression_tuple));
+				tuple = tuple->next;
+			}
+			break;
+		default:
+			synassert(false, &tok, T_RPAREN, T_COMMA, T_EOF);
+		}
+	}
+
+	return exp;
+}
+
+static struct ast_expression *
 parse_plain_expression(struct lexer *lexer)
 {
 	trace(TR_PARSE, "plain");
@@ -971,8 +1053,15 @@ parse_plain_expression(struct lexer *lexer)
 	// nested-expression
 	case T_LPAREN:
 		exp = parse_complex_expression(lexer);
-		want(lexer, T_RPAREN, &tok);
-		return exp;
+		switch (lex(lexer, &tok)) {
+		case T_RPAREN:
+			return exp;
+		case T_COMMA:
+			return parse_tuple_expression(lexer, exp);
+		default:
+			synassert(false, &tok, T_RPAREN, T_COMMA, T_EOF);
+		};
+		assert(0); // Unreachable
 	default:
 		synassert(false, &tok, T_LITERAL, T_NAME,
 			T_LBRACKET, T_STRUCT, T_LPAREN, T_EOF);
@@ -1280,13 +1369,26 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		break;
 	case T_DOT:
 		trenter(TR_PARSE, "field-access");
-		want(lexer, T_NAME, &tok);
 		struct ast_expression *exp =
 			mkexpr(&lexer->loc);
 		exp->type = EXPR_ACCESS;
-		exp->access.type = ACCESS_FIELD;
-		exp->access._struct = lvalue;
-		exp->access.field = tok.name;
+
+		switch (lex(lexer, &tok)) {
+		case T_NAME:
+			exp->access.type = ACCESS_FIELD;
+			exp->access._struct = lvalue;
+			exp->access.field = tok.name;
+			break;
+		case T_LITERAL:
+			exp->access.type = ACCESS_TUPLE;
+			exp->access.tuple = lvalue;
+			unlex(lexer, &tok);
+			exp->access.value = parse_constant(lexer);
+			break;
+		default:
+			synassert(false, &tok, T_NAME, T_LITERAL, T_EOF);
+		}
+
 		lvalue = exp;
 		trleave(TR_PARSE, NULL);
 		break;
