@@ -15,7 +15,6 @@ enum qbe_stype {
 	Q__AGGREGATE = 'A',
 };
 
-struct type;
 struct qbe_type;
 
 struct qbe_field {
@@ -56,7 +55,7 @@ enum qbe_value_kind {
 };
 
 // Represents a value which can be an argument to a QBE instruction.
-// 
+//
 // If the value is a non-aggregate type, indirect determines if it is a pointer
 // to the value, or the value itself.
 //
