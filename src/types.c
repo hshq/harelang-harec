@@ -559,7 +559,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_ALIAS:
 		return type_is_assignable(to->alias.type, from);
 	case TYPE_STORAGE_STRING:
-		return to->id == builtin_type_const_ptr_char.id;
+		return to->id == builtin_type_ptr_const_char.id;
 	case TYPE_STORAGE_VOID:
 		return true;
 	case TYPE_STORAGE_SLICE:
@@ -714,7 +714,7 @@ builtin_types_init()
 		&builtin_type_const_u64, &builtin_type_const_uint,
 		&builtin_type_const_uintptr, &builtin_type_const_rune,
 		&builtin_type_const_size, &builtin_type_const_void,
-		&builtin_type_const_ptr_char, &builtin_type_str,
+		&builtin_type_ptr_const_char, &builtin_type_str,
 		&builtin_type_const_str,
 	};
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
@@ -950,13 +950,12 @@ builtin_type_const_void = {
 };
 
 // Others
-struct type builtin_type_const_ptr_char = {
+struct type builtin_type_ptr_const_char = {
 	.storage = TYPE_STORAGE_POINTER,
-	.flags = TYPE_CONST,
 	.size = 8, // XXX: ARCH
 	.align = 8,
 	.pointer = {
-		.referent = &builtin_type_char,
+		.referent = &builtin_type_const_char,
 	},
 },
 builtin_type_str = {

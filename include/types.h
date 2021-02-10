@@ -221,7 +221,7 @@ extern struct type
 	builtin_type_const_size,
 	builtin_type_const_void,
 	// etc
-	builtin_type_const_ptr_char,
+	builtin_type_ptr_const_char,
 	builtin_type_str,
 	builtin_type_const_str;
 
