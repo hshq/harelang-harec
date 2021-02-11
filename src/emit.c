@@ -174,7 +174,9 @@ static void
 emit_func(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_FUNC);
-	fprintf(out, "%sfunction", def->exported ? "export " : "");
+	fprintf(out, "%sfunction section \".text.%s\" \"ax\"",
+			def->exported ? "export " : "",
+			def->name);
 	if (def->func.returns->stype != Q__VOID) {
 		fprintf(out, " ");
 		emit_qtype(def->func.returns, true, out);
@@ -241,6 +243,8 @@ emit_data(struct qbe_def *def, FILE *out)
 				def->data.section, def->data.secflags);
 	} else if (def->data.section) {
 		fprintf(out, "section \"%s\" ", def->data.section);
+	} else {
+		fprintf(out, "section \".data.%s\" ", def->name);
 	}
 	fprintf(out, "$%s = { ", def->name);
 
