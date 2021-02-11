@@ -233,6 +233,38 @@ emit_data_string(const char *str, size_t sz, FILE *out)
 	}
 }
 
+static bool
+is_zeroes(struct qbe_data_item *data)
+{
+	switch (data->type) {
+	case QD_ZEROED:
+		break;
+	case QD_VALUE:
+		switch (data->value.kind) {
+		case QV_CONST:
+			if (data->value.lval != 0) {
+				return false;
+			}
+			break;
+		case QV_GLOBAL:
+		case QV_LABEL:
+		case QV_TEMPORARY:
+			return false;
+		}
+		break;
+	case QD_STRING:
+		for (size_t i = 0; i < data->sz; ++i) {
+			if (data->str[i] != 0) {
+				return false;
+			}
+		}
+	}
+	if (!data->next) {
+		return true;
+	}
+	return is_zeroes(data->next);
+}
+
 static void
 emit_data(struct qbe_def *def, FILE *out)
 {
@@ -243,6 +275,8 @@ emit_data(struct qbe_def *def, FILE *out)
 				def->data.section, def->data.secflags);
 	} else if (def->data.section) {
 		fprintf(out, "section \"%s\" ", def->data.section);
+	} else if (is_zeroes(&def->data.items)) {
+		fprintf(out, "section \".bss.%s\" ", def->name);
 	} else {
 		fprintf(out, "section \".data.%s\" ", def->name);
 	}
