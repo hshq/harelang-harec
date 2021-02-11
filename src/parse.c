@@ -1262,11 +1262,12 @@ static struct ast_expression *
 parse_allocation_expression(struct lexer *lexer)
 {
 	trenter(TR_PARSE, "allocation");
-	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
+	struct ast_expression *exp = NULL;
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_ALLOC:
 		trace(TR_PARSE, "alloc");
+		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_ALLOC;
 		want(lexer, T_LPAREN, NULL);
 		exp->alloc.type = parse_type(lexer);
@@ -1285,6 +1286,7 @@ parse_allocation_expression(struct lexer *lexer)
 		break;
 	case T_APPEND:
 		trace(TR_PARSE, "append");
+		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_APPEND;
 		want(lexer, T_LPAREN, NULL);
 		// Easier to parse a simple-expression and let check limit it to
@@ -1314,6 +1316,7 @@ parse_allocation_expression(struct lexer *lexer)
 		break;
 	case T_FREE:
 		trace(TR_PARSE, "free");
+		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_FREE;
 		want(lexer, T_LPAREN, NULL);
 		exp->free.expr = parse_simple_expression(lexer);
