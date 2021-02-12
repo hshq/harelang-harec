@@ -2150,6 +2150,7 @@ parse_control_statement(struct lexer *lexer)
 		struct token tok;
 		switch (lex(lexer, &tok)) {
 		case T_SEMICOLON:
+		case T_COMMA:
 			unlex(lexer, &tok);
 			break;
 		default:
