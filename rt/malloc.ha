@@ -144,8 +144,9 @@ fn free_small(p: *void, s: size) void = {
 // in-place. Returns null if there is insufficient memory to support the
 // request.
 export fn realloc(_p: nullable *void, n: size) nullable *void = {
-	assert(n > 0);
-	if (_p == null) {
+	if (n == 0) {
+		return null;
+	} else if (_p == null) {
 		return malloc(n);
 	};
 
