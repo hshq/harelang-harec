@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "check.h"
@@ -89,7 +90,8 @@ emit_const(const struct expression *expr, FILE *out)
 		fprintf(out, "void");
 		break;
 	case TYPE_STORAGE_RUNE:
-		assert(0); // TODO
+		fprintf(out, "\'\\U%08" PRIx32 "\'", (uint32_t)val->uval);
+		break;
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ENUM:

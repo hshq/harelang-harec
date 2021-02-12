@@ -445,7 +445,7 @@ finalize:
 static uint32_t
 lex_rune(struct lexer *lexer)
 {
-	char buf[5];
+	char buf[9];
 	char *endptr;
 	uint32_t c = next(lexer, NULL, false);
 	assert(c != UTF8_INVALID);
@@ -489,6 +489,19 @@ lex_rune(struct lexer *lexer)
 			buf[2] = next(lexer, NULL, false);
 			buf[3] = next(lexer, NULL, false);
 			buf[4] = '\0';
+			c = strtoul(&buf[0], &endptr, 16);
+			assert(*endptr == '\0');
+			return c;
+		case 'U':
+			buf[0] = next(lexer, NULL, false);
+			buf[1] = next(lexer, NULL, false);
+			buf[2] = next(lexer, NULL, false);
+			buf[3] = next(lexer, NULL, false);
+			buf[4] = next(lexer, NULL, false);
+			buf[5] = next(lexer, NULL, false);
+			buf[6] = next(lexer, NULL, false);
+			buf[7] = next(lexer, NULL, false);
+			buf[8] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			assert(*endptr == '\0');
 			return c;
