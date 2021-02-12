@@ -512,11 +512,6 @@ type_is_assignable(const struct type *to, const struct type *from)
 		return type_is_integer(from)
 			&& !type_is_signed(from)
 			&& to->size >= from->size;
-	case TYPE_STORAGE_UINTPTR:
-		return (type_is_integer(from)
-				&& !type_is_signed(from)
-				&& to->size >= from->size)
-			|| from->storage == TYPE_STORAGE_POINTER;
 	case TYPE_STORAGE_F32:
 	case TYPE_STORAGE_F64:
 		return type_is_float(from);
@@ -588,6 +583,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
+	case TYPE_STORAGE_UINTPTR:
 		return false;
 	}
 
