@@ -187,6 +187,9 @@ gen_copy(struct gen_context *ctx,
 	const struct qbe_value *dest,
 	const struct qbe_value *src)
 {
+	if (!dest) {
+		return;
+	}
 	assert(!dest->indirect && !src->indirect);
 	pushc(ctx->current, "begin gen_copy for type %s (is_union? %d)",
 			dest->type->name, dest->type->is_union);
