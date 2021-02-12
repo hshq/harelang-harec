@@ -52,7 +52,7 @@ let nfree: int = 0;
 // Allocates n bytes of memory and returns a pointer to them, or null if there
 // is insufficient memory.
 export fn malloc(n: size) nullable *void = {
-	assert(n > 0);
+	if (n == 0) return null;
 	let r = if (n > bin2size(len(bins) - 1)) malloc_large(n)
 		else malloc_small(n);
 	nalloc += 1;

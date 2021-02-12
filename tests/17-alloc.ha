@@ -64,6 +64,14 @@ fn slice() void = {
 		assert(y[i] == (i + 1): int);
 	};
 	free(y);
+
+	let z = alloc([]int, []);
+	let p = &z: *struct {
+		data: nullable *[*]int,
+		length: size,
+		capacity: size,
+	};
+	assert(p.data == null && p.length == 0 && p.capacity == 0);
 };
 
 fn string() void = {
