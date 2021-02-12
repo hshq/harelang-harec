@@ -1290,7 +1290,7 @@ check_expr_if(struct context *ctx,
 		false_branch = lower_implicit_cast(expr->result, false_branch);
 	} else {
 		expr->result = &builtin_type_void;
-		expr->terminates = true_branch->terminates;
+		expr->terminates = false;
 	}
 
 	expect(&aexpr->_if.cond->loc,
