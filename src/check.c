@@ -1512,19 +1512,23 @@ check_expr_return(struct context *ctx,
 	expr->result = &builtin_type_void;
 	expr->terminates = true;
 
+	struct expression *rval = xcalloc(1, sizeof(struct expression));
 	if (aexpr->_return.value) {
-		struct expression *rval = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_return.value,
 			rval, ctx->fntype->func.result);
-		expect(&aexpr->_return.value->loc,
-			type_is_assignable(ctx->fntype->func.result, rval->result),
-			"Return value is not assignable to function result type");
-		if (ctx->fntype->func.result != rval->result) {
-			rval = lower_implicit_cast(
-				ctx->fntype->func.result, rval);
-		}
-		expr->_return.value = rval;
+	} else {
+		rval->type = EXPR_CONSTANT;
+		rval->result = &builtin_type_void;
 	}
+
+	expect(&aexpr->_return.value->loc,
+		type_is_assignable(ctx->fntype->func.result, rval->result),
+		"Return value is not assignable to function result type");
+	if (ctx->fntype->func.result != rval->result) {
+		rval = lower_implicit_cast(
+			ctx->fntype->func.result, rval);
+	}
+	expr->_return.value = rval;
 
 	trleave(TR_CHECK, NULL);
 }
