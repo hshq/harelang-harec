@@ -708,7 +708,8 @@ check_expr_binding(struct context *ctx,
 		if (abinding->is_static) {
 			struct expression *value =
 				xcalloc(1, sizeof(struct expression));
-			enum eval_result r = eval_expr(ctx, initializer, value);
+			enum eval_result r = eval_expr(
+				ctx, binding->initializer, value);
 			expect(&abinding->initializer->loc, r == EVAL_OK,
 				"Unable to evaluate static initializer at compile time");
 			// TODO: Free initializer
