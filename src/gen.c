@@ -1897,7 +1897,9 @@ gen_match_tagged(struct gen_context *ctx,
 		push(&ctx->current->body, &flabel);
 	}
 
-	if (_default) {
+	if (_default && _default->value->terminates) {
+		gen_expression(ctx, _default->value, NULL);
+	} else if (_default) {
 		gen_expression(ctx, _default->value, out);
 	}
 
@@ -2249,7 +2251,9 @@ gen_expr_switch(struct gen_context *ctx,
 		push(&ctx->current->body, &flabel);
 	}
 
-	if (_default) {
+	if (_default && _default->value->terminates) {
+		gen_expression(ctx, _default->value, NULL);
+	} else if (_default) {
 		gen_expression(ctx, _default->value, out);
 	}
 

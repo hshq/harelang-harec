@@ -1448,7 +1448,8 @@ check_expr_match(struct context *ctx,
 		struct ast_match_case *acase = aexpr->match.cases;
 		while (_case) {
 			expect(&acase->value->loc,
-				type_is_assignable(expr->result, _case->value->result),
+				_case->value->terminates ||
+					type_is_assignable(expr->result, _case->value->result),
 				"Match case is not assignable to result type");
 			_case->value = lower_implicit_cast(
 				expr->result, _case->value);
@@ -1781,7 +1782,8 @@ check_expr_switch(struct context *ctx,
 		struct ast_switch_case *acase = aexpr->_switch.cases;
 		while (_case) {
 			expect(&acase->value->loc,
-				type_is_assignable(expr->result, _case->value->result),
+				_case->value->terminates ||
+					type_is_assignable(expr->result, _case->value->result),
 				"Switch case is not assignable to result type");
 			_case->value = lower_implicit_cast(
 				expr->result, _case->value);
