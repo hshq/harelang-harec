@@ -1043,7 +1043,7 @@ gen_type_assertion(struct gen_context *ctx,
 {
 	// XXX: ARCH
 	pushc(ctx->current, "type assertion");
-	const struct type *want = type_dealias(expr->cast.secondary);
+	const struct type *want = expr->cast.secondary;
 	struct qbe_value tag = {0}, id = {0}, result = {0};
 	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
 	pushi(ctx->current, &tag, Q_LOADUW, in, NULL);
