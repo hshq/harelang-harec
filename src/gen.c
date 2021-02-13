@@ -1182,10 +1182,14 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	ptr.type = qtype_for_type(ctx, expr->result, false);
 	qval_deref(&ptr);
 	if (object.indirect) {
-		gen_loadtemp(ctx, &temp, &ptr,
-			qtype_for_type(ctx, expr->result, false),
-			type_is_signed(expr->result));
-		gen_store(ctx, out, &temp);
+		if (!type_is_aggregate(expr->result)) {
+			gen_loadtemp(ctx, &temp, &ptr,
+				qtype_for_type(ctx, expr->result, false),
+				type_is_signed(expr->result));
+			gen_store(ctx, out, &temp);
+		} else {
+			gen_copy(ctx, out, &ptr);
+		}
 	} else {
 		gen_store(ctx, out, &ptr);
 	}
