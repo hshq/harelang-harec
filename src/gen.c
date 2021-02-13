@@ -1020,6 +1020,7 @@ gen_expr_type_test(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	// XXX: ARCH
+	pushc(ctx->current, "type test");
 	const struct type *want = expr->cast.secondary,
 	      *tagged = type_dealias(expr->cast.value->result);
 	struct qbe_value tag = {0}, in = {0}, id = {0};
@@ -1029,7 +1030,7 @@ gen_expr_type_test(struct gen_context *ctx,
 	gen_expression(ctx, expr->cast.value, &in);
 	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
 	char *type = gen_typename(want);
-	pushc(ctx->current, "%u => %s", want->id, want);
+	pushc(ctx->current, "%u => %s", want->id, type);
 	free(type);
 	constl(&id, want->id);
 	pushi(ctx->current, out, Q_CEQW, &tag, &id, NULL);
@@ -1041,6 +1042,7 @@ gen_type_assertion(struct gen_context *ctx,
 	struct qbe_value *in)
 {
 	// XXX: ARCH
+	pushc(ctx->current, "type assertion");
 	const struct type *want = type_dealias(expr->cast.secondary);
 	struct qbe_value tag = {0}, id = {0}, result = {0};
 	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
