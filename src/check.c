@@ -1834,7 +1834,7 @@ check_expr_tuple(struct context *ctx,
 		}
 	}
 
-	if (hint) {
+	if (hint && type_dealias(hint)->storage == TYPE_STORAGE_TUPLE) {
 		expr->result = hint;
 	} else {
 		expr->result = type_store_lookup_tuple(ctx->store, &result);
