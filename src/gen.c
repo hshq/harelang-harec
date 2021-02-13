@@ -1015,6 +1015,65 @@ gen_expr_call(struct gen_context *ctx,
 }
 
 static void
+gen_expr_type_test(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	// XXX: ARCH
+	const struct type *want = expr->cast.secondary,
+	      *tagged = type_dealias(expr->cast.value->result);
+	struct qbe_value tag = {0}, in = {0}, id = {0};
+	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
+	alloc_temp(ctx, &in, tagged, "cast.in.%d");
+	qval_address(&in);
+	gen_expression(ctx, expr->cast.value, &in);
+	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
+	char *type = gen_typename(want);
+	pushc(ctx->current, "%u => %s", want->id, want);
+	free(type);
+	constl(&id, want->id);
+	pushi(ctx->current, out, Q_CEQW, &tag, &id, NULL);
+}
+
+static void
+gen_type_assertion(struct gen_context *ctx,
+	const struct expression *expr,
+	struct qbe_value *in)
+{
+	// XXX: ARCH
+	const struct type *want = type_dealias(expr->cast.secondary);
+	struct qbe_value tag = {0}, id = {0}, result = {0};
+	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
+	pushi(ctx->current, &tag, Q_LOADUW, in, NULL);
+	constw(&id, want->id);
+	char *type = gen_typename(want);
+	pushc(ctx->current, "%u => %s", want->id, type);
+	free(type);
+	gen_temp(ctx, &result, &qbe_word, "valid.%d");
+	pushi(ctx->current, &result, Q_CEQW, &tag, &id, NULL);
+
+	struct qbe_statement validl = {0}, invalidl = {0};
+	struct qbe_value bvalid = {0}, binvalid = {0};
+	bvalid.kind = QV_LABEL;
+	bvalid.name = strdup(genl(&validl, &ctx->id, "type.valid.%d"));
+	binvalid.kind = QV_LABEL;
+	binvalid.name = strdup(genl(&invalidl, &ctx->id, "type.invalid.%d"));
+
+	pushi(ctx->current, NULL, Q_JNZ, &result, &bvalid, &binvalid, NULL);
+
+	push(&ctx->current->body, &invalidl);
+
+	struct qbe_value rtfunc = {0};
+	rtfunc.kind = QV_GLOBAL;
+	rtfunc.name = strdup("rt.abort_fixed");
+	rtfunc.type = &qbe_long;
+	constl(&result, ABORT_TYPE_ASSERTION);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &result, NULL);
+
+	push(&ctx->current->body, &validl);
+}
+
+static void
 gen_cast_to_tagged(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out,
@@ -1070,6 +1129,7 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	const struct type *to)
 {
 	if (type_dealias(to)->storage == TYPE_STORAGE_VOID) {
+		// TODO: generate type assertion if appropriate
 		gen_expression(ctx, expr->cast.value, NULL);
 		return;
 	}
@@ -1082,6 +1142,9 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	struct qbe_value object = {0}, offs = {0}, temp = {0};
 	alloc_temp(ctx, &object, tagged, "from.tagged.%d");
 	gen_expression(ctx, expr->cast.value, &object);
+	if (expr->cast.kind == C_ASSERTION) {
+		gen_type_assertion(ctx, expr, &object);
+	}
 
 	struct qbe_value ptr = {0};
 	gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
@@ -1098,66 +1161,6 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	} else {
 		gen_store(ctx, out, &ptr);
 	}
-}
-
-static void
-gen_expr_type_test(struct gen_context *ctx,
-	const struct expression *expr,
-	const struct qbe_value *out)
-{
-	// XXX: ARCH
-	const struct type *want = expr->cast.secondary,
-	      *tagged = type_dealias(expr->cast.value->result);
-	struct qbe_value tag = {0}, in = {0}, id = {0};
-	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
-	alloc_temp(ctx, &in, tagged, "cast.in.%d");
-	qval_address(&in);
-	gen_expression(ctx, expr->cast.value, &in);
-	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
-	char *type = gen_typename(want);
-	pushc(ctx->current, "%u => %s", want->id, want);
-	free(type);
-	constl(&id, want->id);
-	pushi(ctx->current, out, Q_CEQW, &tag, &id, NULL);
-}
-
-static void
-gen_expr_type_assertion(struct gen_context *ctx,
-	const struct expression *expr,
-	struct qbe_value *in,
-	const struct qbe_value *out)
-{
-	// XXX: ARCH
-	const struct type *want = type_dealias(expr->cast.secondary);
-	struct qbe_value tag = {0}, id = {0}, result = {0};
-	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
-	pushi(ctx->current, &tag, Q_LOADUW, in, NULL);
-	constw(&id, want->id);
-	char *type = gen_typename(want);
-	pushc(ctx->current, "%u => %s", want->id, type);
-	free(type);
-	gen_temp(ctx, &result, &qbe_word, "valid.%d");
-	pushi(ctx->current, &result, Q_CEQW, &tag, &id, NULL);
-
-	struct qbe_statement validl = {0}, invalidl = {0};
-	struct qbe_value bvalid = {0}, binvalid = {0};
-	bvalid.kind = QV_LABEL;
-	bvalid.name = strdup(genl(&validl, &ctx->id, "type.valid.%d"));
-	binvalid.kind = QV_LABEL;
-	binvalid.name = strdup(genl(&invalidl, &ctx->id, "type.invalid.%d"));
-
-	pushi(ctx->current, NULL, Q_JNZ, &result, &bvalid, &binvalid, NULL);
-
-	push(&ctx->current->body, &invalidl);
-
-	struct qbe_value rtfunc = {0};
-	rtfunc.kind = QV_GLOBAL;
-	rtfunc.name = strdup("rt.abort_fixed");
-	rtfunc.type = &qbe_long;
-	constl(&result, ABORT_TYPE_ASSERTION);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &result, NULL);
-
-	push(&ctx->current->body, &validl);
 }
 
 static void
@@ -1227,7 +1230,7 @@ gen_expr_cast(struct gen_context *ctx,
 	gen_expression(ctx, expr->cast.value, &in);
 
 	if (expr->cast.kind == C_ASSERTION) {
-		gen_expr_type_assertion(ctx, expr, &in, out);
+		gen_type_assertion(ctx, expr, &in);
 	}
 
 	// Used for various casts
