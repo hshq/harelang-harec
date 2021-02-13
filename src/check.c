@@ -1142,6 +1142,7 @@ check_expr_control(struct context *ctx,
 {
 	trenter(TR_CHECK, "control");
 	expr->type = aexpr->type;
+	expr->result = &builtin_type_void;
 	expr->terminates = true;
 	char *label = expr->control.label = aexpr->control.label;
 
@@ -2001,6 +2002,7 @@ check_expression(struct context *ctx,
 	}
 
 	trleave(TR_CHECK, NULL);
+	assert(expr->result);
 }
 
 static struct declaration *
