@@ -1124,17 +1124,14 @@ gen_expr_type_test(struct gen_context *ctx,
 static void
 gen_expr_type_assertion(struct gen_context *ctx,
 	const struct expression *expr,
+	struct qbe_value *in,
 	const struct qbe_value *out)
 {
 	// XXX: ARCH
-	const struct type *want = type_dealias(expr->cast.secondary),
-	      *tagged = type_dealias(expr->cast.value->result);
-	struct qbe_value tag = {0}, in = {0}, id = {0}, result = {0};
+	const struct type *want = type_dealias(expr->cast.secondary);
+	struct qbe_value tag = {0}, id = {0}, result = {0};
 	gen_temp(ctx, &tag, &qbe_word, "tag.%d");
-	alloc_temp(ctx, &in, tagged, "cast.in.%d");
-	qval_address(&in);
-	gen_expression(ctx, expr->cast.value, &in);
-	pushi(ctx->current, &tag, Q_LOADUW, &in, NULL);
+	pushi(ctx->current, &tag, Q_LOADUW, in, NULL);
 	constw(&id, want->id);
 	char *type = gen_typename(want);
 	pushc(ctx->current, "%u => %s", want->id, type);
@@ -1172,7 +1169,6 @@ gen_expr_cast(struct gen_context *ctx,
 	case C_CAST:
 		break; // Handled below
 	case C_ASSERTION:
-		gen_expr_type_assertion(ctx, expr, out);
 		break; // Handled below
 	case C_TEST:
 		gen_expr_type_test(ctx, expr, out);
@@ -1229,6 +1225,10 @@ gen_expr_cast(struct gen_context *ctx,
 		gen_temp(ctx, &in, qtype_for_type(ctx, from, false), "cast.in.%d");
 	}
 	gen_expression(ctx, expr->cast.value, &in);
+
+	if (expr->cast.kind == C_ASSERTION) {
+		gen_expr_type_assertion(ctx, expr, &in, out);
+	}
 
 	// Used for various casts
 	enum qbe_instr op;
@@ -1770,7 +1770,15 @@ gen_match_tagged(struct gen_context *ctx,
 		fbranch.kind = QV_LABEL;
 		fbranch.name = strdup(genl(&flabel, &ctx->id, "next.case.%d"));
 
-		bool reinterpret = false;
+		enum {
+			// Interpret the value's member field
+			MEMBER,
+			// Interpret as a different, compatible tagged union
+			COMPATIBLE,
+			// Interpret as an incompatible tagged union (convert)
+			INCOMPATIBLE,
+		} interpretation = MEMBER;
+
 		if (tagged_select_subtype(mtype, _case->type) == NULL) {
 			assert(type_dealias(_case->type)->storage == TYPE_STORAGE_TAGGED);
 			assert(tagged_subset_compat(mtype, _case->type));
@@ -1779,7 +1787,16 @@ gen_match_tagged(struct gen_context *ctx,
 			// This causes later code to leave the pointer at the
 			// tag, rather than advancing it to the value area,
 			// before initializing a binding for it.
-			reinterpret = true;
+			//
+			// This is only possible for types with a matching
+			// alignment, or for a case type whose members are all
+			// void.
+			if (_case->type->align == mtype->align
+					|| _case->type->size == builtin_type_uint.size) {
+				interpretation = COMPATIBLE;
+			} else {
+				interpretation = INCOMPATIBLE;
+			}
 			gen_match_tagged_subset(ctx, &tbranch,
 				&fbranch, &tag, _case);
 		} else {
@@ -1790,22 +1807,47 @@ gen_match_tagged(struct gen_context *ctx,
 		push(&ctx->current->body, &tlabel);
 		if (_case->object) {
 			struct qbe_value val = {0}, temp = {0};
-			gen_temp(ctx, &val,
-				qtype_for_type(ctx, _case->type, false),
-				"bound.%d");
+			if (interpretation == INCOMPATIBLE) {
+				alloc_temp(ctx, &val, _case->type, "bound.%d");
+			} else {
+				gen_temp(ctx, &val,
+					qtype_for_type(ctx, _case->type, false),
+					"bound.%d");
+			}
 			struct gen_binding *binding =
 				xcalloc(1, sizeof(struct gen_binding));
 			binding->name = strdup(val.name);
 			binding->object = _case->object;
 			binding->next = ctx->bindings;
 			ctx->bindings = binding;
-			constl(&temp, mtype->align);
-			val.type = &qbe_long;
-			if (!reinterpret) {
-				pushi(ctx->current, &val, Q_ADD,
-					&mval, &temp, NULL);
-			} else {
+			switch (interpretation) {
+			case MEMBER:
+				constl(&temp, mtype->align);
+				val.type = &qbe_long;
+				pushi(ctx->current, &val, Q_ADD, &mval, &temp, NULL);
+				break;
+			case COMPATIBLE:
+				val.type = &qbe_long;
 				pushi(ctx->current, &val, Q_COPY, &mval, NULL);
+				break;
+			case INCOMPATIBLE:
+				pushc(ctx->current, "converting to incompatible union");
+				pushi(ctx->current, NULL, Q_STOREW, &tag, &val, NULL);
+
+				struct qbe_value dest = {0}, src = {0};
+				gen_temp(ctx, &dest, &qbe_long, "conv.dest.%d");
+				gen_temp(ctx, &src, &qbe_long, "conv.src.%d");
+
+				constl(&temp, _case->type->align);
+				pushi(ctx->current, &dest, Q_ADD, &val, &temp, NULL);
+				dest.type = val.type->fields.next->type;
+
+				constl(&temp, mtype->align);
+				pushi(ctx->current, &src, Q_ADD, &mval, &temp, NULL);
+				src.type = mval.type->fields.next->type;
+
+				gen_copy(ctx, &dest, &src);
+				break;
 			}
 		}
 

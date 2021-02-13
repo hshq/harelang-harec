@@ -181,6 +181,17 @@ export fn numeric() void = {
 	assert(visit);
 };
 
+type align_4 = (void | int);
+type align_8 = (void | int | i64);
+
+export fn alignment_conversion() void = {
+	let x: align_8 = 1234i;
+	match (x) {
+		y: align_4 => assert(y as int == 1234),
+		* => abort(),
+	};
+};
+
 export fn main() void = {
 	tagged();
 	termination();
@@ -191,5 +202,6 @@ export fn main() void = {
 	implicit_cast();
 	transitivity();
 	numeric();
+	alignment_conversion();
 	// TODO: Test exhaustiveness and dupe detection
 };
