@@ -1085,7 +1085,35 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	struct qbe_value tag = {0}, ptr = {0}, offs = {0};
 	constl(&offs, expr->result->align);
 
-	if (!subtype) {
+	if (!subtype && type_dealias(from)->storage == TYPE_STORAGE_TAGGED
+			&& from->align != tagged->align
+			&& type_dealias(tagged)->size != builtin_type_uint.size
+			&& type_dealias(from)->size != builtin_type_uint.size) {
+		// If the alignment differs, we can't use a straight-up copy
+		struct qbe_value src = {0}, dest = {0};
+		pushc(ctx->current, "to_tagged; converting incompatible");
+		alloc_temp(ctx, &src, from, "to_tagged.from.%d");
+		qval_deref(&src);
+		gen_expression(ctx, expr->cast.value, &src);
+
+		gen_temp(ctx, &dest,
+			qtype_for_type(ctx, tagged, false), "to_tagged.to.%d");
+		pushi(ctx->current, &dest, Q_COPY, out, NULL);
+
+		gen_temp(ctx, &tag, &qbe_word, "to_tagged.tag.%d");
+		pushi(ctx->current, &tag, Q_LOADUW, &src, NULL);
+		pushi(ctx->current, NULL, Q_STOREW, &tag, &dest, NULL);
+
+		constl(&offs, tagged->align);
+		pushi(ctx->current, &dest, Q_ADD, &dest, &offs, NULL);
+		constl(&offs, from->align);
+		pushi(ctx->current, &src, Q_ADD, &src, &offs, NULL);
+
+		dest.type = dest.type->fields.next->type;
+		src.type = src.type->fields.next->type;
+		gen_copy(ctx, &dest, &src);
+		return;
+	} else if (!subtype) {
 		pushc(ctx->current, "to_tagged; no subtype");
 		alloc_temp(ctx, &ptr, tagged, "to_tagged.from.%d");
 		qval_deref(&ptr);

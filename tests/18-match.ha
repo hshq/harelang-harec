@@ -190,6 +190,9 @@ export fn alignment_conversion() void = {
 		y: align_4 => assert(y as int == 1234),
 		* => abort(),
 	};
+	let y: align_4 = 4321i;
+	x = y: align_8;
+	assert(x as int == 4321);
 };
 
 export fn main() void = {
