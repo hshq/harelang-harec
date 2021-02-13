@@ -1971,7 +1971,7 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 			binding->initializer = parse_complex_expression(lexer);
 			break;
 		default:
-			synassert(false, &tok, T_COLON, T_COMMA, T_EOF);
+			synassert(false, &tok, T_COLON, T_EQUAL, T_EOF);
 		}
 
 		switch (lex(lexer, &tok)) {
