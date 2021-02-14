@@ -106,7 +106,7 @@ builtin_for_type(const struct type *type)
 static void
 struct_insert_field(struct type_store *store, struct struct_field **fields,
 	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
-	const struct ast_struct_union_type *atype)
+	const struct ast_struct_union_type *atype, bool *ccompat)
 {
 	assert(atype->member_type == MEMBER_TYPE_FIELD);
 	while (fields && *fields && strcmp((*fields)->name, atype->field.name) < 0) {
@@ -126,8 +126,27 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 
 	field->name = strdup(atype->field.name);
 	field->type = type_store_lookup_atype(store, atype->field.type);
-	*size += *size % field->type->align;
-	field->offset = *size;
+	
+	if (atype->offset) {
+		*ccompat = false;
+		assert(storage == TYPE_STORAGE_STRUCT); // TODO: Bubble up
+		struct expression in, out;
+		check_expression(store->check_context, atype->offset, &in, NULL);
+		enum eval_result r = eval_expr(store->check_context, &in, &out);
+		// TODO: Bubble up
+		assert(r == EVAL_OK);
+		assert(type_is_integer(out.result));
+		if (type_is_signed(out.result)) {
+			assert(out.constant.ival >= 0);
+		}
+		size_t offs = (size_t)out.constant.uval;
+		field->offset = offs;
+		assert(offs % field->type->align == 0); // TODO?
+	} else {
+		*size += *size % field->type->align;
+		field->offset = *size;
+	}
+
 	if (storage == TYPE_STORAGE_STRUCT) {
 		*size += field->type->size;
 	} else {
@@ -139,7 +158,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 static void
 struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	size_t *size, size_t *align, struct struct_field **fields,
-	const struct ast_struct_union_type *atype)
+	const struct ast_struct_union_type *atype, bool *ccompat)
 {
 	// TODO: fields with size SIZE_UNDEFINED
 	size_t usize = 0;
@@ -149,10 +168,11 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 		switch (atype->member_type) {
 		case MEMBER_TYPE_FIELD:
 			struct_insert_field(store, fields, storage,
-				size, &usize, align, atype);
+				size, &usize, align, atype, ccompat);
 			break;
 		case MEMBER_TYPE_EMBEDDED:
 			if (atype->embedded->storage == TYPE_STORAGE_UNION) {
+				*ccompat = false;
 				// We need to set the offset of all union
 				// members to the maximum alignment of the union
 				// members, so first we do a dry run to compute
@@ -160,18 +180,18 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 				size_t offs = 0, align_1 = 0;
 				struct_init_from_atype(store, TYPE_STORAGE_UNION,
 					&offs, &align_1, NULL,
-					&atype->embedded->struct_union);
+					&atype->embedded->struct_union, ccompat);
 				// Insert padding per the results:
 				*size += *size % align_1;
 				// Then insert the fields for real:
 				sub = *size;
 				struct_init_from_atype(store, TYPE_STORAGE_UNION,
 					&sub, align, fields,
-					&atype->embedded->struct_union);
+					&atype->embedded->struct_union, ccompat);
 			} else {
 				struct_init_from_atype(store, TYPE_STORAGE_STRUCT,
 					&sub, align, fields,
-					&atype->embedded->struct_union);
+					&atype->embedded->struct_union, ccompat);
 			}
 
 			if (storage == TYPE_STORAGE_UNION) {
@@ -185,6 +205,7 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 		}
 		atype = atype->next;
 	}
+
 	if (storage == TYPE_STORAGE_UNION) {
 		*size = usize;
 	}
@@ -513,12 +534,21 @@ type_init_from_atype(struct type_store *store,
 		type->array.length = SIZE_UNDEFINED;
 		break;
 	case TYPE_STORAGE_STRUCT:
-		type->struct_union.c_compat = true;
-		// Fallthrough
 	case TYPE_STORAGE_UNION:
+		type->struct_union.c_compat = true;
 		struct_init_from_atype(store, type->storage, &type->size,
 			&type->align, &type->struct_union.fields,
-			&atype->struct_union);
+			&atype->struct_union, &type->struct_union.c_compat);
+		if (!type->struct_union.c_compat) {
+			// Recompute size
+			type->size = 0;
+			for (struct struct_field *f = type->struct_union.fields;
+					f; f = f->next) {
+				if (f->offset + f->type->size > type->size) {
+					type->size = f->offset + f->type->size;
+				}
+			}
+		}
 		break;
 	case TYPE_STORAGE_TAGGED:
 		tagged_init_from_atype(store, type, atype);

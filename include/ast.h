@@ -79,6 +79,7 @@ enum struct_union_member_type {
 struct ast_struct_union_type {
 	enum struct_union_member_type member_type;
 	struct ast_struct_union_type *next;
+	struct ast_expression *offset;
 	union {
 		struct {
 			char *name;

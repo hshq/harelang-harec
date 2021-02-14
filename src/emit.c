@@ -5,6 +5,7 @@
 #include "emit.h"
 #include "qbe.h"
 #include "typedef.h"
+#include "types.h"
 
 static void
 emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
@@ -48,7 +49,7 @@ qemit_type(const struct qbe_def *def, FILE *out)
 	assert(def->kind == Q_TYPE);
 	if (def->type.base) {
 		char *tn = gen_typename(def->type.base);
-		fprintf(out, "# %s\n", tn);
+		fprintf(out, "# %s [id: %u]\n", tn, def->type.base->id);
 		free(tn);
 	}
 	fprintf(out, "type :%s =", def->name);

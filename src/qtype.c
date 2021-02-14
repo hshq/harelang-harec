@@ -184,7 +184,12 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 		break;
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_UNION:
-		assert(type->struct_union.c_compat); // TODO
+		if (!type->struct_union.c_compat) {
+			def->type.align = type->align;
+			field->type = NULL;
+			field->count = type->size;
+			break;
+		}
 		for (struct struct_field *tfield = type->struct_union.fields;
 				tfield; tfield = tfield->next) {
 			field->type = qtype_for_type(ctx, tfield->type, true);

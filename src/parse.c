@@ -463,6 +463,14 @@ parse_struct_union_type(struct lexer *lexer)
 	}
 	want(lexer, T_LBRACE, NULL);
 	while (tok.token != T_RBRACE) {
+		if (lex(lexer, &tok) == T_ATTR_OFFSET) {
+			want(lexer, T_LPAREN, NULL);
+			next->offset = parse_simple_expression(lexer);
+			want(lexer, T_RPAREN, NULL);
+		} else {
+			unlex(lexer, &tok);
+		}
+
 		char *name;
 		switch (lex(lexer, &tok)) {
 		case T_NAME:

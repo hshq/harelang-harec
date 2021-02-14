@@ -120,8 +120,6 @@ field_compar(const void *_a, const void *_b)
 static void
 emit_struct(const struct type *type, FILE *out)
 {
-	// TODO: This can be greatly simplified when we have explicit field
-	// offsets for structs.
 	size_t n = 0;
 	for (const struct struct_field *f = type->struct_union.fields;
 			f; f = f->next) {
@@ -137,12 +135,15 @@ emit_struct(const struct type *type, FILE *out)
 
 	qsort(fields, n, sizeof(fields[0]), field_compar);
 
-	assert(type->struct_union.c_compat); // TODO
 	fprintf(out, "%s { ", type->storage == TYPE_STORAGE_STRUCT
 			? "struct" : "union");
 	for (size_t i = 0; i < n; ++i) {
 		const struct struct_field *f = fields[i]; 
-		fprintf(out, "%s: ", f->name);
+		if (!type->struct_union.c_compat) {
+			fprintf(out, "@offset(%zd) %s: ", f->offset, f->name);
+		} else {
+			fprintf(out, "%s: ", f->name);
+		}
 		emit_type(f->type, out);
 		fprintf(out, ", ");
 	}
