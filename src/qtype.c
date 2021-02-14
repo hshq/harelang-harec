@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "gen.h"
 #include "qbe.h"
@@ -121,15 +122,21 @@ tagged_qtype(struct gen_context *ctx, const struct type *type)
 	def->type.size = type->size - type->align;
 
 	struct qbe_field *field = &def->type.fields;
+	struct qbe_field **next = &field->next;
 	for (const struct type_tagged_union *tu = &type->tagged;
 			tu; tu = tu->next) {
 		if (tu->type->size == 0) {
+			if (!tu->next && *next) {
+				free(*next);
+				*next = NULL;
+			}
 			continue;
 		}
 		field->type = qtype_for_type(ctx, tu->type, true);
 		field->count = 1;
-		if (tu->next && tu->next->type->size != 0) {
+		if (tu->next) {
 			field->next = xcalloc(1, sizeof(struct qbe_field));
+			next = &field->next;
 			field = field->next;
 		}
 	}

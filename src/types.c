@@ -407,6 +407,7 @@ type_hash(const struct type *type)
 				tuple; tuple = tuple->next) {
 			hash = fnv1a_u32(hash, type_hash(tuple->type));
 		}
+		break;
 	}
 	return hash;
 }

@@ -1,8 +1,10 @@
 #include <assert.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "emit.h"
 #include "qbe.h"
+#include "typedef.h"
 
 static void
 emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
@@ -29,10 +31,26 @@ emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
 	}
 }
 
+static char *
+gen_typename(const struct type *type)
+{
+	size_t sz = 0;
+	char *ptr = NULL;
+	FILE *f = open_memstream(&ptr, &sz);
+	emit_type(type, f);
+	fclose(f);
+	return ptr;
+}
+
 static void
-emit_type(const struct qbe_def *def, FILE *out)
+qemit_type(const struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_TYPE);
+	if (def->type.base) {
+		char *tn = gen_typename(def->type.base);
+		fprintf(out, "# %s\n", tn);
+		free(tn);
+	}
 	fprintf(out, "type :%s =", def->name);
 	if (def->type.align != (size_t)-1) {
 		fprintf(out, " align %zu", def->type.align);
@@ -310,7 +328,7 @@ emit_def(struct qbe_def *def, FILE *out)
 {
 	switch (def->kind) {
 	case Q_TYPE:
-		emit_type(def, out);
+		qemit_type(def, out);
 		break;
 	case Q_FUNC:
 		emit_func(def, out);
