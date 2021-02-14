@@ -374,6 +374,11 @@ check_expr_assign(struct context *ctx,
 		check_expression(ctx, aexpr->assign.value, value, object->result);
 		assert(object->type == EXPR_ACCESS
 				|| object->type == EXPR_SLICE); // Invariant
+		if (object->type == EXPR_SLICE) {
+			expect(&aexpr->assign.object->loc,
+				expr->assign.op == BIN_LEQUAL,
+				"Slice assignments may not have a binop");
+		}
 		expect(&aexpr->loc, !(object->result->flags & TYPE_CONST),
 				"Cannot assign to const object");
 		expect(&aexpr->loc,

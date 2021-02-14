@@ -55,6 +55,10 @@ fn indexing() void = {
 	) != 0, "indexing non-array, non-slice object");
 };
 
+fn zero3(s: []int) void = {
+	s[..] = [0, 0, 0];
+};
+
 fn assignment() void = {
 	let source = [1, 2, 3];
 	let x: []int = source;
@@ -70,6 +74,17 @@ fn assignment() void = {
 	x[2] = 9;
 	assert(x[0] == 7 && x[1] == 8 && x[2] == 9);
 	assert(source[0] == 4 && source[1] == 5 && source[2] == 6);
+
+	zero3(y);
+	assert(y[0] == 0 && y[1] == 0 && y[2] == 0);
+	let z: []int = [1, 2, 3, 4, 5];
+	z[1..4] = [42, 69, 1337];
+	assert(z[0] == 1 && z[1] == 42 && z[2] == 69 && z[3] == 1337 && z[4] == 5);
+	z[2..5] = y;
+	assert(z[0] == 1 && z[1] == 42 && z[2] == 0 && z[3] == 0 && z[4] == 0);
+	assert(rt::compile(
+		"export fn main() void = { let a: []int = [1]; a[..] += a; };"
+	) != 0, "binop slice assignment");
 };
 
 fn assert_slice_eq(actual: []int, expected: []int) void = {

@@ -750,7 +750,58 @@ gen_expr_assign_slice(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	assert(0); // TODO
+	struct qbe_value obj = {0}, val = {0}, temp = {0};
+	assert(expr->assign.op == BIN_LEQUAL && !expr->assign.indirect);
+	constl(&temp, builtin_type_size.size);
+	alloc_temp(ctx, &obj, expr->assign.object->result, "assign.object.%d");
+	alloc_temp(ctx, &val,expr->assign.value->result, "assign.value.%d");
+	gen_expression(ctx, expr->assign.object, &obj);
+	gen_expression(ctx, expr->assign.value, &val);
+
+	struct qbe_value ptr = {0}, olen = {0}, vlen = {0};
+	gen_temp(ctx, &ptr, &qbe_long, "assign.lenptr.%d");
+	gen_temp(ctx, &olen, &qbe_long, "assign.olen.%d");
+	gen_temp(ctx, &vlen, &qbe_long, "assign.vlen.%d");
+
+	qval_deref(&obj);
+	qval_deref(&val);
+	pushi(ctx->current, &ptr, Q_COPY, &obj, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
+	pushi(ctx->current, &olen, Q_LOADL, &ptr, NULL);
+	pushi(ctx->current, &ptr, Q_COPY, &val, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
+	pushi(ctx->current, &vlen, Q_LOADL, &ptr, NULL);
+
+	struct qbe_statement equall = {0}, diffl = {0};
+	struct qbe_value bequal = {0}, bdiff = {0};
+	bequal.kind = QV_LABEL;
+	bequal.name = strdup(genl(&equall, &ctx->id, "equal.%d"));
+	bdiff.kind = QV_LABEL;
+	bdiff.name = strdup(genl(&diffl, &ctx->id, "diff.%d"));
+	gen_temp(ctx, &temp, &qbe_long, "assign.equal.%d");
+	pushi(ctx->current, &temp, Q_SUB, &olen, &vlen, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &temp, &bdiff, &bequal, NULL);
+	push(&ctx->current->body, &diffl);
+
+	struct qbe_value rtabort = {0};
+	rtabort.kind = QV_GLOBAL;
+	rtabort.name = strdup("rt.abort_fixed");
+	rtabort.type = &qbe_long;
+	constl(&temp, 0);
+	pushi(ctx->current, NULL, Q_CALL, &rtabort, &temp, NULL);
+	push(&ctx->current->body, &equall);
+
+	struct qbe_value rtmemcpy = {0}, optr = {0}, vptr = {0};
+	rtmemcpy.kind = QV_GLOBAL;
+	rtmemcpy.name = strdup("rt.memcpy");
+	rtmemcpy.type = &qbe_long;
+	gen_temp(ctx, &optr, &qbe_long, "assign.optr.%d");
+	pushi(ctx->current, &optr, Q_LOADL, &obj, NULL);
+	gen_temp(ctx, &vptr, &qbe_long, "assign.vptr.%d");
+	pushi(ctx->current, &vptr, Q_LOADL, &val, NULL);
+	constl(&temp, expr->assign.object->result->array.members->size);
+	pushi(ctx->current, &olen, Q_MUL, &olen, &temp, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &optr, &vptr, &olen, NULL);
 }
 
 static void
