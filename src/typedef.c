@@ -342,7 +342,8 @@ emit_decl_type(struct declaration *decl, FILE *out)
 	char *ident = identifier_unparse(&decl->ident);
 	fprintf(out, "export type %s = ", ident);
 	emit_type(decl->_type, out);
-	fprintf(out, ";\n");
+	fprintf(out, "; // size: %zd, align: %zd, id: %u\n",
+		decl->_type->size, decl->_type->align, decl->_type->id);
 }
 
 void
