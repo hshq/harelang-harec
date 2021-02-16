@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,11 +93,22 @@ emit_const(const struct expression *expr, FILE *out)
 	case TYPE_STORAGE_RUNE:
 		fprintf(out, "\'\\U%08" PRIx32 "\'", (uint32_t)val->uval);
 		break;
+	case TYPE_STORAGE_STRING:
+		fprintf(out, "\"");
+		for (size_t i = 0; i < val->string.len; i += 1) {
+			char c = val->string.value[i];
+			if (isalnum(c)) {
+				fprintf(out, "%c", c);
+			} else {
+				fprintf(out, "\\x%02X", c);
+			}
+		};
+		fprintf(out, "\"");
+		break;
 	case TYPE_STORAGE_ALIAS:
 	case TYPE_STORAGE_ARRAY:
 	case TYPE_STORAGE_ENUM:
 	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
 	case TYPE_STORAGE_STRUCT:
 	case TYPE_STORAGE_TUPLE:
 	case TYPE_STORAGE_UNION:
