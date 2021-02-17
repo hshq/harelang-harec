@@ -823,8 +823,8 @@ gen_expr_assign(struct gen_context *ctx,
 	const struct type *objtype = expr->assign.indirect
 		? object->result->pointer.referent : object->result;
 	const struct qbe_type *vtype =
-		qtype_for_type(ctx, value->result, true);
-	const struct qbe_type *otype = qtype_for_type(ctx, objtype, true);
+		qtype_for_type(ctx, value->result, false);
+	const struct qbe_type *otype = qtype_for_type(ctx, objtype, false);
 
 	struct qbe_value src = {0};
 	if (expr->assign.indirect) {
