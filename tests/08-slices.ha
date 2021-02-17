@@ -3,12 +3,20 @@ use rt;
 fn from_array() void = {
 	let src = [1, 2, 3];
 	let x: []int = src;
-	let ptr = &x: *struct {
-		data: *[*]int,
+	let xptr = &x: *struct {
+		data: nullable *[*]int,
 		length: size,
 		capacity: size,
 	};
-	assert(ptr.data == &src);
+	assert(xptr.data == &src);
+
+	let y: []int = [];
+	let yptr = &y: *struct {
+		data: nullable *[*]int,
+		length: size,
+		capacity: size,
+	};
+	assert(yptr.data == null);
 };
 
 fn storage() void = {

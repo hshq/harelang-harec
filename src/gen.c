@@ -1383,7 +1383,13 @@ gen_expr_cast(struct gen_context *ctx,
 		constl(&offs, 8);
 		constl(&len, from->array.length);
 		pushi(ctx->current, &ptr, Q_COPY, out, NULL);
-		pushi(ctx->current, NULL, Q_STOREL, &in, &ptr, NULL);
+		if (from->array.length == 0) {
+			struct qbe_value temp = {0};
+			constl(&temp, 0);
+			pushi(ctx->current, NULL, Q_STOREL, &temp, &ptr, NULL);
+		} else {
+			pushi(ctx->current, NULL, Q_STOREL, &in, &ptr, NULL);
+		}
 		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 		pushi(ctx->current, NULL, Q_STOREL, &len, &ptr, NULL);
 		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
