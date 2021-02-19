@@ -466,6 +466,8 @@ type_init_from_atype(struct type_store *store,
 		type->size = storage->size;
 		type->align = storage->size;
 
+		struct scope *scope = scope_push(
+			&store->check_context->scope, TR_CHECK);
 		// TODO: Check for duplicates
 		struct ast_enum_field *avalue = atype->_enum.values;
 		struct type_enum_value **values = &type->_enum.values;
@@ -495,9 +497,23 @@ type_init_from_atype(struct type_store *store,
 			} else {
 				value->uval = uimplicit++;
 			}
+
+			struct identifier name = {
+				.name = value->name,
+				.ns = NULL,
+			};
+			// TODO: This leaks:
+			struct expression *vexpr = xcalloc(1, sizeof(struct expression));
+			vexpr->type = EXPR_CONSTANT;
+			vexpr->result = storage;
+			vexpr->constant.uval = value->uval;
+			scope_insert(scope, O_CONST, &name, &name, storage, vexpr);
+
 			values = &value->next;
 			avalue = avalue->next;
 		}
+		scope_pop(&store->check_context->scope, TR_CHECK);
+		scope_free(scope);
 		break;
 	case TYPE_STORAGE_FUNCTION:
 		type->size = SIZE_UNDEFINED;
