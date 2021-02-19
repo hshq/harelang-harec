@@ -565,6 +565,10 @@ type_is_assignable(const struct type *to, const struct type *from)
 		}
 		to_secondary = strip_flags(to->array.members, &_to_secondary);
 		from_secondary = strip_flags(from->array.members, &_from_secondary);
+		if (to->storage == TYPE_STORAGE_SLICE
+				&& to_secondary->storage == TYPE_STORAGE_VOID) {
+			return true;
+		}
 		return to_secondary->id == from_secondary->id;
 	case TYPE_STORAGE_ARRAY:
 		return from->storage == TYPE_STORAGE_ARRAY
