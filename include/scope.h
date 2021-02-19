@@ -20,13 +20,13 @@ struct scope_object {
 	struct identifier name, ident;
 	const struct type *type;
 	struct expression *value; // For O_CONST
-	struct scope_object *next;
+	struct scope_object *next, *prev;
 };
 
 struct scope {
 	enum expr_type type;
 	const char *label;
-	struct scope_object *objects;
+	struct scope_object *objects, *last;
 	struct scope_object **next; // List order matters for functions
 	struct scope *parent;
 };

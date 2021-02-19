@@ -78,19 +78,21 @@ scope_insert(struct scope *scope, enum object_type otype,
 	}
 	*scope->next = o;
 	scope->next = &o->next;
+	o->prev = scope->last;
+	scope->last = o;
 	return o;
 }
 
 const struct scope_object *
 scope_lookup(struct scope *scope, const struct identifier *ident)
 {
-	struct scope_object *o = scope->objects;
+	struct scope_object *o = scope->last;
 	while (o) {
 		if (identifier_eq(&o->ident, ident)
 				|| identifier_eq(&o->name, ident)) {
 			return o;
 		}
-		o = o->next;
+		o = o->prev;
 	}
 	if (scope->parent) {
 		return scope_lookup(scope->parent, ident);
