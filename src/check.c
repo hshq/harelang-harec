@@ -236,17 +236,18 @@ check_expr_append(struct context *ctx,
 	expr->append.expr = xcalloc(sizeof(struct expression), 1);
 	check_expression(ctx, aexpr->append.expr, expr->append.expr, NULL);
 	expect(&aexpr->append.expr->loc,
-		expr->append.expr->result->storage == STORAGE_SLICE,
+		type_dealias(expr->append.expr->result)->storage == STORAGE_SLICE,
 		"append must operate on a slice");
 	expect(&aexpr->append.expr->loc,
-		!(expr->append.expr->result->flags & TYPE_CONST),
+		!(type_dealias(expr->append.expr->result)->flags & TYPE_CONST),
 		"append must operate on a mutable slice");
 	expect(&aexpr->append.expr->loc,
 		expr->append.expr->type == EXPR_ACCESS
 		|| (expr->append.expr->type == EXPR_UNARITHM
 			&& expr->append.expr->unarithm.op == UN_DEREF),
 		"append must operate on a slice object");
-	const struct type *memb = expr->append.expr->result->array.members;
+	const struct type *memb =
+		type_dealias(expr->append.expr->result)->array.members;
 	struct append_values **next = &expr->append.values;
 	for (struct ast_append_values *avalue = aexpr->append.values; avalue;
 			avalue = avalue->next) {
@@ -1489,7 +1490,8 @@ check_expr_measure(struct context *ctx,
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value,
 			expr->measure.value, NULL);
-		enum type_storage vstor = expr->measure.value->result->storage;
+		enum type_storage vstor =
+			type_dealias(expr->measure.value->result)->storage;
 		expect(&aexpr->measure.value->loc,
 			vstor == STORAGE_ARRAY
 				|| vstor == STORAGE_SLICE

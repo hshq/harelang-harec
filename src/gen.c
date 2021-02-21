@@ -659,16 +659,18 @@ gen_expr_append(struct gen_context *ctx,
 	}
 	gen_store(ctx, &lenptr, &newlen);
 
+	const struct type *mtype =
+		type_dealias(expr->append.expr->result)->array.members;
+
 	struct qbe_value rtfunc = {0}, membsz = {0};
-	constl(&membsz, expr->append.expr->result->array.members->size);
+	constl(&membsz, mtype->size);
 	rtfunc.kind = QV_GLOBAL;
 	rtfunc.name = strdup("rt.ensure");
 	rtfunc.type = &qbe_long;
 	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, &newlen, NULL);
 
 	struct qbe_value ptr = {0};
-	const struct qbe_type *type =
-		qtype_for_type(ctx, expr->append.expr->result->array.members, false);
+	const struct qbe_type *type = qtype_for_type(ctx, mtype, false);
 	qval_deref(&val);
 	gen_loadtemp(ctx, &ptr, &val, &qbe_long, "append.ptr.%d");
 	qval_address(&ptr);
@@ -2061,7 +2063,7 @@ gen_expr_measure(struct gen_context *ctx,
 	struct qbe_value src = {0}, temp = {0}, ptr = {0};
 	switch (expr->measure.op) {
 	case M_LEN:
-		switch (expr->measure.value->result->storage) {
+		switch (type_dealias(expr->measure.value->result)->storage) {
 		case STORAGE_ARRAY:
 			gen_temp(ctx, &temp,
 				qtype_for_type(ctx, expr->result, false),
