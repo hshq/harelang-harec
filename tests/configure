@@ -24,7 +24,8 @@ tests() {
 		18-match \
 		19-append \
 		20-if \
-		21-tuples
+		21-tuples \
+		22-delete
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
