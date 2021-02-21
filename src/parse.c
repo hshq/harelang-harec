@@ -889,14 +889,12 @@ parse_field_value(struct lexer *lexer)
 			exp->field.name = name;
 			exp->field.type = parse_type(lexer);
 			want(lexer, T_EQUAL, NULL);
-			// TODO: initializer can be allocation
 			exp->field.initializer = parse_complex_expression(lexer);
 			trace(TR_PARSE, "%s: [type] = [expr]", name);
 			break;
 		case T_EQUAL:
 			exp->is_embedded = false;
 			exp->field.name = name;
-			// TODO: initializer can be allocation
 			exp->field.initializer = parse_simple_expression(lexer);
 			trace(TR_PARSE, "%s = [expr]", name);
 			break;
