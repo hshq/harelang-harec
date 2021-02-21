@@ -34,6 +34,7 @@ static const char *tokens[] = {
 	[T_CONTINUE] = "continue",
 	[T_DEF] = "def",
 	[T_DEFER] = "defer",
+	[T_DELETE] = "delete",
 	[T_ELSE] = "else",
 	[T_ENUM] = "enum",
 	[T_EXPORT] = "export",

@@ -25,6 +25,7 @@ enum lexical_token {
 	T_CONTINUE,
 	T_DEF,
 	T_DEFER,
+	T_DELETE,
 	T_ELSE,
 	T_ENUM,
 	T_EXPORT,

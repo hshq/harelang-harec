@@ -218,6 +218,10 @@ struct ast_expression_defer {
 	struct ast_expression *deferred;
 };
 
+struct ast_expression_delete {
+	struct ast_expression *expr;
+};
+
 struct ast_expression_for {
 	char *label;
 	struct location label_loc;
@@ -334,6 +338,7 @@ struct ast_expression {
 		struct ast_expression_constant constant;
 		struct ast_expression_control control;
 		struct ast_expression_defer defer;
+		struct ast_expression_delete delete;
 		struct ast_expression_for _for;
 		struct ast_expression_free free;
 		struct ast_expression_if _if;

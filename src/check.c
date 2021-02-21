@@ -1141,6 +1141,41 @@ check_expr_defer(struct context *ctx,
 }
 
 static void
+check_expr_delete(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	expr->type = EXPR_DELETE;
+	expr->result = &builtin_type_void;
+	struct expression *dexpr = expr->delete.expr =
+		xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->delete.expr, expr->delete.expr, NULL);
+	const struct type *otype = NULL;
+	switch (dexpr->type) {
+	case EXPR_SLICE:
+		otype = dexpr->slice.object->result;
+		break;
+	case EXPR_ACCESS:
+		expect(&aexpr->delete.expr->loc, dexpr->access.type == ACCESS_INDEX,
+			"Deleted expression must be slicing or indexing expression");
+		otype = dexpr->access.array->result;
+		break;
+	default:
+		expect(&aexpr->delete.expr->loc, false,
+			"Deleted expression must be slicing or indexing expression");
+	}
+	otype = type_dealias(otype);
+	while (otype->storage == STORAGE_POINTER) {
+		otype = type_dealias(otype->pointer.referent);
+	}
+	expect(&aexpr->delete.expr->loc, otype->storage == STORAGE_SLICE,
+		"delete must operate on a slice");
+	expect(&aexpr->delete.expr->loc, !(otype->flags & TYPE_CONST),
+		"delete must operate on a mutable slice");
+}
+
+static void
 check_expr_control(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -1971,6 +2006,9 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_DEFER:
 		check_expr_defer(ctx, aexpr, expr, hint);
+		break;
+	case EXPR_DELETE:
+		check_expr_delete(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_FOR:
 		check_expr_for(ctx, aexpr, expr, hint);

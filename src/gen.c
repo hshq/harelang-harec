@@ -2451,6 +2451,8 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_DEFER:
 		gen_expr_defer(ctx, expr, out);
 		break;
+	case EXPR_DELETE:
+		assert(0); // TODO
 	case EXPR_FOR:
 		gen_expr_for(ctx, expr, out);
 		break;

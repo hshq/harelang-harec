@@ -340,6 +340,9 @@ dump_expr(const struct expression *expr, int depth)
 	case EXPR_DEFER:
 		fprintf(stderr, "defer");
 		break;
+	case EXPR_DELETE:
+		fprintf(stderr, "delete");
+		break;
 	case EXPR_FOR:
 		fprintf(stderr, "for");
 		break;

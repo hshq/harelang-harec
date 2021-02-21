@@ -1328,6 +1328,14 @@ parse_allocation_expression(struct lexer *lexer)
 		exp->free.expr = parse_simple_expression(lexer);
 		want(lexer, T_RPAREN, NULL);
 		break;
+	case T_DELETE:
+		trace(TR_PARSE, "delete");
+		exp = mkexpr(&tok.loc);
+		exp->type = EXPR_DELETE;
+		want(lexer, T_LPAREN, NULL);
+		exp->delete.expr = parse_simple_expression(lexer);
+		want(lexer, T_RPAREN, NULL);
+		break;
 	default:
 		assert(0);
 	}
@@ -1347,6 +1355,7 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	case T_ALLOC:
 	case T_APPEND:
 	case T_FREE:
+	case T_DELETE:
 		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
 			T_EOF);
 		unlex(lexer, &tok);

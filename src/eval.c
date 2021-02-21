@@ -539,6 +539,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_CONTINUE:
 	case EXPR_CALL:
 	case EXPR_DEFER:
+	case EXPR_DELETE:
 	case EXPR_FOR:
 	case EXPR_FREE:
 	case EXPR_IF:

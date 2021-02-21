@@ -21,6 +21,7 @@ enum expr_type {
 	EXPR_CONSTANT,
 	EXPR_CONTINUE,
 	EXPR_DEFER,
+	EXPR_DELETE,
 	EXPR_FOR,
 	EXPR_FREE,
 	EXPR_IF,
@@ -181,6 +182,10 @@ struct expression_defer {
 	struct expression *deferred;
 };
 
+struct expression_delete {
+	struct expression *expr;
+};
+
 struct expression_for {
 	char *label;
 	struct scope *scope;
@@ -307,6 +312,7 @@ struct expression {
 		struct expression_cast cast;
 		union expression_constant constant;
 		struct expression_defer defer;
+		struct expression_delete delete;
 		struct expression_control control;
 		struct expression_for _for;
 		struct expression_free free;
