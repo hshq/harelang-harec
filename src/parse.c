@@ -202,7 +202,7 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 				break;
 			case T_DOUBLE_COLON:
 				next->type = parse_type(lexer);
-				synassert(next->type->storage == TYPE_STORAGE_ALIAS,
+				synassert(next->type->storage == STORAGE_ALIAS,
 						&tok, T_NAME, T_EOF);
 				struct identifier *ident =
 					xcalloc(1, sizeof(struct identifier));
@@ -290,43 +290,43 @@ parse_integer_type(struct lexer *lexer)
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_I8:
-		storage = TYPE_STORAGE_I8;
+		storage = STORAGE_I8;
 		break;
 	case T_I16:
-		storage = TYPE_STORAGE_I16;
+		storage = STORAGE_I16;
 		break;
 	case T_I32:
-		storage = TYPE_STORAGE_I32;
+		storage = STORAGE_I32;
 		break;
 	case T_I64:
-		storage = TYPE_STORAGE_I64;
+		storage = STORAGE_I64;
 		break;
 	case T_U8:
-		storage = TYPE_STORAGE_U8;
+		storage = STORAGE_U8;
 		break;
 	case T_U16:
-		storage = TYPE_STORAGE_U16;
+		storage = STORAGE_U16;
 		break;
 	case T_U32:
-		storage = TYPE_STORAGE_U32;
+		storage = STORAGE_U32;
 		break;
 	case T_U64:
-		storage = TYPE_STORAGE_U64;
+		storage = STORAGE_U64;
 		break;
 	case T_INT:
-		storage = TYPE_STORAGE_INT;
+		storage = STORAGE_INT;
 		break;
 	case T_UINT:
-		storage = TYPE_STORAGE_UINT;
+		storage = STORAGE_UINT;
 		break;
 	case T_SIZE:
-		storage = TYPE_STORAGE_SIZE;
+		storage = STORAGE_SIZE;
 		break;
 	case T_UINTPTR:
-		storage = TYPE_STORAGE_UINTPTR;
+		storage = STORAGE_UINTPTR;
 		break;
 	case T_CHAR:
-		storage = TYPE_STORAGE_CHAR;
+		storage = STORAGE_CHAR;
 		break;
 	default:
 		assert(0);
@@ -359,25 +359,25 @@ parse_primitive_type(struct lexer *lexer)
 		type->storage = parse_integer_type(lexer);
 		break;
 	case T_RUNE:
-		type->storage = TYPE_STORAGE_RUNE;
+		type->storage = STORAGE_RUNE;
 		break;
 	case T_STR:
-		type->storage = TYPE_STORAGE_STRING;
+		type->storage = STORAGE_STRING;
 		break;
 	case T_F32:
-		type->storage = TYPE_STORAGE_F32;
+		type->storage = STORAGE_F32;
 		break;
 	case T_F64:
-		type->storage = TYPE_STORAGE_F64;
+		type->storage = STORAGE_F64;
 		break;
 	case T_BOOL:
-		type->storage = TYPE_STORAGE_BOOL;
+		type->storage = STORAGE_BOOL;
 		break;
 	case T_VOID:
-		type->storage = TYPE_STORAGE_VOID;
+		type->storage = STORAGE_VOID;
 		break;
 	case T_NULL:
-		type->storage = TYPE_STORAGE_NULL;
+		type->storage = STORAGE_NULL;
 		break;
 	default:
 		assert(0);
@@ -401,11 +401,11 @@ parse_enum_type(struct lexer *lexer)
 	trenter(TR_PARSE, "enum");
 	struct token tok = {0};
 	struct ast_type *type = mktype(&lexer->loc);
-	type->storage = TYPE_STORAGE_ENUM;
+	type->storage = STORAGE_ENUM;
 	struct ast_enum_field **next = &type->_enum.values;
 	switch (lex(lexer, &tok)) {
 	case T_LBRACE:
-		type->_enum.storage = TYPE_STORAGE_INT;
+		type->_enum.storage = STORAGE_INT;
 		unlex(lexer, &tok);
 		break;
 	default:
@@ -451,11 +451,11 @@ parse_struct_union_type(struct lexer *lexer)
 	switch (lex(lexer, &tok)) {
 	case T_STRUCT:
 		trenter(TR_PARSE, "struct");
-		type->storage = TYPE_STORAGE_STRUCT;
+		type->storage = STORAGE_STRUCT;
 		break;
 	case T_UNION:
 		trenter(TR_PARSE, "union");
-		type->storage = TYPE_STORAGE_UNION;
+		type->storage = STORAGE_UNION;
 		break;
 	default:
 		synassert(false, &tok, T_STRUCT, T_UNION, T_EOF);
@@ -537,7 +537,7 @@ parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 {
 	trenter(TR_PARSE, "tagged union");
 	struct ast_type *type = mktype(&first->loc);
-	type->storage = TYPE_STORAGE_TAGGED;
+	type->storage = STORAGE_TAGGED;
 	struct ast_tagged_union_type *next = &type->tagged_union;
 	next->type = first;
 	struct token tok = {0};
@@ -566,7 +566,7 @@ parse_tuple_type(struct lexer *lexer, struct ast_type *first)
 {
 	trenter(TR_PARSE, "tuple");
 	struct ast_type *type = mktype(&first->loc);
-	type->storage = TYPE_STORAGE_TUPLE;
+	type->storage = STORAGE_TUPLE;
 	struct ast_tuple_type *next = &type->tuple;
 	next->type = first;
 	struct token tok = {0};
@@ -656,7 +656,7 @@ parse_type(struct lexer *lexer)
 		/* fallthrough */
 	case T_TIMES:
 		type = mktype(&lexer->loc);
-		type->storage = TYPE_STORAGE_POINTER;
+		type->storage = STORAGE_POINTER;
 		type->pointer.referent = parse_type(lexer);
 		if (nullable) {
 			type->pointer.flags |= PTR_NULLABLE;
@@ -674,24 +674,24 @@ parse_type(struct lexer *lexer)
 		type = mktype(&lexer->loc);
 		switch (lex(lexer, &tok)) {
 		case T_RBRACKET:
-			type->storage = TYPE_STORAGE_SLICE;
+			type->storage = STORAGE_SLICE;
 			type->slice.members = parse_type(lexer);
 			break;
 		case T_TIMES:
-			type->storage = TYPE_STORAGE_ARRAY;
+			type->storage = STORAGE_ARRAY;
 			type->array.length = NULL;
 			want(lexer, T_RBRACKET, NULL);
 			type->array.members = parse_type(lexer);
 			break;
 		case T_UNDERSCORE:
-			type->storage = TYPE_STORAGE_ARRAY;
+			type->storage = STORAGE_ARRAY;
 			type->array.length = NULL;
 			type->array.contextual = true;
 			want(lexer, T_RBRACKET, NULL);
 			type->array.members = parse_type(lexer);
 			break;
 		default:
-			type->storage = TYPE_STORAGE_ARRAY;
+			type->storage = STORAGE_ARRAY;
 			unlex(lexer, &tok);
 			type->array.length = parse_simple_expression(lexer);
 			want(lexer, T_RBRACKET, NULL);
@@ -705,7 +705,7 @@ parse_type(struct lexer *lexer)
 		// fallthrough
 	case T_FN:
 		type = mktype(&lexer->loc);
-		type->storage = TYPE_STORAGE_FUNCTION;
+		type->storage = STORAGE_FUNCTION;
 		parse_prototype(lexer, &type->func);
 		if (noreturn) {
 			type->func.flags |= FN_NORETURN;
@@ -718,7 +718,7 @@ parse_type(struct lexer *lexer)
 	case T_NAME:
 		unlex(lexer, &tok);
 		type = mktype(&lexer->loc);
-		type->storage = TYPE_STORAGE_ALIAS;
+		type->storage = STORAGE_ALIAS;
 		type->unwrap = unwrap;
 		parse_identifier(lexer, &type->alias);
 		break;
@@ -754,18 +754,18 @@ parse_constant(struct lexer *lexer)
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_TRUE:
-		exp->constant.storage = TYPE_STORAGE_BOOL;
+		exp->constant.storage = STORAGE_BOOL;
 		exp->constant.bval = true;
 		return exp;
 	case T_FALSE:
-		exp->constant.storage = TYPE_STORAGE_BOOL;
+		exp->constant.storage = STORAGE_BOOL;
 		exp->constant.bval = false;
 		return exp;
 	case T_NULL:
-		exp->constant.storage = TYPE_STORAGE_NULL;
+		exp->constant.storage = STORAGE_NULL;
 		return exp;
 	case T_VOID:
-		exp->constant.storage = TYPE_STORAGE_VOID;
+		exp->constant.storage = STORAGE_VOID;
 		return exp;
 	case T_LITERAL:
 		exp->constant.storage = tok.storage;
@@ -777,32 +777,32 @@ parse_constant(struct lexer *lexer)
 	}
 
 	switch (tok.storage) {
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_SIZE:
+	case STORAGE_CHAR:
+	case STORAGE_U8:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_SIZE:
 		exp->constant.uval = (uintmax_t)tok.uval;
 		break;
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_INT:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_ICONST:
+	case STORAGE_INT:
 		exp->constant.ival = (intmax_t)tok.ival;
 		break;
-	case TYPE_STORAGE_RUNE:
+	case STORAGE_RUNE:
 		exp->constant.rune = tok.rune;
 		break;
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		exp->constant.string.len = tok.string.len;
 		exp->constant.string.value = tok.string.value;
 		while (lex(lexer, &tok) == T_LITERAL
-				&& tok.storage == TYPE_STORAGE_STRING) {
+				&& tok.storage == STORAGE_STRING) {
 			size_t len = exp->constant.string.len;
 			exp->constant.string.value = xrealloc(
 				exp->constant.string.value,
@@ -831,7 +831,7 @@ parse_array_literal(struct lexer *lexer)
 
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_CONSTANT;
-	exp->constant.storage = TYPE_STORAGE_ARRAY;
+	exp->constant.storage = STORAGE_ARRAY;
 
 	struct ast_array_constant *item, **next = &exp->constant.array;
 
@@ -1852,13 +1852,13 @@ parse_match_expression(struct lexer *lexer)
 				ident.ns->name = tok.name; // Assumes ownership
 				parse_identifier(lexer, &ident);
 				_case->type = mktype(&tok.loc);
-				_case->type->storage = TYPE_STORAGE_ALIAS;
+				_case->type->storage = STORAGE_ALIAS;
 				_case->type->alias = ident;
 				break;
 			case T_CASE:
 				unlex(lexer, &tok2);
 				_case->type = mktype(&tok.loc);
-				_case->type->storage = TYPE_STORAGE_ALIAS;
+				_case->type->storage = STORAGE_ALIAS;
 				_case->type->alias.name = tok.name;
 				break;
 			default:
@@ -1876,7 +1876,7 @@ parse_match_expression(struct lexer *lexer)
 				unlex(lexer, &tok2);
 				_case->type = parse_type(lexer);
 				struct ast_type *ptr = mktype(&tok.loc);
-				ptr->storage = TYPE_STORAGE_POINTER;
+				ptr->storage = STORAGE_POINTER;
 				ptr->pointer.referent = _case->type;
 				_case->type = ptr;
 				break;
@@ -2249,7 +2249,7 @@ parse_attr_symbol(struct lexer *lexer)
 	struct token tok = {0};
 	want(lexer, T_LPAREN, NULL);
 	want(lexer, T_LITERAL, &tok);
-	synassert_msg(tok.storage == TYPE_STORAGE_STRING,
+	synassert_msg(tok.storage == STORAGE_STRING,
 		"expected string literal", &tok);
 	for (size_t i = 0; i < tok.string.len; i++) {
 		uint32_t c = tok.string.value[i];

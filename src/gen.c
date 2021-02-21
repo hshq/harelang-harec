@@ -314,11 +314,11 @@ address_index(struct gen_context *ctx,
 	gen_expression(ctx, expr->access.array, out);
 
 	const struct type *atype = type_dealias(expr->access.array->result);
-	if (atype->storage == TYPE_STORAGE_POINTER) {
+	if (atype->storage == STORAGE_POINTER) {
 		// We get one dereference for free for aggregate types
 		atype = type_dealias(atype->pointer.referent);
 	}
-	while (atype->storage == TYPE_STORAGE_POINTER) {
+	while (atype->storage == STORAGE_POINTER) {
 		pushi(ctx->current, out, Q_LOADL, out, NULL);
 		atype = type_dealias(atype->pointer.referent);
 	}
@@ -329,9 +329,9 @@ address_index(struct gen_context *ctx,
 
 	// XXX: ARCH
 	struct qbe_value length = {0};
-	if (atype->storage == TYPE_STORAGE_ARRAY) {
+	if (atype->storage == STORAGE_ARRAY) {
 		constl(&length, atype->array.length);
-	} else if (atype->storage == TYPE_STORAGE_SLICE) {
+	} else if (atype->storage == STORAGE_SLICE) {
 		struct qbe_value ptr = {0};
 		gen_temp(ctx, &ptr, &qbe_long, "ptr.%d");
 		constl(&length, 8);
@@ -340,7 +340,7 @@ address_index(struct gen_context *ctx,
 		pushi(ctx->current, &length, Q_LOADL, &ptr, NULL);
 	}
 
-	if (atype->storage != TYPE_STORAGE_ARRAY
+	if (atype->storage != STORAGE_ARRAY
 			|| atype->array.length != SIZE_UNDEFINED) {
 		struct qbe_statement validl = {0}, invalidl = {0};
 		struct qbe_value bvalid = {0}, binvalid = {0};
@@ -365,7 +365,7 @@ address_index(struct gen_context *ctx,
 		push(&ctx->current->body, &validl);
 	}
 
-	if (atype->storage == TYPE_STORAGE_SLICE) {
+	if (atype->storage == STORAGE_SLICE) {
 		pushi(ctx->current, out, Q_LOADL, out, NULL);
 	}
 
@@ -388,11 +388,11 @@ address_field(struct gen_context *ctx,
 	gen_expression(ctx, expr->access._struct, out);
 
 	const struct type *stype = type_dealias(expr->access._struct->result);
-	if (stype->storage == TYPE_STORAGE_POINTER) {
+	if (stype->storage == STORAGE_POINTER) {
 		// We get one dereference for free for aggregate types
 		stype = type_dealias(stype->pointer.referent);
 	}
-	while (stype->storage == TYPE_STORAGE_POINTER) {
+	while (stype->storage == STORAGE_POINTER) {
 		pushi(ctx->current, out, Q_LOADL, out, NULL);
 		stype = type_dealias(stype->pointer.referent);
 	}
@@ -417,11 +417,11 @@ address_value(struct gen_context *ctx,
 	gen_expression(ctx, expr->access.tuple, out);
 
 	const struct type *ttype = type_dealias(expr->access.tuple->result);
-	if (ttype->storage == TYPE_STORAGE_POINTER) {
+	if (ttype->storage == STORAGE_POINTER) {
 		// We get one dereference for free for aggregate types
 		ttype = type_dealias(ttype->pointer.referent);
 	}
-	while (ttype->storage == TYPE_STORAGE_POINTER) {
+	while (ttype->storage == STORAGE_POINTER) {
 		pushi(ctx->current, out, Q_LOADL, out, NULL);
 		ttype = type_dealias(ttype->pointer.referent);
 	}
@@ -498,7 +498,7 @@ gen_slice_alloc(struct gen_context *ctx,
 		"slice.size.%d");
 
 	const struct expression *initializer = expr->alloc.expr;
-	if (initializer->result->storage == TYPE_STORAGE_ARRAY) {
+	if (initializer->result->storage == STORAGE_ARRAY) {
 		assert(initializer->result->array.length != SIZE_UNDEFINED);
 		constl(&len, initializer->result->array.length);
 	} else {
@@ -534,7 +534,7 @@ gen_slice_alloc(struct gen_context *ctx,
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
 	pushi(ctx->current, NULL, Q_STOREL, &cap, &ptr, NULL);
 
-	if (initializer->result->storage == TYPE_STORAGE_ARRAY) {
+	if (initializer->result->storage == STORAGE_ARRAY) {
 		gen_expression(ctx, initializer, &ret);
 	} else {
 		// TODO: I think this will have to be a separate branch once
@@ -548,7 +548,7 @@ gen_expr_alloc(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(expr->type == EXPR_ALLOC);
-	if (type_dealias(expr->result)->storage == TYPE_STORAGE_SLICE) {
+	if (type_dealias(expr->result)->storage == STORAGE_SLICE) {
 		gen_slice_alloc(ctx, expr, out);
 		return;
 	}
@@ -984,7 +984,7 @@ gen_expr_binarithm(struct gen_context *ctx,
 	}
 
 	if (type_dealias(expr->binarithm.lvalue->result)->storage
-			== TYPE_STORAGE_STRING) {
+			== STORAGE_STRING) {
 		struct qbe_value rtfunc = {0};
 		rtfunc.kind = QV_GLOBAL;
 		rtfunc.name = strdup("rt.strcmp");
@@ -1027,15 +1027,15 @@ gen_expr_call(struct gen_context *ctx,
 	next = &arg->next;
 
 	const struct type *ftype = type_dealias(expr->call.lvalue->result);
-	if (ftype->storage == TYPE_STORAGE_POINTER) {
+	if (ftype->storage == STORAGE_POINTER) {
 		// We get one dereference for free for aggregate types
 		ftype = type_dealias(ftype->pointer.referent);
 	}
-	while (ftype->storage == TYPE_STORAGE_POINTER) {
+	while (ftype->storage == STORAGE_POINTER) {
 		pushi(ctx->current, &arg->value, Q_LOADL, &arg->value, NULL);
 		ftype = type_dealias(ftype->pointer.referent);
 	}
-	assert(ftype->storage == TYPE_STORAGE_FUNCTION);
+	assert(ftype->storage == STORAGE_FUNCTION);
 	if (ftype->func.result != &builtin_type_void) {
 		gen_temp(ctx, &result, qtype_for_type(ctx,
 			ftype->func.result, true), "returns.%d");
@@ -1138,7 +1138,7 @@ gen_cast_to_tagged(struct gen_context *ctx,
 	struct qbe_value tag = {0}, ptr = {0}, offs = {0};
 	constl(&offs, expr->result->align);
 
-	if (!subtype && type_dealias(from)->storage == TYPE_STORAGE_TAGGED
+	if (!subtype && type_dealias(from)->storage == STORAGE_TAGGED
 			&& from->align != tagged->align
 			&& type_dealias(tagged)->size != builtin_type_uint.size
 			&& type_dealias(from)->size != builtin_type_uint.size) {
@@ -1209,13 +1209,13 @@ gen_cast_from_tagged(struct gen_context *ctx,
 	const struct qbe_value *out,
 	const struct type *to)
 {
-	if (type_dealias(to)->storage == TYPE_STORAGE_VOID) {
+	if (type_dealias(to)->storage == STORAGE_VOID) {
 		// TODO: generate type assertion if appropriate
 		gen_expression(ctx, expr->cast.value, NULL);
 		return;
 	}
 
-	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
+	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		assert(0); // TODO
 	}
 
@@ -1264,10 +1264,10 @@ gen_expr_cast(struct gen_context *ctx,
 	}
 
 	const struct type *to = expr->result, *from = expr->cast.value->result;
-	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
+	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		gen_cast_to_tagged(ctx, expr, out, from);
 		return;
-	} else if (type_dealias(from)->storage == TYPE_STORAGE_TAGGED) {
+	} else if (type_dealias(from)->storage == STORAGE_TAGGED) {
 		gen_cast_from_tagged(ctx, expr, out, to);
 		return;
 	}
@@ -1284,11 +1284,11 @@ gen_expr_cast(struct gen_context *ctx,
 	gen_temp(ctx, &result, qtype_for_type(ctx, to, false), "cast.out.%d");
 
 	// Special case: str -> *const char; slice -> ptr
-	if ((to->storage == TYPE_STORAGE_POINTER
-			&& to->pointer.referent->storage == TYPE_STORAGE_CHAR
-			&& from->storage == TYPE_STORAGE_STRING)
-		|| (to->storage == TYPE_STORAGE_POINTER
-			&& from->storage == TYPE_STORAGE_SLICE)) {
+	if ((to->storage == STORAGE_POINTER
+			&& to->pointer.referent->storage == STORAGE_CHAR
+			&& from->storage == STORAGE_STRING)
+		|| (to->storage == STORAGE_POINTER
+			&& from->storage == STORAGE_SLICE)) {
 		alloc_temp(ctx, &in, from, "cast.in.%d");
 		in.indirect = false;
 		gen_expression(ctx, expr->cast.value, &in);
@@ -1299,7 +1299,7 @@ gen_expr_cast(struct gen_context *ctx,
 		return;
 	}
 
-	if (to->storage == TYPE_STORAGE_VOID) {
+	if (to->storage == STORAGE_VOID) {
 		gen_expression(ctx, expr->cast.value, NULL);
 		return;
 	}
@@ -1323,21 +1323,21 @@ gen_expr_cast(struct gen_context *ctx,
 	struct qbe_value ptr = {0}, offs = {0}, len = {0};
 
 	switch (to->storage) {
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_INT:		// XXX: ARCH
-	case TYPE_STORAGE_UINT:		// XXX: ARCH
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_UINTPTR:	// XXX: ARCH
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SIZE:		// XXX: ARCH
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_U8:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_U16:
+	case STORAGE_I32:
+	case STORAGE_U32:
+	case STORAGE_INT:		// XXX: ARCH
+	case STORAGE_UINT:		// XXX: ARCH
+	case STORAGE_I64:
+	case STORAGE_U64:
+	case STORAGE_UINTPTR:	// XXX: ARCH
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:		// XXX: ARCH
 		if (type_is_integer(from) && to->size <= from->size) {
 			op = Q_COPY;
 		} else if (type_is_integer(from) && to->size > from->size) {
@@ -1354,27 +1354,27 @@ gen_expr_cast(struct gen_context *ctx,
 			default:
 				assert(0); // Invariant
 			}
-		} else if (from->storage == TYPE_STORAGE_POINTER
-				|| from->storage == TYPE_STORAGE_NULL) {
-			assert(to->storage == TYPE_STORAGE_UINTPTR);
+		} else if (from->storage == STORAGE_POINTER
+				|| from->storage == STORAGE_NULL) {
+			assert(to->storage == STORAGE_UINTPTR);
 			op = Q_COPY;
-		} else if (from->storage == TYPE_STORAGE_RUNE) {
-			assert(to->storage == TYPE_STORAGE_U32);
+		} else if (from->storage == STORAGE_RUNE) {
+			assert(to->storage == STORAGE_U32);
 			op = Q_COPY;
 		} else {
 			assert(0); // Invariant
 		}
 		pushi(ctx->current, &result, op, &in, NULL);
 		break;
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
+	case STORAGE_F32:
+	case STORAGE_F64:
 		assert(0); // TODO
-	case TYPE_STORAGE_ARRAY:
-		assert(from->storage == TYPE_STORAGE_ARRAY);
+	case STORAGE_ARRAY:
+		assert(from->storage == STORAGE_ARRAY);
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
-	case TYPE_STORAGE_SLICE:
-		if (from->storage == TYPE_STORAGE_SLICE) {
+	case STORAGE_SLICE:
+		if (from->storage == STORAGE_SLICE) {
 			pushi(ctx->current, &result, Q_COPY, &in, NULL);
 			break;
 		}
@@ -1396,23 +1396,23 @@ gen_expr_cast(struct gen_context *ctx,
 		pushi(ctx->current, NULL, Q_STOREL, &len, &ptr, NULL);
 		return;
 	// Can be implemented with a copy
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_POINTER:
+	case STORAGE_NULL:
+	case STORAGE_POINTER:
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
 		break;
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_TAGGED:
+	case STORAGE_ALIAS:
+	case STORAGE_TAGGED:
 		assert(0); // Handled above
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_BOOL:
+	case STORAGE_FCONST:
+	case STORAGE_FUNCTION:
+	case STORAGE_ICONST:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
 		assert(0); // Invariant
-	case TYPE_STORAGE_VOID:
+	case STORAGE_VOID:
 		return; // no-op
 	}
 
@@ -1531,22 +1531,22 @@ gen_expr_constant(struct gen_context *ctx,
 
 	// Special cases
 	switch (expr->result->storage) {
-	case TYPE_STORAGE_BOOL:
+	case STORAGE_BOOL:
 		constw(&val, expr->constant.bval ? 1 : 0);
 		gen_store(ctx, out, &val);
 		return;
-	case TYPE_STORAGE_VOID:
+	case STORAGE_VOID:
 		const_void(&val);
 		gen_store(ctx, out, &val);
 		return;
-	case TYPE_STORAGE_NULL:
+	case STORAGE_NULL:
 		constl(&val, 0);
 		gen_store(ctx, out, &val);
 		return;
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		gen_array(ctx, expr, out);
 		return;
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		gen_string(ctx, expr, out);
 		return;
 	default:
@@ -1672,8 +1672,8 @@ gen_expr_free(struct gen_context *ctx,
 {
 	struct qbe_value val = {0}, rtfunc = {0};
 	const struct type *type = type_dealias(expr->alloc.expr->result);
-	if (type->storage == TYPE_STORAGE_SLICE
-			|| type->storage == TYPE_STORAGE_STRING) {
+	if (type->storage == STORAGE_SLICE
+			|| type->storage == STORAGE_STRING) {
 		alloc_temp(ctx, &val, type, "free.%d");
 		val.type = &qbe_long;
 		gen_expression(ctx, expr->alloc.expr, &val);
@@ -1874,7 +1874,7 @@ gen_match_tagged(struct gen_context *ctx,
 		} interpretation = MEMBER;
 
 		if (tagged_select_subtype(mtype, _case->type) == NULL) {
-			assert(type_dealias(_case->type)->storage == TYPE_STORAGE_TAGGED);
+			assert(type_dealias(_case->type)->storage == STORAGE_TAGGED);
 			assert(tagged_subset_compat(mtype, _case->type));
 			// Our match value can be "re-interpreted" as this case
 			// type because it is a subset-compatible tagged union.
@@ -1997,7 +1997,7 @@ gen_match_nullable(struct gen_context *ctx,
 		constl(&zero, 0);
 		pushi(ctx->current, &temp, Q_CEQL, &mval, &zero, NULL);
 
-		if (_case->type->storage == TYPE_STORAGE_NULL) {
+		if (_case->type->storage == STORAGE_NULL) {
 			pushi(ctx->current, NULL, Q_JNZ,
 				&temp, &tbranch, &fbranch, NULL);
 		} else {
@@ -2042,10 +2042,10 @@ gen_expr_match(struct gen_context *ctx,
 {
 	const struct type *mtype = type_dealias(expr->match.value->result);
 	switch (mtype->storage) {
-	case TYPE_STORAGE_TAGGED:
+	case STORAGE_TAGGED:
 		gen_match_tagged(ctx, expr, out);
 		break;
-	case TYPE_STORAGE_POINTER:
+	case STORAGE_POINTER:
 		gen_match_nullable(ctx, expr, out);
 		break;
 	default:
@@ -2062,15 +2062,15 @@ gen_expr_measure(struct gen_context *ctx,
 	switch (expr->measure.op) {
 	case M_LEN:
 		switch (expr->measure.value->result->storage) {
-		case TYPE_STORAGE_ARRAY:
+		case STORAGE_ARRAY:
 			gen_temp(ctx, &temp,
 				qtype_for_type(ctx, expr->result, false),
 				"len.%d");
 			constl(&temp, expr->measure.value->result->array.length);
 			gen_store(ctx, out, &temp);
 			break;
-		case TYPE_STORAGE_SLICE:
-		case TYPE_STORAGE_STRING:
+		case STORAGE_SLICE:
+		case STORAGE_STRING:
 			// My god this is a fucking mess
 			alloc_temp(ctx, &src,
 				expr->measure.value->result,
@@ -2135,7 +2135,7 @@ gen_expr_slice(struct gen_context *ctx,
 	gen_temp(ctx, &object, object.type, "object.%d");
 	object.type = temp.type;
 	pushi(ctx->current, &object, Q_COPY, &temp, NULL);
-	while (otype->storage == TYPE_STORAGE_POINTER) {
+	while (otype->storage == STORAGE_POINTER) {
 		pushi(ctx->current, &object, Q_LOADL, &object, NULL);
 		otype = type_dereference(otype->pointer.referent);
 	}
@@ -2155,7 +2155,7 @@ gen_expr_slice(struct gen_context *ctx,
 
 	if (expr->slice.end) {
 		gen_expression(ctx, expr->slice.end, &end);
-	} else if (otype->storage == TYPE_STORAGE_ARRAY) {
+	} else if (otype->storage == STORAGE_ARRAY) {
 		constl(&end, otype->array.length);
 	} else {
 		pushc(ctx->current, "load length");
@@ -2166,7 +2166,7 @@ gen_expr_slice(struct gen_context *ctx,
 
 	// TODO: Bounds check
 	pushi(ctx->current, &dest, Q_COPY, out, NULL);
-	if (otype->storage == TYPE_STORAGE_SLICE) {
+	if (otype->storage == STORAGE_SLICE) {
 		pushc(ctx->current, "load array");
 
 		gen_temp(ctx, &src, &qbe_long, "src.%d");
@@ -2498,47 +2498,47 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	const union expression_constant *constant = &expr->constant;
 	const struct type *type = type_dealias(expr->result);
 	switch (type->storage) {
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_U8:
+	case STORAGE_I8:
+	case STORAGE_U8:
 		item->type = QD_VALUE;
 		constw(&item->value, (uint8_t)constant->uval);
 		item->value.type = &qbe_byte;
 		break;
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_U16:
+	case STORAGE_I16:
+	case STORAGE_U16:
 		item->type = QD_VALUE;
 		constw(&item->value, (uint16_t)constant->uval);
 		item->value.type = &qbe_half;
 		break;
-	case TYPE_STORAGE_BOOL:
+	case STORAGE_BOOL:
 		item->type = QD_VALUE;
 		constw(&item->value, constant->bval ? 1 : 0);
 		break;
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_RUNE:
+	case STORAGE_I32:
+	case STORAGE_U32:
+	case STORAGE_INT:
+	case STORAGE_UINT:
+	case STORAGE_RUNE:
 		item->type = QD_VALUE;
 		constw(&item->value, (uint32_t)constant->uval);
 		break;
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_SIZE:
+	case STORAGE_U64:
+	case STORAGE_I64:
+	case STORAGE_SIZE:
 		item->type = QD_VALUE;
 		constl(&item->value, (uint32_t)constant->uval);
 		break;
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
+	case STORAGE_F32:
+	case STORAGE_F64:
 		assert(0); // TODO
-	case TYPE_STORAGE_UINTPTR:
+	case STORAGE_UINTPTR:
 		assert(0); // TODO: What are the semantics for this?
-	case TYPE_STORAGE_POINTER:
+	case STORAGE_POINTER:
 		assert(expr->type == EXPR_CONSTANT); // TODO?
 		item->type = QD_VALUE;
 		constl(&item->value, (uint64_t)constant->uval); // XXX: ARCH
 		break;
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		assert(type->array.length != SIZE_UNDEFINED);
 		size_t n = type->array.length;
 		for (struct array_constant *c = constant->array;
@@ -2551,7 +2551,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			}
 		}
 		break;
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		def = xcalloc(1, sizeof(struct qbe_def));
 		def->name = gen_name(ctx, "strdata.%d");
 		def->kind = Q_DATA;
@@ -2579,7 +2579,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		item->type = QD_VALUE;
 		constl(&item->value, expr->constant.string.len);
 		break;
-	case TYPE_STORAGE_SLICE:
+	case STORAGE_SLICE:
 		def = xcalloc(1, sizeof(struct qbe_def));
 		def->name = gen_name(ctx, "sldata.%d");
 		def->kind = Q_DATA;
@@ -2617,7 +2617,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		item->type = QD_VALUE;
 		constl(&item->value, len);
 		break;
-	case TYPE_STORAGE_STRUCT:
+	case STORAGE_STRUCT:
 		for (struct struct_constant *f = constant->_struct;
 				f; f = f->next) {
 			item = gen_data_item(ctx, f->value, item);
@@ -2639,18 +2639,18 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			}
 		}
 		break;
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_ENUM:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
 		assert(0); // TODO
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_VOID:
+	case STORAGE_ALIAS:
+	case STORAGE_CHAR:
+	case STORAGE_FCONST:
+	case STORAGE_FUNCTION:
+	case STORAGE_ICONST:
+	case STORAGE_NULL:
+	case STORAGE_VOID:
 		assert(0); // Invariant
 	}
 
@@ -2719,7 +2719,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	ctx->end_label = &end_label_v;
 
 	struct qbe_value rval = {0};
-	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
+	if (fntype->func.result->storage != STORAGE_VOID) {
 		alloc_temp(ctx, &rval, fntype->func.result, "ret.%d");
 		if (type_is_aggregate(fntype->func.result)) {
 			rval.indirect = false;
@@ -2736,7 +2736,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	push(&qdef->func.body, &end_label);
 	pop_scope(ctx);
 
-	if (fntype->func.result->storage != TYPE_STORAGE_VOID) {
+	if (fntype->func.result->storage != STORAGE_VOID) {
 		if (type_is_aggregate(fntype->func.result)) {
 			pushi(&qdef->func, NULL, Q_RET, ctx->return_value, NULL);
 		} else {

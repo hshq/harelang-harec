@@ -344,26 +344,26 @@ lex_literal(struct lexer *lexer, struct token *out)
 finalize:
 	out->token = T_LITERAL;
 	if (isfloat) {
-		out->storage = TYPE_STORAGE_FCONST;
+		out->storage = STORAGE_FCONST;
 	} else {
-		out->storage = TYPE_STORAGE_ICONST;
+		out->storage = STORAGE_ICONST;
 	}
 	if (suff) {
 		const char *suffs[] = {
-			[TYPE_STORAGE_U8] = "u8",
-			[TYPE_STORAGE_U16] = "u16",
-			[TYPE_STORAGE_U32] = "u32",
-			[TYPE_STORAGE_U64] = "u64",
-			[TYPE_STORAGE_I8] = "i8",
-			[TYPE_STORAGE_I16] = "i16",
-			[TYPE_STORAGE_I32] = "i32",
-			[TYPE_STORAGE_I64] = "i64",
+			[STORAGE_U8] = "u8",
+			[STORAGE_U16] = "u16",
+			[STORAGE_U32] = "u32",
+			[STORAGE_U64] = "u64",
+			[STORAGE_I8] = "i8",
+			[STORAGE_I16] = "i16",
+			[STORAGE_I32] = "i32",
+			[STORAGE_I64] = "i64",
 		
-			[TYPE_STORAGE_UINT] = "u",
-			[TYPE_STORAGE_INT] = "i",
-			[TYPE_STORAGE_SIZE] = "z",
-			[TYPE_STORAGE_F32] = "f32",
-			[TYPE_STORAGE_F64] = "f64",
+			[STORAGE_UINT] = "u",
+			[STORAGE_INT] = "i",
+			[STORAGE_SIZE] = "z",
+			[STORAGE_F32] = "f32",
+			[STORAGE_F64] = "f64",
 		};
 		bool isvalid = false;
 		for (enum type_storage i = 0;
@@ -394,43 +394,43 @@ finalize:
 
 	errno = 0;
 	switch (out->storage) {
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_SIZE:
+	case STORAGE_U8:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_UINT:
+	case STORAGE_U64:
+	case STORAGE_SIZE:
 		out->uval = strtoumax(lexer->buf, NULL, base);
 		for (uintmax_t i = 0; i < exponent; i++) {
 			out->uval *= 10;
 		}
 		break;
-	case TYPE_STORAGE_ICONST:
+	case STORAGE_ICONST:
 		if (lexer->buf[0] != '-') {
 			uintmax_t uval = strtoumax(lexer->buf, NULL, base);
 			for (uintmax_t i = 0; i < exponent; i++) {
 				uval *= 10;
 			}
 			if (uval > (uintmax_t)INT64_MAX) {
-				out->storage = TYPE_STORAGE_U64;
+				out->storage = STORAGE_U64;
 				out->uval = uval;
 				break;
 			}
 		}
 		// Fallthrough
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_INT:
+	case STORAGE_I64:
 		out->ival = strtoimax(lexer->buf, NULL, base);
 		for (uintmax_t i = 0; i < exponent; i++) {
 			out->ival *= 10;
 		}
 		break;
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
 		out->fval = strtod(lexer->buf, NULL);
 		break;
 	default:
@@ -530,7 +530,7 @@ lex_string(struct lexer *lexer, struct token *out)
 				char *buf = xcalloc(lexer->buflen, lexer->buflen);
 				memcpy(buf, lexer->buf, lexer->buflen);
 				out->token = T_LITERAL;
-				out->storage = TYPE_STORAGE_STRING;
+				out->storage = STORAGE_STRING;
 				out->string.len = lexer->buflen;
 				out->string.value = buf;
 				consume(lexer, -1);
@@ -557,7 +557,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		c = next(lexer, NULL, false);
 		assert(c == '\'');
 		out->token = T_LITERAL;
-		out->storage = TYPE_STORAGE_RUNE;
+		out->storage = STORAGE_RUNE;
 		return out->token;
 	default:
 		assert(0); // Invariant
@@ -923,7 +923,7 @@ token_finish(struct token *tok)
 		break;
 	case T_LITERAL:
 		switch (tok->storage) {
-		case TYPE_STORAGE_STRING:
+		case STORAGE_STRING:
 			free(tok->string.value);
 			break;
 		default:
@@ -1016,7 +1016,7 @@ static const char *
 string_unparse(const struct token *tok)
 {
 	static char buf[1024];
-	assert(tok->token == T_LITERAL && tok->storage == TYPE_STORAGE_STRING);
+	assert(tok->token == T_LITERAL && tok->storage == STORAGE_STRING);
 	int bytes = 0;
 	memset(buf, 0, sizeof(buf));
 	bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "\"");
@@ -1045,50 +1045,50 @@ token_str(const struct token *tok)
 		return buf;
 	case T_LITERAL:
 		switch (tok->storage) {
-		case TYPE_STORAGE_U8:
-		case TYPE_STORAGE_U16:
-		case TYPE_STORAGE_U32:
-		case TYPE_STORAGE_U64:
-		case TYPE_STORAGE_UINT:
-		case TYPE_STORAGE_UINTPTR:
-		case TYPE_STORAGE_SIZE:
+		case STORAGE_U8:
+		case STORAGE_U16:
+		case STORAGE_U32:
+		case STORAGE_U64:
+		case STORAGE_UINT:
+		case STORAGE_UINTPTR:
+		case STORAGE_SIZE:
 			snprintf(buf, sizeof(buf), "%ju", tok->uval);
 			break;
-		case TYPE_STORAGE_I8:
-		case TYPE_STORAGE_I16:
-		case TYPE_STORAGE_I32:
-		case TYPE_STORAGE_I64:
-		case TYPE_STORAGE_ICONST:
-		case TYPE_STORAGE_INT:
+		case STORAGE_I8:
+		case STORAGE_I16:
+		case STORAGE_I32:
+		case STORAGE_I64:
+		case STORAGE_ICONST:
+		case STORAGE_INT:
 			snprintf(buf, sizeof(buf), "%jd", tok->ival);
 			break;
-		case TYPE_STORAGE_F32:
-		case TYPE_STORAGE_F64:
-		case TYPE_STORAGE_FCONST:
+		case STORAGE_F32:
+		case STORAGE_F64:
+		case STORAGE_FCONST:
 			snprintf(buf, sizeof(buf), "%lf", tok->fval);
 			break;
-		case TYPE_STORAGE_RUNE:
+		case STORAGE_RUNE:
 			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
 			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "%s",
 				rune_unparse(tok->rune));
 			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
 			break;
-		case TYPE_STORAGE_STRING:
+		case STORAGE_STRING:
 			return string_unparse(tok);
-		case TYPE_STORAGE_ALIAS:
-		case TYPE_STORAGE_ARRAY:
-		case TYPE_STORAGE_BOOL:
-		case TYPE_STORAGE_CHAR:
-		case TYPE_STORAGE_ENUM:
-		case TYPE_STORAGE_FUNCTION:
-		case TYPE_STORAGE_POINTER:
-		case TYPE_STORAGE_NULL:
-		case TYPE_STORAGE_SLICE:
-		case TYPE_STORAGE_STRUCT:
-		case TYPE_STORAGE_TAGGED:
-		case TYPE_STORAGE_TUPLE:
-		case TYPE_STORAGE_UNION:
-		case TYPE_STORAGE_VOID:
+		case STORAGE_ALIAS:
+		case STORAGE_ARRAY:
+		case STORAGE_BOOL:
+		case STORAGE_CHAR:
+		case STORAGE_ENUM:
+		case STORAGE_FUNCTION:
+		case STORAGE_POINTER:
+		case STORAGE_NULL:
+		case STORAGE_SLICE:
+		case STORAGE_STRUCT:
+		case STORAGE_TAGGED:
+		case STORAGE_TUPLE:
+		case STORAGE_UNION:
+		case STORAGE_VOID:
 			assert(0);
 		}
 		return buf;

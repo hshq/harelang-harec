@@ -30,60 +30,60 @@ const struct type *
 builtin_type_for_storage(enum type_storage storage, bool is_const)
 {
 	switch (storage) {
-	case TYPE_STORAGE_BOOL:
+	case STORAGE_BOOL:
 		return is_const ? &builtin_type_const_bool : &builtin_type_bool;
-	case TYPE_STORAGE_CHAR:
+	case STORAGE_CHAR:
 		return is_const ? &builtin_type_const_char : &builtin_type_char;
-	case TYPE_STORAGE_F32:
+	case STORAGE_F32:
 		return is_const ? &builtin_type_const_f32 : &builtin_type_f32;
-	case TYPE_STORAGE_F64:
+	case STORAGE_F64:
 		return is_const ? &builtin_type_const_f64 : &builtin_type_f64;
-	case TYPE_STORAGE_FCONST:
+	case STORAGE_FCONST:
 		return is_const ? &builtin_type_const_fconst : &builtin_type_fconst;
-	case TYPE_STORAGE_I8:
+	case STORAGE_I8:
 		return is_const ? &builtin_type_const_i8 : &builtin_type_i8;
-	case TYPE_STORAGE_I16:
+	case STORAGE_I16:
 		return is_const ? &builtin_type_const_i16 : &builtin_type_i16;
-	case TYPE_STORAGE_I32:
+	case STORAGE_I32:
 		return is_const ? &builtin_type_const_i32 : &builtin_type_i32;
-	case TYPE_STORAGE_I64:
+	case STORAGE_I64:
 		return is_const ? &builtin_type_const_i64 : &builtin_type_i64;
-	case TYPE_STORAGE_ICONST:
+	case STORAGE_ICONST:
 		return is_const ? &builtin_type_const_iconst : &builtin_type_iconst;
-	case TYPE_STORAGE_INT:
+	case STORAGE_INT:
 		return is_const ? &builtin_type_const_int : &builtin_type_int;
-	case TYPE_STORAGE_RUNE:
+	case STORAGE_RUNE:
 		return is_const ? &builtin_type_const_rune : &builtin_type_rune;
-	case TYPE_STORAGE_SIZE:
+	case STORAGE_SIZE:
 		return is_const ? &builtin_type_const_size : &builtin_type_size;
-	case TYPE_STORAGE_U8:
+	case STORAGE_U8:
 		return is_const ? &builtin_type_const_u8 : &builtin_type_u8;
-	case TYPE_STORAGE_U16:
+	case STORAGE_U16:
 		return is_const ? &builtin_type_const_u16 : &builtin_type_u16;
-	case TYPE_STORAGE_U32:
+	case STORAGE_U32:
 		return is_const ? &builtin_type_const_u32 : &builtin_type_u32;
-	case TYPE_STORAGE_U64:
+	case STORAGE_U64:
 		return is_const ? &builtin_type_const_u64 : &builtin_type_u64;
-	case TYPE_STORAGE_UINT:
+	case STORAGE_UINT:
 		return is_const ? &builtin_type_const_uint : &builtin_type_uint;
-	case TYPE_STORAGE_UINTPTR:
+	case STORAGE_UINTPTR:
 		return is_const ? &builtin_type_const_uintptr : &builtin_type_uintptr;
-	case TYPE_STORAGE_VOID:
+	case STORAGE_VOID:
 		return is_const ? &builtin_type_const_void : &builtin_type_void;
-	case TYPE_STORAGE_NULL:
+	case STORAGE_NULL:
 		return &builtin_type_null; // const null and null are the same type
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		return is_const ? &builtin_type_const_str : &builtin_type_str;
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_ENUM:
+	case STORAGE_ALIAS:
+	case STORAGE_ARRAY:
+	case STORAGE_FUNCTION:
+	case STORAGE_POINTER:
+	case STORAGE_SLICE:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+	case STORAGE_ENUM:
 		return NULL;
 	}
 	assert(0); // Unreachable
@@ -129,7 +129,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	
 	if (atype->offset) {
 		*ccompat = false;
-		assert(storage == TYPE_STORAGE_STRUCT); // TODO: Bubble up
+		assert(storage == STORAGE_STRUCT); // TODO: Bubble up
 		struct expression in, out;
 		check_expression(store->check_context, atype->offset, &in, NULL);
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
@@ -147,7 +147,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		field->offset = *size;
 	}
 
-	if (storage == TYPE_STORAGE_STRUCT) {
+	if (storage == STORAGE_STRUCT) {
 		*size += field->type->size;
 	} else {
 		*usize = field->type->size > *usize ? field->type->size : *usize;
@@ -162,7 +162,7 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 {
 	// TODO: fields with size SIZE_UNDEFINED
 	size_t usize = 0;
-	assert(storage == TYPE_STORAGE_STRUCT || storage == TYPE_STORAGE_UNION);
+	assert(storage == STORAGE_STRUCT || storage == STORAGE_UNION);
 	while (atype) {
 		size_t sub = *size;
 		switch (atype->member_type) {
@@ -171,30 +171,30 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 				size, &usize, align, atype, ccompat);
 			break;
 		case MEMBER_TYPE_EMBEDDED:
-			if (atype->embedded->storage == TYPE_STORAGE_UNION) {
+			if (atype->embedded->storage == STORAGE_UNION) {
 				*ccompat = false;
 				// We need to set the offset of all union
 				// members to the maximum alignment of the union
 				// members, so first we do a dry run to compute
 				// it:
 				size_t offs = 0, align_1 = 0;
-				struct_init_from_atype(store, TYPE_STORAGE_UNION,
+				struct_init_from_atype(store, STORAGE_UNION,
 					&offs, &align_1, NULL,
 					&atype->embedded->struct_union, ccompat);
 				// Insert padding per the results:
 				*size += *size % align_1;
 				// Then insert the fields for real:
 				sub = *size;
-				struct_init_from_atype(store, TYPE_STORAGE_UNION,
+				struct_init_from_atype(store, STORAGE_UNION,
 					&sub, align, fields,
 					&atype->embedded->struct_union, ccompat);
 			} else {
-				struct_init_from_atype(store, TYPE_STORAGE_STRUCT,
+				struct_init_from_atype(store, STORAGE_STRUCT,
 					&sub, align, fields,
 					&atype->embedded->struct_union, ccompat);
 			}
 
-			if (storage == TYPE_STORAGE_UNION) {
+			if (storage == STORAGE_UNION) {
 				usize = sub > usize ? sub : usize;
 			} else {
 				*size += sub;
@@ -206,7 +206,7 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 		atype = atype->next;
 	}
 
-	if (storage == TYPE_STORAGE_UNION) {
+	if (storage == STORAGE_UNION) {
 		*size = usize;
 	}
 }
@@ -218,7 +218,7 @@ sum_tagged_memb(struct type_store *store,
 	size_t nmemb = 0;
 	for (; u; u = u->next) {
 		const struct type *type = u->type;
-		if (type->storage == TYPE_STORAGE_TAGGED) {
+		if (type->storage == STORAGE_TAGGED) {
 			nmemb += sum_tagged_memb(store, &type->tagged);
 		} else {
 			++nmemb;
@@ -235,7 +235,7 @@ sum_atagged_memb(struct type_store *store,
 	for (; u; u = u->next) {
 		const struct type *type =
 			type_store_lookup_atype(store, u->type);
-		if (type->storage == TYPE_STORAGE_TAGGED) {
+		if (type->storage == STORAGE_TAGGED) {
 			nmemb += sum_tagged_memb(store, &type->tagged);
 		} else {
 			++nmemb;
@@ -252,7 +252,7 @@ collect_tagged_memb(struct type_store *store,
 {
 	for (; src; src = src->next) {
 		const struct type *type = src->type;
-		if (type->storage == TYPE_STORAGE_TAGGED) {
+		if (type->storage == STORAGE_TAGGED) {
 			collect_tagged_memb(store, ta, &type->tagged, i);
 			continue;
 		}
@@ -272,7 +272,7 @@ collect_atagged_memb(struct type_store *store,
 	for (; atu; atu = atu->next) {
 		const struct type *type =
 			type_store_lookup_atype(store, atu->type);
-		if (type->storage == TYPE_STORAGE_TAGGED) {
+		if (type->storage == STORAGE_TAGGED) {
 			collect_tagged_memb(store, ta, &type->tagged, i);
 			continue;
 		}
@@ -391,30 +391,30 @@ type_init_from_atype(struct type_store *store,
 	const struct identifier *ident;
 	struct identifier temp;
 	switch (type->storage) {
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_VOID:
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_ICONST:
+	case STORAGE_INT:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_STRING:
+	case STORAGE_U8:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
 		assert(0); // Invariant
-	case TYPE_STORAGE_ALIAS:
+	case STORAGE_ALIAS:
 		ident = &atype->alias;
 		if (ident->ns == NULL) {
 			temp = *ident;
@@ -443,7 +443,7 @@ type_init_from_atype(struct type_store *store,
 		type->size = type->alias.type->size;
 		type->align = type->alias.type->align;
 		break;
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		type->array.length = ast_array_len(store, atype);
 		type->array.members = type_store_lookup_atype(
 				store, atype->array.members);
@@ -457,7 +457,7 @@ type_init_from_atype(struct type_store *store,
 			type->size = type->array.members->size * type->array.length;
 		}
 		break;
-	case TYPE_STORAGE_ENUM:
+	case STORAGE_ENUM:
 		type->_enum.storage = atype->_enum.storage;
 		const struct type *storage =
 			builtin_type_for_storage(type->_enum.storage, true);
@@ -515,7 +515,7 @@ type_init_from_atype(struct type_store *store,
 		scope_pop(&store->check_context->scope, TR_CHECK);
 		scope_free(scope);
 		break;
-	case TYPE_STORAGE_FUNCTION:
+	case STORAGE_FUNCTION:
 		type->size = SIZE_UNDEFINED;
 		type->align = SIZE_UNDEFINED;
 		type->func.result =
@@ -535,22 +535,22 @@ type_init_from_atype(struct type_store *store,
 			next = &param->next;
 		}
 		break;
-	case TYPE_STORAGE_POINTER:
+	case STORAGE_POINTER:
 		type->size = 8; // XXX: ARCH
 		type->align = 8;
 		type->pointer.flags = atype->pointer.flags;
 		type->pointer.referent = type_store_lookup_atype(
 			store, atype->pointer.referent);
 		break;
-	case TYPE_STORAGE_SLICE:
+	case STORAGE_SLICE:
 		type->size = 24; // XXX: ARCH
 		type->align = 8;
 		type->array.members = type_store_lookup_atype(
 			store, atype->array.members);
 		type->array.length = SIZE_UNDEFINED;
 		break;
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
 		type->struct_union.c_compat = true;
 		struct_init_from_atype(store, type->storage, &type->size,
 			&type->align, &type->struct_union.fields,
@@ -566,10 +566,10 @@ type_init_from_atype(struct type_store *store,
 			}
 		}
 		break;
-	case TYPE_STORAGE_TAGGED:
+	case STORAGE_TAGGED:
 		tagged_init_from_atype(store, type, atype);
 		break;
-	case TYPE_STORAGE_TUPLE:
+	case STORAGE_TUPLE:
 		tuple_init_from_atype(store, type, atype);
 		break;
 	}
@@ -630,7 +630,7 @@ type_store_lookup_pointer(struct type_store *store,
 	const struct type *referent, unsigned int ptrflags)
 {
 	struct type ptr = {
-		.storage = TYPE_STORAGE_POINTER,
+		.storage = STORAGE_POINTER,
 		.pointer = {
 			.referent = referent,
 			.flags = ptrflags,
@@ -646,7 +646,7 @@ type_store_lookup_array(struct type_store *store,
 	const struct type *members, size_t len)
 {
 	struct type array = {
-		.storage = TYPE_STORAGE_ARRAY,
+		.storage = STORAGE_ARRAY,
 		.array = {
 			.members = members,
 			.length = len,
@@ -662,7 +662,7 @@ const struct type *
 type_store_lookup_slice(struct type_store *store, const struct type *members)
 {
 	struct type slice = {
-		.storage = TYPE_STORAGE_SLICE,
+		.storage = STORAGE_SLICE,
 		.array = {
 			.members = members,
 			.length = SIZE_UNDEFINED,
@@ -678,7 +678,7 @@ type_store_lookup_alias(struct type_store *store,
 	const struct identifier *ident, const struct type *secondary)
 {
 	struct type alias = {
-		.storage = TYPE_STORAGE_ALIAS,
+		.storage = STORAGE_ALIAS,
 		.alias = {
 			.ident = *ident,
 			.type = secondary,
@@ -701,7 +701,7 @@ type_store_lookup_tagged(struct type_store *store,
 		struct type_tagged_union *tags)
 {
 	struct type type = {
-		.storage = TYPE_STORAGE_TAGGED,
+		.storage = STORAGE_TAGGED,
 	};
 	size_t nmemb = sum_tagged_memb(store, tags);
 	struct type_tagged_union **tu =
@@ -716,7 +716,7 @@ const struct type *
 type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 {
 	struct type type = {
-		.storage = TYPE_STORAGE_TUPLE,
+		.storage = STORAGE_TUPLE,
 		.tuple = *values,
 	};
 	for (struct type_tuple *t = values; t; t = t->next) {

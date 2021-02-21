@@ -12,46 +12,46 @@ enum qbe_stype
 qstype_for_type(const struct type *type)
 {
 	switch (type->storage) {
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_U8:
+	case STORAGE_CHAR:
+	case STORAGE_I8:
+	case STORAGE_U8:
 		// Implemented as Q_WORD
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_U16:
+	case STORAGE_I16:
+	case STORAGE_U16:
 		// Implemented as Q_WORD
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_INT:		// XXX: Architecture dependent
-	case TYPE_STORAGE_UINT:		// XXX: Architecture dependent
+	case STORAGE_BOOL:
+	case STORAGE_I32:
+	case STORAGE_U32:
+	case STORAGE_RUNE:
+	case STORAGE_INT:		// XXX: Architecture dependent
+	case STORAGE_UINT:		// XXX: Architecture dependent
 		return Q_WORD;
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_UINTPTR:	// XXX: Architecture dependent
-	case TYPE_STORAGE_POINTER:	// XXX: Architecture dependent
-	case TYPE_STORAGE_NULL:		// XXX: Architecture dependent
+	case STORAGE_I64:
+	case STORAGE_U64:
+	case STORAGE_SIZE:
+	case STORAGE_UINTPTR:	// XXX: Architecture dependent
+	case STORAGE_POINTER:	// XXX: Architecture dependent
+	case STORAGE_NULL:		// XXX: Architecture dependent
 		return Q_LONG;
-	case TYPE_STORAGE_F32:
+	case STORAGE_F32:
 		return Q_SINGLE;
-	case TYPE_STORAGE_F64:
+	case STORAGE_F64:
 		return Q_DOUBLE;
-	case TYPE_STORAGE_VOID:
+	case STORAGE_VOID:
 		return Q__VOID;
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_ENUM:
+	case STORAGE_ALIAS:
+	case STORAGE_ENUM:
 		return qstype_for_type(builtin_type_for_storage(type->_enum.storage, true));
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_FUNCTION:
+	case STORAGE_ARRAY:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+	case STORAGE_FUNCTION:
 		assert(0); // Invariant
 	}
 	assert(0);
@@ -61,42 +61,42 @@ enum qbe_stype
 qxtype_for_type(const struct type *type)
 {
 	switch (type->storage) {
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_U8:
+	case STORAGE_CHAR:
+	case STORAGE_I8:
+	case STORAGE_U8:
 		return Q_BYTE;
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_U16:
+	case STORAGE_I16:
+	case STORAGE_U16:
 		return Q_HALF;
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_INT:		// XXX: Architecture dependent
-	case TYPE_STORAGE_UINT:		// XXX: Architecture dependent
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_UINTPTR:	// XXX: Architecture dependent
-	case TYPE_STORAGE_POINTER:	// XXX: Architecture dependent
-	case TYPE_STORAGE_NULL:		// XXX: Architecture dependent
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_VOID:
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_FUNCTION:
+	case STORAGE_BOOL:
+	case STORAGE_I32:
+	case STORAGE_U32:
+	case STORAGE_RUNE:
+	case STORAGE_INT:		// XXX: Architecture dependent
+	case STORAGE_UINT:		// XXX: Architecture dependent
+	case STORAGE_I64:
+	case STORAGE_U64:
+	case STORAGE_SIZE:
+	case STORAGE_UINTPTR:	// XXX: Architecture dependent
+	case STORAGE_POINTER:	// XXX: Architecture dependent
+	case STORAGE_NULL:		// XXX: Architecture dependent
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_VOID:
+	case STORAGE_ALIAS:
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+	case STORAGE_FUNCTION:
 		return qstype_for_type(type);
-	case TYPE_STORAGE_ENUM:
+	case STORAGE_ENUM:
 		return qxtype_for_type(builtin_type_for_storage(type->_enum.storage, true));
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_ICONST:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
 		assert(0); // Lowered in check
 	}
 	assert(0);
@@ -156,7 +156,7 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 
 	switch (type->storage) {
 	// Special cases
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		return &qbe_long;
 	default:
 		break;
@@ -178,12 +178,12 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 
 	struct qbe_field *field = &def->type.fields;
 	switch (type->storage) {
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		field->type = &qbe_long; // XXX: ARCH
 		field->count = 3;
 		break;
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
 		if (!type->struct_union.c_compat) {
 			def->type.align = type->align;
 			field->type = NULL;
@@ -201,11 +201,11 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 			}
 		}
 		break;
-	case TYPE_STORAGE_SLICE:
+	case STORAGE_SLICE:
 		field->type = &qbe_long; // XXX: ARCH
 		field->count = 3;
 		break;
-	case TYPE_STORAGE_TAGGED:
+	case STORAGE_TAGGED:
 		def->type.align = type->align;
 		field->type = &qbe_word; // XXX: ARCH
 		field->count = 1;
@@ -216,7 +216,7 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 			field->count = 1;
 		}
 		break;
-	case TYPE_STORAGE_TUPLE:
+	case STORAGE_TUPLE:
 		def->type.align = type->align;
 		for (const struct type_tuple *tuple = &type->tuple;
 				tuple; tuple = tuple->next) {
@@ -229,32 +229,32 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 			}
 		}
 		break;
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_VOID:
-	case TYPE_STORAGE_FUNCTION:
+	case STORAGE_ENUM:
+	case STORAGE_ARRAY:
+	case STORAGE_ALIAS:
+	case STORAGE_CHAR:
+	case STORAGE_I8:
+	case STORAGE_U8:
+	case STORAGE_I16:
+	case STORAGE_U16:
+	case STORAGE_BOOL:
+	case STORAGE_I32:
+	case STORAGE_U32:
+	case STORAGE_RUNE:
+	case STORAGE_INT:
+	case STORAGE_UINT:
+	case STORAGE_I64:
+	case STORAGE_U64:
+	case STORAGE_ICONST:
+	case STORAGE_SIZE:
+	case STORAGE_UINTPTR:
+	case STORAGE_POINTER:
+	case STORAGE_NULL:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
+	case STORAGE_VOID:
+	case STORAGE_FUNCTION:
 		assert(0); // Invariant
 	}
 
@@ -266,48 +266,48 @@ const struct qbe_type *
 qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 {
 	switch (type->storage) {
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_U16:
+	case STORAGE_CHAR:
+	case STORAGE_I8:
+	case STORAGE_U8:
+	case STORAGE_I16:
+	case STORAGE_U16:
 		if (extended) {
 			return qtype_for_xtype(
 				qxtype_for_type(type),
 				type_is_signed(type));
 		}
 		// Fallthrough
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_VOID:
+	case STORAGE_BOOL:
+	case STORAGE_ENUM:
+	case STORAGE_I32:
+	case STORAGE_U32:
+	case STORAGE_RUNE:
+	case STORAGE_INT:
+	case STORAGE_UINT:
+	case STORAGE_I64:
+	case STORAGE_U64:
+	case STORAGE_SIZE:
+	case STORAGE_UINTPTR:
+	case STORAGE_POINTER:
+	case STORAGE_NULL:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_VOID:
 		return qtype_for_xtype(qstype_for_type(type), false);
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
 		return lookup_aggregate(ctx, type);
-	case TYPE_STORAGE_FUNCTION:
+	case STORAGE_FUNCTION:
 		return qtype_for_xtype(Q__AGGREGATE, false);
-	case TYPE_STORAGE_ALIAS:
+	case STORAGE_ALIAS:
 		return qtype_for_type(ctx, type->alias.type, extended);
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_ICONST:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
 		assert(0); // Lowered in check
 	}
 	assert(0); // Unreachable
@@ -317,41 +317,41 @@ bool
 type_is_aggregate(const struct type *type)
 {
 	switch (type->storage) {
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_VOID:
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_INT:
+	case STORAGE_POINTER:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
 		return false;
-	case TYPE_STORAGE_ALIAS:
+	case STORAGE_ALIAS:
 		return type_is_aggregate(type->alias.type);
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_FUNCTION:
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+	case STORAGE_FUNCTION:
 		return true;
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_ICONST:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
 		assert(0); // Lowered in check
 	}
 	assert(0); // Unreachable

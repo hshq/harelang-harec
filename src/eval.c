@@ -13,53 +13,53 @@ static uintmax_t
 itrunc(const struct type *type, uintmax_t val)
 {
 	switch (type->storage) {
-	case TYPE_STORAGE_U8:
+	case STORAGE_U8:
 		return (uint8_t)val;
-	case TYPE_STORAGE_U16:
+	case STORAGE_U16:
 		return (uint16_t)val;
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_RUNE:
+	case STORAGE_U32:
+	case STORAGE_RUNE:
 		return (uint32_t)val;
-	case TYPE_STORAGE_U64:
+	case STORAGE_U64:
 		return (uint64_t)val;
-	case TYPE_STORAGE_I8:
+	case STORAGE_I8:
 		return (int8_t)((val >> 24) | (val & 0x7F));
-	case TYPE_STORAGE_I16:
+	case STORAGE_I16:
 		return (int16_t)((val >> 16) | (val & 0x7FF));
-	case TYPE_STORAGE_I32:
+	case STORAGE_I32:
 		return (int32_t)((val >> 8) | (val & 0x7FFFF));
-	case TYPE_STORAGE_I64:
+	case STORAGE_I64:
 		return (int64_t)val;
-	case TYPE_STORAGE_INT:
+	case STORAGE_INT:
 		return (int)val;
-	case TYPE_STORAGE_UINT:
+	case STORAGE_UINT:
 		return (unsigned int)val;
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_UINTPTR:
+	case STORAGE_ARRAY:
+	case STORAGE_ICONST:
+	case STORAGE_POINTER:
+	case STORAGE_SIZE:
+	case STORAGE_UINTPTR:
 		return val;
-	case TYPE_STORAGE_BOOL:
+	case STORAGE_BOOL:
 		return (bool)val;
-	case TYPE_STORAGE_NULL:
+	case STORAGE_NULL:
 		return (uintptr_t)NULL;
-	case TYPE_STORAGE_ALIAS:
+	case STORAGE_ALIAS:
 		return itrunc(type_dealias(type), val);
-	case TYPE_STORAGE_ENUM:
+	case STORAGE_ENUM:
 		return itrunc(builtin_type_for_storage(type->_enum.storage, false), val);
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_VOID:
+	case STORAGE_CHAR:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
+	case STORAGE_FUNCTION:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+	case STORAGE_VOID:
 		assert(0);
 	}
 	assert(0);
@@ -166,8 +166,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		}
 		break;
 	case BIN_LAND:
-		assert(type_dealias(lvalue.result)->storage == TYPE_STORAGE_BOOL
-			&& type_dealias(rvalue.result)->storage == TYPE_STORAGE_BOOL);
+		assert(type_dealias(lvalue.result)->storage == STORAGE_BOOL
+			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
 		bval = blval || brval;
 		break;
 	case BIN_LEQUAL:
@@ -192,13 +192,13 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		}
 		break;
 	case BIN_LOR:
-		assert(type_dealias(lvalue.result)->storage == TYPE_STORAGE_BOOL
-			&& type_dealias(rvalue.result)->storage == TYPE_STORAGE_BOOL);
+		assert(type_dealias(lvalue.result)->storage == STORAGE_BOOL
+			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
 		bval = blval || brval;
 		break;
 	case BIN_LXOR:
-		assert(type_dealias(lvalue.result)->storage == TYPE_STORAGE_BOOL
-			&& type_dealias(rvalue.result)->storage == TYPE_STORAGE_BOOL);
+		assert(type_dealias(lvalue.result)->storage == STORAGE_BOOL
+			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
 		bval = blval != brval;
 		break;
 	case BIN_NEQUAL:
@@ -215,7 +215,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	out->result = in->result;
 	if (type_is_signed(in->result)) {
 		out->constant.ival = ival;
-	} else if (type_dealias(in->result)->storage == TYPE_STORAGE_BOOL) {
+	} else if (type_dealias(in->result)->storage == STORAGE_BOOL) {
 		out->constant.bval = bval;
 	} else {
 		out->constant.uval = uval;
@@ -229,15 +229,15 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	out->type = EXPR_CONSTANT;
 	out->result = in->result;
 	enum type_storage storage = type_dealias(out->result)->storage;
-	if (storage == TYPE_STORAGE_ENUM) {
+	if (storage == STORAGE_ENUM) {
 		storage = type_dealias(out->result)->_enum.storage;
 	}
 	struct array_constant **next;
 	switch (storage) {
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_ENUM:
+	case STORAGE_ALIAS:
+	case STORAGE_ENUM:
 		assert(0); // Handled above
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		next = &out->constant.array;
 		for (struct array_constant *arr = in->constant.array; arr;
 				arr = arr->next) {
@@ -249,43 +249,43 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 			next = &aconst->next;
 		}
 		break;
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_SLICE:
+	case STORAGE_FUNCTION:
+	case STORAGE_SLICE:
 		assert(0); // TODO
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		out->constant.string.len = in->constant.string.len;
 		out->constant.string.value = xcalloc(1, in->constant.string.len);
 		memcpy(out->constant.string.value,
 			in->constant.string.value,
 			in->constant.string.len);
 		break;
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
 		assert(0); // TODO
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_VOID:
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_ICONST:
+	case STORAGE_INT:
+	case STORAGE_NULL:
+	case STORAGE_POINTER:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
 		out->constant = in->constant;
 		break;
 	}
@@ -314,51 +314,51 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	out->result = to;
 
 	switch (to->storage) {
-	case TYPE_STORAGE_POINTER:
-		if (from->storage == TYPE_STORAGE_NULL) {
+	case STORAGE_POINTER:
+		if (from->storage == STORAGE_NULL) {
 			out->constant.uval = 0;
 			return EVAL_OK;
 		}
 		assert(0); // TODO
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_RUNE:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_ICONST:
+	case STORAGE_INT:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_SIZE:
+	case STORAGE_RUNE:
 		out->constant.uval = itrunc(to, val.constant.uval);
 		return EVAL_OK;
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_SLICE:
-		assert(val.result->storage == TYPE_STORAGE_ARRAY);
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+		assert(val.result->storage == STORAGE_ARRAY);
 		out->constant = val.constant;
 		return EVAL_OK;
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_TAGGED:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_NULL:
+	case STORAGE_TAGGED:
 		assert(0); // TODO
-	case TYPE_STORAGE_ALIAS:
+	case STORAGE_ALIAS:
 		assert(0); // Handled above
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_BOOL:
+	case STORAGE_FUNCTION:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
 		assert(0); // Invariant
-	case TYPE_STORAGE_VOID:
+	case STORAGE_VOID:
 		break; // no-op
 	}
 
@@ -388,42 +388,42 @@ constant_default(struct context *ctx, struct expression *v)
 {
 	struct expression b = {0};
 	switch (type_dealias(v->result)->storage) {
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_BOOL:
+	case STORAGE_POINTER:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_ICONST:
+	case STORAGE_INT:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_SIZE:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_BOOL:
 		break; // calloc does this for us
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
 		b.type = EXPR_STRUCT;
 		b.result = v->result;
 		b._struct.autofill = true;
 		enum eval_result r = eval_expr(ctx, &b, v);
 		assert(r == EVAL_OK);
 		break;
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		v->constant.string.value = strdup("");
 		v->constant.string.len = 0;
 		break;
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		v->constant.array = xcalloc(1, sizeof(struct array_constant));
 		v->constant.array->expand = true;
 		v->constant.array->value = xcalloc(1, sizeof(struct expression));
@@ -432,14 +432,14 @@ constant_default(struct context *ctx, struct expression *v)
 			type_dealias(v->result)->array.members;
 		constant_default(ctx, v->constant.array->value);
 		break;
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_TUPLE:
+	case STORAGE_TAGGED:
+	case STORAGE_SLICE:
+	case STORAGE_TUPLE:
 		assert(0); // TODO
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_FUNCTION:
+	case STORAGE_ALIAS:
+	case STORAGE_FUNCTION:
 		assert(0); // Invariant
-	case TYPE_STORAGE_VOID:
+	case STORAGE_VOID:
 		break; // no-op
 	}
 }
@@ -456,7 +456,7 @@ enum eval_result
 eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_STRUCT);
-	assert(type_dealias(in->result)->storage != TYPE_STORAGE_UNION); // TODO
+	assert(type_dealias(in->result)->storage != STORAGE_UNION); // TODO
 	const struct type *type = type_dealias(in->result);
 	out->type = EXPR_CONSTANT;
 

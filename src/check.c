@@ -47,7 +47,7 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 		return expr;
 	}
 
-	if (type_dealias(to)->storage == TYPE_STORAGE_TAGGED) {
+	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		const struct type *interim =
 			tagged_select_subtype(to, expr->result);
 		if (interim) {
@@ -98,7 +98,7 @@ check_expr_access(struct context *ctx,
 			break;
 		case O_TYPE:
 			expect(&aexpr->loc,
-				type_dealias(obj->type)->storage == TYPE_STORAGE_VOID,
+				type_dealias(obj->type)->storage == STORAGE_VOID,
 				"Cannot use non-void type alias '%s' as constant",
 				identifier_unparse(&obj->type->alias.ident));
 			expr->type = EXPR_CONSTANT;
@@ -120,7 +120,7 @@ check_expr_access(struct context *ctx,
 		const struct type *itype =
 			type_dealias(expr->access.index->result);
 		expect(&aexpr->access.array->loc,
-			atype->storage == TYPE_STORAGE_ARRAY || atype->storage == TYPE_STORAGE_SLICE,
+			atype->storage == STORAGE_ARRAY || atype->storage == STORAGE_SLICE,
 			"Cannot index non-array, non-slice %s object",
 			type_storage_unparse(atype->storage));
 		expect(&aexpr->access.index->loc, type_is_integer(itype),
@@ -140,7 +140,7 @@ check_expr_access(struct context *ctx,
 		expect(&aexpr->access._struct->loc, stype,
 			"Cannot dereference nullable pointer for field selection");
 		expect(&aexpr->access._struct->loc,
-			stype->storage == TYPE_STORAGE_STRUCT || stype->storage == TYPE_STORAGE_UNION,
+			stype->storage == STORAGE_STRUCT || stype->storage == STORAGE_UNION,
 			"Cannot select field from non-struct, non-union object");
 		expr->access.field = type_get_field(stype, aexpr->access.field);
 		expect(&aexpr->access._struct->loc, expr->access.field,
@@ -161,7 +161,7 @@ check_expr_access(struct context *ctx,
 		expect(&aexpr->access.tuple->loc, ttype,
 			"Cannot dereference nullable pointer for value selection");
 		expect(&aexpr->access.tuple->loc,
-			ttype->storage == TYPE_STORAGE_TUPLE,
+			ttype->storage == STORAGE_TUPLE,
 			"Cannot select value from non-tuple object");
 		expect(&aexpr->access.tuple->loc,
 			type_is_integer(expr->access.value->result),
@@ -192,7 +192,7 @@ check_expr_alloc(struct context *ctx,
 		type_store_lookup_atype(ctx->store, aexpr->alloc.type);
 	enum type_storage storage = type_dealias(expr->result)->storage;
 	switch (storage) {
-	case TYPE_STORAGE_POINTER:
+	case STORAGE_POINTER:
 		check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr,
 			expr->result->pointer.referent);
 		if (aexpr->alloc.cap != NULL) {
@@ -203,7 +203,7 @@ check_expr_alloc(struct context *ctx,
 				type_storage_unparse(storage));
 		}
 		break;
-	case TYPE_STORAGE_SLICE:
+	case STORAGE_SLICE:
 		check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr,
 			expr->result);
 		if (aexpr->alloc.cap != NULL) {
@@ -236,7 +236,7 @@ check_expr_append(struct context *ctx,
 	expr->append.expr = xcalloc(sizeof(struct expression), 1);
 	check_expression(ctx, aexpr->append.expr, expr->append.expr, NULL);
 	expect(&aexpr->append.expr->loc,
-		expr->append.expr->result->storage == TYPE_STORAGE_SLICE,
+		expr->append.expr->result->storage == STORAGE_SLICE,
 		"append must operate on a slice");
 	expect(&aexpr->append.expr->loc,
 		!(expr->append.expr->result->flags & TYPE_CONST),
@@ -290,7 +290,7 @@ check_expr_assert(struct context *ctx,
 		check_expression(ctx, aexpr->assert.cond,
 			expr->assert.cond, &builtin_type_bool);
 		expect(&aexpr->assert.cond->loc,
-			expr->assert.cond->result->storage == TYPE_STORAGE_BOOL,
+			expr->assert.cond->result->storage == STORAGE_BOOL,
 			"Assertion condition must be boolean");
 	} else {
 		expr->terminates = true;
@@ -301,7 +301,7 @@ check_expr_assert(struct context *ctx,
 		check_expression(ctx, aexpr->assert.message,
 			expr->assert.message, &builtin_type_str);
 		expect(&aexpr->assert.message->loc,
-			expr->assert.message->result->storage == TYPE_STORAGE_STRING,
+			expr->assert.message->result->storage == STORAGE_STRING,
 			"Assertion message must be string");
 	} else {
 		int n = snprintf(NULL, 0, "Assertion failed: %s:%d:%d",
@@ -324,7 +324,7 @@ check_expr_assert(struct context *ctx,
 				eval_expr(ctx, expr->assert.cond, &out);
 			expect(&aexpr->assert.cond->loc, r == EVAL_OK,
 				"Unable to evaluate static assertion at compile time");
-			assert(out.result->storage == TYPE_STORAGE_BOOL);
+			assert(out.result->storage == STORAGE_BOOL);
 			cond = out.constant.bval;
 		} else {
 			cond = false; 
@@ -358,7 +358,7 @@ check_expr_assign(struct context *ctx,
 
 	if (aexpr->assign.indirect) {
 		expect(&aexpr->loc,
-			object->result->storage == TYPE_STORAGE_POINTER,
+			object->result->storage == STORAGE_POINTER,
 			"Cannot dereference non-pointer type for assignment");
 		expect(&aexpr->loc,
 			!(object->result->pointer.flags & PTR_NULLABLE),
@@ -402,17 +402,17 @@ type_promote(struct type_store *store,
 	const struct type *b =
 		type_store_lookup_with_flags(store, _b, _b->flags & ~TYPE_CONST);
 
-	if (a->storage == TYPE_STORAGE_ALIAS) {
+	if (a->storage == STORAGE_ALIAS) {
 		return a == b || a->alias.type == b ? _b : NULL;
 	}
-	if (b->storage == TYPE_STORAGE_ALIAS) {
+	if (b->storage == STORAGE_ALIAS) {
 		return a == b || a == b->alias.type ? _a : NULL;
 	}
 
 	const struct type *base = a == b ? a : NULL;
 
 	switch (a->storage) {
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		if (a->array.length == SIZE_UNDEFINED && a->array.members) {
 			base = b;
 			break;
@@ -422,43 +422,43 @@ type_promote(struct type_store *store,
 			break;
 		}
 		break;
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_INT:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_INT:
 		if (!type_is_integer(b) || !type_is_signed(b)
 				|| b->size == a->size) {
 			break;
 		}
 		base = a->size > b->size ? a : b;
 		break;
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_CHAR:
+	case STORAGE_U32:
+	case STORAGE_U16:
+	case STORAGE_U64:
+	case STORAGE_UINT:
+	case STORAGE_SIZE:
+	case STORAGE_U8:
+	case STORAGE_CHAR:
 		if (!type_is_integer(b) || type_is_signed(b)
 				|| b->size == a->size) {
 			break;
 		}
 		base = a->size > b->size ? a : b;
 		break;
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
+	case STORAGE_F32:
+	case STORAGE_F64:
 		if (!type_is_float(b) || b->size == a->size) {
 			break;
 		}
 		base = a->size > b->size ? a : b;
 		break;
-	case TYPE_STORAGE_POINTER:
-		if (b->storage == TYPE_STORAGE_NULL) {
+	case STORAGE_POINTER:
+		if (b->storage == STORAGE_NULL) {
 			base = a;
 			break;
 		}
-		if (b->storage != TYPE_STORAGE_POINTER) {
+		if (b->storage != STORAGE_POINTER) {
 			break;
 		}
 		base = type_promote(store, a->pointer.referent,
@@ -468,32 +468,32 @@ type_promote(struct type_store *store,
 				a->pointer.flags | b->pointer.flags);
 		}
 		break;
-	case TYPE_STORAGE_NULL:
-		if (b->storage == TYPE_STORAGE_POINTER
-				|| b->storage == TYPE_STORAGE_NULL) {
+	case STORAGE_NULL:
+		if (b->storage == STORAGE_POINTER
+				|| b->storage == STORAGE_NULL) {
 			base = b;
 		}
 		break;
 	// Cannot be promoted
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRING:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_UNION:
-	case TYPE_STORAGE_VOID:
+	case STORAGE_BOOL:
+	case STORAGE_ENUM:
+	case STORAGE_FUNCTION:
+	case STORAGE_RUNE:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UINTPTR:
+	case STORAGE_UNION:
+	case STORAGE_VOID:
 		break;
 	// Handled above
-	case TYPE_STORAGE_ALIAS:
+	case STORAGE_ALIAS:
 		break;
 	// Invariant
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_ICONST:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
 		assert(0);
 	}
 
@@ -563,32 +563,32 @@ check_expr_binarithm(struct context *ctx,
 		intmax_t l = aexpr->binarithm.lvalue->constant.ival,
 			r = aexpr->binarithm.rvalue->constant.ival,
 			max = l > r ? l : r, min = l < r ? l : r;
-		enum type_storage storage = TYPE_STORAGE_ICONST;
+		enum type_storage storage = STORAGE_ICONST;
 		if (min < 0) {
 			if (max < ((intmax_t)1 << 7) - 1
 					&& min > -((intmax_t)1 << 8)) {
-				storage = TYPE_STORAGE_I8;
+				storage = STORAGE_I8;
 			} else if (max < ((intmax_t)1 << 15) - 1
 					&& min > -((intmax_t)1 << 16)) {
-				storage = TYPE_STORAGE_I16;
+				storage = STORAGE_I16;
 			} else if (max < ((intmax_t)1 << 31) - 1
 					&& min > -((intmax_t)1 << 32)) {
-				storage = TYPE_STORAGE_I32;
+				storage = STORAGE_I32;
 			} else {
-				storage = TYPE_STORAGE_I64;
+				storage = STORAGE_I64;
 			}
 		} else {
 			if (max < ((intmax_t)1 << 8)) {
-				storage = TYPE_STORAGE_U8;
+				storage = STORAGE_U8;
 			} else if (max < ((intmax_t)1 << 16)) {
-				storage = TYPE_STORAGE_U16;
+				storage = STORAGE_U16;
 			} else if (max < ((intmax_t)1 << 32)) {
-				storage = TYPE_STORAGE_U32;
+				storage = STORAGE_U32;
 			} else {
-				storage = TYPE_STORAGE_U64;
+				storage = STORAGE_U64;
 			}
 		}
-		assert(storage != TYPE_STORAGE_ICONST);
+		assert(storage != STORAGE_ICONST);
 		check_expression(ctx, aexpr->binarithm.lvalue, lvalue,
 			builtin_type_for_storage(storage, false));
 		check_expression(ctx, aexpr->binarithm.rvalue, rvalue,
@@ -660,7 +660,7 @@ check_expr_binding(struct context *ctx,
 		}
 
 		bool context = abinding->type
-			&& abinding->type->storage == TYPE_STORAGE_ARRAY
+			&& abinding->type->storage == STORAGE_ARRAY
 			&& abinding->type->array.contextual;
 		if (type && !context) {
 			// If the type is defined in advance, we can insert the
@@ -679,7 +679,7 @@ check_expr_binding(struct context *ctx,
 
 		if (context) {
 			expect(&aexpr->loc,
-				initializer->result->storage == TYPE_STORAGE_ARRAY,
+				initializer->result->storage == STORAGE_ARRAY,
 				"Cannot infer array length from non-array type");
 			expect(&aexpr->loc,
 				initializer->result->array.members == type->array.members,
@@ -741,7 +741,7 @@ lower_vaargs(struct context *ctx,
 	struct ast_expression val = {
 		.type = EXPR_CONSTANT,
 		.constant = {
-			.storage = TYPE_STORAGE_ARRAY,
+			.storage = STORAGE_ARRAY,
 		},
 	};
 	// TODO: Provide location some other way
@@ -761,7 +761,7 @@ lower_vaargs(struct context *ctx,
 	const struct type *hint = type_store_lookup_array(
 		ctx->store, type, SIZE_UNDEFINED);
 	check_expression(ctx, &val, vaargs, hint);
-	assert(vaargs->result->storage == TYPE_STORAGE_ARRAY);
+	assert(vaargs->result->storage == STORAGE_ARRAY);
 	expect(&val.loc, vaargs->result->array.members == type,
 		"Argument is not assignable to variadic parameter type");
 
@@ -790,7 +790,7 @@ check_expr_call(struct context *ctx,
 	expect(&aexpr->loc, fntype,
 		"Cannot dereference nullable pointer type for function call");
 	expect(&aexpr->loc,
-		fntype->storage == TYPE_STORAGE_FUNCTION,
+		fntype->storage == STORAGE_FUNCTION,
 		"Cannot call non-function type");
 	expr->result = fntype->func.result;
 	if (fntype->func.flags & FN_NORETURN) {
@@ -862,7 +862,7 @@ check_expr_cast(struct context *ctx,
 	if (aexpr->cast.kind == C_ASSERTION || aexpr->cast.kind == C_TEST) {
 		const struct type *primary = type_dealias(expr->cast.value->result);
 		expect(&aexpr->cast.value->loc,
-			primary->storage == TYPE_STORAGE_TAGGED,
+			primary->storage == STORAGE_TAGGED,
 			"Expected a tagged union type");
 		expect(&aexpr->cast.type->loc,
 			type_is_castable(value->result, secondary),
@@ -907,16 +907,16 @@ check_expr_array(struct context *ctx,
 	const struct type *type = NULL;
 	if (hint) {
 		hint = type_dealias(hint);
-		if (hint->storage == TYPE_STORAGE_ARRAY
-				|| hint->storage == TYPE_STORAGE_SLICE) {
+		if (hint->storage == STORAGE_ARRAY
+				|| hint->storage == STORAGE_SLICE) {
 			type = hint->array.members;
-		} else if (hint->storage == TYPE_STORAGE_TAGGED) {
+		} else if (hint->storage == STORAGE_TAGGED) {
 			size_t narray = 0;
 			for (const struct type_tagged_union *tu = &hint->tagged;
 					tu; tu = tu->next) {
 				const struct type *t = type_dealias(tu->type);
-				if (t->storage == TYPE_STORAGE_ARRAY
-						|| t->storage == TYPE_STORAGE_SLICE) {
+				if (t->storage == STORAGE_ARRAY
+						|| t->storage == STORAGE_SLICE) {
 					hint = t;
 					type = hint->array.members;
 					++narray;
@@ -959,7 +959,7 @@ check_expr_array(struct context *ctx,
 	if (expandable) {
 		expect(&aexpr->loc, hint != NULL,
 			"Cannot expand array for inferred type");
-		expect(&aexpr->loc, hint->storage == TYPE_STORAGE_ARRAY
+		expect(&aexpr->loc, hint->storage == STORAGE_ARRAY
 				&& hint->array.length != SIZE_UNDEFINED
 				&& hint->array.length >= len,
 			"Cannot expand array into destination type");
@@ -980,7 +980,7 @@ lower_constant(const struct type *type, struct expression *expr)
 	if (type_is_float(type)) {
 		assert(0); // TODO
 	}
-	if (type->storage == TYPE_STORAGE_TAGGED) {
+	if (type->storage == STORAGE_TAGGED) {
 		const struct type *tag = NULL;
 		for (const struct type_tagged_union *tu = &type->tagged; tu;
 				tu = tu->next) {
@@ -1057,9 +1057,9 @@ check_expr_constant(struct context *ctx,
 	expr->type = EXPR_CONSTANT;
 	expr->result = builtin_type_for_storage(aexpr->constant.storage, false);
 
-	if (expr->result && expr->result->storage == TYPE_STORAGE_ICONST) {
+	if (expr->result && expr->result->storage == STORAGE_ICONST) {
 		if (hint == NULL) {
-			hint = builtin_type_for_storage(TYPE_STORAGE_INT, false);
+			hint = builtin_type_for_storage(STORAGE_INT, false);
 		}
 		expr->constant.ival = aexpr->constant.ival;
 		const struct type *type = lower_constant(hint, expr);
@@ -1069,56 +1069,56 @@ check_expr_constant(struct context *ctx,
 	}
 
 	switch (aexpr->constant.storage) {
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_INT:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_ICONST:
+	case STORAGE_INT:
 		expr->constant.ival = aexpr->constant.ival;
 		break;
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_SIZE:
+	case STORAGE_U8:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_UINT:
+	case STORAGE_SIZE:
 		expr->constant.uval = aexpr->constant.uval;
 		break;
-	case TYPE_STORAGE_RUNE:
+	case STORAGE_RUNE:
 		expr->constant.rune = aexpr->constant.rune;
 		break;
-	case TYPE_STORAGE_BOOL:
+	case STORAGE_BOOL:
 		expr->constant.bval = aexpr->constant.bval;
 		break;
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_VOID:
+	case STORAGE_NULL:
+	case STORAGE_VOID:
 		// No storage
 		break;
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		check_expr_array(ctx, aexpr, expr, hint);
 		break;
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		expr->constant.string.len = aexpr->constant.string.len;
 		expr->constant.string.value = xcalloc(1, aexpr->constant.string.len);
 		memcpy(expr->constant.string.value, aexpr->constant.string.value,
 			aexpr->constant.string.len);
 		break;
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
 		assert(0); // TODO
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_TAGGED:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_UINTPTR:
+	case STORAGE_ALIAS:
+	case STORAGE_FUNCTION:
+	case STORAGE_POINTER:
+	case STORAGE_SLICE:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
 		assert(0); // Invariant
 	}
 }
@@ -1210,7 +1210,7 @@ check_expr_for(struct context *ctx,
 	check_expression(ctx, aexpr->_for.cond, cond, &builtin_type_bool);
 	expr->_for.cond = cond;
 	expect(&aexpr->_for.cond->loc,
-		cond->result->storage == TYPE_STORAGE_BOOL,
+		cond->result->storage == STORAGE_BOOL,
 		"Expected for condition to be boolean");
 
 	if (aexpr->_for.afterthought) {
@@ -1241,8 +1241,8 @@ check_expr_free(struct context *ctx,
 	check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL);
 	enum type_storage storage = type_dealias(expr->free.expr->result)->storage;
 	expect(&aexpr->free.expr->loc,
-		storage == TYPE_STORAGE_SLICE || storage == TYPE_STORAGE_STRING
-		|| storage == TYPE_STORAGE_POINTER,
+		storage == STORAGE_SLICE || storage == STORAGE_STRING
+		|| storage == STORAGE_POINTER,
 		"free must operate on slice, string, or pointer");
 	expr->result = &builtin_type_void;
 }
@@ -1300,7 +1300,7 @@ check_expr_if(struct context *ctx,
 	}
 
 	expect(&aexpr->_if.cond->loc,
-		cond->result->storage == TYPE_STORAGE_BOOL,
+		cond->result->storage == STORAGE_BOOL,
 		"Expected if condition to be boolean");
 
 	expr->_if.cond = cond;
@@ -1361,10 +1361,10 @@ check_expr_match(struct context *ctx,
 	expr->match.value = value;
 
 	const struct type *type = type_dealias(value->result);
-	bool is_ptr = type->storage == TYPE_STORAGE_POINTER
+	bool is_ptr = type->storage == STORAGE_POINTER
 		&& type->pointer.flags & PTR_NULLABLE;
 	expect(&aexpr->match.value->loc,
-		type->storage == TYPE_STORAGE_TAGGED || is_ptr,
+		type->storage == STORAGE_TAGGED || is_ptr,
 		"match value must be tagged union or nullable pointer type");
 
 	struct type_tagged_union result_type = {0};
@@ -1382,9 +1382,9 @@ check_expr_match(struct context *ctx,
 			ctype = type_store_lookup_atype(ctx->store, acase->type);
 			if (is_ptr) {
 				switch (ctype->storage) {
-				case TYPE_STORAGE_NULL:
+				case STORAGE_NULL:
 					break;
-				case TYPE_STORAGE_POINTER:
+				case STORAGE_POINTER:
 					expect(&acase->type->loc,
 						type->pointer.referent == ctype->pointer.referent,
 						"Match case on incompatible pointer type");
@@ -1491,9 +1491,9 @@ check_expr_measure(struct context *ctx,
 			expr->measure.value, NULL);
 		enum type_storage vstor = expr->measure.value->result->storage;
 		expect(&aexpr->measure.value->loc,
-			vstor == TYPE_STORAGE_ARRAY
-				|| vstor == TYPE_STORAGE_SLICE
-				|| vstor == TYPE_STORAGE_STRING,
+			vstor == STORAGE_ARRAY
+				|| vstor == STORAGE_SLICE
+				|| vstor == STORAGE_STRING,
 			"len argument must be of an array, slice, or str type");
 		expect(&aexpr->measure.value->loc,
 			expr->measure.value->result->size != SIZE_UNDEFINED,
@@ -1556,8 +1556,8 @@ check_expr_slice(struct context *ctx,
 	expect(&aexpr->slice.object->loc, atype,
 		"Cannot dereference nullable pointer for slicing");
 	expect(&aexpr->slice.object->loc,
-		atype->storage == TYPE_STORAGE_SLICE
-			|| atype->storage == TYPE_STORAGE_ARRAY,
+		atype->storage == STORAGE_SLICE
+			|| atype->storage == STORAGE_ARRAY,
 		"Cannot slice non-array, non-slice object");
 
 	const struct type *itype;
@@ -1608,12 +1608,12 @@ check_expr_struct(struct context *ctx,
 				"Name does not refer to a type");
 		stype = obj->type;
 		expect(&aexpr->loc,
-			type_dealias(stype)->storage == TYPE_STORAGE_STRUCT,
+			type_dealias(stype)->storage == STORAGE_STRUCT,
 			"Object named is not a struct type");
 	}
 
 	struct ast_type satype = {
-		.storage = TYPE_STORAGE_STRUCT,
+		.storage = STORAGE_STRUCT,
 		.flags = TYPE_CONST,
 	};
 	struct ast_struct_union_type *tfield = &satype.struct_union;
@@ -1815,7 +1815,7 @@ check_expr_tuple(struct context *ctx,
 	expr->type = EXPR_TUPLE;
 
 	const struct type_tuple *ttuple = NULL;
-	if (hint && type_dealias(hint)->storage == TYPE_STORAGE_TUPLE) {
+	if (hint && type_dealias(hint)->storage == STORAGE_TUPLE) {
 		ttuple = &type_dealias(hint)->tuple;
 	}
 
@@ -1842,7 +1842,7 @@ check_expr_tuple(struct context *ctx,
 		}
 	}
 
-	if (hint && type_dealias(hint)->storage == TYPE_STORAGE_TUPLE) {
+	if (hint && type_dealias(hint)->storage == STORAGE_TUPLE) {
 		expr->result = hint;
 	} else {
 		expr->result = type_store_lookup_tuple(ctx->store, &result);
@@ -1883,7 +1883,7 @@ check_expr_unarithm(struct context *ctx,
 	switch (expr->unarithm.op) {
 	case UN_LNOT:
 		expect(&aexpr->unarithm.operand->loc,
-			operand->result->storage == TYPE_STORAGE_BOOL,
+			operand->result->storage == STORAGE_BOOL,
 			"Cannot perform logical NOT (!) on non-boolean type");
 		expr->result = &builtin_type_bool;
 		break;
@@ -1912,7 +1912,7 @@ check_expr_unarithm(struct context *ctx,
 		break;
 	case UN_DEREF:
 		expect(&aexpr->unarithm.operand->loc,
-			operand->result->storage == TYPE_STORAGE_POINTER,
+			operand->result->storage == STORAGE_POINTER,
 			"Cannot de-reference non-pointer type");
 		expect(&aexpr->unarithm.operand->loc,
 			!(operand->result->pointer.flags & PTR_NULLABLE),
@@ -2044,7 +2044,7 @@ check_function(struct context *ctx,
 
 	trenter(TR_CHECK, "function");
 	const struct ast_type fn_atype = {
-		.storage = TYPE_STORAGE_FUNCTION,
+		.storage = STORAGE_FUNCTION,
 		.flags = TYPE_CONST,
 		.func = afndecl->prototype,
 	};
@@ -2125,7 +2125,7 @@ check_global(struct context *ctx,
 
 	const struct type *type = type_store_lookup_atype(
 			ctx->store, agdecl->type);
-	bool context = agdecl->type->storage == TYPE_STORAGE_ARRAY
+	bool context = agdecl->type->storage == STORAGE_ARRAY
 			&& agdecl->type->array.contextual;
 
 	// TODO: Free initialier
@@ -2135,7 +2135,7 @@ check_global(struct context *ctx,
 
 	if (context) {
 		expect(&agdecl->init->loc,
-			initializer->result->storage == TYPE_STORAGE_ARRAY,
+			initializer->result->storage == STORAGE_ARRAY,
 			"Cannot infer array length from non-array type");
 		expect(&agdecl->init->loc,
 			initializer->result->array.members == type->array.members,
@@ -2266,7 +2266,7 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	}
 	trenter(TR_SCAN, "function");
 	const struct ast_type fn_atype = {
-		.storage = TYPE_STORAGE_FUNCTION,
+		.storage = STORAGE_FUNCTION,
 		.flags = TYPE_CONST,
 		.func = decl->prototype,
 	};
@@ -2325,12 +2325,12 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 		type_store_lookup_alias(ctx->store, &ident, type);
 	scope_insert(ctx->unit, O_TYPE, &ident, &decl->ident, alias, NULL);
 
-	if (type->storage == TYPE_STORAGE_ENUM) {
+	if (type->storage == STORAGE_ENUM) {
 		for (struct type_enum_value *value = type->_enum.values; value;
 				value = value->next) {
 			struct ast_type atype = {
 				.loc = decl->type->loc,
-				.storage = TYPE_STORAGE_ALIAS,
+				.storage = STORAGE_ALIAS,
 				.flags = 0,
 				.unwrap = false,
 				.alias = decl->ident,

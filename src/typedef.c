@@ -13,37 +13,37 @@ static const char *
 storage_to_suffix(enum type_storage storage)
 {
 	switch (storage) {
-	case TYPE_STORAGE_F32:
+	case STORAGE_F32:
 		return "f32";
-	case TYPE_STORAGE_F64:
+	case STORAGE_F64:
 		return "f64";
-	case TYPE_STORAGE_FCONST:
+	case STORAGE_FCONST:
 		return "";
-	case TYPE_STORAGE_I16:
+	case STORAGE_I16:
 		return "i16";
-	case TYPE_STORAGE_I32:
+	case STORAGE_I32:
 		return "i32";
-	case TYPE_STORAGE_I64:
+	case STORAGE_I64:
 		return "i64";
-	case TYPE_STORAGE_I8:
+	case STORAGE_I8:
 		return "i8";
-	case TYPE_STORAGE_ICONST:
+	case STORAGE_ICONST:
 		return "";
-	case TYPE_STORAGE_INT:
+	case STORAGE_INT:
 		return "i";
-	case TYPE_STORAGE_SIZE:
+	case STORAGE_SIZE:
 		return "z";
-	case TYPE_STORAGE_U16:
+	case STORAGE_U16:
 		return "u16";
-	case TYPE_STORAGE_U32:
+	case STORAGE_U32:
 		return "u32";
-	case TYPE_STORAGE_U64:
+	case STORAGE_U64:
 		return "u64";
-	case TYPE_STORAGE_U8:
+	case STORAGE_U8:
 		return "u8";
-	case TYPE_STORAGE_UINT:
+	case STORAGE_UINT:
 		return "u";
-	case TYPE_STORAGE_UINTPTR:
+	case STORAGE_UINTPTR:
 		return "u64: uintptr";
 	default:
 		assert(0);
@@ -56,44 +56,44 @@ emit_const(const struct expression *expr, FILE *out)
 	assert(expr->type == EXPR_CONSTANT);
 	const union expression_constant *val = &expr->constant;
 	switch (expr->result->storage) {
-	case TYPE_STORAGE_BOOL:
+	case STORAGE_BOOL:
 		fprintf(out, "%s", val->bval ? "false" : "true");
 		break;
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_FCONST:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
 		fprintf(out, "%lf%s", val->fval,
 			storage_to_suffix(expr->result->storage));
 		break;
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_ICONST:
-	case TYPE_STORAGE_INT:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_ICONST:
+	case STORAGE_INT:
 		fprintf(out, "%ld%s", val->ival,
 			storage_to_suffix(expr->result->storage));
 		break;
-	case TYPE_STORAGE_NULL:
+	case STORAGE_NULL:
 		fprintf(out, "null");
 		break;
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
+	case STORAGE_SIZE:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
 		fprintf(out, "%lu%s", val->uval,
 			storage_to_suffix(expr->result->storage));
 		break;
-	case TYPE_STORAGE_VOID:
+	case STORAGE_VOID:
 		fprintf(out, "void");
 		break;
-	case TYPE_STORAGE_RUNE:
+	case STORAGE_RUNE:
 		fprintf(out, "\'\\U%08" PRIx32 "\'", (uint32_t)val->uval);
 		break;
-	case TYPE_STORAGE_STRING:
+	case STORAGE_STRING:
 		fprintf(out, "\"");
 		for (size_t i = 0; i < val->string.len; i += 1) {
 			char c = val->string.value[i];
@@ -105,18 +105,18 @@ emit_const(const struct expression *expr, FILE *out)
 		};
 		fprintf(out, "\"");
 		break;
-	case TYPE_STORAGE_ALIAS:
-	case TYPE_STORAGE_ARRAY:
-	case TYPE_STORAGE_ENUM:
-	case TYPE_STORAGE_SLICE:
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_TUPLE:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_ALIAS:
+	case STORAGE_ARRAY:
+	case STORAGE_ENUM:
+	case STORAGE_SLICE:
+	case STORAGE_STRUCT:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
 		assert(0); // TODO
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_FUNCTION:
-	case TYPE_STORAGE_POINTER:
-	case TYPE_STORAGE_TAGGED:
+	case STORAGE_CHAR:
+	case STORAGE_FUNCTION:
+	case STORAGE_POINTER:
+	case STORAGE_TAGGED:
 		assert(0); // Invariant
 	}
 }
@@ -147,7 +147,7 @@ emit_struct(const struct type *type, FILE *out)
 
 	qsort(fields, n, sizeof(fields[0]), field_compar);
 
-	fprintf(out, "%s { ", type->storage == TYPE_STORAGE_STRUCT
+	fprintf(out, "%s { ", type->storage == STORAGE_STRUCT
 			? "struct" : "union");
 	for (size_t i = 0; i < n; ++i) {
 		const struct struct_field *f = fields[i]; 
@@ -171,34 +171,34 @@ emit_type(const struct type *type, FILE *out)
 
 	char *ident;
 	switch (type->storage) {
-	case TYPE_STORAGE_BOOL:
-	case TYPE_STORAGE_CHAR:
-	case TYPE_STORAGE_F32:
-	case TYPE_STORAGE_F64:
-	case TYPE_STORAGE_I16:
-	case TYPE_STORAGE_I32:
-	case TYPE_STORAGE_I64:
-	case TYPE_STORAGE_I8:
-	case TYPE_STORAGE_INT:
-	case TYPE_STORAGE_NULL:
-	case TYPE_STORAGE_RUNE:
-	case TYPE_STORAGE_SIZE:
-	case TYPE_STORAGE_U16:
-	case TYPE_STORAGE_U32:
-	case TYPE_STORAGE_U64:
-	case TYPE_STORAGE_U8:
-	case TYPE_STORAGE_UINT:
-	case TYPE_STORAGE_UINTPTR:
-	case TYPE_STORAGE_VOID:
-	case TYPE_STORAGE_STRING:
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_INT:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
+	case STORAGE_STRING:
 		fprintf(out, "%s", type_storage_unparse(type->storage));
 		break;
-	case TYPE_STORAGE_POINTER:
+	case STORAGE_POINTER:
 		fprintf(out, "%s*", type->pointer.flags & PTR_NULLABLE
 				? "nullable " : "");
 		emit_type(type->pointer.referent, out);
 		break;
-	case TYPE_STORAGE_ARRAY:
+	case STORAGE_ARRAY:
 		if (type->array.length == SIZE_UNDEFINED) {
 			fprintf(out, "[*]");
 		} else {
@@ -206,16 +206,16 @@ emit_type(const struct type *type, FILE *out)
 		}
 		emit_type(type->array.members, out);
 		break;
-	case TYPE_STORAGE_SLICE:
+	case STORAGE_SLICE:
 		fprintf(out, "[]");
 		emit_type(type->array.members, out);
 		break;
-	case TYPE_STORAGE_ALIAS:
+	case STORAGE_ALIAS:
 		ident = identifier_unparse(&type->alias.ident);
 		fprintf(out, "%s", ident);
 		free(ident);
 		break;
-	case TYPE_STORAGE_TAGGED:
+	case STORAGE_TAGGED:
 		fprintf(out, "(");
 		for (const struct type_tagged_union *tu = &type->tagged;
 				tu; tu = tu->next) {
@@ -226,11 +226,11 @@ emit_type(const struct type *type, FILE *out)
 		}
 		fprintf(out, ")");
 		break;
-	case TYPE_STORAGE_STRUCT:
-	case TYPE_STORAGE_UNION:
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
 		emit_struct(type, out);
 		break;
-	case TYPE_STORAGE_FUNCTION:
+	case STORAGE_FUNCTION:
 		if (type->func.flags & FN_NORETURN) {
 			fprintf(out, "@noreturn ");
 		}
@@ -253,7 +253,7 @@ emit_type(const struct type *type, FILE *out)
 		fprintf(out, ") ");
 		emit_type(type->func.result, out);
 		break;
-	case TYPE_STORAGE_ENUM:
+	case STORAGE_ENUM:
 		fprintf(out, "enum %s { ", type_storage_unparse(type->_enum.storage));
 		for (const struct type_enum_value *ev = type->_enum.values;
 				ev; ev = ev->next) {
@@ -271,7 +271,7 @@ emit_type(const struct type *type, FILE *out)
 		}
 		fprintf(out, "}");
 		break;
-	case TYPE_STORAGE_TUPLE:
+	case STORAGE_TUPLE:
 		fprintf(out, "(");
 		for (const struct type_tuple *tuple = &type->tuple;
 				tuple; tuple = tuple->next) {
@@ -282,8 +282,8 @@ emit_type(const struct type *type, FILE *out)
 		}
 		fprintf(out, ")");
 		break;
-	case TYPE_STORAGE_FCONST:
-	case TYPE_STORAGE_ICONST:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
 		assert(0); // Invariant
 	}
 }
