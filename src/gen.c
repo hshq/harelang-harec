@@ -1619,6 +1619,104 @@ gen_expr_defer(struct gen_context *ctx,
 }
 
 static void
+gen_expr_delete(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(expr->type == EXPR_DELETE);
+	struct qbe_value object = {0}, start = {0}, temp = {0};
+	gen_temp(ctx, &object, &qbe_long, "delete.obj.%d");
+	gen_temp(ctx, &start, &qbe_long, "delete.start.%d");
+	const struct expression *dexpr = expr->delete.expr;
+	const struct type *mtype = NULL;
+	if (dexpr->type == EXPR_SLICE) {
+		mtype = type_dealias(dexpr->slice.object->result);
+		// XXX: Can we refactor this to use gen_expr_slice?
+		gen_expression(ctx, dexpr->slice.object, &object);
+		if (dexpr->slice.start) {
+			gen_expression(ctx, dexpr->slice.start, &start);
+		} else {
+			constl(&temp, 0);
+			pushi(ctx->current, &start, Q_COPY, &temp, NULL);
+		}
+	} else {
+		assert(dexpr->type == EXPR_ACCESS
+			&& dexpr->access.type == ACCESS_INDEX);
+		mtype = type_dealias(dexpr->access.array->result);
+		// XXX: Can we refactor this to use address_index?
+		gen_expression(ctx, dexpr->access.array, &object);
+		gen_expression(ctx, dexpr->access.index, &start);
+	}
+	if (mtype->storage == STORAGE_POINTER) {
+		mtype = type_dealias(mtype->pointer.referent);
+	}
+	while (mtype->storage == STORAGE_POINTER) {
+		pushi(ctx->current, &object, Q_LOADL, &object, NULL);
+		mtype = type_dealias(mtype->pointer.referent);
+	}
+	assert(mtype->storage == STORAGE_SLICE);
+	mtype = mtype->array.members;
+
+	struct qbe_value lenptr = {0}, len = {0};
+	gen_loadtemp(ctx, &lenptr, &object, &qbe_long, false);
+	constl(&temp, builtin_type_size.size);
+	pushi(ctx->current, &lenptr, Q_ADD, &lenptr, &temp, NULL);
+	qval_deref(&lenptr);
+	gen_loadtemp(ctx, &len, &lenptr, &qbe_long, false);
+
+	struct qbe_value end = {0};
+	gen_temp(ctx, &end, &qbe_long, "delete.end.%d");
+	if (dexpr->type == EXPR_SLICE) {
+		if (dexpr->slice.end) {
+			gen_expression(ctx, dexpr->slice.end, &end);
+		} else {
+			pushi(ctx->current, &end, Q_COPY, &len, NULL);
+		}
+	} else {
+		constl(&temp, 1);
+		pushi(ctx->current, &end, Q_ADD, &start, &temp, NULL);
+	}
+
+	struct qbe_value newlen = {0};
+	gen_temp(ctx, &newlen, &qbe_long, "delete.newlen.%d");
+	pushi(ctx->current, &newlen, Q_SUB, &end, &start, NULL);
+	pushi(ctx->current, &newlen, Q_SUB, &len, &newlen, NULL);
+	gen_store(ctx, &lenptr, &newlen);
+	constl(&temp, mtype->size);
+	pushi(ctx->current, &len, Q_MUL, &len, &temp, NULL);
+
+	// TODO: Bounds check
+
+	struct qbe_value membsz = {0};
+	constl(&membsz, mtype->size);
+	pushi(ctx->current, &start, Q_MUL, &start, &membsz, NULL);
+	pushi(ctx->current, &end, Q_MUL, &end, &membsz, NULL);
+
+	struct qbe_value ptr = {0}, sptr = {0}, eptr = {0};
+	qval_deref(&object);
+	gen_loadtemp(ctx, &ptr, &object, &qbe_long, "delete.ptr.%d");
+	gen_temp(ctx, &sptr, &qbe_long, "delete.sptr.%d");
+	gen_temp(ctx, &eptr, &qbe_long, "delete.eptr.%d");
+	qval_address(&ptr);
+	pushi(ctx->current, &sptr, Q_ADD, &ptr, &start, NULL);
+	pushi(ctx->current, &eptr, Q_ADD, &ptr, &end, NULL);
+
+	pushi(ctx->current, &len, Q_SUB, &len, &end, NULL);
+
+	struct qbe_value rtmemcpy = {0};
+	rtmemcpy.kind = QV_GLOBAL;
+	rtmemcpy.name = strdup("rt.memcpy");
+	rtmemcpy.type = &qbe_long;
+	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &sptr, &eptr, &len, NULL);
+
+	struct qbe_value rtunensure = {0};
+	rtunensure.kind = QV_GLOBAL;
+	rtunensure.name = strdup("rt.unensure");
+	rtunensure.type = &qbe_long;
+	pushi(ctx->current, NULL, Q_CALL, &rtunensure, &object, &membsz, &newlen, NULL);
+}
+
+static void
 gen_expr_for(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -2452,7 +2550,8 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_defer(ctx, expr, out);
 		break;
 	case EXPR_DELETE:
-		assert(0); // TODO
+		gen_expr_delete(ctx, expr, out);
+		break;
 	case EXPR_FOR:
 		gen_expr_for(ctx, expr, out);
 		break;
