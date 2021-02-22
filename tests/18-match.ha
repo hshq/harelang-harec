@@ -109,9 +109,7 @@ fn transitivity() void = {
 	let visit = false;
 	match (x) {
 		int => abort(),
-		foo => {
-			visit = true;
-		},
+		foo => visit = true,
 		bar => abort(),
 	};
 	assert(visit);
@@ -121,9 +119,7 @@ fn transitivity() void = {
 	match (x) {
 		int    => abort(),
 		foo    => abort(),
-		foobar => {
-			visit = true;
-		},
+		foobar => visit = true,
 	};
 	assert(visit);
 
@@ -140,9 +136,7 @@ fn transitivity() void = {
 	let y: foobarbaz = 10;
 	visit = false;
 	match (y) {
-		baz => {
-			visit = true;
-		},
+		baz => visit = true,
 		foo => abort(),
 		bar => abort(),
 	};
@@ -152,9 +146,7 @@ fn transitivity() void = {
 	visit = false;
 	match (y) {
 		baz => abort(),
-		foo => {
-			visit = true;
-		},
+		foo => visit = true,
 		bar => abort(),
 	};
 	assert(visit);
