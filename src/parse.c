@@ -1800,7 +1800,7 @@ parse_switch_expression(struct lexer *lexer)
 		struct ast_switch_case *_case =
 			*next_case = xcalloc(1, sizeof(struct ast_switch_case));
 		_case->options = parse_case_options(lexer);
-		_case->value = parse_compound_expression(lexer);
+		_case->value = parse_scope_expression(lexer);
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
@@ -1896,7 +1896,7 @@ parse_match_expression(struct lexer *lexer)
 		}
 
 		want(lexer, T_CASE, &tok);
-		_case->value = parse_compound_expression(lexer);
+		_case->value = parse_scope_expression(lexer);
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
@@ -2068,13 +2068,16 @@ parse_scope_expression(struct lexer *lexer)
 			synassert(false, &tok, T_LET, T_CONST, T_ASSERT, T_EOF);
 		}
 		break;
-	case T_IF:
+	case T_BREAK:
+	case T_CONTINUE:
 	case T_FOR:
+	case T_IF:
 	case T_LABEL:
 	case T_MATCH:
+	case T_RETURN:
 	case T_SWITCH:
 		unlex(lexer, &tok);
-		value = parse_complex_expression(lexer);
+		value = parse_compound_expression(lexer);
 		if (indirect) {
 			struct ast_expression *deref = mkexpr(&value->loc);
 			deref->type = EXPR_UNARITHM;
