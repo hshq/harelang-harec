@@ -1149,7 +1149,7 @@ parse_measurement_expression(struct lexer *lexer)
 		break;
 	case T_LEN:
 		exp->measure.op = M_LEN;
-		exp->measure.value = parse_postfix_expression(lexer, NULL);
+		exp->measure.value = parse_complex_expression(lexer);
 		break;
 	case T_OFFSET:
 		exp->measure.op = M_OFFSET;
