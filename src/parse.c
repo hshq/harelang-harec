@@ -2042,8 +2042,6 @@ parse_scope_expression(struct lexer *lexer)
 	bool indirect = false;
 	switch (lex(lexer, &tok)) {
 	case T_TIMES: // *ptr = value (or unary-expression)
-		// TODO: indirect access is untested (pending support for
-		// dereferencing in unary-expression)
 		indirect = true;
 		break;
 	default:
@@ -2078,14 +2076,22 @@ parse_scope_expression(struct lexer *lexer)
 		unlex(lexer, &tok);
 		value = parse_complex_expression(lexer);
 		if (indirect) {
-			assert(0); // TODO: Wrap value in unary dereference
+			struct ast_expression *deref = mkexpr(&value->loc);
+			deref->type = EXPR_UNARITHM;
+			deref->unarithm.op = UN_DEREF;
+			deref->unarithm.operand = value;
+			return deref;
 		}
 		return value;
 	case T_LBRACE:
 		unlex(lexer, &tok);
 		value = parse_expression_list(lexer);
 		if (indirect) {
-			assert(0); // TODO: Wrap value in unary dereference
+			struct ast_expression *deref = mkexpr(&value->loc);
+			deref->type = EXPR_UNARITHM;
+			deref->unarithm.op = UN_DEREF;
+			deref->unarithm.operand = value;
+			return deref;
 		}
 		return value;
 	case T_DEFER:
@@ -2129,7 +2135,11 @@ parse_scope_expression(struct lexer *lexer)
 		unlex(lexer, &tok);
 		value = parse_bin_expression(lexer, value, 0);
 		if (indirect) {
-			assert(0); // TODO: Wrap value in unary dereference
+			struct ast_expression *deref = mkexpr(&value->loc);
+			deref->type = EXPR_UNARITHM;
+			deref->unarithm.op = UN_DEREF;
+			deref->unarithm.operand = value;
+			return deref;
 		}
 		return value;
 	}
