@@ -998,11 +998,12 @@ lower_constant(const struct type *type, struct expression *expr)
 		for (const struct type_tagged_union *tu = &type->tagged; tu;
 				tu = tu->next) {
 			if (lower_constant(tu->type, expr)) {
-				if (tag != NULL) {
-					// Ambiguous
-					return NULL;
+				if (tag == NULL) {
+					tag = tu->type;
+					continue;
 				}
-				tag = tu->type;
+				// Ambiguous
+				return lower_constant(&builtin_type_int, expr);
 			}
 		}
 		return tag;
