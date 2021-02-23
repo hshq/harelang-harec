@@ -2637,6 +2637,22 @@ load_import(struct ast_imports *import,
 			name.ns = NULL;
 			scope_insert(scope, obj->otype, &obj->ident,
 				&name, obj->type, obj->value);
+			if (type_dealias(obj->type)->storage != STORAGE_ENUM
+					|| obj->otype != O_TYPE) {
+				continue;
+			};
+			for (struct scope_object *o = mod->objects;
+					o; o = o->next) {
+				if (!identifier_eq(o->name.ns, &o->name)) {
+					continue;
+				};
+				struct identifier n = {
+					.name = o->name.name,
+					.ns = &name,
+				};
+				scope_insert(scope, o->otype, &o->ident,
+					&n, o->type, o->value);
+			};
 		}
 		break;
 	}
