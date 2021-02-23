@@ -1913,9 +1913,10 @@ check_expr_switch(struct context *ctx,
 				xcalloc(1, sizeof(struct expression));
 
 			check_expression(ctx, aopt->value, value, type);
-			// XXX: Should this be assignable instead?
 			expect(&aopt->value->loc,
-				type == type_dealias(value->result),
+				type_is_assignable(
+					type_dealias(type),
+					type_dealias(value->result)),
 				"Invalid type for switch case");
 
 			enum eval_result r = eval_expr(ctx, value, evaled);
