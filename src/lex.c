@@ -114,6 +114,7 @@ static const char *tokens[] = {
 	[T_PLUS] = "+",
 	[T_PLUSEQ] = "+=",
 	[T_PLUSPLUS] = "++",
+	[T_QUESTION] = "?",
 	[T_RBRACE] = "}",
 	[T_RBRACKET] = "]",
 	[T_RPAREN] = ")",
@@ -896,6 +897,9 @@ _lex(struct lexer *lexer, struct token *out)
 		break;
 	case ';':
 		out->token = T_SEMICOLON;
+		break;
+	case '?':
+		out->token = T_QUESTION;
 		break;
 	default:
 		out->token = T_ERROR;

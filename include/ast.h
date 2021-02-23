@@ -265,6 +265,10 @@ struct ast_expression_measure {
 	};
 };
 
+struct ast_expression_propagate {
+	struct ast_expression *value;
+};
+
 struct ast_expression_return {
 	struct ast_expression *value;
 };
@@ -344,6 +348,7 @@ struct ast_expression {
 		struct ast_expression_list list;
 		struct ast_expression_match match;
 		struct ast_expression_measure measure;
+		struct ast_expression_propagate propagate;
 		struct ast_expression_return _return;
 		struct ast_expression_slice slice;
 		struct ast_expression_struct _struct;

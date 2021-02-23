@@ -2042,6 +2042,8 @@ check_expression(struct context *ctx,
 	case EXPR_MEASURE:
 		check_expr_measure(ctx, aexpr, expr, hint);
 		break;
+	case EXPR_PROPAGATE:
+		assert(0); // TODO
 	case EXPR_RETURN:
 		check_expr_return(ctx, aexpr, expr, hint);
 		break;

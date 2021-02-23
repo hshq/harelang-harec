@@ -2570,6 +2570,8 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_MEASURE:
 		gen_expr_measure(ctx, expr, out);
 		break;
+	case EXPR_PROPAGATE:
+		assert(0); // TODO
 	case EXPR_RETURN:
 		gen_expr_return(ctx, expr, out);
 		break;

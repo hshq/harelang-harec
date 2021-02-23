@@ -106,6 +106,7 @@ enum lexical_token {
 	T_PLUS,
 	T_PLUSEQ,
 	T_PLUSPLUS,
+	T_QUESTION,
 	T_RBRACE,
 	T_RBRACKET,
 	T_RPAREN,

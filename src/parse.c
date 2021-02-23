@@ -1386,6 +1386,7 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		lvalue = parse_plain_expression(lexer);
 	}
 
+	struct ast_expression *exp;
 	switch (lex(lexer, &tok)) {
 	case T_LPAREN:
 		unlex(lexer, &tok);
@@ -1393,8 +1394,7 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		break;
 	case T_DOT:
 		trenter(TR_PARSE, "field-access");
-		struct ast_expression *exp =
-			mkexpr(&lexer->loc);
+		exp = mkexpr(&lexer->loc);
 		exp->type = EXPR_ACCESS;
 
 		switch (lex(lexer, &tok)) {
@@ -1419,6 +1419,12 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	case T_LBRACKET:
 		unlex(lexer, &tok);
 		lvalue = parse_index_slice_expression(lexer, lvalue);
+		break;
+	case T_QUESTION:
+		exp = mkexpr(&lexer->loc);
+		exp->type = EXPR_PROPAGATE;
+		exp->propagate.value = lvalue;
+		lvalue = exp;
 		break;
 	default:
 		unlex(lexer, &tok);

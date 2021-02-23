@@ -545,6 +545,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_IF:
 	case EXPR_LIST:
 	case EXPR_MATCH:
+	case EXPR_PROPAGATE:
 	case EXPR_RETURN:
 	case EXPR_SWITCH:
 		// Excluded from translation-compatible subset
