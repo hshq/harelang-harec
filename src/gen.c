@@ -1586,7 +1586,6 @@ gen_expr_control(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
 {
-	assert(out == NULL); // Invariant
 	struct gen_scope_context *scope = ctx->scope;
 	while (scope != NULL) {
 		gen_defers(ctx, scope);
