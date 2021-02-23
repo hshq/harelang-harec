@@ -92,6 +92,9 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 static const struct type *
 builtin_for_atype(const struct ast_type *atype)
 {
+	if (atype->flags & TYPE_ERROR) {
+		return NULL;
+	}
 	bool is_const = (atype->flags & TYPE_CONST) != 0;
 	return builtin_type_for_storage(atype->storage, is_const);
 }
@@ -99,6 +102,9 @@ builtin_for_atype(const struct ast_type *atype)
 static const struct type *
 builtin_for_type(const struct type *type)
 {
+	if (type->flags & TYPE_ERROR) {
+		return NULL;
+	}
 	bool is_const = (type->flags & TYPE_CONST) != 0;
 	return builtin_type_for_storage(type->storage, is_const);
 }
@@ -389,18 +395,20 @@ type_init_from_atype(struct type_store *store,
 
 	const struct scope_object *obj;
 	const struct identifier *ident;
+	const struct type *builtin;
 	struct identifier temp;
 	switch (type->storage) {
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+		assert(0); // Invariant
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
 	case STORAGE_F32:
 	case STORAGE_F64:
-	case STORAGE_FCONST:
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
-	case STORAGE_ICONST:
 	case STORAGE_INT:
 	case STORAGE_NULL:
 	case STORAGE_RUNE:
@@ -413,7 +421,10 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
-		assert(0); // Invariant
+		builtin = builtin_type_for_storage(type->storage, false);
+		type->size = builtin->size;
+		type->align = builtin->align;
+		break;
 	case STORAGE_ALIAS:
 		ident = &atype->alias;
 		if (ident->ns == NULL) {
@@ -576,11 +587,29 @@ type_init_from_atype(struct type_store *store,
 }
 
 static const struct type *
-type_store_lookup_type(struct type_store *store, const struct type *type)
+_type_store_lookup_type(
+	struct type_store *store,
+	const struct type *type,
+	bool recur)
 {
 	const struct type *builtin = builtin_for_type(type);
 	if (builtin) {
 		return builtin;
+	}
+
+	struct type psuedotype = *type;
+	if (type->storage == STORAGE_ALIAS && !recur) {
+		// References to type aliases always inherit the flags that the
+		// alias was defined with
+		//
+		// TODO: This is likely problematic for forward references
+		// TODO: Does this need a spec update?
+		const struct scope_object *obj = scope_lookup(
+			store->check_context->scope, &type->alias.ident);
+		if (obj) {
+			psuedotype.flags |= obj->type->flags;
+			type = &psuedotype;
+		}
 	}
 
 	uint32_t hash = type_hash(type);
@@ -599,6 +628,12 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 	bucket->type = *type;
 	bucket->type.id = hash;
 	return &bucket->type;
+}
+
+static const struct type *
+type_store_lookup_type(struct type_store *store, const struct type *type)
+{
+	return _type_store_lookup_type(store, type, false);
 }
 
 const struct type *
@@ -693,6 +728,7 @@ type_store_lookup_alias(struct type_store *store,
 		type->alias.type = secondary;
 		type->size = secondary->size;
 		type->align = secondary->align;
+		type->flags = secondary->flags;
 	}
 	return type;
 }

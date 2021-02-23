@@ -412,10 +412,8 @@ type_promote(struct type_store *store,
 	const struct type *_b)
 {
 	bool is_const = (_a->flags & TYPE_CONST) || (_b->flags & TYPE_CONST);
-	const struct type *a =
-		type_store_lookup_with_flags(store, _a, _a->flags & ~TYPE_CONST);
-	const struct type *b =
-		type_store_lookup_with_flags(store, _b, _b->flags & ~TYPE_CONST);
+	const struct type *a = type_store_lookup_with_flags(store, _a, 0);
+	const struct type *b = type_store_lookup_with_flags(store, _b, 0);
 
 	if (a->storage == STORAGE_ALIAS) {
 		return a == b || a->alias.type == b ? _b : NULL;
