@@ -2585,6 +2585,10 @@ load_import(struct ast_imports *import,
 			scope_insert(scope, obj->otype, &obj->ident,
 				&obj->name, obj->type, obj->value);
 			if (obj->name.ns && obj->name.ns->ns) {
+				struct identifier ns2 = {
+					.name = NULL,
+					.ns = NULL,
+				};
 				struct identifier ns = {
 					.name = obj->name.ns->name,
 					.ns = NULL
@@ -2592,6 +2596,11 @@ load_import(struct ast_imports *import,
 				struct identifier name = {
 					.name = obj->name.name,
 					.ns = &ns,
+				};
+				if (type_dealias(obj->type)->storage == STORAGE_ENUM
+						&& obj->otype == O_CONST) {
+					ns2.name = obj->name.ns->ns->name;
+					ns.ns = &ns2;
 				};
 				scope_insert(scope, obj->otype, &obj->ident,
 					&name, obj->type, obj->value);
