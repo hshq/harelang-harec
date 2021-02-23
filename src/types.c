@@ -417,7 +417,7 @@ type_hash(const struct type *type)
 static const struct type *
 strip_flags(const struct type *t, struct type *secondary)
 {
-	if (!t->flags || t->storage == STORAGE_ALIAS) {
+	if (!t->flags) {
 		return t;
 	}
 	*secondary = *t;
@@ -432,13 +432,24 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 	tagged = type_dealias(tagged);
 	assert(tagged->storage == STORAGE_TAGGED);
 
+	struct type _stripped;
+	const struct type *stripped = strip_flags(subtype, &_stripped);
+
 	size_t nassign = 0;
 	const struct type *selected = NULL;
 	for (const struct type_tagged_union *tu = &tagged->tagged;
 			tu; tu = tu->next) {
-		if (tu->type->id == subtype->id) {
+		struct type _tustripped;
+		const struct type *tustripped =
+			strip_flags(tu->type, &_tustripped);
+		// XXX: Kind of stupid
+		if (tu->type->id == subtype->id
+				|| tu->type->id == stripped->id
+				|| tustripped->id == subtype->id
+				|| tustripped->id == stripped->id) {
 			return tu->type;
 		}
+
 		if (type_dealias(tu->type)->storage == STORAGE_VOID) {
 			continue;
 		}
@@ -485,6 +496,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 {
 	// const and non-const types are mutually assignable
 	struct type _to, _from;
+	const struct type *from_orig = from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
 	if (to->id == from->id) {
 		return true;
@@ -575,7 +587,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 			&& to->array.length == SIZE_UNDEFINED
 			&& from->array.length != SIZE_UNDEFINED;
 	case STORAGE_TAGGED:
-		return tagged_select_subtype(to, from) != NULL
+		return tagged_select_subtype(to, from_orig) != NULL
 			|| tagged_subset_compat(to, from);
 	// The following types are only assignable from themselves, and are
 	// handled above:
