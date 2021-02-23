@@ -417,7 +417,7 @@ type_hash(const struct type *type)
 static const struct type *
 strip_flags(const struct type *t, struct type *secondary)
 {
-	if (!t->flags) {
+	if (!t->flags || t->storage == STORAGE_ALIAS) {
 		return t;
 	}
 	*secondary = *t;
