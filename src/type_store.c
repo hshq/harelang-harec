@@ -685,6 +685,7 @@ type_store_lookup_alias(struct type_store *store,
 		},
 		.size = secondary->size,
 		.align = secondary->align,
+		.flags = secondary->flags,
 	};
 	struct type *type = (struct type *)type_store_lookup_type(store, &alias);
 	if (type->alias.type == NULL) {

@@ -131,6 +131,7 @@ struct type_tagged_union {
 
 enum type_flags {
 	TYPE_CONST = 1 << 0,
+	TYPE_ERROR = 1 << 1,
 };
 
 struct type {

@@ -729,6 +729,13 @@ parse_type(struct lexer *lexer)
 	type->flags |= flags;
 	trleave(TR_PARSE, "%s%s", type->flags & TYPE_CONST ? "const " : "",
 		type_storage_unparse(type->storage));
+
+	if (lex(lexer, &tok) == T_LNOT) {
+		type->flags |= TYPE_ERROR;
+	} else {
+		unlex(lexer, &tok);
+	}
+
 	return type;
 }
 
