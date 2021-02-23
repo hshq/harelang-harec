@@ -81,7 +81,7 @@ main(int argc, char *argv[])
 			unit.ns = xcalloc(1, sizeof(struct identifier));
 			FILE *in = fmemopen(optarg, strlen(optarg), "r");
 			lex_init(&lexer, in, "-N");
-			parse_identifier(&lexer, unit.ns);
+			parse_identifier(&lexer, unit.ns, false);
 			lex_finish(&lexer);
 			break;
 		default:

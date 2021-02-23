@@ -94,17 +94,29 @@ mkfuncparams(const struct location *loc)
 	return p;
 }
 
-void
-parse_identifier(struct lexer *lexer, struct identifier *ident)
+bool
+parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 {
 	struct token tok = {0};
 	struct identifier *i = ident;
+	bool found_trailing = false;
 	trenter(TR_PARSE, "identifier");
 
 	while (!i->name) {
-		want(lexer, T_NAME, &tok);
-		i->name = strdup(tok.name);
-		token_finish(&tok);
+		switch (lex(lexer, &tok)) {
+		case T_NAME:
+			i->name = strdup(tok.name);
+			token_finish(&tok);
+			break;
+		default:
+			synassert(trailing && i->ns, &tok, T_NAME, T_EOF);
+			unlex(lexer, &tok);
+			struct identifier *ns = i->ns;
+			*i = *ns;
+			free(ns);
+			found_trailing = true;
+			continue;
+		}
 
 		struct identifier *ns;
 		switch (lex(lexer, &tok)) {
@@ -123,6 +135,7 @@ parse_identifier(struct lexer *lexer, struct identifier *ident)
 	char buf[1024];
 	identifier_unparse_static(ident, buf, sizeof(buf));
 	trleave(TR_PARSE, "%s", buf);
+	return found_trailing;
 }
 
 static void
@@ -130,7 +143,7 @@ parse_import(struct lexer *lexer, struct ast_imports *imports)
 {
 	trenter(TR_PARSE, "import");
 	struct identifier ident = {0};
-	parse_identifier(lexer, &ident);
+	parse_identifier(lexer, &ident, false);
 
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
@@ -486,7 +499,7 @@ parse_struct_union_type(struct lexer *lexer)
 			case T_DOUBLE_COLON:
 				next->member_type = MEMBER_TYPE_ALIAS;
 				i = &next->alias;
-				parse_identifier(lexer, i);
+				parse_identifier(lexer, i, false);
 				while (i->ns != NULL) {
 					i = i->ns;
 				}
@@ -720,7 +733,7 @@ parse_type(struct lexer *lexer)
 		type = mktype(&lexer->loc);
 		type->storage = STORAGE_ALIAS;
 		type->unwrap = unwrap;
-		parse_identifier(lexer, &type->alias);
+		parse_identifier(lexer, &type->alias, false);
 		break;
 	default:
 		synassert_msg(false, "expected type", &tok);
@@ -909,7 +922,7 @@ parse_field_value(struct lexer *lexer)
 			exp->is_embedded = true;
 			struct identifier ident = {0};
 			struct identifier *i = &ident;
-			parse_identifier(lexer, i);
+			parse_identifier(lexer, i, false);
 			while (i->ns != NULL) {
 				i = i->ns;
 			}
@@ -1047,7 +1060,7 @@ parse_plain_expression(struct lexer *lexer)
 	case T_NAME:
 		unlex(lexer, &tok);
 		struct identifier ident = {0};
-		parse_identifier(lexer, &ident);
+		parse_identifier(lexer, &ident, false);
 		switch (lex(lexer, &tok)) {
 		case T_LBRACE:
 			unlex(lexer, &tok);
@@ -1868,7 +1881,7 @@ parse_match_expression(struct lexer *lexer)
 			case T_DOUBLE_COLON:
 				ident.ns = xcalloc(1, sizeof(struct identifier));
 				ident.ns->name = tok.name; // Assumes ownership
-				parse_identifier(lexer, &ident);
+				parse_identifier(lexer, &ident, false);
 				_case->type = mktype(&tok.loc);
 				_case->type->storage = STORAGE_ALIAS;
 				_case->type->alias = ident;
@@ -2313,7 +2326,7 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 				break;
 			}
 		}
-		parse_identifier(lexer, &i->ident);
+		parse_identifier(lexer, &i->ident, false);
 		want(lexer, T_COLON, NULL);
 		i->type = parse_type(lexer);
 		if (mode == T_CONST) {
@@ -2365,7 +2378,7 @@ parse_type_decl(struct lexer *lexer, struct ast_type_decl *decl)
 	struct ast_type_decl *i = decl;
 	bool more = true;
 	while (more) {
-		parse_identifier(lexer, &i->ident);
+		parse_identifier(lexer, &i->ident, false);
 		want(lexer, T_EQUAL, NULL);
 		i->type = parse_type(lexer);
 		switch (lex(lexer, &tok)) {
@@ -2425,7 +2438,7 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 		}
 	}
 	want(lexer, T_FN, NULL);
-	parse_identifier(lexer, &decl->ident);
+	parse_identifier(lexer, &decl->ident, false);
 	parse_prototype(lexer, &decl->prototype);
 	if (noreturn) {
 		decl->prototype.flags |= FN_NORETURN;
