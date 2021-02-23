@@ -990,9 +990,6 @@ lower_constant(const struct type *type, struct expression *expr)
 {
 	assert(expr->type == EXPR_CONSTANT);
 	type = type_dealias(type);
-	if (type_is_float(type)) {
-		assert(0); // TODO
-	}
 	if (type->storage == STORAGE_TAGGED) {
 		const struct type *tag = NULL;
 		for (const struct type_tagged_union *tu = &type->tagged; tu;
@@ -1007,6 +1004,9 @@ lower_constant(const struct type *type, struct expression *expr)
 			}
 		}
 		return tag;
+	}
+	if (type_is_float(type) && type_is_float(expr->result)) {
+		assert(0); // TODO
 	}
 	if (!type_is_integer(type)) {
 		return NULL;
