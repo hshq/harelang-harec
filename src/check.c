@@ -1678,6 +1678,7 @@ check_expr_propagate(struct context *ctx,
 	expr->match.cases = case_ok;
 	case_ok->next = case_err;
 
+	scope_pop(&ctx->scope, TR_CHECK);
 	expr->result = result_type;
 }
 
