@@ -188,13 +188,29 @@ check_expr_alloc(struct context *ctx,
 	trace(TR_CHECK, "alloc");
 	expr->type = EXPR_ALLOC;
 	expr->alloc.expr = xcalloc(sizeof(struct expression), 1);
-	expr->result =
-		type_store_lookup_atype(ctx->store, aexpr->alloc.type);
-	enum type_storage storage = type_dealias(expr->result)->storage;
+	const struct type *inittype = NULL;
+	if (hint && type_dealias(hint)->storage == STORAGE_POINTER) {
+		inittype = type_dealias(hint)->pointer.referent;
+	} else if (hint && type_dealias(hint)->storage == STORAGE_SLICE) {
+		inittype = hint;
+	}
+	check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr, inittype);
+
+	enum type_storage storage =
+		type_dealias(expr->alloc.expr->result)->storage;
+	if (!hint && storage == STORAGE_SLICE) {
+		hint = expr->alloc.expr->result;
+	} else if (hint) {
+		storage = type_dealias(hint)->storage;
+	} else {
+		hint = type_store_lookup_pointer(ctx->store,
+			expr->alloc.expr->result, 0);
+	}
+	expr->result = hint;
+	storage = type_dealias(hint)->storage;
+
 	switch (storage) {
 	case STORAGE_POINTER:
-		check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr,
-			expr->result->pointer.referent);
 		if (aexpr->alloc.cap != NULL) {
 			// We can't just expect(aexpr->alloc.cap != NULL)
 			// because we want to use aexpr->alloc.cap->loc
@@ -204,8 +220,6 @@ check_expr_alloc(struct context *ctx,
 		}
 		break;
 	case STORAGE_SLICE:
-		check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr,
-			expr->result);
 		if (aexpr->alloc.cap != NULL) {
 			expr->alloc.cap = xcalloc(sizeof(struct expression), 1);
 			check_expression(ctx, aexpr->alloc.cap, expr->alloc.cap,

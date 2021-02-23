@@ -510,7 +510,7 @@ gen_slice_alloc(struct gen_context *ctx,
 	} else {
 		cap = len;
 	}
-	constl(&temp, expr->result->array.members->size);
+	constl(&temp, type_dealias(expr->result)->array.members->size);
 	pushi(ctx->current, &size, Q_MUL, &cap, &temp, NULL);
 
 	struct qbe_value ret = {0};

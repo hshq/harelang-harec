@@ -1,7 +1,7 @@
 use rt;
 
 fn simple() void = {
-	let x = alloc([]int, [1, 2, 3], 6);
+	let x: []int = alloc([1, 2, 3], 6);
 	append(x, 4, 5, 6);
 	assert(len(x) == 6);
 	assert(x[0] == 1 && x[1] == 2 && x[2] == 3 && x[3] == 4 && x[4] == 5);
@@ -10,7 +10,7 @@ fn simple() void = {
 	assert(x[0] == 1 && x[1] == 2 && x[2] == 3 && x[3] == 4 && x[4] == 5);
 	assert(x[5] == 6 && x[6] == 7 && x[7] == 8 && x[8] == 9);
 
-	let y = alloc([][]int, [[1]], 1z);
+	let y: [][]int = alloc([[1]], 1z);
 	let z = [2, 3, 4];
 	append(y, ...y);
 	append(y, z);
@@ -24,13 +24,13 @@ fn simple() void = {
 };
 
 fn variadic() void = {
-	let x = alloc([]int, [1, 2], 2z);
+	let x: []int = alloc([1, 2], 2z);
 	append(x, 4, ...[8, 16, 32, 64]);
 	assert(len(x) == 7);
 	assert(x[0] == 1 && x[1] == 2 && x[2] == 4 && x[3] == 8 && x[4] == 16);
 	assert(x[5] == 32 && x[6] == 64);
 
-	let y = alloc([]int, [1, 2, 3], 3);
+	let y: []int = alloc([1, 2, 3], 3);
 	let z = [128, 256];
 	append(y, ...x);
 	append(y, ...z);
@@ -47,5 +47,5 @@ export fn main() void = {
 	variadic();
 
 	assert(rt::compile("fn test() void = append([1], 2);") != 0);
-	assert(rt::compile("fn test() void = { let x = alloc([]int, [1], 1z); append(x[..], 2); };") != 0);
+	assert(rt::compile("fn test() void = { let x: []int = alloc([1], 1z); append(x[..], 2); };") != 0);
 };

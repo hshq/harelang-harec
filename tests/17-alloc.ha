@@ -6,17 +6,17 @@ type my_struct = struct {
 type my_struct_ptr = *my_struct;
 
 fn allocation() void = {
-	let x = alloc(*int, 1234);
+	let x = alloc(1234);
 	assert(*x == 1234);
 	free(x);
 
-	let y = alloc(nullable *int, 1234);
+	let y: nullable *int = alloc(1234);
 	if (y != null) {
 		assert(*(y: *int) == 1234);
 	};
 	free(y);
 
-	let z = alloc(my_struct_ptr, struct {
+	let z: my_struct_ptr = alloc(struct {
 		x: int = 42,
 		y: int = 69,
 	});
@@ -25,15 +25,15 @@ fn allocation() void = {
 };
 
 fn assignment() void = {
-	let x = alloc(*int, 1234);
+	let x = alloc(1234);
 	*x = 4321;
 	assert(*x == 4321);
 	free(x);
 };
 
 fn double_pointer() void = {
-	let x = alloc(*int, 1234);
-	let y = alloc(**int, x);
+	let x = alloc(1234);
+	let y = alloc(x);
 	*x = 4321;
 	assert(**y == 4321);
 	**y = 1337;
@@ -43,29 +43,29 @@ fn double_pointer() void = {
 };
 
 fn double_alloc() void = {
-	let x = alloc(*int, 1234);
-	let y = alloc(*int, 4321);
+	let x = alloc(1234);
+	let y = alloc(4321);
 	assert(x != y && *x != *y);
 	free(x);
 	free(y);
 };
 
 fn slice() void = {
-	let x = alloc([]int, [1, 2, 3], 10);
+	let x: []int = alloc([1, 2, 3], 10);
 	assert(len(x) == 3);
 	for (let i = 0z; i < len(x); i += 1) {
 		assert(x[i] == (i + 1): int);
 	};
 	free(x);
 
-	let y = alloc([]int, [1, 2, 3]);
+	let y: []int = alloc([1, 2, 3]);
 	assert(len(x) == 3);
 	for (let i = 0z; i < len(y); i += 1) {
 		assert(y[i] == (i + 1): int);
 	};
 	free(y);
 
-	let z = alloc([]int, []);
+	let z: []int = alloc([]);
 	let p = &z: *struct {
 		data: nullable *[*]int,
 		length: size,
@@ -76,7 +76,7 @@ fn slice() void = {
 
 fn string() void = {
 	let x = struct {
-		data: *[3]int = alloc(*[3]int, [1, 2, 3]),
+		data: *[3]int = alloc([1, 2, 3]),
 		length: size = 3,
 		capacity: size = 3,
 	};

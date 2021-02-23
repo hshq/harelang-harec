@@ -3,7 +3,7 @@ use rt;
 type my_slice = []int;
 
 fn index() void = {
-	let x = alloc([]int, [1, 2, 3, 4, 5]);
+	let x: []int = alloc([1, 2, 3, 4, 5]);
 	let y = &x: *my_slice;
 
 	delete(x[1]);
@@ -17,7 +17,7 @@ fn index() void = {
 };
 
 fn slice() void = {
-	let x = alloc([]int, [1, 2, 3, 4, 5]): my_slice;
+	let x: my_slice = alloc([1, 2, 3, 4, 5]);
 	let y = &x;
 	const s = y: *rt::slice;
 

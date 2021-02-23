@@ -1276,8 +1276,6 @@ parse_allocation_expression(struct lexer *lexer)
 		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_ALLOC;
 		want(lexer, T_LPAREN, NULL);
-		exp->alloc.type = parse_type(lexer);
-		want(lexer, T_COMMA, NULL);
 		exp->alloc.expr = parse_simple_expression(lexer);
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:

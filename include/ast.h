@@ -131,7 +131,6 @@ struct ast_expression_access {
 
 struct ast_expression_alloc {
 	struct ast_expression *expr;
-	struct ast_type *type;
 	struct ast_expression *cap;
 };
 
