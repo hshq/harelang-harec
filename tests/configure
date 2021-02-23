@@ -26,7 +26,8 @@ tests() {
 		20-if \
 		21-tuples \
 		22-delete \
-		23-errors
+		23-errors \
+		24-imports
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha

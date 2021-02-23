@@ -139,24 +139,74 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 }
 
 static void
+parse_name_list(struct lexer *lexer, struct ast_imports *name)
+{
+	trenter(TR_PARSE, "name_list");
+	bool more = true;
+	struct ast_imports **next = &name->next;
+	while (more) {
+		struct token tok = {0};
+		want(lexer, T_NAME, &tok);
+		name->ident.name = strdup(tok.name);
+		token_finish(&tok);
+
+		switch (lex(lexer, &tok)) {
+		case T_COMMA:
+			switch (lex(lexer, &tok)) {
+			case T_RBRACE:
+				more = false;
+				break;
+			default:
+				unlex(lexer, &tok);
+				name = xcalloc(1, sizeof(struct ast_imports));
+				*next = name;
+				next = &name->next;
+			}
+			break;
+		case T_RBRACE:
+			more = false;
+			break;
+		default:
+			synassert(false, &tok, T_RBRACE, T_COMMA, T_EOF);
+			break;
+		}
+	}
+	trleave(TR_PARSE, NULL);
+}
+
+static void
 parse_import(struct lexer *lexer, struct ast_imports *imports)
 {
 	trenter(TR_PARSE, "import");
 	struct identifier ident = {0};
-	parse_identifier(lexer, &ident, false);
+	bool trailing_colon = parse_identifier(lexer, &ident, true);
 
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_EQUAL:
-		assert(0); // TODO
+		synassert(!trailing_colon, &tok, T_NAME, T_EOF);
+		imports->mode = AST_IMPORT_ALIAS;
+		imports->alias = xcalloc(1, sizeof(struct identifier));
+		*imports->alias = ident;
+		parse_identifier(lexer, &imports->ident, false);
+		want(lexer, T_SEMICOLON, &tok);
+		break;
 	case T_LBRACE:
-		assert(0); // TODO
+		synassert(trailing_colon, &tok, T_DOUBLE_COLON, T_EOF);
+		imports->mode = AST_IMPORT_MEMBERS;
+		imports->ident = ident;
+		imports->members = xcalloc(1, sizeof(struct ast_imports));
+		parse_name_list(lexer, imports->members);
+		want(lexer, T_SEMICOLON, &tok);
+		break;
 	case T_SEMICOLON:
+		synassert(!trailing_colon, &tok, T_NAME, T_EOF);
 		imports->mode = AST_IMPORT_IDENTIFIER;
 		imports->ident = ident;
 		break;
 	default:
-		synassert(false, &tok, T_EQUAL, T_LBRACE, T_SEMICOLON, T_EOF);
+		synassert(!trailing_colon, &tok, T_EQUAL, T_SEMICOLON, T_EOF);
+		synassert(trailing_colon, &tok, T_NAME, T_LBRACE, T_EOF);
 		break;
 	}
 

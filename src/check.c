@@ -2584,13 +2584,13 @@ load_import(struct ast_imports *import,
 				obj; obj = obj->next) {
 			scope_insert(scope, obj->otype, &obj->ident,
 				&obj->name, obj->type, obj->value);
-			if (obj->ident.ns && obj->ident.ns->ns) {
+			if (obj->name.ns && obj->name.ns->ns) {
 				struct identifier ns = {
-					.name = obj->ident.ns->name,
+					.name = obj->name.ns->name,
 					.ns = NULL
 				};
 				struct identifier name = {
-					.name = obj->ident.name,
+					.name = obj->name.name,
 					.ns = &ns,
 				};
 				scope_insert(scope, obj->otype, &obj->ident,
@@ -2599,9 +2599,29 @@ load_import(struct ast_imports *import,
 		}
 		break;
 	case AST_IMPORT_ALIAS:
-		assert(0); // TODO
+		for (struct scope_object *obj = mod->objects;
+				obj; obj = obj->next) {
+			struct identifier name = {
+				.name = obj->name.name,
+				.ns = import->alias,
+			};
+			scope_insert(scope, obj->otype, &obj->ident,
+				&name, obj->type, obj->value);
+		}
+		break;
 	case AST_IMPORT_MEMBERS:
-		assert(0); // TODO
+		for (struct ast_imports *member = import->members;
+				member; member = member->next) {
+			struct identifier name = {
+				.name = member->ident.name,
+				.ns = &import->ident,
+			};
+			const struct scope_object *obj = scope_lookup(mod, &name);
+			name.ns = NULL;
+			scope_insert(scope, obj->otype, &obj->ident,
+				&name, obj->type, obj->value);
+		}
+		break;
 	}
 }
 
