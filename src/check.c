@@ -2601,9 +2601,17 @@ load_import(struct ast_imports *import,
 	case AST_IMPORT_ALIAS:
 		for (struct scope_object *obj = mod->objects;
 				obj; obj = obj->next) {
+			struct identifier ns = {
+				.name = obj->name.ns->name,
+				.ns = import->alias,
+			};
 			struct identifier name = {
 				.name = obj->name.name,
 				.ns = import->alias,
+			};
+			if (type_dealias(obj->type)->storage == STORAGE_ENUM
+					&& obj->otype == O_CONST) {
+				name.ns = &ns;
 			};
 			scope_insert(scope, obj->otype, &obj->ident,
 				&name, obj->type, obj->value);
