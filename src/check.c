@@ -1558,6 +1558,86 @@ check_expr_measure(struct context *ctx,
 }
 
 static void
+check_expr_propagate(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	trenter(TR_CHECK, "propagate");
+	expr->type = EXPR_PROPAGATE;
+
+	struct expression *lvalue = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->propagate.value, lvalue, hint);
+	expr->propagate.value = lvalue;
+
+	const struct type *intype = lvalue->result;
+	if (type_dealias(intype)->storage != STORAGE_TAGGED) {
+		expect(&aexpr->loc,
+			intype->flags & TYPE_ERROR,
+			"No error can occur here, cannot propagate");
+		expr->result = &builtin_type_void;
+		return;
+	}
+
+	struct type_tagged_union result_tagged = {0};
+	struct type_tagged_union *tagged = &result_tagged,
+		**next_tag = &tagged->next;
+
+	struct type_tagged_union return_tagged = {0};
+	struct type_tagged_union *rtagged = &return_tagged,
+		**next_rtag = &tagged->next;
+
+	const struct type_tagged_union *intu = &type_dealias(intype)->tagged;
+	for (; intu; intu = intu->next) {
+		if (intu->type->flags & TYPE_ERROR) {
+			if (rtagged->type) {
+				rtagged = *next_rtag =
+					xcalloc(1, sizeof(struct type_tagged_union));
+				next_rtag = &tagged->next;
+				rtagged->type = intu->type;
+			} else {
+				rtagged->type = intu->type;
+			}
+		} else {
+			if (tagged->type) {
+				tagged = *next_tag =
+					xcalloc(1, sizeof(struct type_tagged_union));
+				next_tag = &tagged->next;
+				tagged->type = intu->type;
+			} else {
+				tagged->type = intu->type;
+			}
+		}
+	}
+
+	expect(&aexpr->loc, return_tagged.type,
+		"No error can occur here, cannot propagate");
+
+	const struct type *return_type;
+	if (return_tagged.next) {
+		return_type = type_store_lookup_tagged(
+			ctx->store, &return_tagged);
+	} else {
+		return_type = return_tagged.type;
+	}
+
+	const struct type *result_type;
+	if (!result_tagged.type) {
+		result_type = &builtin_type_void;
+	} else if (result_tagged.next) {
+		result_type = type_store_lookup_tagged(
+			ctx->store, &result_tagged);
+	} else {
+		result_type = result_tagged.type;
+	}
+
+	expr->result = result_type;
+	expect(&aexpr->loc,
+		type_is_assignable(ctx->fntype->func.result, return_type),
+		"Error type is not assignable to function result type");
+}
+
+static void
 check_expr_return(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -2041,7 +2121,8 @@ check_expression(struct context *ctx,
 		check_expr_measure(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_PROPAGATE:
-		assert(0); // TODO
+		check_expr_propagate(ctx, aexpr, expr, hint);
+		break;
 	case EXPR_RETURN:
 		check_expr_return(ctx, aexpr, expr, hint);
 		break;
