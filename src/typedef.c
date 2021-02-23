@@ -286,6 +286,10 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_ICONST:
 		assert(0); // Invariant
 	}
+
+	if (type->flags & TYPE_ERROR) {
+		fprintf(out, "!");
+	}
 }
 
 static void
