@@ -1578,7 +1578,7 @@ check_expr_propagate(struct context *ctx,
 
 	struct type_tagged_union return_tagged = {0};
 	struct type_tagged_union *rtagged = &return_tagged,
-		**next_rtag = &tagged->next;
+		**next_rtag = &rtagged->next;
 
 	const struct type_tagged_union *intu = &type_dealias(intype)->tagged;
 	for (; intu; intu = intu->next) {
@@ -1586,7 +1586,7 @@ check_expr_propagate(struct context *ctx,
 			if (rtagged->type) {
 				rtagged = *next_rtag =
 					xcalloc(1, sizeof(struct type_tagged_union));
-				next_rtag = &tagged->next;
+				next_rtag = &rtagged->next;
 				rtagged->type = intu->type;
 			} else {
 				rtagged->type = intu->type;
