@@ -435,6 +435,10 @@ type_init_from_atype(struct type_store *store,
 
 		obj = scope_lookup(store->check_context->scope, ident);
 		if (!obj) {
+			obj = scope_lookup(store->check_context->scope,
+				&atype->alias);
+		}
+		if (!obj) {
 			assert(!atype->unwrap);
 			identifier_dup(&type->alias.ident, ident);
 			type->alias.type = NULL;
