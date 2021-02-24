@@ -764,7 +764,8 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 		if (t->type->align > type.align) {
 			type.align = t->type->align;
 		}
-		type.size = (type.size % t->type->align) + t->type->size;
+		t->offset = type.size % t->type->align + type.size;
+		type.size += type.size % t->type->align + t->type->size;
 	}
 	return type_store_lookup_type(store, &type);
 }
