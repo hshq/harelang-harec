@@ -2744,6 +2744,36 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		}
 		break;
 	case STORAGE_ENUM:
+		switch (type->_enum.storage) {
+		case STORAGE_I8:
+		case STORAGE_U8:
+			item->type = QD_VALUE;
+			constw(&item->value, (uint8_t)constant->uval);
+			item->value.type = &qbe_byte;
+			break;
+		case STORAGE_I16:
+		case STORAGE_U16:
+			item->type = QD_VALUE;
+			constw(&item->value, (uint16_t)constant->uval);
+			item->value.type = &qbe_half;
+			break;
+		case STORAGE_I32:
+		case STORAGE_U32:
+		case STORAGE_INT:
+		case STORAGE_UINT:
+			item->type = QD_VALUE;
+			constw(&item->value, (uint32_t)constant->uval);
+			break;
+		case STORAGE_U64:
+		case STORAGE_I64:
+		case STORAGE_SIZE:
+			item->type = QD_VALUE;
+			constl(&item->value, (uint32_t)constant->uval);
+			break;
+		default:
+			assert(0);
+		}
+		break;
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
