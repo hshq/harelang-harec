@@ -2632,10 +2632,13 @@ load_import(struct ast_imports *import,
 				member; member = member->next) {
 			struct identifier name = {
 				.name = member->ident.name,
+				.ns = NULL,
+			};
+			struct identifier ident = {
+				.name = member->ident.name,
 				.ns = &import->ident,
 			};
-			const struct scope_object *obj = scope_lookup(mod, &name);
-			name.ns = NULL;
+			const struct scope_object *obj = scope_lookup(mod, &ident);
 			scope_insert(scope, obj->otype, &obj->ident,
 				&name, obj->type, obj->value);
 			if (type_dealias(obj->type)->storage != STORAGE_ENUM
@@ -2644,7 +2647,7 @@ load_import(struct ast_imports *import,
 			};
 			for (struct scope_object *o = mod->objects;
 					o; o = o->next) {
-				if (!identifier_eq(o->name.ns, &o->name)) {
+				if (!identifier_eq(o->name.ns, &ident)) {
 					continue;
 				};
 				struct identifier n = {
