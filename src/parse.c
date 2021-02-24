@@ -62,6 +62,16 @@ want(struct lexer *lexer, enum lexical_token ltok, struct token *tok)
 		token_finish(out);
 	}
 }
+static struct location
+locdup(const struct location *loc)
+{
+	struct location new_loc = {
+		.lineno = loc->lineno,
+		.colno = loc->colno,
+		.path = strdup(loc->path),
+	};
+	return new_loc;
+}
 
 static struct ast_expression *
 mkexpr(const struct location *loc)
@@ -148,6 +158,7 @@ parse_name_list(struct lexer *lexer, struct ast_imports *name)
 		struct token tok = {0};
 		want(lexer, T_NAME, &tok);
 		name->ident.name = strdup(tok.name);
+		name->loc = locdup(&tok.loc);
 		token_finish(&tok);
 
 		switch (lex(lexer, &tok)) {

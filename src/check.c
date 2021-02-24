@@ -2639,6 +2639,9 @@ load_import(struct ast_imports *import,
 				.ns = &import->ident,
 			};
 			const struct scope_object *obj = scope_lookup(mod, &ident);
+			char buf[1024];
+			identifier_unparse_static(&ident, buf, sizeof(buf));
+			expect(&member->loc, obj, "Unknown object '%s'", buf);
 			scope_insert(scope, obj->otype, &obj->ident,
 				&name, obj->type, obj->value);
 			if (type_dealias(obj->type)->storage != STORAGE_ENUM
