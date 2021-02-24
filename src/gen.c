@@ -279,7 +279,7 @@ gen_load(struct gen_context *ctx,
 	assert(!dest->indirect);
 	if (src->indirect) {
 		pushi(ctx->current, dest,
-			load_for_type(dest->type->stype, is_signed),
+			load_for_type(src->type->stype, is_signed),
 			src, NULL);
 	} else {
 		pushi(ctx->current, dest, Q_COPY, src, NULL);
@@ -373,7 +373,7 @@ address_index(struct gen_context *ctx,
 	constl(&temp, atype->array.members->size);
 	pushi(ctx->current, &index, Q_MUL, &index, &temp, NULL);
 	pushi(ctx->current, out, Q_ADD, out, &index, NULL);
-	out->type = qtype_for_type(ctx, atype->array.members, false);
+	out->type = qtype_for_type(ctx, atype->array.members, true);
 	if (!type_is_aggregate(atype->array.members)) {
 		qval_deref(out);
 	}
@@ -402,7 +402,7 @@ address_field(struct gen_context *ctx,
 	struct qbe_value offset = {0};
 	constl(&offset, field->offset);
 	pushi(ctx->current, out, Q_ADD, out, &offset, NULL);
-	out->type = qtype_for_type(ctx, field->type, false);
+	out->type = qtype_for_type(ctx, field->type, true);
 	if (!type_is_aggregate(field->type)) {
 		qval_deref(out);
 	}
