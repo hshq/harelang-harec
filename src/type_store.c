@@ -307,7 +307,8 @@ tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 	for (size_t i = 1; i < nmemb; ++i)
 	for (size_t j = 0; j < i; ++j) {
 		if (tu[j]->type->id == tu[i]->type->id) {
-			memmove(&tu[i], &tu[i + 1], nmemb - i - 1);
+			memmove(&tu[i], &tu[i + 1], (nmemb - i - 1)
+				* sizeof(struct type_tagged_union *));
 			--nmemb;
 			break;
 		}
