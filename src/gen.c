@@ -667,7 +667,7 @@ gen_expr_append(struct gen_context *ctx,
 	rtfunc.kind = QV_GLOBAL;
 	rtfunc.name = strdup("rt.ensure");
 	rtfunc.type = &qbe_long;
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, &newlen, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, NULL);
 
 	struct qbe_value ptr = {0};
 	const struct qbe_type *type = qtype_for_type(ctx, mtype, false);
@@ -1712,7 +1712,7 @@ gen_expr_delete(struct gen_context *ctx,
 	rtunensure.kind = QV_GLOBAL;
 	rtunensure.name = strdup("rt.unensure");
 	rtunensure.type = &qbe_long;
-	pushi(ctx->current, NULL, Q_CALL, &rtunensure, &object, &membsz, &newlen, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &rtunensure, &object, &membsz, NULL);
 }
 
 static void
