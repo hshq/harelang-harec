@@ -571,12 +571,17 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_VOID:
 		return true;
 	case STORAGE_SLICE:
+		from = type_dealias(from);
 		if (from->storage != STORAGE_ARRAY
 				&& from->storage != STORAGE_SLICE) {
 			return false;
 		}
-		to_secondary = strip_flags(to->array.members, &_to_secondary);
-		from_secondary = strip_flags(from->array.members, &_from_secondary);
+		to_secondary = strip_flags(
+			type_dealias(to->array.members),
+			&_to_secondary);
+		from_secondary = strip_flags(
+			type_dealias(from->array.members),
+			&_from_secondary);
 		if (to->storage == STORAGE_SLICE
 				&& to_secondary->storage == STORAGE_VOID) {
 			return true;
