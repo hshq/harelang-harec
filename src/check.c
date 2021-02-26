@@ -2042,6 +2042,33 @@ check_expr_tuple(struct context *ctx,
 		expr->result = type_store_lookup_tuple(ctx->store, &result);
 	}
 
+	if (hint && type_dealias(hint)->storage == STORAGE_TAGGED) {
+		for (const struct type_tagged_union *tu =
+				&type_dealias(hint)->tagged;
+				tu; tu = tu->next) {
+			if (type_dealias(tu->type)->storage != STORAGE_TUPLE) {
+				continue;
+			}
+			const struct type_tuple *ttuple =
+				&type_dealias(tu->type)->tuple;
+			const struct expression_tuple *etuple = &expr->tuple;
+			bool valid = true;
+			while (etuple) {
+				if (!ttuple || !type_is_assignable(ttuple->type,
+						etuple->value->result)) {
+					valid = false;
+					break;
+				}
+				ttuple = ttuple->next;
+				etuple = etuple->next;
+			}
+			if (valid) {
+				expr->result = type_dealias(tu->type);
+				break;
+			}
+		}
+	}
+
 	ttuple = &type_dealias(expr->result)->tuple;
 	struct expression_tuple *etuple = &expr->tuple;
 	const struct ast_expression_tuple *atuple = &aexpr->tuple;
