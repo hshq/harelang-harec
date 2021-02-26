@@ -195,20 +195,38 @@ check_expr_alloc(struct context *ctx,
 		inittype = hint;
 	}
 	check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr, inittype);
+	inittype = expr->alloc.expr->result;
 
-	enum type_storage storage =
-		type_dealias(expr->alloc.expr->result)->storage;
-	if (!hint && storage == STORAGE_SLICE) {
-		hint = expr->alloc.expr->result;
-	} else if (hint) {
-		storage = type_dealias(hint)->storage;
-	} else {
-		hint = type_store_lookup_pointer(ctx->store,
-			expr->alloc.expr->result, 0);
+	int flags = 0;
+	if (hint && type_is_assignable(hint, inittype)) {
+		if (type_dealias(hint)->storage == STORAGE_SLICE) {
+			inittype = hint;
+		} else if (type_dealias(hint)->storage == STORAGE_POINTER) {
+			inittype = type_dealias(hint)->pointer.referent;
+			flags = hint->pointer.flags;
+		}
 	}
-	expr->result = hint;
-	storage = type_dealias(hint)->storage;
 
+	switch (type_dealias(inittype)->storage) {
+	case STORAGE_SLICE:
+		expr->result = inittype;
+		break;
+	case STORAGE_ARRAY:
+		if (aexpr->alloc.cap) {
+			expr->result = type_store_lookup_slice(ctx->store,
+				type_dealias(inittype)->array.members);
+		} else {
+			expr->result = type_store_lookup_pointer(ctx->store,
+				inittype, flags);
+		}
+		break;
+	default:
+		expr->result = type_store_lookup_pointer(ctx->store,
+			inittype, flags);
+		break;
+	}
+
+	enum type_storage storage = type_dealias(expr->result)->storage;
 	switch (storage) {
 	case STORAGE_POINTER:
 		if (aexpr->alloc.cap != NULL) {
