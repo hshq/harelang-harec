@@ -2599,8 +2599,15 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	assert(expr->type == EXPR_CONSTANT);
 
 	struct qbe_def *def;
-	const union expression_constant *constant = &expr->constant;
+	const struct expression_constant *constant = &expr->constant;
 	const struct type *type = type_dealias(expr->result);
+	if (constant->object) {
+		item->type = QD_SYMOFFS;
+		item->sym = ident_to_sym(&constant->object->ident);
+		item->offset = constant->ival;
+		return item;
+	}
+
 	switch (type->storage) {
 	case STORAGE_I8:
 	case STORAGE_U8:

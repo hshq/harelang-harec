@@ -161,18 +161,22 @@ struct struct_constant {
 	struct struct_constant *next;
 };
 
-union expression_constant {
-	bool bval;
-	double fval;
-	intmax_t ival;
-	uintmax_t uval;
-	uint32_t rune;
-	struct {
-		size_t len;
-		char *value;
-	} string;
-	struct array_constant *array;
-	struct struct_constant *_struct;
+struct expression_constant {
+	// If non-null, ival is an offset from this object's address
+	const struct scope_object *object;
+	union {
+		bool bval;
+		double fval;
+		intmax_t ival;
+		uintmax_t uval;
+		uint32_t rune;
+		struct {
+			size_t len;
+			char *value;
+		} string;
+		struct array_constant *array;
+		struct struct_constant *_struct;
+	};
 };
 
 struct expression_control {
@@ -315,7 +319,7 @@ struct expression {
 		struct expression_binding binding;
 		struct expression_call call;
 		struct expression_cast cast;
-		union expression_constant constant;
+		struct expression_constant constant;
 		struct expression_defer defer;
 		struct expression_delete delete;
 		struct expression_control control;

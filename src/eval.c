@@ -2,12 +2,37 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include "check.h"
 #include "eval.h"
 #include "expr.h"
 #include "scope.h"
 #include "type_store.h"
 #include "types.h"
 #include "util.h"
+
+static enum eval_result
+eval_access(struct context *ctx, struct expression *in, struct expression *out)
+{
+	out->type = EXPR_CONSTANT;
+	out->result = in->result;
+
+	// TODO: Probably have not considered all of the edge cases here
+	switch (in->access.type) {
+	case ACCESS_IDENTIFIER:
+		out->constant.object = in->access.object;
+		out->constant.ival = 0;
+		assert(in->access.object->otype == O_DECL); // TODO: Bubble this up
+		break;
+	case ACCESS_INDEX:
+		assert(0); // TODO
+	case ACCESS_FIELD:
+		assert(0); // TODO
+	case ACCESS_TUPLE:
+		assert(0); // TODO
+	}
+
+	return EVAL_OK;
+}
 
 static uintmax_t
 itrunc(const struct type *type, uintmax_t val)
@@ -510,12 +535,41 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 	return EVAL_OK;
 }
 
+static enum eval_result
+eval_unarithm(struct context *ctx, struct expression *in, struct expression *out)
+{
+	struct expression lvalue = {0};
+	enum eval_result r = eval_expr(ctx, in->binarithm.lvalue, &lvalue);
+	if (r != EVAL_OK) {
+		return r;
+	}
+
+	out->type = EXPR_CONSTANT;
+	switch (in->unarithm.op) {
+	case UN_ADDRESS:
+		assert(lvalue.type == EXPR_CONSTANT);
+		assert(lvalue.constant.object);
+		out->result = type_store_lookup_pointer(
+			ctx->store, lvalue.result, 0);
+		out->constant = lvalue.constant;
+		break;
+	case UN_BNOT:
+	case UN_DEREF:
+	case UN_LNOT:
+	case UN_MINUS:
+	case UN_PLUS:
+		assert(0); // TODO
+	}
+
+	return EVAL_OK;
+}
+
 enum eval_result
 eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 {
 	switch (in->type) {
 	case EXPR_ACCESS:
-		assert(0); // TODO
+		return eval_access(ctx, in, out);
 	case EXPR_BINARITHM:
 		return eval_binarithm(ctx, in, out);
 	case EXPR_CAST:
@@ -528,8 +582,9 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 		return eval_struct(ctx, in, out);
 	case EXPR_SLICE:
 	case EXPR_TUPLE:
-	case EXPR_UNARITHM:
 		assert(0); // TODO
+	case EXPR_UNARITHM:
+		return eval_unarithm(ctx, in, out);
 	case EXPR_ALLOC:
 	case EXPR_APPEND:
 	case EXPR_ASSERT:

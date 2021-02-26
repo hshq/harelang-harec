@@ -221,6 +221,7 @@ enum qbe_datatype {
 	QD_VALUE,
 	QD_ZEROED,
 	QD_STRING,
+	QD_SYMOFFS,
 };
 
 struct qbe_data_item {
@@ -231,6 +232,10 @@ struct qbe_data_item {
 		struct {
 			char *str;
 			size_t sz;
+		};
+		struct {
+			char *sym;
+			long offset;
 		};
 	};
 	struct qbe_data_item *next;

@@ -277,6 +277,9 @@ is_zeroes(struct qbe_data_item *data)
 				return false;
 			}
 		}
+		break;
+	case QD_SYMOFFS:
+		return false;
 	}
 	if (!data->next) {
 		return true;
@@ -314,6 +317,10 @@ emit_data(struct qbe_def *def, FILE *out)
 			break;
 		case QD_STRING:
 			emit_data_string(item->str, item->sz, out);
+			break;
+		case QD_SYMOFFS:
+			// XXX: ARCH
+			fprintf(out, "l $%s + %ld", item->sym, item->offset);
 			break;
 		}
 

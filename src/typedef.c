@@ -54,7 +54,8 @@ static void
 emit_const(const struct expression *expr, FILE *out)
 {
 	assert(expr->type == EXPR_CONSTANT);
-	const union expression_constant *val = &expr->constant;
+	const struct expression_constant *val = &expr->constant;
+	assert(!val->object);
 	switch (expr->result->storage) {
 	case STORAGE_BOOL:
 		fprintf(out, "%s", val->bval ? "false" : "true");
