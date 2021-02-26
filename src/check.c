@@ -43,7 +43,7 @@ expect(const struct location *loc, bool constraint, char *fmt, ...)
 static struct expression *
 lower_implicit_cast(const struct type *to, struct expression *expr)
 {
-	if (to == expr->result) {
+	if (to == expr->result || expr->terminates) {
 		return expr;
 	}
 
@@ -58,7 +58,7 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 	struct expression *cast = xcalloc(1, sizeof(struct expression));
 	cast->type = EXPR_CAST;
 	cast->result = to;
-	cast->terminates = expr->terminates;
+	cast->terminates = false;
 	cast->cast.kind = C_CAST;
 	cast->cast.value = expr;
 	return cast;
