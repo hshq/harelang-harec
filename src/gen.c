@@ -780,9 +780,9 @@ gen_expr_assign_slice(struct gen_context *ctx,
 	bequal.name = strdup(genl(&equall, &ctx->id, "equal.%d"));
 	bdiff.kind = QV_LABEL;
 	bdiff.name = strdup(genl(&diffl, &ctx->id, "diff.%d"));
-	gen_temp(ctx, &temp, &qbe_long, "assign.equal.%d");
-	pushi(ctx->current, &temp, Q_SUB, &olen, &vlen, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &temp, &bdiff, &bequal, NULL);
+	gen_temp(ctx, &temp, &qbe_long, "assign.bounds.%d");
+	pushi(ctx->current, &temp, Q_CUGEL, &olen, &vlen, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &temp, &bequal, &bdiff, NULL);
 	push(&ctx->current->body, &diffl);
 
 	struct qbe_value rtabort = {0};
