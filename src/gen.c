@@ -2795,7 +2795,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		assert(0); // Invariant
 	}
 
-	assert(item->value.type);
+	assert(item->type != QD_VALUE || item->value.type);
 	return item;
 }
 
