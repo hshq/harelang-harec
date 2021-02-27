@@ -2067,7 +2067,7 @@ check_expr_tuple(struct context *ctx,
 				ttuple = ttuple->next;
 				etuple = etuple->next;
 			}
-			if (valid) {
+			if (!ttuple && valid) {
 				expr->result = type_dealias(tu->type);
 				break;
 			}
