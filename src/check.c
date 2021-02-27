@@ -1588,7 +1588,7 @@ check_expr_propagate(struct context *ctx,
 
 	const struct type *intype = lvalue->result;
 	expect(&aexpr->loc,
-		type_dealias(intype)->storage,
+		type_dealias(intype)->storage == STORAGE_TAGGED,
 		"Cannot use error propagation with non-tagged type");
 
 	struct type_tagged_union result_tagged = {0};
