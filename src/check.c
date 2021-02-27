@@ -1590,6 +1590,8 @@ check_expr_propagate(struct context *ctx,
 	expect(&aexpr->loc,
 		type_dealias(intype)->storage == STORAGE_TAGGED,
 		"Cannot use error propagation with non-tagged type");
+	expect(&aexpr->loc, !ctx->deferring,
+		"Cannot use error propagation in a defer expression");
 
 	struct type_tagged_union result_tagged = {0};
 	struct type_tagged_union *tagged = &result_tagged,
@@ -1685,7 +1687,7 @@ check_expr_propagate(struct context *ctx,
 	case_err->value->type = EXPR_RETURN;
 	case_err->value->terminates = true;
 	case_err->value->result = &builtin_type_void;
-	struct expression *rval = 
+	struct expression *rval =
 		xcalloc(1, sizeof(struct expression));
 	rval->type = EXPR_ACCESS;
 	rval->access.type = ACCESS_IDENTIFIER;
