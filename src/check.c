@@ -1710,6 +1710,9 @@ check_expr_return(struct context *ctx,
 	const struct type *hint)
 {
 	trenter(TR_CHECK, "return");
+	expect(&aexpr->loc, !ctx->deferring,
+		"Cannot return inside a defer expression");
+
 	expr->type = EXPR_RETURN;
 	expr->result = &builtin_type_void;
 	expr->terminates = true;
