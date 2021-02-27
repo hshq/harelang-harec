@@ -1593,7 +1593,7 @@ gen_expr_control(struct gen_context *ctx,
 			if (strcmp(expr->control.label, scope->label) == 0) {
 				break;
 			}
-		} else if (scope->class == SCOPE_LOOP) {
+		} else if (!expr->control.label && scope->class == SCOPE_LOOP) {
 			break;
 		}
 		scope = scope->parent;

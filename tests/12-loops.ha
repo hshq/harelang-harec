@@ -77,7 +77,12 @@ fn label() void = {
 		:inner for (let j = 0; j < 7; j += 1) {
 			i += 1;
 			if (j == 6) {
-				continue :inner;
+				for (let k = 0; k < 5; k += 1) {
+					if (k == 2) {
+						continue :inner;
+					};
+					assert(k < 2);
+				};
 			};
 			assert(j != 6);
 			if (i > 7) {
