@@ -1726,7 +1726,7 @@ check_expr_return(struct context *ctx,
 		rval->result = &builtin_type_void;
 	}
 
-	expect(&aexpr->_return.value->loc,
+	expect(&aexpr->loc,
 		type_is_assignable(ctx->fntype->func.result, rval->result),
 		"Return value is not assignable to function result type");
 	if (ctx->fntype->func.result != rval->result) {
