@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include "types.h"
 #include "util.h"
@@ -24,7 +25,11 @@ const struct type *
 type_dealias(const struct type *type)
 {
 	while (type->storage == STORAGE_ALIAS) {
-		assert(type->alias.type != NULL);
+		if (type->alias.type == NULL) {
+			fprintf(stderr, "Cannot dealias incomplete type %s\n",
+				identifier_unparse(&type->alias.ident));
+			assert(0);
+		}
 		type = type->alias.type;
 	}
 	return type;

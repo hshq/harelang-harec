@@ -1,11 +1,24 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "check.h"
 #include "eval.h"
 #include "scope.h"
+#include "typedef.h"
 #include "type_store.h"
 #include "util.h"
+
+static char *
+gen_typename(const struct type *type)
+{
+	size_t sz = 0;
+	char *ptr = NULL;
+	FILE *f = open_memstream(&ptr, &sz);
+	emit_type(type, f);
+	fclose(f);
+	return ptr;
+}
 
 static size_t
 ast_array_len(struct type_store *store, const struct ast_type *atype)
@@ -326,7 +339,14 @@ tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 
 	struct type_tagged_union **next = &type->tagged.next;
 	for (size_t i = 1; i < nmemb; ++i) {
-		assert(tu[i]->type->size != SIZE_UNDEFINED); // TODO
+		if (tu[i]->type->size == SIZE_UNDEFINED) {
+			char *type = gen_typename(tu[i]->type);
+			fprintf(stderr,
+				"Cannot create tagged union from type of undefined size %s\n",
+				type);
+			free(type);
+		}
+
 		if (tu[i]->type->size > type->size) {
 			type->size = tu[i]->type->size;
 		}
@@ -448,7 +468,12 @@ type_init_from_atype(struct type_store *store,
 			return;
 		}
 
-		assert(obj->otype == O_TYPE); // TODO: Bubble this up
+		if (obj->otype != O_TYPE) {
+			fprintf(stderr, "Object '%s' is not a type\n",
+					identifier_unparse(&obj->ident));
+			assert(0);
+		}
+
 		if (atype->unwrap) {
 			*type = *type_dealias(obj->type);
 			break;
