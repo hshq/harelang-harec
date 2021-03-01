@@ -2460,10 +2460,9 @@ parse_type_decl(struct lexer *lexer, struct ast_type_decl *decl)
 	}
 
 	for (struct ast_type_decl *i = decl; i; i = i->next) {
-		char ibuf[1024], tbuf[1024];
+		char ibuf[1024];
 		identifier_unparse_static(&i->ident, ibuf, sizeof(ibuf));
-		strncpy(tbuf, "[type]", sizeof(tbuf)); // TODO: unparse type
-		trace(TR_PARSE, "def %s = %s", ibuf, tbuf);
+		trace(TR_PARSE, "def %s = [type]", ibuf);
 	}
 	trleave(TR_PARSE, NULL);
 }
