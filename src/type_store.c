@@ -145,6 +145,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 
 	field->name = strdup(atype->field.name);
 	field->type = type_store_lookup_atype(store, atype->field.type);
+	assert(field->type->size != SIZE_UNDEFINED);
 	
 	if (atype->offset) {
 		*ccompat = false;
@@ -172,6 +173,11 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		*usize = field->type->size > *usize ? field->type->size : *usize;
 	}
 	*align = field->type->align > *align ? field->type->align : *align;
+
+	if (!atype->offset) {
+		assert(field->offset % field->type->align == 0);
+		assert(field->offset % *align == 0);
+	}
 }
 
 static void
