@@ -193,7 +193,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	case BIN_LAND:
 		assert(type_dealias(lvalue.result)->storage == STORAGE_BOOL
 			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
-		bval = blval || brval;
+		bval = blval && brval;
 		break;
 	case BIN_LEQUAL:
 		if (type_is_signed(lvalue.result)) {
