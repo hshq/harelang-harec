@@ -2782,8 +2782,30 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			assert(0);
 		}
 		break;
-	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+		for (const struct tuple_constant *tuple = constant->tuple;
+				tuple; tuple = tuple->next) {
+			item = gen_data_item(ctx, tuple->value, item);
+			if (tuple->next) {
+				const struct type_tuple *f1 = tuple->field;
+				const struct type_tuple *f2 = tuple->next->field;
+				if (f2->offset != f1->offset + f1->type->size) {
+					item->next = xcalloc(1,
+						sizeof(struct qbe_data_item));
+					item = item->next;
+					item->type = QD_ZEROED;
+					item->zeroed = f2->offset -
+						(f1->offset + f1->type->size);
+				}
+
+
+				item->next = xcalloc(1,
+					sizeof(struct qbe_data_item));
+				item = item->next;
+			}
+		}
+		break;
+	case STORAGE_TAGGED:
 	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_ALIAS:

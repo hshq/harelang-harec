@@ -28,7 +28,23 @@ eval_access(struct context *ctx, struct expression *in, struct expression *out)
 	case ACCESS_FIELD:
 		assert(0); // TODO
 	case ACCESS_TUPLE:
-		assert(0); // TODO
+		out->type = EXPR_CONSTANT;
+		struct expression tmp = {0};
+		enum eval_result r = eval_expr(ctx, in->access.value, &tmp);
+		if (r != EVAL_OK) {
+			return r;
+		}
+		size_t i = tmp.constant.uval;
+		// ensure the entire tuple is known at compile time
+		r = eval_expr(ctx, in->access.tuple, &tmp);
+		if (r != EVAL_OK) {
+			return r;
+		}
+		const struct tuple_constant *tuple = tmp.constant.tuple;
+		for (; i > 0; --i) {
+			tuple = tuple->next;
+		}
+		return eval_expr(ctx, tuple->value, out);
 	}
 
 	return EVAL_OK;
@@ -536,6 +552,40 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 }
 
 static enum eval_result
+eval_tuple(struct context *ctx, struct expression *in, struct expression *out)
+{
+	assert(in->type == EXPR_TUPLE);
+	const struct type *type = type_dealias(in->result);
+	out->type = EXPR_CONSTANT;
+
+
+	struct tuple_constant *out_tuple_start, *out_tuple;
+	out_tuple_start = out_tuple = xcalloc(1, sizeof(struct tuple_constant));
+	const struct expression_tuple *in_tuple = &in->tuple;
+	for (const struct type_tuple *field_type = &type->tuple; field_type;
+			field_type = field_type->next) {
+		out_tuple->value = xcalloc(1, sizeof(struct expression));
+		enum eval_result r =
+			eval_expr(ctx, in_tuple->value, out_tuple->value);
+		if (r != EVAL_OK) {
+			return r;
+		}
+		out_tuple->field = field_type;
+		if (in_tuple->next) {
+			in_tuple = in_tuple->next;
+			out_tuple->next =
+				xcalloc(1, sizeof(struct tuple_constant));
+			out_tuple = out_tuple->next;
+		}
+	}
+
+	out->constant.tuple = out_tuple_start;
+	out->result = in->result;
+	return EVAL_OK;
+}
+
+
+static enum eval_result
 eval_unarithm(struct context *ctx, struct expression *in, struct expression *out)
 {
 	struct expression lvalue = {0};
@@ -581,8 +631,9 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_STRUCT:
 		return eval_struct(ctx, in, out);
 	case EXPR_SLICE:
-	case EXPR_TUPLE:
 		assert(0); // TODO
+	case EXPR_TUPLE:
+		return eval_tuple(ctx, in, out);
 	case EXPR_UNARITHM:
 		return eval_unarithm(ctx, in, out);
 	case EXPR_ALLOC:

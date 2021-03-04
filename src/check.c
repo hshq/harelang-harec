@@ -360,7 +360,7 @@ check_expr_assert(struct context *ctx,
 			assert(out.result->storage == STORAGE_BOOL);
 			cond = out.constant.bval;
 		} else {
-			cond = false; 
+			cond = false;
 		}
 		if (aexpr->assert.message != NULL) {
 			expect(&aexpr->assert.cond->loc, cond,
