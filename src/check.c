@@ -1592,6 +1592,8 @@ check_expr_propagate(struct context *ctx,
 		"Cannot use error propagation with non-tagged type");
 	expect(&aexpr->loc, !ctx->deferring,
 		"Cannot use error propagation in a defer expression");
+	expect(&aexpr->loc, !(ctx->fntype->func.flags & FN_NORETURN),
+		"Cannot use error propagation inside @noreturn function");
 
 	struct type_tagged_union result_tagged = {0};
 	struct type_tagged_union *tagged = &result_tagged,
@@ -1712,6 +1714,8 @@ check_expr_return(struct context *ctx,
 	trenter(TR_CHECK, "return");
 	expect(&aexpr->loc, !ctx->deferring,
 		"Cannot return inside a defer expression");
+	expect(&aexpr->loc, !(ctx->fntype->func.flags & FN_NORETURN),
+		"Cannot return inside @noreturn function");
 
 	expr->type = EXPR_RETURN;
 	expr->result = &builtin_type_void;
