@@ -590,7 +590,7 @@ gen_expr_alloc(struct gen_context *ctx,
 		pushi(ctx->current, NULL, Q_JMP, &bend, NULL);
 	} else {
 		struct qbe_value reason = {0}, rtabort = {0};
-		constl(&reason, 2);
+		constl(&reason, ABORT_ALLOC_FAILURE);
 		rtabort.kind = QV_GLOBAL;
 		rtabort.name = strdup("rt.abort_fixed");
 		rtabort.type = &qbe_long;
@@ -789,7 +789,7 @@ gen_expr_assign_slice(struct gen_context *ctx,
 	rtabort.kind = QV_GLOBAL;
 	rtabort.name = strdup("rt.abort_fixed");
 	rtabort.type = &qbe_long;
-	constl(&temp, 0);
+	constl(&temp, ABORT_OOB);
 	pushi(ctx->current, NULL, Q_CALL, &rtabort, &temp, NULL);
 	push(&ctx->current->body, &equall);
 
