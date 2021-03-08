@@ -1086,7 +1086,8 @@ gen_expr_type_test(struct gen_context *ctx,
 	pushc(ctx->current, "%u => %s", want->id, type);
 	free(type);
 	constl(&id, want->id);
-	pushi(ctx->current, out, Q_CEQW, &tag, &id, NULL);
+	pushi(ctx->current, &tag, Q_CEQW, &tag, &id, NULL);
+	gen_store(ctx, out, &tag);
 }
 
 static void
