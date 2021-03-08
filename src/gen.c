@@ -1218,10 +1218,6 @@ gen_cast_from_tagged(struct gen_context *ctx,
 		return;
 	}
 
-	if (type_dealias(to)->storage == STORAGE_TAGGED) {
-		assert(0); // TODO
-	}
-
 	const struct type *tagged = expr->cast.value->result;
 	struct qbe_value object = {0}, offs = {0}, temp = {0};
 	alloc_temp(ctx, &object, tagged, "from.tagged.%d");
@@ -1267,13 +1263,16 @@ gen_expr_cast(struct gen_context *ctx,
 	}
 
 	const struct type *to = expr->result, *from = expr->cast.value->result;
-	if (type_dealias(to)->storage == STORAGE_TAGGED) {
+	if (type_dealias(to)->storage == STORAGE_TAGGED
+			&& expr->cast.kind == C_CAST) {
 		gen_cast_to_tagged(ctx, expr, out, from);
 		return;
 	} else if (type_dealias(from)->storage == STORAGE_TAGGED) {
 		gen_cast_from_tagged(ctx, expr, out, to);
 		return;
 	}
+
+	assert(expr->cast.kind == C_CAST);
 
 	to = type_dealias(to), from = type_dealias(from);
 	if (to->storage == from->storage && to->size == from->size) {
@@ -1316,10 +1315,6 @@ gen_expr_cast(struct gen_context *ctx,
 		gen_temp(ctx, &in, qtype_for_type(ctx, from, false), "cast.in.%d");
 	}
 	gen_expression(ctx, expr->cast.value, &in);
-
-	if (expr->cast.kind == C_ASSERTION) {
-		gen_type_assertion(ctx, expr, &in);
-	}
 
 	// Used for various casts
 	enum qbe_instr op;
