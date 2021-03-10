@@ -680,6 +680,7 @@ gen_expr_append(struct gen_context *ctx,
 			value = value->next) {
 		struct qbe_value v = {0};
 		alloc_temp(ctx, &v, value->expr->result, "append.value.%d");
+		qval_deref(&v);
 		gen_expression(ctx, value->expr, &v);
 		v.indirect = false;
 		ptr.type = type;

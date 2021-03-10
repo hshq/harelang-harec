@@ -570,6 +570,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 		}
 		assert(0); // Unreachable
 	case STORAGE_ALIAS:
+		assert(to->alias.type);
 		return type_is_assignable(to->alias.type, from);
 	case STORAGE_STRING:
 		return to->id == builtin_type_ptr_const_char.id;
