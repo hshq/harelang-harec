@@ -1,3 +1,5 @@
+use rt;
+
 let x: int = 10;
 
 fn basics() void = {
@@ -47,10 +49,24 @@ fn control() void = {
 	assert(x == 1);
 };
 
+fn noreturn() void = {
+	defer x = 30;
+	for (true) {
+		defer x = 20;
+		exit();
+	};
+};
+
+@noreturn fn exit() void = {
+	assert(x == 30);
+	rt::exit(0);
+};
+
 export fn main() void = {
 	basics();
 	assert(x == 20);
 	scope();
 	loops();
 	control();
+	noreturn();
 };

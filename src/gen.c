@@ -1044,6 +1044,17 @@ gen_expr_call(struct gen_context *ctx,
 			ftype->func.result, true), "returns.%d");
 		call.out = qval_dup(&result);
 	}
+	if (ftype->func.flags & FN_NORETURN) {
+		struct gen_scope_context *scope = ctx->scope;
+		while (scope) {
+			gen_defers(ctx, scope);
+			if (scope->class == SCOPE_FUNC) {
+				break;
+			}
+			scope = scope->parent;
+		}
+		assert(scope);
+	}
 
 	while (carg) {
 		arg = *next = xcalloc(1, sizeof(struct qbe_arguments));
