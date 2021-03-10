@@ -6,11 +6,20 @@ export @noreturn @symbol("rt.abort") fn _abort(msg: str) void = {
 	kill(getpid(), SIGABRT);
 };
 
-// See include/gen.h
+// See harec:include/gen.h
 const reasons: [_]str = [
 	"slice or array access out of bounds",	// 0
 	"type assertion failed",		// 1
-	"allocation failed",			// 2
+	"out of memory",			// 2
 ];
 
-export @noreturn fn abort_fixed(i: int) void = _abort(reasons[i]);
+export @noreturn fn abort_fixed(loc: str, i: int) void = {
+	const prefix = "Abort: ";
+	const sep = ": ";
+	write(2, prefix: *const char, len(prefix));
+	write(2, loc: *const char, len(loc));
+	write(2, sep: *const char, len(sep));
+	write(2, reasons[i]: *const char, len(reasons[i]));
+	write(2, "\n": *const char, 1);
+	kill(getpid(), SIGABRT);
+};

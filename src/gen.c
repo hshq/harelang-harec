@@ -297,6 +297,32 @@ gen_loadtemp(struct gen_context *ctx,
 }
 
 static void
+gen_fixed_abort(struct gen_context *ctx, struct location loc,
+	enum fixed_aborts reason)
+{
+	int n = snprintf(NULL, 0, "%s:%d:%d", loc.path, loc.lineno, loc.colno);
+	char *s = xcalloc(1, n + 1);
+	snprintf(s, n, "%s:%d:%d", loc.path, loc.lineno, loc.colno);
+
+	struct qbe_value location = {0};
+	struct expression eloc = {0};
+	eloc.type = EXPR_CONSTANT;
+	eloc.result = &builtin_type_const_str;
+	eloc.constant.string.value = s;
+	eloc.constant.string.len = n;
+	alloc_temp(ctx, &location, &builtin_type_const_str, "str.%d");
+	qval_deref(&location);
+	gen_expression(ctx, &eloc, &location);
+
+	struct qbe_value rtabort = {0}, tmp = {0};
+	rtabort.kind = QV_GLOBAL;
+	rtabort.name = strdup("rt.abort_fixed");
+	rtabort.type = &qbe_long;
+	constl(&tmp, reason);
+	pushi(ctx->current, NULL, Q_CALL, &rtabort, &location, &tmp, NULL);
+}
+
+static void
 address_ident(struct gen_context *ctx,
 	const struct expression *expr,
 	struct qbe_value *out)
@@ -355,12 +381,7 @@ address_index(struct gen_context *ctx,
 		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
 		push(&ctx->current->body, &invalidl);
 
-		struct qbe_value rtfunc = {0};
-		rtfunc.kind = QV_GLOBAL;
-		rtfunc.name = strdup("rt.abort_fixed");
-		rtfunc.type = &qbe_long;
-		constl(&valid, ABORT_OOB);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &valid, NULL);
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
 
 		push(&ctx->current->body, &validl);
 	}
@@ -589,12 +610,7 @@ gen_expr_alloc(struct gen_context *ctx,
 	if (type_dealias(expr->result)->pointer.flags & PTR_NULLABLE) {
 		pushi(ctx->current, NULL, Q_JMP, &bend, NULL);
 	} else {
-		struct qbe_value reason = {0}, rtabort = {0};
-		constl(&reason, ABORT_ALLOC_FAILURE);
-		rtabort.kind = QV_GLOBAL;
-		rtabort.name = strdup("rt.abort_fixed");
-		rtabort.type = &qbe_long;
-		pushi(ctx->current, NULL, Q_CALL, &rtabort, &reason, NULL);
+		gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
 	}
 	push(&ctx->current->body, &validl);
 	if (!type_is_aggregate(type_dealias(expr->result)->pointer.referent)) {
@@ -786,12 +802,7 @@ gen_expr_assign_slice(struct gen_context *ctx,
 	pushi(ctx->current, NULL, Q_JNZ, &temp, &bequal, &bdiff, NULL);
 	push(&ctx->current->body, &diffl);
 
-	struct qbe_value rtabort = {0};
-	rtabort.kind = QV_GLOBAL;
-	rtabort.name = strdup("rt.abort_fixed");
-	rtabort.type = &qbe_long;
-	constl(&temp, ABORT_OOB);
-	pushi(ctx->current, NULL, Q_CALL, &rtabort, &temp, NULL);
+	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
 	push(&ctx->current->body, &equall);
 
 	struct qbe_value rtmemcpy = {0}, optr = {0}, vptr = {0};
@@ -1131,12 +1142,7 @@ gen_type_assertion(struct gen_context *ctx,
 
 	push(&ctx->current->body, &invalidl);
 
-	struct qbe_value rtfunc = {0};
-	rtfunc.kind = QV_GLOBAL;
-	rtfunc.name = strdup("rt.abort_fixed");
-	rtfunc.type = &qbe_long;
-	constl(&result, ABORT_TYPE_ASSERTION);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &result, NULL);
+	gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
 
 	push(&ctx->current->body, &validl);
 }

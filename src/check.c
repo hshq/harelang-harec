@@ -2161,6 +2161,7 @@ check_expression(struct context *ctx,
 	const struct type *hint)
 {
 	trenter(TR_CHECK, "expression");
+	expr->loc = aexpr->loc;
 
 	switch (aexpr->type) {
 	case EXPR_ACCESS:

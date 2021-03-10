@@ -2,6 +2,7 @@
 #define HAREC_EXPR_H
 #include <stdint.h>
 #include "identifier.h"
+#include "lex.h"
 #include "types.h"
 
 struct scope;
@@ -316,6 +317,7 @@ struct expression {
 	const struct type *result;
 	enum expr_type type;
 	bool terminates;
+	struct location loc; // For fixed aborts
 	union {
 		struct expression_access access;
 		struct expression_alloc alloc;
