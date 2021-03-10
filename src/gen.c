@@ -670,7 +670,7 @@ gen_expr_append(struct gen_context *ctx,
 	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, NULL);
 
 	struct qbe_value ptr = {0};
-	const struct qbe_type *type = qtype_for_type(ctx, mtype, false);
+	const struct qbe_type *type = qtype_for_type(ctx, mtype, true);
 	qval_deref(&val);
 	gen_loadtemp(ctx, &ptr, &val, &qbe_long, "append.ptr.%d");
 	qval_address(&ptr);
