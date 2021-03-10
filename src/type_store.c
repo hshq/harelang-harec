@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -8,6 +9,21 @@
 #include "typedef.h"
 #include "type_store.h"
 #include "util.h"
+
+static void
+expect(const struct location *loc, bool constraint, char *fmt, ...)
+{
+	if (!constraint) {
+		va_list ap;
+		va_start(ap, fmt);
+
+		fprintf(stderr, "Error %s:%d:%d: ",
+			loc->path, loc->lineno, loc->colno);
+		vfprintf(stderr, fmt, ap);
+		fprintf(stderr, "\n");
+		abort();
+	}
+}
 
 static char *
 gen_typename(const struct type *type)
@@ -466,7 +482,9 @@ type_init_from_atype(struct type_store *store,
 				&atype->alias);
 		}
 		if (!obj) {
-			assert(!atype->unwrap);
+			expect(&atype->loc, !atype->unwrap,
+					"Cannot unwrap unknown type alias %s",
+					identifier_unparse(ident));
 			identifier_dup(&type->alias.ident, ident);
 			type->alias.type = NULL;
 			type->size = SIZE_UNDEFINED;
@@ -474,11 +492,9 @@ type_init_from_atype(struct type_store *store,
 			return;
 		}
 
-		if (obj->otype != O_TYPE) {
-			fprintf(stderr, "Object '%s' is not a type\n",
-					identifier_unparse(&obj->ident));
-			assert(0);
-		}
+		expect(&atype->loc, obj->otype == O_TYPE,
+				"Object '%s' is not a type",
+				identifier_unparse(&obj->ident));
 
 		if (atype->unwrap) {
 			*type = *type_dealias(obj->type);
