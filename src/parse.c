@@ -2444,7 +2444,6 @@ parse_type_decl(struct lexer *lexer, struct ast_type_decl *decl)
 		i->type = parse_type(lexer);
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
-			lex(lexer, &tok);
 			if (lex(lexer, &tok) == T_NAME) {
 				i->next = xcalloc(1, sizeof(struct ast_type_decl));
 				i = i->next;
