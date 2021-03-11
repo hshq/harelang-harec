@@ -499,6 +499,11 @@ tagged_subset_compat(const struct type *to, const struct type *from)
 bool
 type_is_assignable(const struct type *to, const struct type *from)
 {
+	if (type_dealias(to)->storage != STORAGE_TAGGED) {
+		to = type_dealias(to);
+		from = type_dealias(from);
+	}
+
 	// const and non-const types are mutually assignable
 	struct type _to, _from;
 	const struct type *from_orig = from;

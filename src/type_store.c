@@ -164,7 +164,6 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	
 	if (atype->offset) {
 		*ccompat = false;
-		assert(storage == STORAGE_STRUCT); // TODO: Bubble up
 		struct expression in, out;
 		check_expression(store->check_context, atype->offset, &in, NULL);
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
