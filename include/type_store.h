@@ -3,7 +3,7 @@
 #include "ast.h"
 #include "types.h"
 
-#define TYPE_STORE_BUCKETS 256
+#define TYPE_STORE_BUCKETS 65536
 
 struct type_bucket {
 	struct type type;

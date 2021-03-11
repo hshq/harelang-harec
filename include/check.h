@@ -85,7 +85,8 @@ struct ast_unit;
 struct scope *check(struct type_store *ts,
 	struct build_tags *tags,
 	const struct ast_unit *aunit,
-	struct unit *unit);
+	struct unit *unit,
+	bool scan_only);
 
 void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,

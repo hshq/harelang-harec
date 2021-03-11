@@ -2721,7 +2721,7 @@ load_import(struct ast_imports *import,
 
 struct scope *
 check(struct type_store *ts, struct build_tags *tags,
-		const struct ast_unit *aunit, struct unit *unit)
+		const struct ast_unit *aunit, struct unit *unit, bool scan_only)
 {
 	struct context ctx = {0};
 	ctx.ns = unit->ns;

@@ -64,5 +64,5 @@ module_resolve(struct identifier *ident, struct type_store *store)
 
 	// TODO: Free unused bits
 	struct unit u = {0};
-	return check(store, NULL, &aunit, &u);
+	return check(store, NULL, &aunit, &u, true);
 }
