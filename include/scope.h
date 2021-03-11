@@ -4,6 +4,8 @@
 #include "identifier.h"
 #include "trace.h"
 
+#define SCOPE_BUCKETS 4096
+
 enum object_type {
 	O_BIND,
 	O_CONST,
@@ -11,24 +13,32 @@ enum object_type {
 	O_TYPE,
 };
 
-// XXX: This might be better as a hash map
 struct scope_object {
 	enum object_type otype;
 	// name is the name of the object within this scope (for lookups)
-	// ident is the global identifier
-	// (these may be different in some cases)
+	// ident is the global identifier (these may be different in some cases)
 	struct identifier name, ident;
+
 	const struct type *type;
 	struct expression *value; // For O_CONST
-	struct scope_object *next, *prev;
+
+	struct scope_object *lnext; // Linked list
+	struct scope_object *mnext; // Hash map
 };
 
 struct scope {
 	enum expr_type type;
 	const char *label;
-	struct scope_object *objects, *last;
-	struct scope_object **next; // List order matters for functions
 	struct scope *parent;
+
+	// Linked list in insertion order
+	// Used for function parameters, where order matters
+	struct scope_object *objects;
+	struct scope_object **next;
+
+	// Hash map in reverse insertion order
+	// Used for lookups, and accounts for shadowing
+	struct scope_object *buckets[SCOPE_BUCKETS];
 };
 
 struct scopes {

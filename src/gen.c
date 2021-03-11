@@ -2878,7 +2878,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			gen_store(ctx, &val, &src);
 		}
 
-		obj = obj->next;
+		obj = obj->lnext;
 		next = &param->next;
 	}
 

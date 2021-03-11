@@ -6,6 +6,14 @@
 #include "trace.h"
 #include "util.h"
 
+#include <stdio.h>
+
+static uint32_t
+name_hash(uint32_t init, const struct identifier *ident)
+{
+	return fnv1a_s(init, ident->name);
+}
+
 struct scope *
 scope_push(struct scope **stack, enum trace_sys sys)
 {
@@ -42,7 +50,7 @@ scope_free(struct scope *scope)
 
 	struct scope_object *obj = scope->objects;
 	while (obj) {
-		struct scope_object *next = obj->next;
+		struct scope_object *next = obj->lnext;
 		free(obj);
 		obj = next;
 	}
@@ -76,23 +84,34 @@ scope_insert(struct scope *scope, enum object_type otype,
 		assert(otype == O_CONST);
 		assert(value->type == EXPR_CONSTANT);
 	}
+
+	// Linked list
 	*scope->next = o;
-	scope->next = &o->next;
-	o->prev = scope->last;
-	scope->last = o;
+	scope->next = &o->lnext;
+
+	// Hash map
+	uint32_t hash = name_hash(FNV1A_INIT, name);
+	struct scope_object **bucket = &scope->buckets[hash % SCOPE_BUCKETS];
+	if (*bucket) {
+		//fprintf(stderr, "%u %u\n", hash, hash % SCOPE_BUCKETS);
+		o->mnext = *bucket;
+	}
+	*bucket = o;
+
 	return o;
 }
 
 const struct scope_object *
 scope_lookup(struct scope *scope, const struct identifier *ident)
 {
-	struct scope_object *o = scope->last;
-	while (o) {
-		if (identifier_eq(&o->ident, ident)
-				|| identifier_eq(&o->name, ident)) {
-			return o;
+	uint32_t hash = name_hash(FNV1A_INIT, ident);
+	struct scope_object *bucket = scope->buckets[hash % SCOPE_BUCKETS];
+	while (bucket) {
+		if (identifier_eq(&bucket->name, ident)
+				|| identifier_eq(&bucket->ident, ident)) {
+			return bucket;
 		}
-		o = o->prev;
+		bucket = bucket->mnext;
 	}
 	if (scope->parent) {
 		return scope_lookup(scope->parent, ident);

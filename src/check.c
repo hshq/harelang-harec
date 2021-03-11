@@ -2636,7 +2636,7 @@ load_import(struct ast_imports *import,
 	switch (import->mode) {
 	case AST_IMPORT_IDENTIFIER:
 		for (struct scope_object *obj = mod->objects;
-				obj; obj = obj->next) {
+				obj; obj = obj->lnext) {
 			scope_insert(scope, obj->otype, &obj->ident,
 				&obj->name, obj->type, obj->value);
 			if (obj->name.ns && obj->name.ns->ns) {
@@ -2664,7 +2664,7 @@ load_import(struct ast_imports *import,
 		break;
 	case AST_IMPORT_ALIAS:
 		for (struct scope_object *obj = mod->objects;
-				obj; obj = obj->next) {
+				obj; obj = obj->lnext) {
 			struct identifier ns = {
 				.name = obj->name.ns->name,
 				.ns = import->alias,
@@ -2703,7 +2703,7 @@ load_import(struct ast_imports *import,
 				continue;
 			};
 			for (struct scope_object *o = mod->objects;
-					o; o = o->next) {
+					o; o = o->lnext) {
 				if (!identifier_eq(o->name.ns, &ident)) {
 					continue;
 				};
