@@ -4,6 +4,8 @@
 #include "scope.h"
 #include "type_store.h"
 
-struct scope *module_resolve(struct identifier *ident, struct type_store *store);
+struct modcache;
+struct scope *module_resolve(struct modcache *cache[],
+		struct identifier *ident, struct type_store *store);
 
 #endif

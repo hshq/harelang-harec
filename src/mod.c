@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,8 +45,18 @@ open_typedefs(struct identifier *ident)
 }
 
 struct scope *
-module_resolve(struct identifier *ident, struct type_store *store)
+module_resolve(struct modcache *cache[],
+		struct identifier *ident,
+		struct type_store *store)
 {
+	uint32_t hash = identifier_hash(FNV1A_INIT, ident);
+	struct modcache **bucket = &cache[hash % MODCACHE_BUCKETS];
+	for (; *bucket; bucket = &(*bucket)->next) {
+		if (identifier_eq(&(*bucket)->ident, ident)) {
+			return (*bucket)->scope;
+		}
+	}
+
 	struct lexer lexer = {0};
 	struct ast_unit aunit = {0};
 
@@ -64,5 +75,14 @@ module_resolve(struct identifier *ident, struct type_store *store)
 
 	// TODO: Free unused bits
 	struct unit u = {0};
-	return check(store, NULL, &aunit, &u, true);
+	struct scope *scope = check_internal(store,
+			cache, NULL, &aunit, &u, true);
+
+	bucket = &cache[hash % MODCACHE_BUCKETS];
+	struct modcache *item = xcalloc(1, sizeof(struct modcache));
+	identifier_dup(&item->ident, ident);
+	item->scope = scope;
+	item->next = *bucket;
+	*bucket = item;
+	return scope;
 }

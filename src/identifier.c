@@ -8,6 +8,17 @@
 #include "identifier.h"
 #include "util.h"
 
+uint32_t
+identifier_hash(uint32_t init, const struct identifier *ident)
+{
+	init = fnv1a_s(init, ident->name);
+	init = fnv1a(init, 0);
+	if (ident->ns) {
+		init = identifier_hash(init, ident->ns);
+	}
+	return init;
+}
+
 static int
 _asprintf(char **strp, const char *fmt, ...)
 {

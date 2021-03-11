@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "lex.h"
-#include "trace.h"
 #include "utf8.h"
 #include "util.h"
 
@@ -710,7 +709,6 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			break;
 		case '/':
 			while ((c = next(lexer, NULL, false)) != UTF8_INVALID && c != '\n') ;
-			trace(TR_LEX, "comment");
 			return _lex(lexer, out);
 		default:
 			push(lexer, c, false);
@@ -912,10 +910,7 @@ _lex(struct lexer *lexer, struct token *out)
 enum lexical_token
 lex(struct lexer *lexer, struct token *out)
 {
-	enum lexical_token l = _lex(lexer, out);
-	const char *s = token_str(out);
-	trace(TR_LEX, "%s", s);
-	return l;
+	return _lex(lexer, out);
 }
 
 void
@@ -1107,7 +1102,5 @@ void
 unlex(struct lexer *lexer, struct token *in)
 {
 	assert(lexer->un.token == T_ERROR && "Only one unlex is supported");
-	const char *s = token_str(in);
-	trace(TR_LEX, "(unlex) %s", s);
 	lexer->un = *in;
 }

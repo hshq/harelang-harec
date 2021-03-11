@@ -137,7 +137,7 @@ main(int argc, char *argv[])
 
 	struct type_store ts = {0};
 	builtin_types_init();
-	check(&ts, tags, &aunit, &unit, false);
+	check(&ts, tags, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
 		return 0;
 	}

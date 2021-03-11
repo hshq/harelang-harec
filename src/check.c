@@ -2628,10 +2628,10 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 }
 
 static void
-load_import(struct ast_imports *import,
+load_import(struct context *ctx, struct ast_imports *import,
 	struct type_store *ts, struct scope *scope)
 {
-	struct scope *mod = module_resolve(&import->ident, ts);
+	struct scope *mod = module_resolve(ctx->modcache, &import->ident, ts);
 
 	switch (import->mode) {
 	case AST_IMPORT_IDENTIFIER:
@@ -2720,14 +2720,19 @@ load_import(struct ast_imports *import,
 }
 
 struct scope *
-check(struct type_store *ts, struct build_tags *tags,
-		const struct ast_unit *aunit, struct unit *unit, bool scan_only)
+check_internal(struct type_store *ts,
+		struct modcache **cache,
+		struct build_tags *tags,
+		const struct ast_unit *aunit,
+		struct unit *unit,
+		bool scan_only)
 {
 	struct context ctx = {0};
 	ctx.ns = unit->ns;
 	ctx.tags = tags;
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
+	ctx.modcache = cache;
 
 	// Top-level scope management involves:
 	//
@@ -2750,7 +2755,7 @@ check(struct type_store *ts, struct build_tags *tags,
 
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
-			load_import(imports, ts, ctx.scope);
+			load_import(&ctx, imports, ts, ctx.scope);
 
 			bool found = false;
 			for (struct imports *uimports = unit->imports;
@@ -2776,6 +2781,10 @@ check(struct type_store *ts, struct build_tags *tags,
 		next = &(*next)->next;
 	}
 
+	if (scan_only) {
+		return ctx.unit;
+	}
+
 	// Second pass populates the expression graph
 	struct scopes *scope = subunit_scopes;
 	struct declarations **next_decl = &unit->declarations;
@@ -2789,4 +2798,15 @@ check(struct type_store *ts, struct build_tags *tags,
 	}
 
 	return ctx.unit;
+}
+
+struct scope *
+check(struct type_store *ts,
+		struct build_tags *tags,
+		const struct ast_unit *aunit,
+		struct unit *unit)
+{
+	struct modcache *modcache[MODCACHE_BUCKETS];
+	memset(modcache, 0, sizeof(modcache));
+	return check_internal(ts, modcache, tags, aunit, unit, false);
 }

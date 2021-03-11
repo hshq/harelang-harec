@@ -6,8 +6,6 @@
 #include "trace.h"
 #include "util.h"
 
-#include <stdio.h>
-
 static uint32_t
 name_hash(uint32_t init, const struct identifier *ident)
 {
@@ -93,7 +91,6 @@ scope_insert(struct scope *scope, enum object_type otype,
 	uint32_t hash = name_hash(FNV1A_INIT, name);
 	struct scope_object **bucket = &scope->buckets[hash % SCOPE_BUCKETS];
 	if (*bucket) {
-		//fprintf(stderr, "%u %u\n", hash, hash % SCOPE_BUCKETS);
 		o->mnext = *bucket;
 	}
 	*bucket = o;

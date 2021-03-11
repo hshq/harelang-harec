@@ -2,12 +2,14 @@
 #define HARE_IDENTIFIER_H
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 struct identifier {
 	char *name;
 	struct identifier *ns;
 };
 
+uint32_t identifier_hash(uint32_t init, const struct identifier *ident);
 char *identifier_unparse(const struct identifier *ident);
 int identifier_unparse_static(
 	const struct identifier *ident, char *buf, size_t len);

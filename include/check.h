@@ -9,7 +9,16 @@ struct build_tags;
 struct expression;
 struct scope;
 
+#define MODCACHE_BUCKETS 256
+
+struct modcache {
+	struct identifier ident;
+	struct scope *scope;
+	struct modcache *next;
+};
+
 struct context {
+	struct modcache **modcache;
 	struct type_store *store;
 	const struct type *fntype;
 	struct identifier *ns;
@@ -85,8 +94,14 @@ struct ast_unit;
 struct scope *check(struct type_store *ts,
 	struct build_tags *tags,
 	const struct ast_unit *aunit,
-	struct unit *unit,
-	bool scan_only);
+	struct unit *unit);
+
+struct scope *check_internal(struct type_store *ts,
+		struct modcache **cache,
+		struct build_tags *tags,
+		const struct ast_unit *aunit,
+		struct unit *unit,
+		bool scan_only);
 
 void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
