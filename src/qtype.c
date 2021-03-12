@@ -162,12 +162,9 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 		}
 	}
 
-	switch (type->storage) {
-	// Special cases
-	case STORAGE_ARRAY:
+	if (type->storage == STORAGE_ARRAY && type->array.length == SIZE_UNDEFINED) {
+		// Special case
 		return &qbe_long;
-	default:
-		break;
 	}
 
 	int n = snprintf(NULL, 0, "type.%zd", ctx->id);
@@ -186,6 +183,12 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 
 	struct qbe_field *field = &def->type.fields;
 	switch (type->storage) {
+	case STORAGE_ARRAY:
+		assert(type->array.length != SIZE_UNDEFINED);
+		def->type.align = type->align;
+		field->type = qtype_for_type(ctx, type->array.members, true);
+		field->count = type->array.length;
+		break;
 	case STORAGE_STRING:
 		field->type = &qbe_long; // XXX: ARCH
 		field->count = 3;
@@ -252,7 +255,6 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 		}
 		break;
 	case STORAGE_ENUM:
-	case STORAGE_ARRAY:
 	case STORAGE_ALIAS:
 	case STORAGE_CHAR:
 	case STORAGE_I8:

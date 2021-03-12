@@ -1331,6 +1331,9 @@ gen_expr_cast(struct gen_context *ctx,
 		qval_deref(&in);
 	} else {
 		gen_temp(ctx, &in, qtype_for_type(ctx, from, false), "cast.in.%d");
+		if (type_is_aggregate(expr->cast.value->result)) {
+			qval_address(&in);
+		}
 	}
 	gen_expression(ctx, expr->cast.value, &in);
 
