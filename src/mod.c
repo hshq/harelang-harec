@@ -14,19 +14,37 @@
 #include "type_store.h"
 #include "util.h"
 
+static char *
+ident_to_env(const struct identifier *ident)
+{
+	if (ident->ns) {
+		char *ns = ident_to_env(ident->ns);
+		if (!ns) {
+			return NULL;
+		}
+		int n = snprintf(NULL, 0, "%s_%s", ns, ident->name);
+		char *str = xcalloc(1, n + 1);
+		snprintf(str, n + 1, "%s_%s", ns, ident->name);
+		free(ns);
+		return str;
+	}
+	return strdup(ident->name);
+}
+
+
 static const char *
 open_typedefs(struct identifier *ident)
 {
-	char *sym = ident_to_sym(ident);
+	char *env = ident_to_env(ident);
 	char versenv[PATH_MAX+1];
-	snprintf(versenv, sizeof(versenv), "HARE.%s.VERSION", sym);
+	snprintf(versenv, sizeof(versenv), "HARE_VERSION_%s", env);
 
 	char *version = getenv(versenv);
 	if (!version) {
-		version = sym;
+		version = env;
 	} else {
 		version = strdup(version);
-		free(sym);
+		free(env);
 	}
 
 	const struct pathspec paths[] = {
