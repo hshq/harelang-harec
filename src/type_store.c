@@ -175,7 +175,6 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		}
 		size_t offs = (size_t)out.constant.uval;
 		field->offset = offs;
-		assert(offs % field->type->align == 0); // TODO?
 	} else {
 		size_t offs = *size;
 		if (offs % field->type->align) {
