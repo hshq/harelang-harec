@@ -190,6 +190,10 @@ run_configure() {
 
 	touch $outdir/cppcache
 
+	cat <<-EOF >harec.sh
+	export PATH=\$PATH:"$(pwd)"
+	EOF
+
 	if [ "$srcdir" = "." ]
 	then
 		return
