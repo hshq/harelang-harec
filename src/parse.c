@@ -1444,8 +1444,12 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	case T_STATIC:
 		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
 			T_EOF);
-		unlex(lexer, &tok);
-		return parse_assertion_expression(lexer, false);
+		if (tok.token == T_STATIC) {
+			return parse_assertion_expression(lexer, true);
+		} else {
+			unlex(lexer, &tok);
+			return parse_assertion_expression(lexer, false);
+		}
 	case T_SIZE:
 	case T_LEN:
 	case T_OFFSET:
