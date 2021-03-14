@@ -3222,22 +3222,17 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 static bool
 scan_declaration(struct context *ctx, const struct ast_decl *decl)
 {
-	bool ret = false;
 	switch (decl->decl_type) {
 	case AST_DECL_CONST:
-		ret = scan_const(ctx, &decl->constant);
-		break;
+		return scan_const(ctx, &decl->constant);
 	case AST_DECL_FUNC:
-		ret = scan_function(ctx, &decl->function);
-		break;
+		return scan_function(ctx, &decl->function);
 	case AST_DECL_GLOBAL:
-		ret = scan_global(ctx, &decl->global);
-		break;
+		return scan_global(ctx, &decl->global);
 	case AST_DECL_TYPE:
-		ret = scan_type(ctx, &decl->type);
-		break;
+		return scan_type(ctx, &decl->type);
 	}
-	return ret;
+	assert(0); // Unreachable
 }
 
 static struct ast_decls *
