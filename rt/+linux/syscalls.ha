@@ -33,7 +33,11 @@ export fn wait4(pid: int, status: *int, options: int, rusage: nullable *void) vo
 	syscall4(SYS_wait4, pid: u64, status: uintptr: u64,
 		options: u64, rusage: uintptr: u64);
 
-export fn wexitstatus(status: int) int = status & 0xff00 >> 8;
+export fn wifexited(status: int) bool = wtermsig(status) == 0;
+export fn wexitstatus(status: int) int = (status & 0xff00) >> 8;
+
+export fn wtermsig(status: int) int = status & 0x7f;
+export fn wifsignaled(status: int) bool = (status & 0xffff) - 1 < 0xff;
 
 export fn kill(pid: int, signal: int) int =
 	syscall2(SYS_kill, pid: u64, signal: u64): int;

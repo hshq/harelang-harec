@@ -30,5 +30,7 @@ export fn compile(src: const str) int = {
 		wait4(child, &status, 0, null);
 	};
 
-	return wexitstatus(status);
+	return if (wifexited(status)) wexitstatus(status)
+		else if (wifsignaled(status)) wtermsig(status)
+		else abort();
 };
