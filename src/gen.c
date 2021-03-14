@@ -28,7 +28,6 @@ push_scope(struct gen_context *ctx,
 	scope->class = class;
 	scope->end = end;
 	scope->parent = ctx->scope;
-	scope->next_defer = &scope->defers;
 	ctx->scope = scope;
 	return scope;
 }
@@ -1630,8 +1629,8 @@ gen_expr_defer(struct gen_context *ctx,
 {
 	struct gen_deferred *d = xcalloc(1, sizeof(struct gen_deferred));
 	d->expr = expr->defer.deferred;
-	*ctx->scope->next_defer = d;
-	ctx->scope->next_defer = &d->next;
+	d->next = ctx->scope->defers;
+	ctx->scope->defers = d;
 }
 
 static void

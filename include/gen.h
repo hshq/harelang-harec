@@ -39,7 +39,7 @@ struct gen_scope_context {
 	enum scope_class class;
 	struct qbe_value *after;
 	struct qbe_value *end;
-	struct gen_deferred *defers, **next_defer;
+	struct gen_deferred *defers;
 	struct gen_scope_context *parent;
 };
 
