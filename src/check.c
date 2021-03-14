@@ -1180,7 +1180,7 @@ lower_constant(const struct type *type, struct expression *expr)
 		return tag;
 	}
 	if (type_is_float(type) && type_is_float(expr->result)) {
-		assert(0); // TODO
+		return type;
 	}
 	if (!type_is_integer(type)) {
 		return NULL;
@@ -1260,6 +1260,20 @@ check_expr_constant(struct context *ctx,
 		expr->result = type;
 	}
 
+	if (expr->result && expr->result->storage == STORAGE_FCONST) {
+		if (hint == NULL) {
+			hint = builtin_type_for_storage(STORAGE_F64, false);
+		}
+		expr->constant.fval = aexpr->constant.fval;
+		const struct type *type = lower_constant(hint, expr);
+		if (!type) {
+			// TODO: This error message is awful
+			return error(aexpr->loc, expr, errors,
+				"Floating constant out of range");
+		}
+		expr->result = type;
+	}
+
 	switch (aexpr->constant.storage) {
 	case STORAGE_I8:
 	case STORAGE_I16:
@@ -1299,7 +1313,8 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
-		assert(0); // TODO
+		expr->constant.fval = aexpr->constant.fval;
+		break;
 	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_UINTPTR:

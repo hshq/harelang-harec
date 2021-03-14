@@ -876,6 +876,11 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_INT:
 		exp->constant.ival = (intmax_t)tok.ival;
 		break;
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
+		exp->constant.fval = tok.fval;
+		break;
 	case STORAGE_RUNE:
 		exp->constant.rune = tok.rune;
 		break;
@@ -894,8 +899,21 @@ parse_constant(struct lexer *lexer)
 		}
 		unlex(lexer, &tok);
 		break;
-	default:
-		assert(0); // TODO
+	case STORAGE_BOOL:
+	case STORAGE_NULL:
+	case STORAGE_VOID:
+		assert(0); // Handled above
+	case STORAGE_ALIAS:
+	case STORAGE_ARRAY:
+	case STORAGE_ENUM:
+	case STORAGE_FUNCTION:
+	case STORAGE_POINTER:
+	case STORAGE_SLICE:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+		assert(0); // Handled in a different nonterminal
 	}
 
 	trleave(TR_PARSE, "%s", token_str(&tok));

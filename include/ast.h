@@ -199,6 +199,7 @@ struct ast_expression_constant {
 	union {
 		intmax_t ival;
 		uintmax_t uval;
+		double fval;
 		uint32_t rune;
 		bool bval;
 		struct {

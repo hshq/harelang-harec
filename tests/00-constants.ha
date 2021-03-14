@@ -7,5 +7,5 @@ export fn main() void = {
 	let r1 = 'x', r2 = '\x0A', r3 = '\u1234', r4 = '\0', r5 = '\a',
 		r6 = '\b', r7 = '\f', r8 = '\n', r9 = '\r', r10 = '\t',
 		r11 = '\v', r12 = '\\', r13 = '\'', r14 = '\"';
-	// TODO: Floating constants
+	let f1 = 1.0, f2 = 1f32, f3 = 1.0e2, f4 = 1.0f64;
 };

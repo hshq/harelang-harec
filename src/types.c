@@ -228,7 +228,8 @@ type_is_numeric(const struct type *type)
 bool
 type_is_float(const struct type *type)
 {
-	return type->storage == STORAGE_F32 || type->storage == STORAGE_F64;
+	return type->storage == STORAGE_F32 || type->storage == STORAGE_F64
+		|| type->storage == STORAGE_FCONST;
 }
 
 bool

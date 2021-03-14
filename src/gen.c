@@ -1379,6 +1379,21 @@ gen_expr_cast(struct gen_context *ctx,
 		} else if (from->storage == STORAGE_RUNE) {
 			assert(to->storage == STORAGE_U32);
 			op = Q_COPY;
+		} else if (type_is_float(from)) {
+			if (type_is_signed(to)) {
+				switch (qstype_for_type(from)) {
+				case Q_SINGLE:
+					op = Q_STOSI;
+					break;
+				case Q_DOUBLE:
+					op = Q_DTOSI;
+					break;
+				default:
+					assert(0);
+				}
+			} else {
+				assert(0); // TODO
+			}
 		} else {
 			assert(0); // Invariant
 		}
@@ -1386,7 +1401,36 @@ gen_expr_cast(struct gen_context *ctx,
 		break;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		assert(0); // TODO
+		if (type_is_float(from) && from->size == to->size) {
+			op = Q_COPY;
+		} else if (type_is_float(from) && to->size < from->size) {
+			assert(qstype_for_type(from) == Q_DOUBLE
+				&& qstype_for_type(to) == Q_SINGLE);
+			op = Q_TRUNCD;
+		} else if (type_is_float(from) && to->size > from->size) {
+			assert(qstype_for_type(from) == Q_SINGLE
+				&& qstype_for_type(to) == Q_DOUBLE);
+			op = Q_EXTS;
+		} else if (type_is_integer(from)) {
+			if (type_is_signed(from)) {
+				switch (qstype_for_type(from)) {
+				case Q_WORD:
+					op = Q_SWTOF;
+					break;
+				case Q_LONG:
+					op = Q_SLTOF;
+					break;
+				default:
+					assert(0);
+				}
+			} else {
+				assert(0); // TODO
+			}
+		} else {
+			assert(0); // Invariant
+		}
+		pushi(ctx->current, &result, op, &in, NULL);
+		break;
 	case STORAGE_ARRAY:
 		assert(from->storage == STORAGE_ARRAY);
 		pushi(ctx->current, &result, Q_COPY, &in, NULL);
@@ -2660,7 +2704,9 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		assert(0); // TODO
+		item->type = QD_VALUE;
+		constd(&item->value, constant->fval);
+		break;
 	case STORAGE_UINTPTR:
 		assert(0); // TODO: What are the semantics for this?
 	case STORAGE_POINTER:
