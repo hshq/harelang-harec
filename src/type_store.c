@@ -44,7 +44,9 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 	if (atype->array.length == NULL) {
 		return SIZE_UNDEFINED;
 	}
-	check_expression(store->check_context, atype->array.length, &in, NULL);
+	struct errors *errors = check_expression(store->check_context,
+		atype->array.length, &in, NULL, NULL);
+	assert(errors == NULL); // TODO: Handle this gracefully
 	enum eval_result r = eval_expr(store->check_context, &in, &out);
 	// TODO: Bubble up these errors:
 	assert(r == EVAL_OK);
@@ -165,7 +167,9 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	if (atype->offset) {
 		*ccompat = false;
 		struct expression in, out;
-		check_expression(store->check_context, atype->offset, &in, NULL);
+		struct errors *errors = check_expression(store->check_context,
+			atype->offset, &in, NULL, NULL);
+		assert(errors == NULL); // TODO: Handle this gracefully
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
 		// TODO: Bubble up
 		assert(r == EVAL_OK);
@@ -540,8 +544,11 @@ type_init_from_atype(struct type_store *store,
 			value->name = strdup(avalue->name);
 			if (avalue->value != NULL) {
 				struct expression in, out;
-				check_expression(store->check_context,
-					avalue->value, &in, storage);
+				struct errors *errors = check_expression(
+					store->check_context, avalue->value,
+					&in, storage, NULL);
+				// TODO: Handle this more gracefully
+				assert(errors == NULL);
 				enum eval_result r =
 					eval_expr(store->check_context, &in, &out);
 				// TODO: Bubble this up
