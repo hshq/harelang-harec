@@ -779,14 +779,32 @@ type_store_lookup_alias(struct type_store *store,
 		.align = secondary->align,
 		.flags = secondary->flags,
 	};
-	struct type *type = (struct type *)type_store_lookup_type(store, &alias);
-	if (type->alias.type == NULL) {
-		// Finish filling in forward referenced type
-		type->alias.type = secondary;
-		type->size = secondary->size;
-		type->align = secondary->align;
-		type->flags = secondary->flags;
+	// XXX: This needs to be updated on updates to type_flags (types.h)
+	unsigned int flags[] = {
+		0,
+		TYPE_CONST,
+		TYPE_ERROR,
+		TYPE_ERROR | TYPE_CONST,
+	};
+	for (size_t i = 0; i < sizeof(flags) / sizeof(flags[0]); i++) {
+		const struct type *flagged = type_store_lookup_with_flags(store,
+			secondary, flags[i]);
+		alias.flags = flagged->flags;
+		alias.alias.type = flagged;
+		struct type *falias =
+			(struct type *)type_store_lookup_type(store, &alias);
+		if (falias->alias.type == NULL) {
+			// Finish filling in forward referenced type
+			falias->alias.type = type_store_lookup_with_flags(store,
+				secondary, secondary->flags | flags[i]);
+			falias->size = secondary->size;
+			falias->align = secondary->align;
+			falias->flags = secondary->flags | flags[i];
+		}
 	}
+	alias.flags = secondary->flags;
+	alias.alias.type = secondary;
+	struct type *type = (struct type *)type_store_lookup_type(store, &alias);
 	return type;
 }
 
