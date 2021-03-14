@@ -2708,7 +2708,6 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		constd(&item->value, constant->fval);
 		break;
 	case STORAGE_UINTPTR:
-		assert(0); // TODO: What are the semantics for this?
 	case STORAGE_POINTER:
 		assert(expr->type == EXPR_CONSTANT); // TODO?
 		item->type = QD_VALUE;
