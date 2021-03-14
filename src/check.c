@@ -472,8 +472,8 @@ check_expr_assign(struct context *ctx,
 	struct expression *object = xcalloc(1, sizeof(struct expression));
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 
-	errors = check_expression(ctx, aexpr->assign.object, object, NULL,
-		errors);
+	errors = check_expression(ctx, aexpr->assign.object,
+			object, NULL, errors);
 
 	expr->assign.op = aexpr->assign.op;
 
@@ -497,7 +497,8 @@ check_expr_assign(struct context *ctx,
 	} else {
 		errors = check_expression(ctx, aexpr->assign.value, value,
 			object->result, errors);
-		assert(object->type == EXPR_ACCESS
+		assert(object->type == EXPR_CONSTANT // If error
+				|| object->type == EXPR_ACCESS
 				|| object->type == EXPR_SLICE); // Invariant
 		if (object->type == EXPR_SLICE) {
 			if (expr->assign.op != BIN_LEQUAL) {
