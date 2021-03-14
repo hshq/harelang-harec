@@ -912,8 +912,8 @@ lower_vaargs(struct context *ctx,
 	const struct type *hint = type_store_lookup_array(
 		ctx->store, type, SIZE_UNDEFINED);
 	errors = check_expression(ctx, &val, vaargs, hint, errors);
-	assert(vaargs->result->storage == STORAGE_ARRAY);
-	if (vaargs->result->array.members != type) {
+	if (vaargs->result->storage != STORAGE_ARRAY
+			|| vaargs->result->array.members != type) {
 		return error(val.loc, vaargs, errors,
 			"Argument is not assignable to variadic parameter type");
 	}
