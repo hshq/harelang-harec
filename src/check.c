@@ -73,8 +73,12 @@ error(const struct location loc,
 	va_list ap;
 	va_start(ap, fmt);
 	size_t sz = vsnprintf(NULL, 0, fmt, ap);
+	va_end(ap);
 	char *msg = xcalloc(1, sz + 1);
+	va_start(ap, fmt);
 	vsnprintf(msg, sz + 1, fmt, ap);
+	va_end(ap);
+
 
 	struct errors *next = xcalloc(1, sizeof(struct errors));
 	next->loc = loc;
