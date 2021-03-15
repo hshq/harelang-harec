@@ -446,8 +446,12 @@ check_expr_assert(struct context *ctx,
 		// XXX: Should these abort immediately?
 		if (aexpr->assert.message != NULL) {
 			if (!cond) {
-				return error(aexpr->assert.cond->loc, expr, errors,
-					"Static assertion failed: %s",
+				char format[40];
+				snprintf(format, 40, "Static assertion failed %%%lds",
+					expr->assert.message->constant.string.len);
+				return error(aexpr->assert.cond->loc,
+					expr,
+					errors, format,
 					expr->assert.message->constant.string.value);
 			}
 		} else if (!cond) {

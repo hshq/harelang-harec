@@ -2731,8 +2731,10 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		def->name = gen_name(ctx, "strdata.%d");
 		def->kind = Q_DATA;
 		def->data.items.type = QD_STRING;
-		def->data.items.str = strdup(expr->constant.string.value);
+		def->data.items.str = xcalloc(1, expr->constant.string.len);
 		def->data.items.sz = expr->constant.string.len;
+		memcpy(def->data.items.str, expr->constant.string.value,
+			expr->constant.string.len);
 
 		item->type = QD_VALUE;
 		if (expr->constant.string.len != 0) {

@@ -461,7 +461,7 @@ constant_default(struct context *ctx, struct expression *v)
 		assert(r == EVAL_OK);
 		break;
 	case STORAGE_STRING:
-		v->constant.string.value = strdup("");
+		v->constant.string.value = NULL;
 		v->constant.string.len = 0;
 		break;
 	case STORAGE_ARRAY:
