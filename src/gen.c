@@ -1051,7 +1051,7 @@ gen_expr_call(struct gen_context *ctx,
 	assert(ftype->storage == STORAGE_FUNCTION);
 	if (ftype->func.result != &builtin_type_void) {
 		gen_temp(ctx, &result, qtype_for_type(ctx,
-			ftype->func.result, true), "returns.%d");
+			ftype->func.result, false), "returns.%d");
 		call.out = qval_dup(&result);
 	}
 	if (ftype->func.flags & FN_NORETURN) {
