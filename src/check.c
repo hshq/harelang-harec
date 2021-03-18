@@ -2441,15 +2441,16 @@ check_expr_unarithm(struct context *ctx,
 			ctx->store, operand->result, 0);
 		break;
 	case UN_DEREF:
-		if (operand->result->storage != STORAGE_POINTER) {
+		if (type_dealias(operand->result)->storage != STORAGE_POINTER) {
 			return error(aexpr->unarithm.operand->loc, expr, errors,
 				"Cannot de-reference non-pointer type");
 		}
-		if (operand->result->pointer.flags & PTR_NULLABLE) {
+		if (type_dealias(operand->result)->pointer.flags
+				& PTR_NULLABLE) {
 			return error(aexpr->unarithm.operand->loc, expr, errors,
 				"Cannot dereference nullable pointer type");
 		}
-		expr->result = operand->result->pointer.referent;
+		expr->result = type_dealias(operand->result)->pointer.referent;
 		break;
 	}
 
