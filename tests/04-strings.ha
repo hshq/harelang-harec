@@ -2,6 +2,8 @@ fn measurements() void = {
 	const x = "Hello!";
 	assert(len(x) == 6);
 	assert(len("Hello!") == 6);
+	assert(len("Hello!\0") == 7);
+	assert(len("He\0llo!") == 7);
 	assert(size(str) == size(*u8) + size(size) * 2);
 	const align: size =
 		if (size(*u8) > size(size)) size(*u8)
@@ -62,6 +64,7 @@ fn equality() void = {
 	assert("foo" != "bar");
 	assert("foo" != "foobar");
 	assert("foobar" == "foobar");
+	assert("foo\0bar" != "foo\0foo");
 };
 
 export fn main() void = {
