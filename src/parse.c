@@ -262,38 +262,22 @@ static void
 parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 {
 	trenter(TR_PARSE, "parameter-list");
-	struct token tok = {0}, tok2 = {0};
+	struct token tok = {0};
 	bool more = true;
 	type->params = mkfuncparams(&lexer->loc);
 	struct ast_function_parameters *next = type->params;
 	while (more) {
 		switch (lex(lexer, &tok)) {
+		case T_UNDERSCORE:
+			break;
 		case T_NAME:
-			switch (lex(lexer, &tok2)) {
-			case T_COLON:
-				next->name = tok.name; // Assumes ownership
-				next->type = parse_type(lexer);
-				break;
-			case T_DOUBLE_COLON:
-				next->type = parse_type(lexer);
-				synassert(next->type->storage == STORAGE_ALIAS,
-						&tok, T_NAME, T_EOF);
-				struct identifier *ident =
-					xcalloc(1, sizeof(struct identifier));
-				struct identifier *ns;
-				ident->name = tok.name; // Assumes ownership
-				for (ns = &next->type->alias; ns->ns; ns = ns->ns);
-				ns->ns = ident;
-				break;
-			default:
-				synassert(false, &tok2, T_COLON, T_DOUBLE_COLON, T_EOF);
-			}
+			next->name = tok.name; // Assumes ownership
 			break;
 		default:
-			unlex(lexer, &tok);
-			next->type = parse_type(lexer);
-			break;
+			synassert(false, &tok, T_UNDERSCORE, T_NAME, T_EOF);
 		}
+		want(lexer, T_COLON, NULL);
+		next->type = parse_type(lexer);
 
 		trace(TR_PARSE, "%s: [type]", next->name);
 		switch (lex(lexer, &tok)) {

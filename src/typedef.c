@@ -238,6 +238,7 @@ emit_type(const struct type *type, FILE *out)
 		fprintf(out, "fn(");
 		for (const struct type_func_param *param = type->func.params;
 				param; param = param->next) {
+			fprintf(out, "_: ");
 			if (param->next) {
 				emit_type(param->type, out);
 				fprintf(out, ", ");
@@ -320,6 +321,7 @@ emit_decl_func(struct declaration *decl, FILE *out)
 
 	for (struct type_func_param *param = fntype->func.params;
 			param; param = param->next) {
+		fprintf(out, "_: ");
 		if (param->next) {
 			emit_type(param->type, out);
 			fprintf(out, ", ");
