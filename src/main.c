@@ -53,6 +53,42 @@ parse_stage(const char *s)
 	}
 }
 
+static struct define *
+parse_define(const char *argv_0, const char *in)
+{
+	struct define *def = xcalloc(1, sizeof(struct define));
+
+	struct token tok;
+	struct lexer lexer;
+	FILE *f = fmemopen((char *)in, strlen(in), "r");
+	lex_init(&lexer, f, "-D");
+
+	// The syntax for this parameter is:
+	//
+	// -D ident:type=value
+	//
+	// :type is lexed as a label unless we disable it here.
+	lexer.disable_labels = true;
+
+	parse_identifier(&lexer, &def->ident, false);
+	if (lex(&lexer, &tok) != T_COLON) {
+		lex_finish(&lexer);
+		usage(argv_0);
+		exit(1);
+	}
+	def->type = parse_type(&lexer);
+
+	if (lex(&lexer, &tok) != T_EQUAL) {
+		lex_finish(&lexer);
+		usage(argv_0);
+		exit(1);
+	}
+	def->initializer = parse_simple_expression(&lexer);
+
+	lex_finish(&lexer);
+	return def;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -60,10 +96,16 @@ main(int argc, char *argv[])
 	struct build_tags *tags = NULL;
 	struct unit unit = {0};
 	struct lexer lexer;
+	struct define *defines, *def;
 
 	int c;
-	while ((c = getopt(argc, argv, "o:T:t:N:")) != -1) {
+	while ((c = getopt(argc, argv, "D:o:T:t:N:")) != -1) {
 		switch (c) {
+		case 'D':
+			def = parse_define(argv[0], optarg);
+			def->next = defines;
+			defines = def;
+			break;
 		case 'o':
 			output = optarg;
 			break;
@@ -137,7 +179,7 @@ main(int argc, char *argv[])
 
 	struct type_store ts = {0};
 	builtin_types_init();
-	check(&ts, tags, &aunit, &unit);
+	check(&ts, tags, defines, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
 		return 0;
 	}

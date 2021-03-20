@@ -5,7 +5,10 @@
 #include "type_store.h"
 
 struct modcache;
+struct define;
 struct scope *module_resolve(struct modcache *cache[],
-		struct identifier *ident, struct type_store *store);
+	struct define *defines,
+	struct identifier *ident,
+	struct type_store *store);
 
 #endif

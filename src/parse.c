@@ -256,8 +256,6 @@ parse_imports(struct lexer *lexer, struct ast_subunit *subunit)
 	trleave(TR_PARSE, NULL);
 }
 
-static struct ast_type *parse_type(struct lexer *lexer);
-
 static void
 parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 {
@@ -444,7 +442,6 @@ parse_primitive_type(struct lexer *lexer)
 	return type;
 }
 
-static struct ast_expression *parse_simple_expression(struct lexer *lexer);
 static struct ast_expression *parse_complex_expression(struct lexer *lexer);
 static struct ast_expression *parse_compound_expression(struct lexer *lexer);
 static struct ast_expression *parse_postfix_expression(struct lexer *lexer,
@@ -664,7 +661,7 @@ parse_tagged_or_tuple_type(struct lexer *lexer)
 	assert(0); // Unreachable
 }
 
-static struct ast_type *
+struct ast_type *
 parse_type(struct lexer *lexer)
 {
 	trenter(TR_PARSE, "type");
@@ -1735,7 +1732,7 @@ parse_bin_expression(struct lexer *lexer, struct ast_expression *lvalue, int i)
 	return lvalue;
 }
 
-static struct ast_expression *
+struct ast_expression *
 parse_simple_expression(struct lexer *lexer)
 {
 	return parse_bin_expression(lexer, NULL, 0);

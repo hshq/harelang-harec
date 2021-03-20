@@ -163,6 +163,7 @@ struct lexer {
 	uint32_t c[2];
 	struct token un;
 	struct location loc;
+	bool disable_labels;
 };
 
 void lex_init(struct lexer *lexer, FILE *f, const char *filename);

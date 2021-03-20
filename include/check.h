@@ -17,8 +17,19 @@ struct modcache {
 	struct modcache *next;
 };
 
+struct ast_expression;
+struct ast_unit;
+
+struct define {
+	struct identifier ident;
+	struct ast_type *type;
+	struct ast_expression *initializer;
+	struct define *next;
+};
+
 struct context {
 	struct modcache **modcache;
+	struct define *defines;
 	struct type_store *store;
 	const struct type *fntype;
 	struct identifier *ns;
@@ -88,20 +99,19 @@ struct unit {
 	struct imports *imports;
 };
 
-struct ast_expression;
-struct ast_unit;
-
 struct scope *check(struct type_store *ts,
 	struct build_tags *tags,
+	struct define *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 
 struct scope *check_internal(struct type_store *ts,
-		struct modcache **cache,
-		struct build_tags *tags,
-		const struct ast_unit *aunit,
-		struct unit *unit,
-		bool scan_only);
+	struct modcache **cache,
+	struct build_tags *tags,
+	struct define *defines,
+	const struct ast_unit *aunit,
+	struct unit *unit,
+	bool scan_only);
 
 struct errors {
 	struct location loc;

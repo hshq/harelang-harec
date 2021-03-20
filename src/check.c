@@ -3295,7 +3295,8 @@ static void
 load_import(struct context *ctx, struct ast_imports *import,
 	struct type_store *ts, struct scope *scope)
 {
-	struct scope *mod = module_resolve(ctx->modcache, &import->ident, ts);
+	struct scope *mod = module_resolve(ctx->modcache,
+			ctx->defines, &import->ident, ts);
 
 	switch (import->mode) {
 	case AST_IMPORT_IDENTIFIER:
@@ -3385,11 +3386,12 @@ load_import(struct context *ctx, struct ast_imports *import,
 
 struct scope *
 check_internal(struct type_store *ts,
-		struct modcache **cache,
-		struct build_tags *tags,
-		const struct ast_unit *aunit,
-		struct unit *unit,
-		bool scan_only)
+	struct modcache **cache,
+	struct build_tags *tags,
+	struct define *defines,
+	const struct ast_unit *aunit,
+	struct unit *unit,
+	bool scan_only)
 {
 	struct context ctx = {0};
 	ctx.ns = unit->ns;
@@ -3397,6 +3399,7 @@ check_internal(struct type_store *ts,
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
 	ctx.modcache = cache;
+	ctx.defines = defines;
 
 	// Top-level scope management involves:
 	//
@@ -3407,6 +3410,33 @@ check_internal(struct type_store *ts,
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
 	ctx.unit = scope_push(&ctx.scope, TR_MAX);
+
+	// Install defines (-D on the command line)
+	// XXX: This duplicates a lot of code with scan_const
+	for (struct define *def = defines; def; def = def->next) {
+		struct location loc = {
+			.path = "-D", .lineno = 1, .colno = 1,
+		};
+		const struct type *type = type_store_lookup_atype(
+				ctx.store, def->type);
+		expect(&loc, type != NULL, "Unable to resolve type");
+		struct expression *initializer =
+			xcalloc(1, sizeof(struct expression));
+		struct errors *errors = check_expression(&ctx,
+			def->initializer, initializer, type, NULL);
+		// TODO: This could be more detailed
+		expect(&loc, errors == NULL, "Invalid initializer");
+		expect(&loc, type_is_assignable(type, initializer->result),
+			"Constant type is not assignable from initializer type");
+		initializer = lower_implicit_cast(type, initializer);
+		struct expression *value =
+			xcalloc(1, sizeof(struct expression));
+		enum eval_result r = eval_expr(&ctx, initializer, value);
+		expect(&loc, r == EVAL_OK,
+			"Unable to evaluate constant initializer at compile time");
+		scope_insert(ctx.unit, O_CONST,
+			&def->ident, &def->ident, type, value);
+	}
 
 	struct scopes *subunit_scopes;
 	struct scopes **next = &subunit_scopes;
@@ -3526,11 +3556,12 @@ check_internal(struct type_store *ts,
 
 struct scope *
 check(struct type_store *ts,
-		struct build_tags *tags,
-		const struct ast_unit *aunit,
-		struct unit *unit)
+	struct build_tags *tags,
+	struct define *defines,
+	const struct ast_unit *aunit,
+	struct unit *unit)
 {
 	struct modcache *modcache[MODCACHE_BUCKETS];
 	memset(modcache, 0, sizeof(modcache));
-	return check_internal(ts, modcache, tags, aunit, unit, false);
+	return check_internal(ts, modcache, tags, defines, aunit, unit, false);
 }

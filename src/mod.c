@@ -64,8 +64,9 @@ open_typedefs(struct identifier *ident)
 
 struct scope *
 module_resolve(struct modcache *cache[],
-		struct identifier *ident,
-		struct type_store *store)
+	struct define *defines,
+	struct identifier *ident,
+	struct type_store *store)
 {
 	uint32_t hash = identifier_hash(FNV1A_INIT, ident);
 	struct modcache **bucket = &cache[hash % MODCACHE_BUCKETS];
@@ -94,7 +95,7 @@ module_resolve(struct modcache *cache[],
 	// TODO: Free unused bits
 	struct unit u = {0};
 	struct scope *scope = check_internal(store,
-			cache, NULL, &aunit, &u, true);
+			cache, NULL, defines, &aunit, &u, true);
 
 	bucket = &cache[hash % MODCACHE_BUCKETS];
 	struct modcache *item = xcalloc(1, sizeof(struct modcache));

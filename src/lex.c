@@ -756,7 +756,8 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			break;
 		default:
 			push(lexer, c, false);
-			if (c <= 0x7F && (isalpha(c) || c == '_')) {
+			if (!lexer->disable_labels && c <= 0x7F
+					&& (isalpha(c) || c == '_')) {
 				return lex_label(lexer, out);
 			}
 			out->token = T_COLON;
