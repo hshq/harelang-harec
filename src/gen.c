@@ -1188,7 +1188,7 @@ gen_cast_to_tagged(struct gen_context *ctx,
 		return;
 	} else if (!subtype) {
 		pushc(ctx->current, "to_tagged; no subtype");
-		alloc_temp(ctx, &ptr, tagged, "to_tagged.from.%d");
+		alloc_temp(ctx, &ptr, from, "to_tagged.from.%d");
 		qval_deref(&ptr);
 		gen_expression(ctx, expr->cast.value, &ptr);
 		gen_copy(ctx, out, &ptr);
