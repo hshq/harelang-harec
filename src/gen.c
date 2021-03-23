@@ -161,11 +161,9 @@ qval_for_object(struct gen_context *ctx,
 		assert(0); // Invariant (lowered in check)
 	}
 
+	val->type = qtype_for_type(ctx, obj->type, true);
 	if (type_is_aggregate(obj->type)) {
-		val->type = qtype_for_type(ctx, obj->type, true);
 		val->indirect = false;
-	} else {
-		val->type = &qbe_long; // XXX: ARCH
 	}
 }
 
@@ -615,6 +613,9 @@ gen_expr_alloc(struct gen_context *ctx,
 	if (!type_is_aggregate(type_dealias(expr->result)->pointer.referent)) {
 		qval_deref(&load);
 	}
+	load.type = qtype_for_type(ctx,
+			type_dealias(expr->result)->pointer.referent,
+			false);
 	gen_expression(ctx, expr->alloc.expr, &load);
 	push(&ctx->current->body, &endl);
 }
