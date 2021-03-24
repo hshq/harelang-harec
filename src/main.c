@@ -96,7 +96,7 @@ main(int argc, char *argv[])
 	struct build_tags *tags = NULL;
 	struct unit unit = {0};
 	struct lexer lexer;
-	struct define *defines, *def;
+	struct define *defines = NULL, *def;
 
 	int c;
 	while ((c = getopt(argc, argv, "D:o:T:t:N:")) != -1) {
