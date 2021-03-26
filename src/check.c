@@ -750,9 +750,6 @@ check_expr_binarithm(struct context *ctx,
 			hint, errors);
 	}
 
-	expr->binarithm.lvalue = lvalue;
-	expr->binarithm.rvalue = rvalue;
-
 	const struct type *p =
 		type_promote(ctx->store, lvalue->result, rvalue->result);
 	if (p == NULL) {
@@ -761,6 +758,10 @@ check_expr_binarithm(struct context *ctx,
 	}
 	lvalue = lower_implicit_cast(p, lvalue);
 	rvalue = lower_implicit_cast(p, rvalue);
+
+	expr->binarithm.lvalue = lvalue;
+	expr->binarithm.rvalue = rvalue;
+
 	if (numeric) {
 		expr->result = p;
 	} else {
