@@ -553,6 +553,8 @@ gen_slice_alloc(struct gen_context *ctx,
 	pushi(ctx->current, NULL, Q_STOREL, &cap, &ptr, NULL);
 
 	if (initializer->result->storage == STORAGE_ARRAY) {
+		ret.type = qtype_for_type(ctx, initializer->result, true);
+		ret.indirect = false;
 		gen_expression(ctx, initializer, &ret);
 	} else {
 		// TODO: I think this will have to be a separate branch once
