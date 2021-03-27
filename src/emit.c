@@ -291,7 +291,8 @@ static void
 emit_data(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_DATA);
-	fprintf(out, "%sdata ", def->exported ? "export " : "");
+	fprintf(out, "%sdata $%s = ", def->exported ? "export " : "",
+			def->name);
 	if (def->data.section && def->data.secflags) {
 		fprintf(out, "section \"%s\" \"%s\" ",
 				def->data.section, def->data.secflags);
@@ -302,7 +303,7 @@ emit_data(struct qbe_def *def, FILE *out)
 	} else {
 		fprintf(out, "section \".data.%s\" ", def->name);
 	}
-	fprintf(out, "$%s = { ", def->name);
+	fprintf(out, "{ ");
 
 	struct qbe_data_item *item = &def->data.items;
 	while (item) {
