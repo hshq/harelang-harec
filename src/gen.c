@@ -2230,7 +2230,7 @@ gen_expr_measure(struct gen_context *ctx,
 			gen_temp(ctx, &temp,
 				qtype_for_type(ctx, expr->result, false),
 				"len.%d");
-			constl(&temp, expr->measure.value->result->array.length);
+			constl(&temp, type_dealias(expr->measure.value->result)->array.length);
 			gen_store(ctx, out, &temp);
 			break;
 		case STORAGE_SLICE:
