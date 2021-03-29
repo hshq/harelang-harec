@@ -655,7 +655,7 @@ type_is_castable(const struct type *to, const struct type *from)
 		return true;
 	}
 
-	switch (to->storage) {
+	switch (from->storage) {
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 		assert(0); // TODO
@@ -668,43 +668,47 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_U16:
 	case STORAGE_U64:
 	case STORAGE_UINT:
-		return from->storage == STORAGE_ENUM || type_is_numeric(from);
+		return to->storage == STORAGE_ENUM || type_is_numeric(to);
 	case STORAGE_U8:
-		return from->storage == STORAGE_ENUM
-			|| type_is_numeric(from)
-			|| from->storage == STORAGE_CHAR;
+		return to->storage == STORAGE_ENUM
+			|| type_is_numeric(to)
+			|| to->storage == STORAGE_CHAR;
 	case STORAGE_U32:
-		return from->storage == STORAGE_ENUM
-			|| type_is_numeric(from)
-			|| from->storage == STORAGE_RUNE;
+		return to->storage == STORAGE_ENUM
+			|| type_is_numeric(to)
+			|| to->storage == STORAGE_RUNE;
 	case STORAGE_CHAR:
-		return from->storage == STORAGE_U8;
+		return to->storage == STORAGE_U8;
 	case STORAGE_RUNE:
-		return from->storage == STORAGE_U32;
+		return to->storage == STORAGE_U32;
 	case STORAGE_ENUM:
-		return from->storage == STORAGE_ENUM || type_is_integer(from);
+		return to->storage == STORAGE_ENUM || type_is_integer(from);
 	case STORAGE_F32:
 	case STORAGE_F64:
-		return type_is_numeric(from);
+		return type_is_numeric(to);
 	case STORAGE_UINTPTR:
-		return from->storage == STORAGE_POINTER
-			|| from->storage == STORAGE_NULL
-			|| type_is_numeric(from);
+		return to->storage == STORAGE_POINTER
+			|| to->storage == STORAGE_NULL
+			|| type_is_numeric(to)
+			|| to->storage == STORAGE_ENUM;
 	case STORAGE_POINTER:
-		if (from->storage == STORAGE_STRING
-				&& to->pointer.referent->storage == STORAGE_CHAR
-				&& to->pointer.referent->flags & TYPE_CONST) {
-			return true;
-		}
-		return from->storage == STORAGE_POINTER
-			|| from->storage == STORAGE_NULL
-			|| from->storage == STORAGE_UINTPTR
-			|| (to->pointer.referent->storage == STORAGE_ARRAY
-					&& from->storage == STORAGE_SLICE);
+		return to->storage == STORAGE_POINTER
+			|| to->storage == STORAGE_NULL
+			|| to->storage == STORAGE_UINTPTR;
+	case STORAGE_NULL:
+		return to->storage == STORAGE_POINTER
+			|| to->storage == STORAGE_UINTPTR;
 	case STORAGE_SLICE:
 	case STORAGE_ARRAY:
-		return from->storage == STORAGE_SLICE
-			|| from->storage == STORAGE_ARRAY;
+		return to->storage == STORAGE_SLICE
+			|| to->storage == STORAGE_ARRAY
+			|| (to->storage == STORAGE_POINTER
+					&& to->pointer.referent->storage == STORAGE_ARRAY
+					&& from->storage == STORAGE_SLICE);
+	case STORAGE_STRING:
+		return to->storage == STORAGE_POINTER
+				&& to->pointer.referent->storage == STORAGE_CHAR
+				&& to->pointer.referent->flags & TYPE_CONST;
 	// Cannot be cast:
 	case STORAGE_BOOL:
 	case STORAGE_VOID:
@@ -712,8 +716,6 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_TUPLE:
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-	case STORAGE_STRING:
-	case STORAGE_NULL:
 		return false;
 	case STORAGE_TAGGED:
 	case STORAGE_ALIAS:
