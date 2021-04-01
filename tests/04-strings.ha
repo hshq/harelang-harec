@@ -11,16 +11,6 @@ fn measurements() void = {
 	assert(&x: uintptr: size % align == 0);
 };
 
-fn charptr() void = {
-	const x = "Hello!";
-	const y = x: *const char;
-	const z = y: *[*]u8;
-	const expected = ['H', 'e', 'l', 'l', 'o', '!'];
-	for (let i = 0z; i < len(expected); i += 1) {
-		assert(z[i] == expected[i]: u32: u8);
-	};
-};
-
 fn storage() void = {
 	const string = "こんにちは";
 	const ptr = &string: *struct {
@@ -50,7 +40,7 @@ fn storage() void = {
 
 fn concat() void = {
 	const s = "Hell" "o, " "wor" "ld!";
-	const t = s: *const char: *[*]u8;
+	const t = *(&s: **[*]u8);
 	const expected = [
 		'H', 'e', 'l', 'l', 'o', ',', ' ',
 		'w', 'o', 'r', 'l', 'd', '!',
@@ -69,7 +59,6 @@ fn equality() void = {
 
 export fn main() void = {
 	measurements();
-	charptr();
 	storage();
 	concat();
 	equality();

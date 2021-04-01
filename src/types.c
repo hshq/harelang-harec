@@ -705,11 +705,8 @@ type_is_castable(const struct type *to, const struct type *from)
 			|| (to->storage == STORAGE_POINTER
 					&& to->pointer.referent->storage == STORAGE_ARRAY
 					&& from->storage == STORAGE_SLICE);
-	case STORAGE_STRING:
-		return to->storage == STORAGE_POINTER
-				&& to->pointer.referent->storage == STORAGE_CHAR
-				&& to->pointer.referent->flags & TYPE_CONST;
 	// Cannot be cast:
+	case STORAGE_STRING:
 	case STORAGE_BOOL:
 	case STORAGE_VOID:
 	case STORAGE_FUNCTION:

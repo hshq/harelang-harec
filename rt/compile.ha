@@ -12,14 +12,18 @@ export fn compile(src: const str) int = {
 		close(2);
 
 		const path = "./harec";
-		const argv: [_]nullable *const char = [path, "-", null];
+		const argv: [_]nullable *const char = [
+			constchar(path),
+			constchar("-"),
+			null
+		];
 		const envp: [_]nullable *const char = [null];
 		execve(path, &argv, &envp);
 		abort();
 	} else {
 		close(pipefd[0]);
 
-		const buf = src: *const char: *const [*]u8;
+		const buf = constchar(src): *const [*]u8;
 		for (let n = 0z; n < len(src)) {
 			let m = write(pipefd[1], &buf[n], len(src) - n);
 			assert(m > 0, "write(2) failed");

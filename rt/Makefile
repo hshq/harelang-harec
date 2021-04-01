@@ -1,5 +1,6 @@
 libhart_srcs+=\
 	rt/abort.ha \
+	rt/cstrings.ha \
 	rt/compile.ha \
 	rt/ensure.ha \
 	rt/malloc.ha \

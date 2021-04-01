@@ -1305,12 +1305,8 @@ gen_expr_cast(struct gen_context *ctx,
 	struct qbe_value in = {0}, result = {0};
 	gen_temp(ctx, &result, qtype_for_type(ctx, to, false), "cast.out.%d");
 
-	// Special case: str -> *const char; slice -> ptr
-	if ((to->storage == STORAGE_POINTER
-			&& to->pointer.referent->storage == STORAGE_CHAR
-			&& from->storage == STORAGE_STRING)
-		|| (to->storage == STORAGE_POINTER
-			&& from->storage == STORAGE_SLICE)) {
+	// Special case: slice -> ptr
+	if (to->storage == STORAGE_POINTER && from->storage == STORAGE_SLICE) {
 		alloc_temp(ctx, &in, from, "cast.in.%d");
 		in.indirect = false;
 		gen_expression(ctx, expr->cast.value, &in);
