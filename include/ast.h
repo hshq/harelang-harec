@@ -407,7 +407,7 @@ struct ast_decls {
 
 struct ast_subunit {
 	struct ast_imports *imports;
-	struct ast_decls decls;
+	struct ast_decls *decls;
 	struct ast_subunit *next;
 };
 

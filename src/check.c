@@ -3477,7 +3477,7 @@ check_internal(struct type_store *ts,
 
 		struct unresolveds *new =
 			xcalloc(sizeof(struct unresolveds), 1);
-		new->unresolved = &su->decls;
+		new->unresolved = su->decls;
 		new->next = cur;
 		cur = new;
 
@@ -3547,9 +3547,14 @@ check_internal(struct type_store *ts,
 			su; su = su->next) {
 		ctx.scope = scope->scope;
 		trenter(TR_CHECK, "scope %p", ctx.scope);
-		next_decl = check_declarations(&ctx, &su->decls, next_decl);
+		next_decl = check_declarations(&ctx, su->decls, next_decl);
 		trleave(TR_CHECK, NULL);
 		scope = scope->next;
+	}
+
+	if (!unit->declarations) {
+		fprintf(stderr, "Error: module contains no declarations\n");
+		abort();
 	}
 
 	return ctx.unit;

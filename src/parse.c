@@ -2562,24 +2562,28 @@ parse_decl(struct lexer *lexer, struct ast_decl *decl)
 }
 
 static void
-parse_decls(struct lexer *lexer, struct ast_decls *decls)
+parse_decls(struct lexer *lexer, struct ast_decls **decls)
 {
 	trenter(TR_PARSE, "decls");
 	struct token tok = {0};
-	struct ast_decls **next = &decls;
+	struct ast_decls **next = decls;
 	while (tok.token != T_EOF) {
+		struct ast_decls *decl = *next =
+			xcalloc(1, sizeof(struct ast_decls));
 		switch (lex(lexer, &tok)) {
 		case T_EXPORT:
-			(*next)->decl.exported = true;
+			decl->decl.exported = true;
 			trace(TR_PARSE, "export");
 			break;
 		default:
 			unlex(lexer, &tok);
 			break;
 		}
-		parse_decl(lexer, &(*next)->decl);
-		next = &(*next)->next;
-		*next = xcalloc(1, sizeof(struct ast_decls));
+		if (tok.token == T_EOF) {
+			break;
+		}
+		parse_decl(lexer, &decl->decl);
+		next = &decl->next;
 		want(lexer, T_SEMICOLON, NULL);
 		if (lex(lexer, &tok) != T_EOF) {
 			unlex(lexer, &tok);
