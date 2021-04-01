@@ -429,7 +429,7 @@ check_expr_assert(struct context *ctx,
 		expr->assert.message->type = EXPR_CONSTANT;
 		expr->assert.message->result = &builtin_type_const_str;
 		expr->assert.message->constant.string.value = s;
-		expr->assert.message->constant.string.len = n;
+		expr->assert.message->constant.string.len = n - 1;
 	}
 
 	if (expr->assert.is_static) {

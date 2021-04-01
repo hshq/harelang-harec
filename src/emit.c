@@ -246,9 +246,7 @@ emit_data_string(const char *str, size_t sz, FILE *out)
 		}
 	}
 	if (q) {
-		fprintf(out, "\", b 0");
-	} else {
-		fprintf(out, "b 0");
+		fprintf(out, "\"");
 	}
 }
 

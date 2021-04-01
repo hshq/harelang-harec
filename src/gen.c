@@ -306,7 +306,7 @@ gen_fixed_abort(struct gen_context *ctx, struct location loc,
 	eloc.type = EXPR_CONSTANT;
 	eloc.result = &builtin_type_const_str;
 	eloc.constant.string.value = s;
-	eloc.constant.string.len = n;
+	eloc.constant.string.len = n - 1;
 	alloc_temp(ctx, &location, &builtin_type_const_str, "str.%d");
 	qval_deref(&location);
 	gen_expression(ctx, &eloc, &location);

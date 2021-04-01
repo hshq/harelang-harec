@@ -15,7 +15,7 @@ fn charptr() void = {
 	const x = "Hello!";
 	const y = x: *const char;
 	const z = y: *[*]u8;
-	const expected = ['H', 'e', 'l', 'l', 'o', '!', '\0'];
+	const expected = ['H', 'e', 'l', 'l', 'o', '!'];
 	for (let i = 0z; i < len(expected); i += 1) {
 		assert(z[i] == expected[i]: u32: u8);
 	};
@@ -33,7 +33,7 @@ fn storage() void = {
 	// UTF-8 encoded
 	const expected: [_]u8 = [
 		0xE3, 0x81, 0x93, 0xE3, 0x82, 0x93, 0xE3, 0x81,
-		0xAB, 0xE3, 0x81, 0xA1, 0xE3, 0x81, 0xAF, 0x00,
+		0xAB, 0xE3, 0x81, 0xA1, 0xE3, 0x81, 0xAF,
 	];
 	for (let i = 0z; i < len(expected); i += 1) {
 		assert(ptr.data[i] == expected[i]);
@@ -53,7 +53,7 @@ fn concat() void = {
 	const t = s: *const char: *[*]u8;
 	const expected = [
 		'H', 'e', 'l', 'l', 'o', ',', ' ',
-		'w', 'o', 'r', 'l', 'd', '!', '\0',
+		'w', 'o', 'r', 'l', 'd', '!',
 	];
 	for (let i = 0z; i < len(expected); i += 1) {
 		assert(t[i] == expected[i]: u32: u8);
