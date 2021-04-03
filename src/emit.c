@@ -94,10 +94,10 @@ emit_const(struct qbe_value *val, FILE *out)
 		fprintf(out, "%lu", val->lval);
 		break;
 	case Q_SINGLE:
-		fprintf(out, "s_%f", val->sval);
+		fprintf(out, "s_%.8g", val->sval);
 		break;
 	case Q_DOUBLE:
-		fprintf(out, "d_%f", val->dval);
+		fprintf(out, "d_%.16g", val->dval);
 		break;
 	case Q__VOID:
 	case Q__AGGREGATE:
