@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
+#include <float.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "emit.h"
@@ -94,10 +95,10 @@ emit_const(struct qbe_value *val, FILE *out)
 		fprintf(out, "%lu", val->lval);
 		break;
 	case Q_SINGLE:
-		fprintf(out, "s_%.8g", val->sval);
+		fprintf(out, "s_%.*g", FLT_DECIMAL_DIG, val->sval);
 		break;
 	case Q_DOUBLE:
-		fprintf(out, "d_%.16g", val->dval);
+		fprintf(out, "d_%.*g", DBL_DECIMAL_DIG, val->dval);
 		break;
 	case Q__VOID:
 	case Q__AGGREGATE:
