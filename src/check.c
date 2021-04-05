@@ -1582,7 +1582,7 @@ check_expr_if(struct context *ctx,
 		expr->terminates = false;
 	}
 
-	if (cond->result->storage != STORAGE_BOOL) {
+	if (type_dealias(cond->result)->storage != STORAGE_BOOL) {
 		return error(aexpr->_if.cond->loc, expr, errors,
 			"Expected if condition to be boolean");
 	}

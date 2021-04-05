@@ -58,6 +58,15 @@ fn tagged() void = {
 	assert((if (false) 1u8 else 0i8) as i8 == 0); 
 };
 
+type abool = bool;
+
+fn alias() void = {
+	if (true: abool) {
+		return;
+	};
+	abort("unreachable");
+};
+
 export fn main() void = {
 	equality();
 	inequality();
@@ -71,4 +80,5 @@ export fn main() void = {
 	and();
 	or();
 	tagged();
+	alias();
 };
