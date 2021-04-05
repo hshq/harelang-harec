@@ -486,22 +486,23 @@ check_expr_assign(struct context *ctx,
 	expr->assign.op = aexpr->assign.op;
 
 	if (aexpr->assign.indirect) {
-		if (object->result->storage != STORAGE_POINTER) {
+		const struct type *otype = type_dealias(object->result);
+		if (otype->storage != STORAGE_POINTER) {
 			return error(aexpr->loc, expr, errors,
 				"Cannot dereference non-pointer type for assignment");
 		}
-		if (object->result->pointer.flags & PTR_NULLABLE) {
+		if (otype->pointer.flags & PTR_NULLABLE) {
 			return error(aexpr->loc, expr, errors,
 				"Cannot dereference nullable pointer type");
 		}
 		errors = check_expression(ctx, aexpr->assign.value, value,
-			object->result->pointer.referent, errors);
-		if (!type_is_assignable(object->result->pointer.referent,
+			otype->pointer.referent, errors);
+		if (!type_is_assignable(otype->pointer.referent,
 				value->result)) {
 			return error(aexpr->loc, expr, errors,
 				"Value type is not assignable to pointer type");
 		}
-		value = lower_implicit_cast(object->result->pointer.referent, value);
+		value = lower_implicit_cast(otype->pointer.referent, value);
 	} else {
 		errors = check_expression(ctx, aexpr->assign.value, value,
 			object->result, errors);

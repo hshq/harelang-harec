@@ -1,8 +1,10 @@
 use rt;
 
+type intp = *int;
+
 fn basics() void = {
 	let x = 42;
-	let y: *int = &x;
+	let y: intp = &x;
 	assert(*y == 42);
 	*y = 1337;
 	assert(x == 1337);
