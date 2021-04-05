@@ -1483,7 +1483,7 @@ check_expr_for(struct context *ctx,
 	errors = check_expression(ctx, aexpr->_for.cond, cond,
 		&builtin_type_bool, errors);
 	expr->_for.cond = cond;
-	if (cond->result->storage != STORAGE_BOOL) {
+	if (type_dealias(cond->result)->storage != STORAGE_BOOL) {
 		return error(aexpr->_for.cond->loc, expr, errors,
 			"Expected for condition to be boolean");
 	}

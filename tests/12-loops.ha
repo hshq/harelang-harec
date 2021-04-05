@@ -97,6 +97,15 @@ fn label() void = {
 	assert(rt::compile("fn test() void = { :foo for (true) { :foo for (true) void; } ; };") != 0);
 };
 
+type abool = bool;
+
+fn alias() void = {
+	for (true: abool) {
+		return;
+	};
+	abort("unreachable");
+};
+
 export fn main() void = {
 	scope();
 	conditional();
@@ -105,4 +114,5 @@ export fn main() void = {
 	_break();
 	_continue();
 	label();
+	alias();
 };
