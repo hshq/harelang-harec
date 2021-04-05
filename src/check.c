@@ -403,7 +403,7 @@ check_expr_assert(struct context *ctx,
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
 		errors = check_expression(ctx, aexpr->assert.cond,
 			expr->assert.cond, &builtin_type_bool, errors);
-		if (expr->assert.cond->result->storage != STORAGE_BOOL) {
+		if (type_dealias(expr->assert.cond->result)->storage != STORAGE_BOOL) {
 			return error(aexpr->assert.cond->loc, expr, errors,
 				"Assertion condition must be boolean");
 		}
