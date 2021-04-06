@@ -56,7 +56,7 @@ emit_const(const struct expression *expr, FILE *out)
 	assert(expr->type == EXPR_CONSTANT);
 	const struct expression_constant *val = &expr->constant;
 	assert(!val->object);
-	switch (expr->result->storage) {
+	switch (type_dealias(expr->result)->storage) {
 	case STORAGE_BOOL:
 		fprintf(out, "%s", val->bval ? "false" : "true");
 		break;
@@ -106,9 +106,22 @@ emit_const(const struct expression *expr, FILE *out)
 		};
 		fprintf(out, "\"");
 		break;
+	case STORAGE_ENUM:
+		assert(expr->result->storage == STORAGE_ALIAS);
+		char *ident = identifier_unparse(&expr->result->alias.ident);
+		fprintf(out, "%s::", ident);
+		free(ident);
+		struct type_enum_value *ev = type_dealias(expr->result)->_enum.values;
+		for (; ev; ev = ev->next) {
+			if (ev->uval == val->uval) {
+				break;
+			}
+		}
+		assert(ev);
+		fprintf(out, "%s", ev->name);
+		break;
 	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:
-	case STORAGE_ENUM:
 	case STORAGE_SLICE:
 	case STORAGE_STRUCT:
 	case STORAGE_TUPLE:
