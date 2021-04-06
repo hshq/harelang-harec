@@ -13,12 +13,14 @@ fn unwrap() void = {
 type my_array = [3]int;
 type my_array_ptr = *my_array;
 type my_array_ptr_ptr = *my_array_ptr;
+type my_slice = []int;
 
 fn alias_array() void = {
 	let a: my_array = [1, 2, 3];
 	let i: my_int = 0;
 	let b: my_array_ptr = &a;
 	let c: my_array_ptr_ptr = &b;
+	let d: my_slice = c[..];
 	assert(a[i] == 1, "array alias");
 	assert(a[1] == 2, "array alias");
 	assert(a[2] == 3, "array alias");
@@ -28,6 +30,9 @@ fn alias_array() void = {
 	assert(c[i] == 1, "array ptr ptr alias");
 	assert(c[1] == 2, "array ptr ptr alias");
 	assert(c[2] == 3, "array ptr ptr alias");
+	assert(d[i] == 1, "array ptr ptr slice alias");
+	assert(d[1] == 2, "array ptr ptr slice alias");
+	assert(d[2] == 3, "array ptr ptr slice alias");
 };
 
 type my_fn = *const fn(_: int) int;

@@ -2298,8 +2298,7 @@ gen_expr_slice(struct gen_context *ctx,
 	otype = type_dealias(otype);
 	while (otype->storage == STORAGE_POINTER) {
 		pushi(ctx->current, &object, Q_LOADL, &object, NULL);
-		otype = type_dereference(otype->pointer.referent);
-		otype = type_dealias(otype);
+		otype = type_dealias(otype->pointer.referent);
 	}
 
 	gen_temp(ctx, &start, &qbe_long, "start.%d");
