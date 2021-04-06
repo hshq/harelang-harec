@@ -1452,6 +1452,8 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	case T_SIZE:
 	case T_LEN:
 	case T_OFFSET:
+		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
+			T_EOF);
 		unlex(lexer, &tok);
 		return parse_measurement_expression(lexer);
 	default:
