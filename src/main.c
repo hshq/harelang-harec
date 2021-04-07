@@ -83,7 +83,7 @@ parse_define(const char *argv_0, const char *in)
 		usage(argv_0);
 		exit(1);
 	}
-	def->initializer = parse_simple_expression(&lexer);
+	def->initializer = parse_expression(&lexer);
 
 	lex_finish(&lexer);
 	return def;
