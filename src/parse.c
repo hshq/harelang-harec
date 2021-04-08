@@ -1421,45 +1421,11 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
 	trace(TR_PARSE, "postfix");
 
-	// TODO: The builtins should probably be moved outside of
-	// postfix-expression in the specification
-	struct token tok;
-	switch (lex(lexer, &tok)) {
-	case T_ALLOC:
-	case T_APPEND:
-	case T_FREE:
-	case T_DELETE:
-		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
-			T_EOF);
-		unlex(lexer, &tok);
-		return parse_allocation_expression(lexer);
-	case T_ABORT:
-	case T_ASSERT:
-	case T_STATIC:
-		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
-			T_EOF);
-		if (tok.token == T_STATIC) {
-			return parse_assertion_expression(lexer, true);
-		} else {
-			unlex(lexer, &tok);
-			return parse_assertion_expression(lexer, false);
-		}
-	case T_SIZE:
-	case T_LEN:
-	case T_OFFSET:
-		synassert(lvalue == NULL, &tok, T_LPAREN, T_DOT, T_LBRACKET,
-			T_EOF);
-		unlex(lexer, &tok);
-		return parse_measurement_expression(lexer);
-	default:
-		unlex(lexer, &tok);
-		break;
-	}
-
 	if (lvalue == NULL) {
 		lvalue = parse_plain_expression(lexer);
 	}
 
+	struct token tok;
 	struct ast_expression *exp;
 	switch (lex(lexer, &tok)) {
 	case T_LPAREN:
@@ -1543,6 +1509,38 @@ parse_object_selector(struct lexer *lexer)
 }
 
 static struct ast_expression *
+parse_builtin_expression(struct lexer *lexer)
+{
+	struct token tok;
+	switch (lex(lexer, &tok)) {
+	case T_ALLOC:
+	case T_APPEND:
+	case T_FREE:
+	case T_DELETE:
+		unlex(lexer, &tok);
+		return parse_allocation_expression(lexer);
+	case T_ABORT:
+	case T_ASSERT:
+	case T_STATIC:
+		if (tok.token == T_STATIC) {
+			return parse_assertion_expression(lexer, true);
+		} else {
+			unlex(lexer, &tok);
+			return parse_assertion_expression(lexer, false);
+		}
+	case T_SIZE:
+	case T_LEN:
+	case T_OFFSET:
+		unlex(lexer, &tok);
+		return parse_measurement_expression(lexer);
+	default:
+		unlex(lexer, &tok);
+		break;
+	}
+	return parse_postfix_expression(lexer, NULL);
+}
+
+static struct ast_expression *
 parse_unary_expression(struct lexer *lexer)
 {
 	trace(TR_PARSE, "unary-arithmetic");
@@ -1567,7 +1565,7 @@ parse_unary_expression(struct lexer *lexer)
 		return exp;
 	default:
 		unlex(lexer, &tok);
-		return parse_postfix_expression(lexer, NULL);
+		return parse_builtin_expression(lexer);
 	}
 }
 
