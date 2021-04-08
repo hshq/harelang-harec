@@ -10,7 +10,6 @@
 #include "mod.h"
 #include "scope.h"
 #include "tags.h"
-#include "trace.h"
 #include "type_store.h"
 #include "types.h"
 #include "util.h"
@@ -121,7 +120,6 @@ check_expr_access(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trace(TR_CHECK, "access");
 	expr->type = EXPR_ACCESS;
 	expr->access.type = aexpr->access.type;
 
@@ -255,7 +253,6 @@ check_expr_alloc(struct context *ctx,
 	struct errors *errors)
 {
 	assert(aexpr->type == EXPR_ALLOC);
-	trace(TR_CHECK, "alloc");
 	expr->type = EXPR_ALLOC;
 	expr->alloc.expr = xcalloc(sizeof(struct expression), 1);
 	const struct type *inittype = NULL;
@@ -334,7 +331,6 @@ check_expr_append(struct context *ctx,
 	struct errors *errors)
 {
 	assert(aexpr->type == EXPR_APPEND);
-	trace(TR_CHECK, "append");
 	expr->type = EXPR_APPEND;
 	expr->result = &builtin_type_void;
 	expr->append.expr = xcalloc(sizeof(struct expression), 1);
@@ -394,7 +390,6 @@ check_expr_assert(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trace(TR_CHECK, "assert");
 	expr->type = EXPR_ASSERT;
 	expr->result = &builtin_type_void;
 	expr->assert.is_static = aexpr->assert.is_static;
@@ -473,7 +468,6 @@ check_expr_assign(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trace(TR_CHECK, "assign");
 	expr->type = EXPR_ASSIGN;
 	expr->result = &builtin_type_void;
 	expr->assign.indirect = aexpr->assign.indirect;
@@ -656,7 +650,6 @@ check_expr_binarithm(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trace(TR_CHECK, "binarithm");
 	expr->type = EXPR_BINARITHM;
 	expr->binarithm.op = aexpr->binarithm.op;
 
@@ -778,7 +771,6 @@ check_expr_binding(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trace(TR_CHECK, "binding");
 	expr->type = EXPR_BINDING;
 	expr->result = &builtin_type_void;
 
@@ -944,7 +936,6 @@ check_expr_call(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "call");
 	expr->type = EXPR_CALL;
 
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression));
@@ -970,7 +961,6 @@ check_expr_call(struct context *ctx,
 	struct ast_call_argument *aarg = aexpr->call.args;
 	struct type_func_param *param = fntype->func.params;
 	while (param && aarg) {
-		trenter(TR_CHECK, "arg");
 		arg = *next = xcalloc(1, sizeof(struct call_argument));
 		arg->value = xcalloc(1, sizeof(struct expression));
 
@@ -981,7 +971,6 @@ check_expr_call(struct context *ctx,
 			arg->value = lower_implicit_cast(param->type, arg->value);
 			param = NULL;
 			aarg = NULL;
-			trleave(TR_CHECK, NULL);
 			break;
 		}
 
@@ -997,7 +986,6 @@ check_expr_call(struct context *ctx,
 		aarg = aarg->next;
 		param = param->next;
 		next = &arg->next;
-		trleave(TR_CHECK, NULL);
 	}
 
 	if (param && fntype->func.variadism == VARIADISM_HARE) {
@@ -1019,7 +1007,6 @@ check_expr_call(struct context *ctx,
 			"Not enough parameters for function call");
 	}
 
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -1030,7 +1017,6 @@ check_expr_cast(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trace(TR_CHECK, "cast");
 	expr->type = EXPR_CAST;
 	expr->cast.kind = aexpr->cast.kind;
 	struct expression *value = expr->cast.value =
@@ -1252,7 +1238,6 @@ check_expr_constant(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trace(TR_CHECK, "constant");
 	expr->type = EXPR_CONSTANT;
 	expr->result = builtin_type_for_storage(aexpr->constant.storage, false);
 
@@ -1413,7 +1398,6 @@ check_expr_control(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "control");
 	expr->type = aexpr->type;
 	expr->result = &builtin_type_void;
 	expr->terminates = true;
@@ -1435,7 +1419,6 @@ check_expr_control(struct context *ctx,
 		return error(aexpr->loc, expr, errors, "Unknown label %s",
 			expr->control.label);
 	}
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -1446,7 +1429,6 @@ check_expr_for(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "if");
 	expr->type = EXPR_FOR;
 	expr->result = &builtin_type_void;
 
@@ -1454,7 +1436,7 @@ check_expr_for(struct context *ctx,
 		expr->_for.label = strdup(aexpr->_for.label);
 	}
 
-	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+	struct scope *scope = scope_push(&ctx->scope);
 	expr->_for.scope = scope;
 	scope->type = expr->type;
 	scope->label = expr->_for.label;
@@ -1500,8 +1482,7 @@ check_expr_for(struct context *ctx,
 	errors = check_expression(ctx, aexpr->_for.body, body, NULL, errors);
 	expr->_for.body = body;
 
-	scope_pop(&ctx->scope, TR_CHECK);
-	trleave(TR_CHECK, NULL);
+	scope_pop(&ctx->scope);
 	return errors;
 }
 
@@ -1514,7 +1495,6 @@ check_expr_free(struct context *ctx,
 {
 	assert(aexpr->type == EXPR_FREE);
 	expr->type = EXPR_FREE;
-	trace(TR_CHECK, "free");
 	expr->free.expr = xcalloc(sizeof(struct expression), 1);
 	errors = check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL,
 		errors);
@@ -1535,7 +1515,6 @@ check_expr_if(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "if");
 	expr->type = EXPR_IF;
 
 	struct expression *cond, *true_branch, *false_branch = NULL;
@@ -1591,8 +1570,6 @@ check_expr_if(struct context *ctx,
 	expr->_if.cond = cond;
 	expr->_if.true_branch = true_branch;
 	expr->_if.false_branch = false_branch;
-
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -1603,10 +1580,9 @@ check_expr_list(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "expression-list");
 	expr->type = EXPR_LIST;
 
-	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+	struct scope *scope = scope_push(&ctx->scope);
 	expr->list.scope = scope;
 	scope->type = expr->type;
 
@@ -1631,8 +1607,7 @@ check_expr_list(struct context *ctx,
 		}
 	}
 
-	scope_pop(&ctx->scope, TR_CHECK);
-	trleave(TR_CHECK, NULL);
+	scope_pop(&ctx->scope);
 	return errors;
 }
 
@@ -1643,7 +1618,6 @@ check_expr_match(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "match");
 	expr->type = EXPR_MATCH;
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
@@ -1700,7 +1674,7 @@ check_expr_match(struct context *ctx,
 			struct identifier ident = {
 				.name = acase->name,
 			};
-			struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+			struct scope *scope = scope_push(&ctx->scope);
 			scope->type = EXPR_MATCH;
 			_case->object = scope_insert(scope, O_BIND,
 				&ident, &ident, ctype, NULL);
@@ -1712,7 +1686,7 @@ check_expr_match(struct context *ctx,
 			hint, errors);
 
 		if (acase->name) {
-			scope_pop(&ctx->scope, TR_CHECK);
+			scope_pop(&ctx->scope);
 		}
 
 		if (_case->value->terminates) {
@@ -1764,8 +1738,6 @@ check_expr_match(struct context *ctx,
 			tu = next;
 		}
 	}
-
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -1776,7 +1748,6 @@ check_expr_measure(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "measure");
 	expr->type = EXPR_MEASURE;
 	expr->result = &builtin_type_size;
 	expr->measure.op = aexpr->measure.op;
@@ -1815,7 +1786,6 @@ check_expr_propagate(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "propagate");
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression));
 	errors = check_expression(ctx, aexpr->propagate.value, lvalue, hint,
 		errors);
@@ -1897,7 +1867,7 @@ check_expr_propagate(struct context *ctx,
 	expr->type = EXPR_MATCH;
 	expr->match.value = lvalue;
 
-	struct scope *scope = scope_push(&ctx->scope, TR_CHECK);
+	struct scope *scope = scope_push(&ctx->scope);
 	scope->type = EXPR_MATCH;
 	struct match_case *case_ok = xcalloc(1, sizeof(struct match_case));
 	struct match_case *case_err = xcalloc(1, sizeof(struct match_case));
@@ -1943,7 +1913,7 @@ check_expr_propagate(struct context *ctx,
 	expr->match.cases = case_ok;
 	case_ok->next = case_err;
 
-	scope_pop(&ctx->scope, TR_CHECK);
+	scope_pop(&ctx->scope);
 	expr->result = result_type;
 	return errors;
 }
@@ -1955,7 +1925,6 @@ check_expr_return(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "return");
 	if (ctx->deferring) {
 		return error(aexpr->loc, expr, errors,
 			"Cannot return inside a defer expression");
@@ -1987,8 +1956,6 @@ check_expr_return(struct context *ctx,
 			ctx->fntype->func.result, rval);
 	}
 	expr->_return.value = rval;
-
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -1999,7 +1966,6 @@ check_expr_slice(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "slice");
 	expr->type = EXPR_SLICE;
 
 	expr->slice.object = xcalloc(1, sizeof(struct expression));
@@ -2049,8 +2015,6 @@ check_expr_slice(struct context *ctx,
 	}
 
 	expr->result = type_store_lookup_slice(ctx->store, atype->array.members);
-
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -2061,7 +2025,6 @@ check_expr_struct(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "struct");
 	expr->type = EXPR_STRUCT;
 
 	const struct type *stype = NULL;
@@ -2184,8 +2147,6 @@ check_expr_struct(struct context *ctx,
 			sexpr = sexpr->next;
 		}
 	}
-
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -2196,7 +2157,6 @@ check_expr_switch(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "switch");
 	expr->type = EXPR_SWITCH;
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
@@ -2305,7 +2265,6 @@ check_expr_tuple(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "tuple");
 	expr->type = EXPR_TUPLE;
 
 	const struct type_tuple *ttuple = NULL;
@@ -2386,8 +2345,6 @@ check_expr_tuple(struct context *ctx,
 		atuple = atuple->next;
 		ttuple = ttuple->next;
 	}
-
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -2398,7 +2355,6 @@ check_expr_unarithm(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "unarithm");
 	expr->type = EXPR_UNARITHM;
 
 	struct expression *operand = xcalloc(1, sizeof(struct expression));
@@ -2455,8 +2411,6 @@ check_expr_unarithm(struct context *ctx,
 		expr->result = type_dealias(operand->result)->pointer.referent;
 		break;
 	}
-
-	trleave(TR_CHECK, NULL);
 	return errors;
 }
 
@@ -2467,7 +2421,6 @@ check_expression(struct context *ctx,
 	const struct type *hint,
 	struct errors *errors)
 {
-	trenter(TR_CHECK, "expression");
 	expr->loc = aexpr->loc;
 
 	switch (aexpr->type) {
@@ -2551,8 +2504,6 @@ check_expression(struct context *ctx,
 		errors = check_expr_unarithm(ctx, aexpr, expr, hint, errors);
 		break;
 	}
-
-	trleave(TR_CHECK, NULL);
 	assert(expr->result);
 	return errors;
 }
@@ -2587,7 +2538,6 @@ check_function(struct context *ctx,
 		return NULL;
 	}
 
-	trenter(TR_CHECK, "function");
 	const struct ast_type fn_atype = {
 		.storage = STORAGE_FUNCTION,
 		.flags = TYPE_CONST,
@@ -2612,7 +2562,7 @@ check_function(struct context *ctx,
 	}
 	mkident(ctx, &decl->ident, &afndecl->ident);
 
-	decl->func.scope = scope_push(&ctx->scope, TR_CHECK);
+	decl->func.scope = scope_push(&ctx->scope);
 	struct ast_function_parameters *params = afndecl->prototype.params;
 	while (params) {
 		expect(&params->loc, params->name,
@@ -2656,9 +2606,8 @@ check_function(struct context *ctx,
 				"%s function cannot be exported", flags);
 	}
 
-	scope_pop(&ctx->scope, TR_CHECK);
+	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
-	trleave(TR_CHECK, NULL);
 	return decl;
 }
 
@@ -2726,7 +2675,6 @@ check_declarations(struct context *ctx,
 		const struct ast_decls *adecls,
 		struct declarations **next)
 {
-	trenter(TR_CHECK, "declarations");
 	while (adecls) {
 		struct declaration *decl = NULL;
 		const struct ast_decl *adecl = &adecls->decl;
@@ -2755,7 +2703,6 @@ check_declarations(struct context *ctx,
 
 		adecls = adecls->next;
 	}
-	trleave(TR_CHECK, NULL);
 	return next;
 }
 
@@ -3062,7 +3009,6 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 			return false;
 		}
 	}
-	trenter(TR_SCAN, "constant");
 	assert(!decl->symbol); // Invariant
 
 	const struct type *type = type_store_lookup_atype(
@@ -3095,8 +3041,6 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
 	scope_insert(ctx->unit, O_CONST, &ident, &decl->ident, type, value);
-
-	trleave(TR_SCAN, NULL);
 	return true;
 }
 
@@ -3116,7 +3060,6 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	if (!type_is_specified(ctx, &fn_atype)) {
 		return false;
 	}
-	trenter(TR_SCAN, "function");
 	const struct type *fntype = type_store_lookup_atype(
 			ctx->store, &fn_atype);
 	assert(fntype);
@@ -3135,7 +3078,6 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 
 	char buf[1024];
 	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
-	trleave(TR_SCAN, "func %s", buf);
 	return true;
 }
 
@@ -3149,7 +3091,6 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 			return false;
 		}
 	}
-	trenter(TR_SCAN, "global");
 
 	const struct type *type = type_store_lookup_atype(
 			ctx->store, decl->type);
@@ -3181,8 +3122,6 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 		mkident(ctx, &ident, &decl->ident);
 	}
 	scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, type, NULL);
-
-	trleave(TR_SCAN, NULL);
 	return true;
 }
 
@@ -3193,7 +3132,6 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 	if (!type_is_specified(ctx, decl->type)) {
 		return false;
 	}
-	trenter(TR_SCAN, "type");
 	const struct type *type =
 		type_store_lookup_atype(ctx->store, decl->type);
 
@@ -3242,7 +3180,6 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 			scope_insert(ctx->unit, O_CONST, &name, &vident, alias, expr);
 		}
 	}
-	trleave(TR_SCAN, NULL);
 	return true;
 }
 
@@ -3265,7 +3202,6 @@ scan_declaration(struct context *ctx, const struct ast_decl *decl)
 static struct ast_decls *
 scan_declarations(struct context *ctx, const struct ast_decls *decls)
 {
-	trenter(TR_SCAN, "declarations");
 	struct ast_decls *next = NULL;
 	bool found = false;
 	while (decls || next) {
@@ -3289,7 +3225,6 @@ scan_declarations(struct context *ctx, const struct ast_decls *decls)
 		}
 		decls = decls->next;
 	}
-	trleave(TR_SCAN, NULL);
 	return next;
 }
 
@@ -3411,7 +3346,7 @@ check_internal(struct type_store *ts,
 	// 
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
-	ctx.unit = scope_push(&ctx.scope, TR_MAX);
+	ctx.unit = scope_push(&ctx.scope);
 
 	// Install defines (-D on the command line)
 	// XXX: This duplicates a lot of code with scan_const
@@ -3454,7 +3389,7 @@ check_internal(struct type_store *ts,
 	// First pass populates the imports
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
-		scope_push(&ctx.scope, TR_SCAN);
+		scope_push(&ctx.scope);
 
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
@@ -3483,7 +3418,7 @@ check_internal(struct type_store *ts,
 		cur = new;
 
 		*next = xcalloc(1, sizeof(struct scopes));
-		new->scope = (*next)->scope = scope_pop(&ctx.scope, TR_SCAN);
+		new->scope = (*next)->scope = scope_pop(&ctx.scope);
 		next = &(*next)->next;
 
 
@@ -3547,9 +3482,7 @@ check_internal(struct type_store *ts,
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
 		ctx.scope = scope->scope;
-		trenter(TR_CHECK, "scope %p", ctx.scope);
 		next_decl = check_declarations(&ctx, su->decls, next_decl);
-		trleave(TR_CHECK, NULL);
 		scope = scope->next;
 	}
 

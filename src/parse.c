@@ -10,7 +10,6 @@
 #include "identifier.h"
 #include "lex.h"
 #include "parse.h"
-#include "trace.h"
 #include "types.h"
 #include "utf8.h"
 #include "util.h"
@@ -110,8 +109,6 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 	struct token tok = {0};
 	struct identifier *i = ident;
 	bool found_trailing = false;
-	trenter(TR_PARSE, "identifier");
-
 	while (!i->name) {
 		switch (lex(lexer, &tok)) {
 		case T_NAME:
@@ -141,17 +138,12 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 			break;
 		}
 	}
-
-	char buf[1024];
-	identifier_unparse_static(ident, buf, sizeof(buf));
-	trleave(TR_PARSE, "%s", buf);
 	return found_trailing;
 }
 
 static void
 parse_name_list(struct lexer *lexer, struct ast_imports *name)
 {
-	trenter(TR_PARSE, "name_list");
 	bool more = true;
 	struct ast_imports **next = &name->next;
 	while (more) {
@@ -182,13 +174,11 @@ parse_name_list(struct lexer *lexer, struct ast_imports *name)
 			break;
 		}
 	}
-	trleave(TR_PARSE, NULL);
 }
 
 static void
 parse_import(struct lexer *lexer, struct ast_imports *imports)
 {
-	trenter(TR_PARSE, "import");
 	struct identifier ident = {0};
 	bool trailing_colon = parse_identifier(lexer, &ident, true);
 
@@ -220,14 +210,11 @@ parse_import(struct lexer *lexer, struct ast_imports *imports)
 		synassert(trailing_colon, &tok, T_NAME, T_LBRACE, T_EOF);
 		break;
 	}
-
-	trleave(TR_PARSE, NULL);
 }
 
 static void
 parse_imports(struct lexer *lexer, struct ast_subunit *subunit)
 {
-	trenter(TR_PARSE, "imports");
 	struct token tok = {0};
 	struct ast_imports **next = &subunit->imports;
 
@@ -247,19 +234,11 @@ parse_imports(struct lexer *lexer, struct ast_subunit *subunit)
 			break;
 		}
 	}
-
-	for (struct ast_imports *i = subunit->imports; i; i = i->next) {
-		char buf[1024];
-		identifier_unparse_static(&i->ident, buf, sizeof(buf));
-		trace(TR_PARSE, "use %s", buf);
-	}
-	trleave(TR_PARSE, NULL);
 }
 
 static void
 parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 {
-	trenter(TR_PARSE, "parameter-list");
 	struct token tok = {0};
 	bool more = true;
 	type->params = mkfuncparams(&lexer->loc);
@@ -277,7 +256,6 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 		want(lexer, T_COLON, NULL);
 		next->type = parse_type(lexer);
 
-		trace(TR_PARSE, "%s: [type]", next->name);
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			switch (lex(lexer, &tok)) {
@@ -287,7 +265,6 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 					unlex(lexer, &tok);
 				}
 				more = false;
-				trace(TR_PARSE, ", ... (C style)");
 				break;
 			case T_RPAREN:
 				more = false;
@@ -306,7 +283,6 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 				unlex(lexer, &tok);
 			}
 			more = false;
-			trace(TR_PARSE, "... (Hare style)");
 			break;
 		default:
 			more = false;
@@ -314,13 +290,11 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 			break;
 		}
 	}
-	trleave(TR_PARSE, NULL);
 }
 
 static void
 parse_prototype(struct lexer *lexer, struct ast_function_type *type)
 {
-	trenter(TR_PARSE, "prototype");
 	want(lexer, T_LPAREN, NULL);
 	struct token tok = {0};
 	if (lex(lexer, &tok) != T_RPAREN) {
@@ -329,72 +303,47 @@ parse_prototype(struct lexer *lexer, struct ast_function_type *type)
 		want(lexer, T_RPAREN, NULL);
 	}
 	type->result = parse_type(lexer);
-	size_t ctr = 0;
-	for (struct ast_function_parameters *param = type->params;
-			param; param = param->next) {
-		ctr++;
-	}
-	trace(TR_PARSE, "[%zu parameters] [type]", ctr);
-	trleave(TR_PARSE, NULL);
 }
 
 static enum type_storage
 parse_integer_type(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "integer");
-	enum type_storage storage;
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_I8:
-		storage = STORAGE_I8;
-		break;
+		return STORAGE_I8;
 	case T_I16:
-		storage = STORAGE_I16;
-		break;
+		return STORAGE_I16;
 	case T_I32:
-		storage = STORAGE_I32;
-		break;
+		return STORAGE_I32;
 	case T_I64:
-		storage = STORAGE_I64;
-		break;
+		return STORAGE_I64;
 	case T_U8:
-		storage = STORAGE_U8;
-		break;
+		return STORAGE_U8;
 	case T_U16:
-		storage = STORAGE_U16;
-		break;
+		return STORAGE_U16;
 	case T_U32:
-		storage = STORAGE_U32;
-		break;
+		return STORAGE_U32;
 	case T_U64:
-		storage = STORAGE_U64;
-		break;
+		return STORAGE_U64;
 	case T_INT:
-		storage = STORAGE_INT;
-		break;
+		return STORAGE_INT;
 	case T_UINT:
-		storage = STORAGE_UINT;
-		break;
+		return STORAGE_UINT;
 	case T_SIZE:
-		storage = STORAGE_SIZE;
-		break;
+		return STORAGE_SIZE;
 	case T_UINTPTR:
-		storage = STORAGE_UINTPTR;
-		break;
+		return STORAGE_UINTPTR;
 	case T_CHAR:
-		storage = STORAGE_CHAR;
-		break;
+		return STORAGE_CHAR;
 	default:
 		assert(0);
 	}
-	trleave(TR_PARSE, "%s", type_storage_unparse(storage));
-	return storage;
 }
 
 static struct ast_type *
 parse_primitive_type(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "primitive");
 	struct token tok = {0};
 	struct ast_type *type = mktype(&lexer->loc);
 	switch (lex(lexer, &tok)) {
@@ -438,7 +387,6 @@ parse_primitive_type(struct lexer *lexer)
 	default:
 		assert(0);
 	}
-	trleave(TR_PARSE, "%s", type_storage_unparse(type->storage));
 	return type;
 }
 
@@ -448,7 +396,6 @@ static struct ast_expression *parse_binding_list(
 static struct ast_type *
 parse_enum_type(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "enum");
 	struct token tok = {0};
 	struct ast_type *type = mktype(&lexer->loc);
 	type->storage = STORAGE_ENUM;
@@ -470,10 +417,8 @@ parse_enum_type(struct lexer *lexer)
 		(*next)->name = tok.name;
 		if (lex(lexer, &tok) == T_EQUAL) {
 			(*next)->value = parse_expression(lexer);
-			trace(TR_PARSE, "%s = [expr]", (*next)->name);
 		} else {
 			unlex(lexer, &tok);
-			trace(TR_PARSE, "%s = [generated]", (*next)->name);
 		}
 		next = &(*next)->next;
 		switch (lex(lexer, &tok)) {
@@ -488,7 +433,6 @@ parse_enum_type(struct lexer *lexer)
 			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
 		}
 	}
-	trleave(TR_PARSE, NULL);
 	return type;
 }
 
@@ -500,11 +444,9 @@ parse_struct_union_type(struct lexer *lexer)
 	struct ast_struct_union_type *next = &type->struct_union;
 	switch (lex(lexer, &tok)) {
 	case T_STRUCT:
-		trenter(TR_PARSE, "struct");
 		type->storage = STORAGE_STRUCT;
 		break;
 	case T_UNION:
-		trenter(TR_PARSE, "union");
 		type->storage = STORAGE_UNION;
 		break;
 	default:
@@ -531,7 +473,6 @@ parse_struct_union_type(struct lexer *lexer)
 				next->member_type = MEMBER_TYPE_FIELD;
 				next->field.name = name;
 				next->field.type = parse_type(lexer);
-				trace(TR_PARSE, "%s: [type]", name);
 				break;
 			case T_DOUBLE_COLON:
 				next->member_type = MEMBER_TYPE_ALIAS;
@@ -542,14 +483,11 @@ parse_struct_union_type(struct lexer *lexer)
 				}
 				i->ns = xcalloc(sizeof(struct identifier), 1);
 				i->ns->name = name;
-				trace(TR_PARSE, "[embedded alias %s]",
-					identifier_unparse(&next->alias));
 				break;
 			default:
 				unlex(lexer, &tok);
 				next->member_type = MEMBER_TYPE_ALIAS;
 				next->alias.name = name;
-				trace(TR_PARSE, "[embedded alias %s]", name);
 				break;
 			}
 			break;
@@ -558,7 +496,6 @@ parse_struct_union_type(struct lexer *lexer)
 			next->member_type = MEMBER_TYPE_EMBEDDED;
 			unlex(lexer, &tok);
 			next->embedded = parse_struct_union_type(lexer);
-			trace(TR_PARSE, "[embedded struct/union]");
 			break;
 		default:
 			synassert(false, &tok, T_NAME, T_STRUCT, T_UNION, T_EOF);
@@ -578,14 +515,12 @@ parse_struct_union_type(struct lexer *lexer)
 			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
 		}
 	}
-	trleave(TR_PARSE, NULL);
 	return type;
 }
 
 static struct ast_type *
 parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 {
-	trenter(TR_PARSE, "tagged union");
 	struct ast_type *type = mktype(&first->loc);
 	type->storage = STORAGE_TAGGED;
 	struct ast_tagged_union_type *next = &type->tagged_union;
@@ -607,14 +542,12 @@ parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 			synassert(false, &tok, T_BOR, T_RPAREN, T_EOF);
 		}
 	}
-	trleave(TR_PARSE, NULL);
 	return type;
 }
 
 static struct ast_type *
 parse_tuple_type(struct lexer *lexer, struct ast_type *first)
 {
-	trenter(TR_PARSE, "tuple");
 	struct ast_type *type = mktype(&first->loc);
 	type->storage = STORAGE_TUPLE;
 	struct ast_tuple_type *next = &type->tuple;
@@ -636,7 +569,6 @@ parse_tuple_type(struct lexer *lexer, struct ast_type *first)
 			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
 		}
 	}
-	trleave(TR_PARSE, NULL);
 	return type;
 }
 
@@ -659,7 +591,6 @@ parse_tagged_or_tuple_type(struct lexer *lexer)
 struct ast_type *
 parse_type(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "type");
 	struct token tok = {0};
 	uint32_t flags = 0;
 	switch (lex(lexer, &tok)) {
@@ -702,7 +633,6 @@ parse_type(struct lexer *lexer)
 	case T_NULLABLE:
 		nullable = true;
 		want(lexer, T_TIMES, NULL);
-		trace(TR_PARSE, "nullable");
 		/* fallthrough */
 	case T_TIMES:
 		type = mktype(&lexer->loc);
@@ -777,8 +707,6 @@ parse_type(struct lexer *lexer)
 		break;
 	}
 	type->flags |= flags;
-	trleave(TR_PARSE, "%s%s", type->flags & TYPE_CONST ? "const " : "",
-		type_storage_unparse(type->storage));
 
 	if (lex(lexer, &tok) == T_LNOT) {
 		type->flags |= TYPE_ERROR;
@@ -792,7 +720,6 @@ parse_type(struct lexer *lexer)
 static struct ast_expression *
 parse_access(struct lexer *lexer, struct identifier ident)
 {
-	trace(TR_PARSE, "access");
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_ACCESS;
 	exp->access.type = ACCESS_IDENTIFIER;
@@ -803,8 +730,6 @@ parse_access(struct lexer *lexer, struct identifier ident)
 static struct ast_expression *
 parse_constant(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "constant");
-
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_CONSTANT;
 
@@ -891,16 +816,12 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_UNION:
 		assert(0); // Handled in a different nonterminal
 	}
-
-	trleave(TR_PARSE, "%s", token_str(&tok));
 	return exp;
 }
 
 static struct ast_expression *
 parse_array_literal(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "array-literal");
-
 	struct token tok;
 	want(lexer, T_LBRACKET, &tok);
 
@@ -940,8 +861,6 @@ parse_array_literal(struct lexer *lexer)
 			synassert(false, &tok, T_ELLIPSIS, T_COMMA, T_RBRACKET, T_EOF);
 		}
 	}
-
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
@@ -965,13 +884,11 @@ parse_field_value(struct lexer *lexer)
 			exp->field.type = parse_type(lexer);
 			want(lexer, T_EQUAL, NULL);
 			exp->field.initializer = parse_expression(lexer);
-			trace(TR_PARSE, "%s: [type] = [expr]", name);
 			break;
 		case T_EQUAL:
 			exp->is_embedded = false;
 			exp->field.name = name;
 			exp->field.initializer = parse_expression(lexer);
-			trace(TR_PARSE, "%s = [expr]", name);
 			break;
 		case T_DOUBLE_COLON:
 			exp->is_embedded = true;
@@ -984,8 +901,6 @@ parse_field_value(struct lexer *lexer)
 			i->ns = xcalloc(sizeof(struct identifier), 1);
 			i->ns->name = name;
 			exp->embedded = parse_struct_literal(lexer, ident);
-			trace(TR_PARSE, "[embedded struct %s]",
-				identifier_unparse(&ident));
 			break;
 		default:
 			unlex(lexer, &tok);
@@ -993,7 +908,6 @@ parse_field_value(struct lexer *lexer)
 			ident.name = name;
 			ident.ns = NULL;
 			exp->embedded = parse_struct_literal(lexer, ident);
-			trace(TR_PARSE, "[embedded struct %s]", name);
 			break;
 		}
 		break;
@@ -1001,7 +915,6 @@ parse_field_value(struct lexer *lexer)
 		exp->is_embedded = true;
 		struct identifier id = {0};
 		exp->embedded = parse_struct_literal(lexer, id);
-			trace(TR_PARSE, "[embedded anonymous struct]");
 		break;
 	default:
 		assert(0);
@@ -1012,7 +925,6 @@ parse_field_value(struct lexer *lexer)
 static struct ast_expression *
 parse_struct_literal(struct lexer *lexer, struct identifier ident)
 {
-	trenter(TR_PARSE, "struct-literal");
 	want(lexer, T_LBRACE, NULL);
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_STRUCT;
@@ -1022,7 +934,6 @@ parse_struct_literal(struct lexer *lexer, struct identifier ident)
 	while (tok.token != T_RBRACE) {
 		switch (lex(lexer, &tok)) {
 		case T_ELLIPSIS:
-			trace(TR_PARSE, "...");
 			synassert(ident.name != NULL, &tok, T_RBRACE, T_EOF);
 			exp->_struct.autofill = true;
 			if (lex(lexer, &tok) != T_COMMA) {
@@ -1054,7 +965,6 @@ parse_struct_literal(struct lexer *lexer, struct identifier ident)
 			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
 		}
 	}
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
@@ -1099,8 +1009,6 @@ parse_tuple_expression(struct lexer *lexer, struct ast_expression *first)
 static struct ast_expression *
 parse_plain_expression(struct lexer *lexer)
 {
-	trace(TR_PARSE, "plain");
-
 	struct token tok = {0};
 	struct ast_expression *exp;
 	switch (lex(lexer, &tok)) {
@@ -1154,8 +1062,6 @@ parse_plain_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_assertion_expression(struct lexer *lexer, bool is_static)
 {
-	trace(TR_PARSE, is_static ? "static assertion" : "assertion");
-
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_ASSERT;
 	exp->assert.is_static = is_static;
@@ -1201,8 +1107,6 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 static struct ast_expression *
 parse_measurement_expression(struct lexer *lexer)
 {
-	trace(TR_PARSE, "measurement");
-
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_MEASURE;
 
@@ -1233,8 +1137,6 @@ parse_measurement_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
-	trenter(TR_PARSE, "call");
-
 	struct token tok;
 	want(lexer, T_LPAREN, &tok);
 
@@ -1245,8 +1147,6 @@ parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	struct ast_call_argument *arg, **next = &expr->call.args;
 	while (lex(lexer, &tok) != T_RPAREN) {
 		unlex(lexer, &tok);
-		trenter(TR_PARSE, "arg");
-
 		arg = *next = xcalloc(1, sizeof(struct ast_call_argument));
 		arg->value = parse_expression(lexer);
 
@@ -1267,18 +1167,13 @@ parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		}
 
 		next = &arg->next;
-		trleave(TR_PARSE, NULL);
 	}
-
-	trleave(TR_PARSE, NULL);
 	return expr;
 }
 
 static struct ast_expression *
 parse_index_slice_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
-	trenter(TR_PARSE, "slice-index");
-
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	struct ast_expression *start = NULL, *end = NULL;
 	struct token tok;
@@ -1315,7 +1210,6 @@ parse_index_slice_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		exp->access.type = ACCESS_INDEX;
 		exp->access.array = lvalue;
 		exp->access.index = start;
-		trleave(TR_PARSE, "slice-index (index)");
 		return exp;
 	} else if (tok.token == T_RBRACKET) {
 		unlex(lexer, &tok);
@@ -1335,19 +1229,16 @@ parse_index_slice_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	exp->slice.object = lvalue;
 	exp->slice.start = start;
 	exp->slice.end = end;
-	trleave(TR_PARSE, "slice-index (slice)");
 	return exp;
 }
 
 static struct ast_expression *
 parse_allocation_expression(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "allocation");
 	struct ast_expression *exp = NULL;
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_ALLOC:
-		trace(TR_PARSE, "alloc");
 		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_ALLOC;
 		want(lexer, T_LPAREN, NULL);
@@ -1364,7 +1255,6 @@ parse_allocation_expression(struct lexer *lexer)
 		}
 		break;
 	case T_APPEND:
-		trace(TR_PARSE, "append");
 		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_APPEND;
 		want(lexer, T_LPAREN, NULL);
@@ -1394,7 +1284,6 @@ parse_allocation_expression(struct lexer *lexer)
 		}
 		break;
 	case T_FREE:
-		trace(TR_PARSE, "free");
 		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_FREE;
 		want(lexer, T_LPAREN, NULL);
@@ -1402,7 +1291,6 @@ parse_allocation_expression(struct lexer *lexer)
 		want(lexer, T_RPAREN, NULL);
 		break;
 	case T_DELETE:
-		trace(TR_PARSE, "delete");
 		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_DELETE;
 		want(lexer, T_LPAREN, NULL);
@@ -1412,15 +1300,12 @@ parse_allocation_expression(struct lexer *lexer)
 	default:
 		assert(0);
 	}
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
 static struct ast_expression *
 parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
-	trace(TR_PARSE, "postfix");
-
 	if (lvalue == NULL) {
 		lvalue = parse_plain_expression(lexer);
 	}
@@ -1433,7 +1318,6 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		lvalue = parse_call_expression(lexer, lvalue);
 		break;
 	case T_DOT:
-		trenter(TR_PARSE, "field-access");
 		exp = mkexpr(&lexer->loc);
 		exp->type = EXPR_ACCESS;
 
@@ -1454,7 +1338,6 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		}
 
 		lvalue = exp;
-		trleave(TR_PARSE, NULL);
 		break;
 	case T_LBRACKET:
 		unlex(lexer, &tok);
@@ -1499,7 +1382,6 @@ unop_for_token(enum lexical_token tok)
 static struct ast_expression *
 parse_object_selector(struct lexer *lexer)
 {
-	trace(TR_PARSE, "object-selector");
 	struct token tok;
 	lex(lexer, &tok);
 	unlex(lexer, &tok);
@@ -1543,8 +1425,6 @@ parse_builtin_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_unary_expression(struct lexer *lexer)
 {
-	trace(TR_PARSE, "unary-arithmetic");
-
 	struct token tok;
 	struct ast_expression *exp;
 	switch (lex(lexer, &tok)) {
@@ -1572,7 +1452,6 @@ parse_unary_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_cast_expression(struct lexer *lexer, struct ast_expression *value)
 {
-	trace(TR_PARSE, "cast");
 	if (value == NULL) {
 		value = parse_unary_expression(lexer);
 	}
@@ -1692,7 +1571,6 @@ binop_for_token(enum lexical_token tok)
 static struct ast_expression *
 parse_bin_expression(struct lexer *lexer, struct ast_expression *lvalue, int i)
 {
-	trace(TR_PARSE, "bin-arithm");
 	if (!lvalue) {
 		lvalue = parse_cast_expression(lexer, NULL);
 	}
@@ -1730,7 +1608,6 @@ parse_bin_expression(struct lexer *lexer, struct ast_expression *lvalue, int i)
 static struct ast_expression *
 parse_if_expression(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "if");
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_IF;
 
@@ -1755,15 +1632,12 @@ parse_if_expression(struct lexer *lexer)
 		unlex(lexer, &tok);
 		break;
 	}
-
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
 static struct ast_expression *
 parse_for_expression(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "for");
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_FOR;
 
@@ -1807,8 +1681,6 @@ parse_for_expression(struct lexer *lexer)
 	}
 
 	exp->_for.body = parse_expression(lexer);
-
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
@@ -1860,7 +1732,6 @@ parse_case_options(struct lexer *lexer)
 static struct ast_expression *
 parse_switch_expression(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "switch");
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_SWITCH;
 
@@ -1906,7 +1777,6 @@ parse_switch_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_match_expression(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "match");
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_MATCH;
 
@@ -1995,15 +1865,12 @@ parse_match_expression(struct lexer *lexer)
 
 		next_case = &_case->next;
 	}
-
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
 static struct ast_expression *
 parse_binding_list(struct lexer *lexer, bool is_static)
 {
-	trenter(TR_PARSE, "binding-list");
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	exp->type = EXPR_BINDING;
 	unsigned int flags = 0;
@@ -2057,8 +1924,6 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 			break;
 		}
 	}
-
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
@@ -2066,7 +1931,6 @@ static struct ast_expression *
 parse_assignment(struct lexer *lexer, struct ast_expression *object,
 	bool indirect, enum binarithm_operator op)
 {
-	trenter(TR_PARSE, "assign");
 	struct ast_expression *value = parse_expression(lexer);
 	struct ast_expression *expr = mkexpr(&lexer->loc);
 	expr->type = EXPR_ASSIGN;
@@ -2074,7 +1938,6 @@ parse_assignment(struct lexer *lexer, struct ast_expression *object,
 	expr->assign.object = object;
 	expr->assign.value = value;
 	expr->assign.indirect = indirect;
-	trleave(TR_PARSE, NULL);
 	return expr;
 }
 
@@ -2090,15 +1953,12 @@ parse_deferred_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_control_statement(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "control-expression");
-
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 
 	struct token tok;
 	switch (lex(lexer, &tok)) {
 	case T_BREAK:
 	case T_CONTINUE:
-		trace(TR_PARSE, tok.token == T_BREAK ? "break" : "continue");
 		exp->type = tok.token == T_BREAK ? EXPR_BREAK : EXPR_CONTINUE;
 		exp->control.label = NULL;
 		switch (lex(lexer, &tok)) {
@@ -2111,7 +1971,6 @@ parse_control_statement(struct lexer *lexer)
 		}
 		break;
 	case T_RETURN:
-		trace(TR_PARSE, "return");
 		exp->type = EXPR_RETURN;
 		exp->_return.value = NULL;
 		struct token tok;
@@ -2129,15 +1988,12 @@ parse_control_statement(struct lexer *lexer)
 	default:
 		synassert(false, &tok, T_BREAK, T_CONTINUE, T_RETURN, T_EOF);
 	}
-
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
 static struct ast_expression *
 parse_expression_list(struct lexer *lexer)
 {
-	trenter(TR_PARSE, "expression-list");
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 	struct ast_expression_list *cur = &exp->list;
 	struct ast_expression_list **next = &cur->next;
@@ -2176,8 +2032,6 @@ parse_expression_list(struct lexer *lexer)
 			want(lexer, T_RBRACE, &tok);
 		}
 	}
-
-	trleave(TR_PARSE, NULL);
 	return exp;
 }
 
@@ -2336,7 +2190,6 @@ static void
 parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 		struct ast_global_decl *decl)
 {
-	trenter(TR_PARSE, "global");
 	struct token tok = {0};
 	struct ast_global_decl *i = decl;
 	assert(mode == T_LET || mode == T_CONST || mode == T_DEF);
@@ -2381,25 +2234,11 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 			break;
 		}
 	}
-
-	for (struct ast_global_decl *i = decl; i; i = i->next) {
-		char buf[1024];
-		identifier_unparse_static(&i->ident, buf, sizeof(buf));
-		if (decl->symbol) {
-			trace(TR_PARSE, "%s @symbol(\"%s\") %s: [type] = [expr]",
-				lexical_token_str(mode), decl->symbol, buf);
-		} else {
-			trace(TR_PARSE, "%s %s: [type] = [expr]",
-				lexical_token_str(mode), buf);
-		}
-	}
-	trleave(TR_PARSE, NULL);
 }
 
 static void
 parse_type_decl(struct lexer *lexer, struct ast_type_decl *decl)
 {
-	trenter(TR_PARSE, "typedef");
 	struct token tok = {0};
 	struct ast_type_decl *i = decl;
 	bool more = true;
@@ -2422,19 +2261,11 @@ parse_type_decl(struct lexer *lexer, struct ast_type_decl *decl)
 			break;
 		}
 	}
-
-	for (struct ast_type_decl *i = decl; i; i = i->next) {
-		char ibuf[1024];
-		identifier_unparse_static(&i->ident, ibuf, sizeof(ibuf));
-		trace(TR_PARSE, "def %s = [type]", ibuf);
-	}
-	trleave(TR_PARSE, NULL);
 }
 
 static void
 parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 {
-	trenter(TR_PARSE, "fn");
 	struct token tok = {0};
 	bool more = true;
 	bool noreturn = false;
@@ -2479,19 +2310,6 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 	default:
 		synassert(false, &tok, T_EQUAL, T_SEMICOLON, T_EOF);
 	}
-
-	char symbol[1024], buf[1024];
-	if (decl->symbol) {
-		snprintf(symbol, sizeof(symbol), "@symbol(\"%s\") ", decl->symbol);
-	}
-	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
-	trace(TR_PARSE, "%s%s%s%s%sfn %s [prototype] = [expr]",
-		decl->flags & FN_FINI ? "@fini " : "",
-		decl->flags & FN_INIT ? "@init " : "",
-		decl->prototype.flags & FN_NORETURN ? "@noreturn " : "",
-		decl->flags & FN_TEST ? "@test " : "",
-		decl->symbol ? symbol : "", buf);
-	trleave(TR_PARSE, NULL);
 }
 
 static void
@@ -2526,7 +2344,6 @@ parse_decl(struct lexer *lexer, struct ast_decl *decl)
 static void
 parse_decls(struct lexer *lexer, struct ast_decls **decls)
 {
-	trenter(TR_PARSE, "decls");
 	struct token tok = {0};
 	struct ast_decls **next = decls;
 	while (tok.token != T_EOF) {
@@ -2535,7 +2352,6 @@ parse_decls(struct lexer *lexer, struct ast_decls **decls)
 		switch (lex(lexer, &tok)) {
 		case T_EXPORT:
 			decl->decl.exported = true;
-			trace(TR_PARSE, "export");
 			break;
 		default:
 			unlex(lexer, &tok);
@@ -2553,7 +2369,6 @@ parse_decls(struct lexer *lexer, struct ast_decls **decls)
 	}
 	free(*next);
 	*next = 0;
-	trleave(TR_PARSE, NULL);
 }
 
 void

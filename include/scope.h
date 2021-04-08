@@ -2,7 +2,6 @@
 #define HAREC_SCOPE_H
 #include "expr.h"
 #include "identifier.h"
-#include "trace.h"
 
 #define SCOPE_BUCKETS 4096
 
@@ -46,8 +45,8 @@ struct scopes {
 	struct scopes *next;
 };
 
-struct scope *scope_push(struct scope **stack, enum trace_sys sys);
-struct scope *scope_pop(struct scope **stack, enum trace_sys sys);
+struct scope *scope_push(struct scope **stack);
+struct scope *scope_pop(struct scope **stack);
 
 void scope_free(struct scope *scope);
 void scope_free_all(struct scopes *scopes);

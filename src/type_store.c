@@ -531,8 +531,7 @@ type_init_from_atype(struct type_store *store,
 		type->size = storage->size;
 		type->align = storage->size;
 
-		struct scope *scope = scope_push(
-			&store->check_context->scope, TR_CHECK);
+		struct scope *scope = scope_push(&store->check_context->scope);
 		// TODO: Check for duplicates
 		struct ast_enum_field *avalue = atype->_enum.values;
 		struct type_enum_value **values = &type->_enum.values;
@@ -580,7 +579,7 @@ type_init_from_atype(struct type_store *store,
 			values = &value->next;
 			avalue = avalue->next;
 		}
-		scope_pop(&store->check_context->scope, TR_CHECK);
+		scope_pop(&store->check_context->scope);
 		scope_free(scope);
 		break;
 	case STORAGE_FUNCTION:

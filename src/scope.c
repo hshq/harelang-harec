@@ -3,7 +3,6 @@
 #include "expr.h"
 #include "identifier.h"
 #include "scope.h"
-#include "trace.h"
 #include "util.h"
 
 static uint32_t
@@ -13,7 +12,7 @@ name_hash(uint32_t init, const struct identifier *ident)
 }
 
 struct scope *
-scope_push(struct scope **stack, enum trace_sys sys)
+scope_push(struct scope **stack)
 {
 	struct scope *new = xcalloc(1, sizeof(struct scope));
 	new->next = &new->objects;
@@ -21,21 +20,15 @@ scope_push(struct scope **stack, enum trace_sys sys)
 		new->parent = *stack;
 	}
 	*stack = new;
-	if (sys != TR_MAX) {
-		trenter(sys, "scope %p", new);
-	}
 	return new;
 }
 
 struct scope *
-scope_pop(struct scope **stack, enum trace_sys sys)
+scope_pop(struct scope **stack)
 {
 	struct scope *prev = *stack;
 	assert(prev);
 	*stack = prev->parent;
-	if (sys != TR_MAX) {
-		trleave(sys, NULL);
-	}
 	return prev;
 }
 

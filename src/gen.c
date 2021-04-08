@@ -10,7 +10,6 @@
 #include "identifier.h"
 #include "qbe.h"
 #include "scope.h"
-#include "trace.h"
 #include "typedef.h"
 #include "types.h"
 #include "util.h"
@@ -3090,10 +3089,8 @@ gen(const struct unit *unit, struct qbe_program *out)
 	};
 	ctx.out->next = &ctx.out->defs;
 	const struct declarations *decls = unit->declarations;
-	trenter(TR_GEN, "gen");
 	while (decls) {
 		gen_decl(&ctx, decls->decl);
 		decls = decls->next;
 	}
-	trleave(TR_GEN, NULL);
 }
