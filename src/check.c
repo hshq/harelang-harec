@@ -271,7 +271,7 @@ check_expr_alloc(struct context *ctx,
 			inittype = hint;
 		} else if (type_dealias(hint)->storage == STORAGE_POINTER) {
 			inittype = type_dealias(hint)->pointer.referent;
-			flags = hint->pointer.flags;
+			flags = type_dealias(hint)->pointer.flags;
 		}
 	}
 
