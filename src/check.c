@@ -1592,8 +1592,8 @@ check_expr_list(struct context *ctx,
 	const struct ast_expression_list *alist = &aexpr->list;
 	while (alist) {
 		struct expression *lexpr = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, alist->expr, lexpr, NULL,
-			errors);
+		errors = check_expression(ctx, alist->expr, lexpr,
+			alist->next ? NULL : hint, errors);
 		list->expr = lexpr;
 
 		alist = alist->next;
