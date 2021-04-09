@@ -19,6 +19,11 @@ let au: coords = coords { ... };
 type coords3 = struct { coords: coords, z: int };
 let a3: coords3 = coords3 { ... };
 
+type aenum = enum u64 {
+	BIG_VALUE = 0x1234567887654321,
+};
+const big_value: aenum = aenum::BIG_VALUE;
+
 fn storage() void = {
 	assert(len(ar) == 3);
 	assert(ar[0] == 1 && ar[1] == 2 && ar[2] == 3);
@@ -28,6 +33,7 @@ fn storage() void = {
 	assert(su.x == 20 && su.y == 10);
 	assert(au.x == 0 && au.y == 0);
 	assert(a3.coords.x == 0 && a3.coords.y == 0 && a3.z == 0);
+	assert(big_value == 0x1234567887654321);
 };
 
 fn invariants() void = {

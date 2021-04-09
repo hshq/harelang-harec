@@ -2840,7 +2840,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		case STORAGE_I64:
 		case STORAGE_SIZE:
 			item->type = QD_VALUE;
-			constl(&item->value, (uint32_t)constant->uval);
+			constl(&item->value, (uint64_t)constant->uval);
 			break;
 		default:
 			assert(0);
