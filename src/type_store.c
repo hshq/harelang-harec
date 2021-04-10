@@ -25,6 +25,25 @@ expect(const struct location *loc, bool constraint, char *fmt, ...)
 	}
 }
 
+static void
+handle_errors(struct errors *errors)
+{
+	struct errors *error = errors;
+	while (error && error->prev) {
+		error = error->prev;
+	}
+	while (error) {
+		fprintf(stderr, "Error %s:%d:%d: %s\n", error->loc.path,
+			error->loc.lineno, error->loc.colno, error->msg);
+		struct errors *next = error->next;
+		free(error);
+		error = next;
+	}
+	if (errors) {
+		abort();
+	}
+}
+
 static char *
 gen_typename(const struct type *type)
 {
@@ -46,7 +65,7 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 	}
 	struct errors *errors = check_expression(store->check_context,
 		atype->array.length, &in, NULL, NULL);
-	assert(errors == NULL); // TODO: Handle this gracefully
+	handle_errors(errors);
 	enum eval_result r = eval_expr(store->check_context, &in, &out);
 	// TODO: Bubble up these errors:
 	assert(r == EVAL_OK);
@@ -169,7 +188,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		struct expression in, out;
 		struct errors *errors = check_expression(store->check_context,
 			atype->offset, &in, NULL, NULL);
-		assert(errors == NULL); // TODO: Handle this gracefully
+		handle_errors(errors);
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
 		// TODO: Bubble up
 		assert(r == EVAL_OK);
@@ -546,8 +565,7 @@ type_init_from_atype(struct type_store *store,
 				struct errors *errors = check_expression(
 					store->check_context, avalue->value,
 					&in, storage, NULL);
-				// TODO: Handle this more gracefully
-				assert(errors == NULL);
+				handle_errors(errors);
 				enum eval_result r =
 					eval_expr(store->check_context, &in, &out);
 				// TODO: Bubble this up
