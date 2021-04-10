@@ -25,10 +25,16 @@ fn funcs() void = {
 	assert(x.0 == 42 && x.1 == 1337);
 };
 
+// Regression tests for miscellaneous compiler bugs
+fn regression() void = {
+	let a: (((int | void), int) | void) = (void, 0);
+};
+
 export fn main() void = {
 	storage();
 	indexing();
 	funcs();
 	eval_expr_tuple();
 	eval_expr_access();
+	regression();
 };

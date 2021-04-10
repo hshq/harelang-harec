@@ -2297,11 +2297,7 @@ check_expr_tuple(struct context *ctx,
 
 	if (hint && type_dealias(hint)->storage == STORAGE_TUPLE) {
 		expr->result = hint;
-	} else {
-		expr->result = type_store_lookup_tuple(ctx->store, &result);
-	}
-
-	if (hint && type_dealias(hint)->storage == STORAGE_TAGGED) {
+	} else if (hint && type_dealias(hint)->storage == STORAGE_TAGGED) {
 		for (const struct type_tagged_union *tu =
 				&type_dealias(hint)->tagged;
 				tu; tu = tu->next) {
@@ -2326,6 +2322,12 @@ check_expr_tuple(struct context *ctx,
 				break;
 			}
 		}
+		if (!expr->result) {
+			return error(aexpr->loc, expr, errors,
+				"Tuple value is not assignable to tagged union hint");
+		}
+	} else {
+		expr->result = type_store_lookup_tuple(ctx->store, &result);
 	}
 
 	ttuple = &type_dealias(expr->result)->tuple;
