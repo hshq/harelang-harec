@@ -24,6 +24,9 @@ type aenum = enum u64 {
 };
 const big_value: aenum = aenum::BIG_VALUE;
 
+const float: f32 = 1234.5678;
+const double: f64 = 1234.5678;
+
 fn storage() void = {
 	assert(len(ar) == 3);
 	assert(ar[0] == 1 && ar[1] == 2 && ar[2] == 3);
@@ -34,6 +37,8 @@ fn storage() void = {
 	assert(au.x == 0 && au.y == 0);
 	assert(a3.coords.x == 0 && a3.coords.y == 0 && a3.z == 0);
 	assert(big_value == 0x1234567887654321);
+	assert(float == 1234.5678);
+	assert(double == 1234.5678);
 };
 
 fn invariants() void = {

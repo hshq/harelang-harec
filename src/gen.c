@@ -2702,9 +2702,12 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		constl(&item->value, (uint64_t)constant->uval);
 		break;
 	case STORAGE_F32:
+		item->type = QD_VALUE;
+		consts(&item->value, (float)constant->fval);
+		break;
 	case STORAGE_F64:
 		item->type = QD_VALUE;
-		constd(&item->value, constant->fval);
+		constd(&item->value, (double)constant->fval);
 		break;
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
