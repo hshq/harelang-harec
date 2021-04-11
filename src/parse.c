@@ -1267,19 +1267,28 @@ parse_allocation_expression(struct lexer *lexer)
 			if (lex(lexer, &tok) == T_ELLIPSIS) {
 				exp->append.variadic =
 					parse_expression(lexer);
-				if (lex(lexer, &tok) != T_COMMA) {
-					unlex(lexer, &tok);
-				}
-				want(lexer, T_RPAREN, &tok);
 				break;
 			}
 			*next = xcalloc(1, sizeof(struct ast_append_values));
 			unlex(lexer, &tok);
 			(*next)->expr = parse_expression(lexer);
-			if (lex(lexer, &tok) != T_COMMA) {
+
+			lex(lexer, &tok);
+			if (tok.token == T_ELLIPSIS) {
+				exp->append.variadic = (*next)->expr;
+				free(*next);
+				*next = NULL;
+				if (lex(lexer, &tok) != T_COMMA) {
+					unlex(lexer, &tok);
+				}
+				want(lexer, T_RPAREN, &tok);
+				break;
+			} else if (tok.token != T_COMMA) {
 				unlex(lexer, &tok);
 				want(lexer, T_RPAREN, &tok);
+				break;
 			}
+
 			next = &(*next)->next;
 		}
 		break;
