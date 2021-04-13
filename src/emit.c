@@ -254,36 +254,35 @@ emit_data_string(const char *str, size_t sz, FILE *out)
 static bool
 is_zeroes(struct qbe_data_item *data)
 {
-	switch (data->type) {
-	case QD_ZEROED:
-		break;
-	case QD_VALUE:
-		switch (data->value.kind) {
-		case QV_CONST:
-			if (data->value.lval != 0) {
+	for (struct qbe_data_item *cur = data; cur; cur = cur->next) {
+		switch (cur->type) {
+		case QD_ZEROED:
+			break;
+		case QD_VALUE:
+			switch (cur->value.kind) {
+			case QV_CONST:
+				if (cur->value.lval != 0) {
+					return false;
+				}
+				break;
+			case QV_GLOBAL:
+			case QV_LABEL:
+			case QV_TEMPORARY:
 				return false;
 			}
 			break;
-		case QV_GLOBAL:
-		case QV_LABEL:
-		case QV_TEMPORARY:
+		case QD_STRING:
+			for (size_t i = 0; i < cur->sz; ++i) {
+				if (cur->str[i] != 0) {
+					return false;
+				}
+			}
+			break;
+		case QD_SYMOFFS:
 			return false;
 		}
-		break;
-	case QD_STRING:
-		for (size_t i = 0; i < data->sz; ++i) {
-			if (data->str[i] != 0) {
-				return false;
-			}
-		}
-		break;
-	case QD_SYMOFFS:
-		return false;
 	}
-	if (!data->next) {
-		return true;
-	}
-	return is_zeroes(data->next);
+	return true;
 }
 
 static void
