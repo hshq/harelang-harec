@@ -304,7 +304,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 		if (!strchr(basechrs, c)) {
 			switch (c) {
 			case '.':
-				if (isfloat || suff) {
+				if (isfloat || suff || exp) {
 					push(lexer, c, true);
 					goto finalize;
 				}
@@ -322,7 +322,15 @@ lex_literal(struct lexer *lexer, struct token *out)
 					push(lexer, c, true);
 					goto finalize;
 				}
-				exp = &lexer->buf[lexer->buflen];
+				// exponent is always in base 10
+				basechrs = "0123456789";
+				c = next(lexer, NULL, true);
+				if (c != '-' && c != '+' && !strchr(basechrs, c)) {
+					push(lexer, c, true);
+					push(lexer, 'e', true);
+					goto finalize;
+				};
+				exp = &lexer->buf[lexer->buflen - 1];
 				break;
 			case 'i':
 			case 'u':
@@ -382,11 +390,20 @@ finalize:
 		}
 	}
 
-	uintmax_t exponent = 0;
+	intmax_t exponent = 0;
 	if (exp) {
 		char *endptr = NULL;
-		exponent = strtoumax(exp, &endptr, 10);
-		if (endptr == exp) {
+		exponent = strtoimax(exp, &endptr, 10);
+		// integers can't have negative exponents
+		if (exponent < 0 && !suff) {
+			out->storage = STORAGE_FCONST;
+		}
+		enum type_storage s = out->storage;
+		bool valid = exponent >= 0
+			|| s == STORAGE_F32
+			|| s == STORAGE_F64
+			|| s == STORAGE_FCONST;
+		if (endptr == exp || !valid) {
 			out->token = T_ERROR;
 			consume(lexer, -1);
 			return out->token;
@@ -402,14 +419,14 @@ finalize:
 	case STORAGE_U64:
 	case STORAGE_SIZE:
 		out->uval = strtoumax(lexer->buf, NULL, base);
-		for (uintmax_t i = 0; i < exponent; i++) {
+		for (intmax_t i = 0; i < exponent; i++) {
 			out->uval *= 10;
 		}
 		break;
 	case STORAGE_ICONST:
 		if (lexer->buf[0] != '-') {
 			uintmax_t uval = strtoumax(lexer->buf, NULL, base);
-			for (uintmax_t i = 0; i < exponent; i++) {
+			for (intmax_t i = 0; i < exponent; i++) {
 				uval *= 10;
 			}
 			if (uval > (uintmax_t)INT64_MAX) {
@@ -425,7 +442,7 @@ finalize:
 	case STORAGE_INT:
 	case STORAGE_I64:
 		out->ival = strtoimax(lexer->buf, NULL, base);
-		for (uintmax_t i = 0; i < exponent; i++) {
+		for (intmax_t i = 0; i < exponent; i++) {
 			out->ival *= 10;
 		}
 		break;
