@@ -586,12 +586,10 @@ gen_expr_alloc(struct gen_context *ctx,
 	rtalloc.name = strdup("rt.malloc");
 	rtalloc.type = &qbe_long;
 	pushi(ctx->current, &ret, Q_CALL, &rtalloc, &size, NULL);
-	gen_store(ctx, out, &ret);
-	qval_deref(&ret);
+
 	struct qbe_value load = {0};
-	gen_loadtemp(ctx, &load, out,
-		qtype_for_type(ctx, expr->result, false),
-		type_is_signed(expr->result));
+	gen_temp(ctx, &load, &qbe_long, "alloc.storage.%d");
+	pushi(ctx->current, &load, Q_COPY, &ret, NULL);
 
 	struct qbe_statement nulll = {0}, validl = {0}, endl = {0};
 	struct qbe_value bnull = {0}, bvalid = {0}, bend = {0};
@@ -618,6 +616,7 @@ gen_expr_alloc(struct gen_context *ctx,
 			type_dealias(expr->result)->pointer.referent,
 			false);
 	gen_expression(ctx, expr->alloc.expr, &load);
+	gen_store(ctx, out, &ret);
 	push(&ctx->current->body, &endl);
 }
 
