@@ -527,44 +527,52 @@ check_expr_assign(struct context *ctx,
 
 static const struct type *
 type_promote(struct type_store *store,
-	const struct type *_a,
-	const struct type *_b)
+	const struct type *a,
+	const struct type *b)
 {
-	bool is_const = (_a->flags & TYPE_CONST) || (_b->flags & TYPE_CONST);
-	const struct type *a = type_store_lookup_with_flags(store, _a, 0);
-	const struct type *b = type_store_lookup_with_flags(store, _b, 0);
+	// Note: we must return either a, b, or NULL
+	// TODO: There are likely some improperly handled edge cases around type
+	// flags, both here and in the spec
+	const struct type *da = type_store_lookup_with_flags(store, a, 0);
+	const struct type *db = type_store_lookup_with_flags(store, b, 0);
 
-	if (a->storage == STORAGE_ALIAS) {
-		return a == b || a->alias.type == b ? _b : NULL;
+	if (da == db) {
+		const struct type *base = type_store_lookup_with_flags(store, a,
+			a->flags | b->flags);
+		assert(base == a || base == b);
+		return base;
 	}
-	if (b->storage == STORAGE_ALIAS) {
-		return a == b || a == b->alias.type ? _a : NULL;
+
+	if (a->storage == STORAGE_ALIAS && b->storage == STORAGE_ALIAS) {
+		return NULL;
 	}
 
-	const struct type *base = a == b ? a : NULL;
+	da = type_dealias(da);
+	db = type_dealias(db);
 
-	switch (a->storage) {
+	if (da == db) {
+		return a->storage == STORAGE_ALIAS ? a : b;
+	}
+
+	switch (da->storage) {
 	case STORAGE_ARRAY:
-		if (a->array.length == SIZE_UNDEFINED && a->array.members) {
-			base = b;
-			break;
+		if (da->array.length == SIZE_UNDEFINED && da->array.members) {
+			return b;
 		}
-		if (b->array.length == SIZE_UNDEFINED && b->array.members) {
-			base = a;
-			break;
+		if (db->array.length == SIZE_UNDEFINED && db->array.members) {
+			return a;
 		}
-		break;
+		return NULL;
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
-		if (!type_is_integer(b) || !type_is_signed(b)
-				|| b->size == a->size) {
-			break;
+		if (!type_is_integer(db) || !type_is_signed(db)
+				|| db->size == da->size) {
+			return NULL;
 		}
-		base = a->size > b->size ? a : b;
-		break;
+		return da->size > db->size ? a : b;
 	case STORAGE_U32:
 	case STORAGE_U16:
 	case STORAGE_U64:
@@ -572,40 +580,40 @@ type_promote(struct type_store *store,
 	case STORAGE_SIZE:
 	case STORAGE_U8:
 	case STORAGE_CHAR:
-		if (!type_is_integer(b) || type_is_signed(b)
-				|| b->size == a->size) {
-			break;
+		if (!type_is_integer(db) || type_is_signed(db)
+				|| db->size == da->size) {
+			return NULL;
 		}
-		base = a->size > b->size ? a : b;
-		break;
+		return da->size > db->size ? a : b;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		if (!type_is_float(b) || b->size == a->size) {
-			break;
+		if (!type_is_float(db) || db->size == da->size) {
+			return NULL;
 		}
-		base = a->size > b->size ? a : b;
-		break;
+		return da->size > db->size ? a : b;
 	case STORAGE_POINTER:
-		if (b->storage == STORAGE_NULL) {
-			base = a;
-			break;
+		if (db->storage == STORAGE_NULL) {
+			return a;
 		}
-		if (b->storage != STORAGE_POINTER) {
-			break;
+		if (db->storage != STORAGE_POINTER) {
+			return NULL;
 		}
-		base = type_promote(store, a->pointer.referent,
-			b->pointer.referent);
-		if (base) {
-			base = type_store_lookup_pointer(store, base,
-				a->pointer.flags | b->pointer.flags);
+		const struct type *r = type_promote(store, da->pointer.referent,
+			db->pointer.referent);
+		if (r == da->pointer.referent) {
+			return a;
 		}
-		break;
+		if (r == db->pointer.referent) {
+			return b;
+		}
+		assert(r == NULL);
+		return NULL;
 	case STORAGE_NULL:
-		if (b->storage == STORAGE_POINTER
-				|| b->storage == STORAGE_NULL) {
-			base = b;
+		assert(db->storage != STORAGE_NULL);
+		if (db->storage == STORAGE_POINTER) {
+			return b;
 		}
-		break;
+		return NULL;
 	// Cannot be promoted
 	case STORAGE_BOOL:
 	case STORAGE_ENUM:
@@ -619,21 +627,16 @@ type_promote(struct type_store *store,
 	case STORAGE_UINTPTR:
 	case STORAGE_UNION:
 	case STORAGE_VOID:
-		break;
+		return NULL;
 	// Handled above
 	case STORAGE_ALIAS:
-		break;
+		assert(0);
 	// Invariant
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 		assert(0);
 	}
-
-	if (is_const && base) {
-		base = type_store_lookup_with_flags(store, base,
-			base->flags | TYPE_CONST);
-	}
-	return base;
+	assert(0);
 }
 
 static bool
