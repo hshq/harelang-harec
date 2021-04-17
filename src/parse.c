@@ -2010,21 +2010,9 @@ parse_expression_list(struct lexer *lexer)
 
 	bool more = true;
 	while (more) {
-		struct token tok = {0};
-		switch (lex(lexer, &tok)) {
-		case T_BREAK:
-		case T_CONTINUE:
-		case T_RETURN:
-			unlex(lexer, &tok);
-			cur->expr = parse_control_statement(lexer);
-			more = false;
-			break;
-		default:
-			unlex(lexer, &tok);
-			cur->expr = parse_expression(lexer);
-			break;
-		}
+		cur->expr = parse_expression(lexer);
 
+		struct token tok = {0};
 		want(lexer, T_SEMICOLON, &tok);
 
 		if (more) {
