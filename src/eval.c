@@ -360,7 +360,10 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 			out->constant.uval = 0;
 			return EVAL_OK;
 		}
-		assert(0); // TODO
+		assert(from->storage == STORAGE_POINTER
+			|| from->storage == STORAGE_UINTPTR);
+		out->constant.uval = val.constant.uval;
+		return EVAL_OK;
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
