@@ -1087,9 +1087,6 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 		want(lexer, T_RPAREN, &tok);
 		break;
 	case T_ABORT:
-		if (exp->assert.is_static) {
-			synassert(false, &tok, T_ASSERT, T_EOF);
-		}
 		want(lexer, T_LPAREN, &tok);
 		if (lex(lexer, &tok) != T_RPAREN) {
 			unlex(lexer, &tok);
@@ -2059,11 +2056,12 @@ parse_expression(struct lexer *lexer)
 		case T_CONST:
 			unlex(lexer, &tok);
 			return parse_binding_list(lexer, true);
+		case T_ABORT:
 		case T_ASSERT:
 			unlex(lexer, &tok);
 			return parse_assertion_expression(lexer, true);
 		default:
-			synassert(false, &tok, T_LET, T_CONST, T_ASSERT, T_EOF);
+			synassert(false, &tok, T_LET, T_CONST, T_ABORT, T_ASSERT, T_EOF);
 		}
 		assert(0); // Unreachable
 	case T_BREAK:
