@@ -2534,10 +2534,6 @@ static struct declaration *
 check_function(struct context *ctx,
 	const struct ast_decl *adecl)
 {
-	if (!adecl->function.body) {
-		return NULL; // Prototype
-	}
-
 	const struct ast_function_decl *afndecl = &adecl->function;
 	if ((adecl->function.flags & FN_TEST) && !tag_enabled(ctx->tags, "test")) {
 		return NULL;
@@ -2566,6 +2562,10 @@ check_function(struct context *ctx,
 		decl->symbol = strdup(afndecl->symbol);
 	}
 	mkident(ctx, &decl->ident, &afndecl->ident);
+
+	if (!adecl->function.body) {
+		return decl; // Prototype
+	}
 
 	decl->func.scope = scope_push(&ctx->scope);
 	struct ast_function_parameters *params = afndecl->prototype.params;
