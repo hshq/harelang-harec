@@ -1801,6 +1801,16 @@ parse_match_expression(struct lexer *lexer)
 		struct token tok2 = {0};
 		struct identifier ident = {0};
 		switch (lex(lexer, &tok)) {
+		case T_NULL:
+			_case->name = "_";
+			unlex(lexer, &tok);
+			_case->type = parse_type(lexer);
+			break;
+		case T_UNDERSCORE:
+			_case->name = "_";
+			want(lexer, T_COLON, &tok);
+			_case->type = parse_type(lexer);
+			break;
 		case T_NAME:
 			switch (lex(lexer, &tok2)) {
 			case T_COLON:
@@ -1822,8 +1832,7 @@ parse_match_expression(struct lexer *lexer)
 				_case->type->alias.name = tok.name;
 				break;
 			default:
-				synassert(false, &tok, T_COLON,
-					T_DOUBLE_COLON, T_CASE, T_EOF);
+				synassert(false, &tok, T_DOUBLE_COLON, T_CASE, T_EOF);
 				break;
 			}
 			break;
@@ -1843,8 +1852,8 @@ parse_match_expression(struct lexer *lexer)
 			}
 			break;
 		default:
-			unlex(lexer, &tok);
-			_case->type = parse_type(lexer);
+			synassert(false, &tok, T_NAME, T_NULL, T_UNDERSCORE,
+				T_TIMES, T_EOF);
 			break;
 		}
 

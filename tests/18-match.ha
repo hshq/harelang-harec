@@ -3,9 +3,9 @@ fn tagged() void = {
 	let expected: [_]size = [1, 2, 5];
 	for (let i = 0z; i < len(cases); i += 1) {
 		let y: size = match (cases[i]) {
-			int    => 1,
-			uint   => 2,
-			s: str => len(s),
+			_: int  => 1,
+			_: uint => 2,
+			s: str  => len(s),
 		};
 		assert(y == expected[i]);
 	};
@@ -15,9 +15,9 @@ fn termination() void = {
 	let x: (int | uint | str) = 1337i;
 	for (true) {
 		let y: int = match (x) {
-			int  => 42,
-			uint => abort(),
-			str  => break,
+			_: int  => 42,
+			_: uint => abort(),
+			_: str  => break,
 		};
 		assert(y == 42);
 		x = "hi";
@@ -27,8 +27,8 @@ fn termination() void = {
 fn default() void = {
 	let x: (int | uint | str) = 1337u;
 	let y: int = match (x) {
-		int => 42,
-		*   => 24,
+		_: int => 42,
+		*      => 24,
 	};
 	assert(y == 24);
 };
@@ -59,8 +59,8 @@ fn alias() void = {
 	let expected = [42, 24];
 	for (let i = 0z; i < len(cases); i += 1) {
 		let y: int = match (cases[i]) {
-			foo => 42,
-			bar => 24,
+			_: foo => 42,
+			_: bar => 24,
 		};
 		assert(y == expected[i]);
 	};
@@ -102,24 +102,24 @@ fn transitivity() void = {
 	let x: (foobar | int) = 10;
 	match (x) {
 		i: int => assert(i == 10),
-		foo => abort(),
-		bar => abort(),
+		_: foo => abort(),
+		_: bar => abort(),
 	};
 	x = foo;
 	let visit = false;
 	match (x) {
-		int => abort(),
-		foo => visit = true,
-		bar => abort(),
+		_: int => abort(),
+		_: foo => visit = true,
+		_: bar => abort(),
 	};
 	assert(visit);
 
 	x = bar;
 	visit = false;
 	match (x) {
-		int    => abort(),
-		foo    => abort(),
-		foobar => visit = true,
+		_: int    => abort(),
+		_: foo    => abort(),
+		_: foobar => visit = true,
 	};
 	assert(visit);
 
@@ -129,25 +129,25 @@ fn transitivity() void = {
 			visit = true;
 			assert(z is bar);
 		},
-		int => abort(),
+		_: int => abort(),
 	};
 	assert(visit);
 
 	let y: foobarbaz = 10;
 	visit = false;
 	match (y) {
-		baz => visit = true,
-		foo => abort(),
-		bar => abort(),
+		_: baz => visit = true,
+		_: foo => abort(),
+		_: bar => abort(),
 	};
 	assert(visit);
 
 	y = foo;
 	visit = false;
 	match (y) {
-		baz => abort(),
-		foo => visit = true,
-		bar => abort(),
+		_: baz => abort(),
+		_: foo => visit = true,
+		_: bar => abort(),
 	};
 	assert(visit);
 };
