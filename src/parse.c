@@ -381,9 +381,6 @@ parse_primitive_type(struct lexer *lexer)
 	case T_VOID:
 		type->storage = STORAGE_VOID;
 		break;
-	case T_NULL:
-		type->storage = STORAGE_NULL;
-		break;
 	default:
 		assert(0);
 	}
@@ -623,7 +620,6 @@ parse_type(struct lexer *lexer)
 	case T_F64:
 	case T_BOOL:
 	case T_VOID:
-	case T_NULL:
 		unlex(lexer, &tok);
 		type = parse_primitive_type(lexer);
 		break;
