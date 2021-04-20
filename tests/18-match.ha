@@ -44,7 +44,7 @@ fn pointer() void = {
 	
 	y = null;
 	z = match(y) {
-		*int => abort(),
+		_: *int => abort(),
 		null => 1337,
 	};
 	assert(z == 1337);

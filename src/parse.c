@@ -1794,65 +1794,30 @@ parse_match_expression(struct lexer *lexer)
 		struct ast_match_case *_case =
 			*next_case = xcalloc(1, sizeof(struct ast_match_case));
 
-		struct token tok2 = {0};
-		struct identifier ident = {0};
+		struct ast_type *null = NULL;
 		switch (lex(lexer, &tok)) {
 		case T_NULL:
-			_case->name = "_";
-			unlex(lexer, &tok);
-			_case->type = parse_type(lexer);
+			null = xcalloc(1, sizeof(struct ast_type));
+			null->loc = tok.loc;
+			null->storage = STORAGE_NULL;
+			_case->type = null;
 			break;
 		case T_UNDERSCORE:
-			_case->name = "_";
-			want(lexer, T_COLON, &tok);
+			want(lexer, T_COLON, NULL);
 			_case->type = parse_type(lexer);
 			break;
 		case T_NAME:
-			switch (lex(lexer, &tok2)) {
-			case T_COLON:
-				_case->name = tok.name; // Assumes ownership
-				_case->type = parse_type(lexer);
-				break;
-			case T_DOUBLE_COLON:
-				ident.ns = xcalloc(1, sizeof(struct identifier));
-				ident.ns->name = tok.name; // Assumes ownership
-				parse_identifier(lexer, &ident, false);
-				_case->type = mktype(&tok.loc);
-				_case->type->storage = STORAGE_ALIAS;
-				_case->type->alias = ident;
-				break;
-			case T_CASE:
-				unlex(lexer, &tok2);
-				_case->type = mktype(&tok.loc);
-				_case->type->storage = STORAGE_ALIAS;
-				_case->type->alias.name = tok.name;
-				break;
-			default:
-				synassert(false, &tok, T_DOUBLE_COLON, T_CASE, T_EOF);
-				break;
-			}
+			_case->name = tok.name;
+			want(lexer, T_COLON, NULL);
+			_case->type = parse_type(lexer);
 			break;
 		case T_TIMES:
-			switch (lex(lexer, &tok2)) {
-			case T_CASE: // Default case
-				unlex(lexer, &tok2);
-				break;
-			default:
-				unlex(lexer, &tok2);
-				_case->type = parse_type(lexer);
-				struct ast_type *ptr = mktype(&tok.loc);
-				ptr->storage = STORAGE_POINTER;
-				ptr->pointer.referent = _case->type;
-				_case->type = ptr;
-				break;
-			}
 			break;
 		default:
 			synassert(false, &tok, T_NAME, T_NULL, T_UNDERSCORE,
 				T_TIMES, T_EOF);
 			break;
 		}
-
 		want(lexer, T_CASE, &tok);
 		_case->value = parse_expression(lexer);
 
