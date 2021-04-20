@@ -117,7 +117,7 @@ tagged_qtype(struct gen_context *ctx, const struct type *type)
 	def->type.stype = Q__AGGREGATE;
 	def->type.base = NULL;
 	def->type.name = name;
-	def->type.align = SIZE_UNDEFINED;
+	def->type.align = type->align;
 	def->type.is_union = true;
 	def->type.size = type->size - type->align;
 
@@ -178,7 +178,7 @@ lookup_aggregate(struct gen_context *ctx, const struct type *type)
 	def->type.stype = Q__AGGREGATE;
 	def->type.base = type;
 	def->type.name = name;
-	def->type.align = SIZE_UNDEFINED;
+	def->type.align = type->align;
 	def->type.size = type->size;
 
 	struct qbe_field *field = &def->type.fields;

@@ -11,36 +11,44 @@ const struct qbe_type
 qbe_byte = {
 	.stype = Q_BYTE,
 	.size = 1,
+	.align = 1,
 },
 qbe_byte_s = {
 	.stype = Q_BYTE,
 	.size = 1,
+	.align = 1,
 	.is_signed = true,
 },
 qbe_half = {
 	.stype = Q_HALF,
 	.size = 2,
+	.align = 2,
 },
 qbe_half_s = {
 	.stype = Q_HALF,
 	.size = 2,
+	.align = 2,
 	.is_signed = true,
 },
 qbe_word = {
 	.stype = Q_WORD,
 	.size = 4,
+	.align = 4,
 },
 qbe_long = {
 	.stype = Q_LONG,
 	.size = 8,
+	.align = 8,
 },
 qbe_single = {
 	.stype = Q_SINGLE,
 	.size = 4,
+	.align = 4,
 },
 qbe_double = {
 	.stype = Q_DOUBLE,
 	.size = 8,
+	.align = 8,
 },
 qbe_void = {
 	.stype = Q__VOID,
