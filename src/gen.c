@@ -190,31 +190,55 @@ gen_copy(struct gen_context *ctx,
 	pushc(ctx->current, "begin gen_copy for type %s (is_union? %d)",
 			dest->type->name, dest->type->is_union);
 
-	struct qbe_value temp = {0}, destp = {0}, srcp = {0}, size = {0};
-	gen_temp(ctx, &temp, &qbe_long, "temp.%d");
+	struct qbe_value destp = {0}, srcp = {0};
 	gen_temp(ctx, &destp, &qbe_long, "dest.%d");
 	gen_temp(ctx, &srcp, &qbe_long, "src.%d");
 	pushi(ctx->current, &destp, Q_COPY, dest, NULL);
 	pushi(ctx->current, &srcp, Q_COPY, src, NULL);
 
-	// TODO: It would be nice to have a more efficient builtin for
-	// this, especially given that copying around unions is an
-	// important feature of Hare
-	//
-	// NOTE: I suspect that this code may be subtly wrong for some reason
-	// when handling union types. If you have written the full set of test
-	// cases for struct and union types, and ended up here: when you figure
-	// it out, please examine the version of this function from
-	// 1d12f4143e87548b8f876f7ecd336c8eb0255679 and see if you can backport
-	// it with your fix applied. That version was much more efficient than
-	// this is.
-	struct qbe_value rtfunc = {0};
-	rtfunc.kind = QV_GLOBAL;
-	rtfunc.name = strdup("rt.memcpy");
-	rtfunc.type = &qbe_long;
-	constl(&size, dest->type->size);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc,
-			&destp, &srcp, &size, NULL);
+	if (dest->type->size > 128) {
+		struct qbe_value rtfunc = {0}, size = {0};
+		rtfunc.kind = QV_GLOBAL;
+		rtfunc.name = strdup("rt.memcpy");
+		rtfunc.type = &qbe_long;
+		constl(&size, dest->type->size);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc,
+				&destp, &srcp, &size, NULL);
+	} else {
+		enum qbe_instr load, store;
+		struct qbe_value temp = {0}, align = {0};
+		assert(dest->type->align
+			&& (dest->type->align & (dest->type->align - 1)) == 0);
+		switch (dest->type->align) {
+		case 1:
+			load = Q_LOADUB;
+			store = Q_STOREB;
+			break;
+		case 2:
+			load = Q_LOADUH;
+			store = Q_STOREH;
+			break;
+		case 4:
+			load = Q_LOADUW;
+			store = Q_STOREW; break;
+		default:
+			assert(dest->type->align == 8);
+			load = Q_LOADL;
+			store = Q_STOREL;
+			break;
+		}
+		gen_temp(ctx, &temp, &qbe_long, "temp.%d");
+		constl(&align, dest->type->align);
+		for (size_t offset = 0; offset < dest->type->size;
+				offset += dest->type->align) {
+			pushi(ctx->current, &temp, load, &srcp, NULL);
+			pushi(ctx->current, NULL, store, &temp, &destp, NULL);
+			pushi(ctx->current, &srcp, Q_ADD, &srcp, &align, NULL);
+			pushi(ctx->current, &destp, Q_ADD, &destp, &align, NULL);
+		}
+	}
+
+	pushc(ctx->current, "end gen_copy for type %s", dest->type->name);
 }
 
 static void
