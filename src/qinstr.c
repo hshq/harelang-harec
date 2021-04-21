@@ -92,7 +92,7 @@ binarithm_for_op(enum binarithm_operator op,
 	case BIN_LSHIFT:
 		return Q_SHL;
 	case BIN_RSHIFT:
-		return Q_SHR;
+		return is_signed ? Q_SAR : Q_SHR;
 	case BIN_LEQUAL:
 		switch (stype) {
 		case Q_WORD:
