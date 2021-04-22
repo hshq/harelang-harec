@@ -182,7 +182,9 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 
 	field->name = strdup(atype->field.name);
 	field->type = type_store_lookup_atype(store, atype->field.type);
-	
+	expect(&atype->field.type->loc, field->type->size,
+			"Struct field size cannot be zero");
+
 	if (atype->offset) {
 		*ccompat = false;
 		struct expression in, out;
@@ -433,6 +435,8 @@ tuple_init_from_atype(struct type_store *store,
 	struct type_tuple *cur = &type->tuple;
 	while (atuple) {
 		cur->type = type_store_lookup_atype(store, atuple->type);
+		expect(&atuple->type->loc, cur->type->size,
+				"Type of size zero cannot be a tuple member");
 		cur->offset = type->size % cur->type->align + type->size;
 		type->size += type->size % cur->type->align + cur->type->size;
 		if (type->align < cur->type->align) {
