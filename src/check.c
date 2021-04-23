@@ -331,6 +331,7 @@ check_expr_append(struct context *ctx,
 	struct errors *errors)
 {
 	assert(aexpr->type == EXPR_APPEND);
+	assert(!aexpr->append.is_static); // TODO
 	expr->type = EXPR_APPEND;
 	expr->result = &builtin_type_void;
 	expr->append.expr = xcalloc(sizeof(struct expression), 1);
@@ -1365,6 +1366,7 @@ check_expr_delete(struct context *ctx,
 	struct errors *errors)
 {
 	expr->type = EXPR_DELETE;
+	assert(!aexpr->delete.is_static); // TODO
 	expr->result = &builtin_type_void;
 	struct expression *dexpr = expr->delete.expr =
 		xcalloc(1, sizeof(struct expression));

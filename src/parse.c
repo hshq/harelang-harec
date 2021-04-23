@@ -1261,7 +1261,7 @@ parse_allocation_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_slice_mutation(struct lexer *lexer)
+parse_slice_mutation(struct lexer *lexer, bool is_static)
 {
 	struct ast_expression *exp = NULL;
 	struct token tok = {0};
@@ -1278,10 +1278,12 @@ parse_slice_mutation(struct lexer *lexer)
 		switch (exp->type) {
 		case EXPR_APPEND:
 			exp->append.expr = parse_expression(lexer);
+			exp->append.is_static = is_static;
 			next = &exp->append.values;
 			break;
 		case EXPR_INSERT:
 			exp->insert.expr = parse_expression(lexer);
+			exp->insert.is_static = is_static;
 			next = &exp->insert.values;
 			break;
 		default:
@@ -1324,6 +1326,7 @@ parse_slice_mutation(struct lexer *lexer)
 		exp->type = EXPR_DELETE;
 		want(lexer, T_LPAREN, NULL);
 		exp->delete.expr = parse_expression(lexer);
+		exp->delete.is_static = is_static;
 		want(lexer, T_RPAREN, NULL);
 		break;
 	default:
@@ -1432,16 +1435,27 @@ parse_builtin_expression(struct lexer *lexer)
 	case T_DELETE:
 	case T_INSERT:
 		unlex(lexer, &tok);
-		return parse_slice_mutation(lexer);
+		return parse_slice_mutation(lexer, false);
+	case T_STATIC:
+		switch (lex(lexer, &tok)) {
+		case T_ABORT:
+		case T_ASSERT:
+			unlex(lexer, &tok);
+			return parse_assertion_expression(lexer, true);
+		case T_APPEND:
+		case T_DELETE:
+		case T_INSERT:
+			unlex(lexer, &tok);
+			return parse_slice_mutation(lexer, true);
+		default:
+			synassert(false, &tok, T_ABORT, T_ASSERT,
+					T_APPEND, T_DELETE, T_INSERT, T_EOF);
+		};
+		break;
 	case T_ABORT:
 	case T_ASSERT:
-	case T_STATIC:
-		if (tok.token == T_STATIC) {
-			return parse_assertion_expression(lexer, true);
-		} else {
-			unlex(lexer, &tok);
-			return parse_assertion_expression(lexer, false);
-		}
+		unlex(lexer, &tok);
+		return parse_assertion_expression(lexer, false);
 	case T_SIZE:
 	case T_LEN:
 	case T_OFFSET:
@@ -2060,6 +2074,11 @@ parse_expression(struct lexer *lexer)
 		case T_ASSERT:
 			unlex(lexer, &tok);
 			return parse_assertion_expression(lexer, true);
+		case T_APPEND:
+		case T_INSERT:
+		case T_DELETE:
+			unlex(lexer, &tok);
+			return parse_slice_mutation(lexer, true);
 		default:
 			synassert(false, &tok, T_LET, T_CONST, T_ABORT, T_ASSERT, T_EOF);
 		}

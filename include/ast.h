@@ -143,6 +143,7 @@ struct ast_expression_append {
 	struct ast_expression *expr;
 	struct ast_expression *variadic;
 	struct ast_append_values *values;
+	bool is_static;
 };
 
 struct ast_expression_assert {
@@ -220,6 +221,7 @@ struct ast_expression_defer {
 
 struct ast_expression_delete {
 	struct ast_expression *expr;
+	bool is_static;
 };
 
 struct ast_expression_for {
@@ -244,6 +246,7 @@ struct ast_expression_insert {
 	struct ast_expression *expr;
 	struct ast_expression *variadic;
 	struct ast_append_values *values;
+	bool is_static;
 };
 
 struct ast_expression_list {
