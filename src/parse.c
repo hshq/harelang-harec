@@ -1247,15 +1247,49 @@ parse_allocation_expression(struct lexer *lexer)
 			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
 		}
 		break;
-	case T_APPEND:
+	case T_FREE:
 		exp = mkexpr(&tok.loc);
-		exp->type = EXPR_APPEND;
+		exp->type = EXPR_FREE;
 		want(lexer, T_LPAREN, NULL);
+		exp->free.expr = parse_expression(lexer);
+		want(lexer, T_RPAREN, NULL);
+		break;
+	default:
+		assert(0);
+	}
+	return exp;
+}
+
+static struct ast_expression *
+parse_slice_mutation(struct lexer *lexer)
+{
+	struct ast_expression *exp = NULL;
+	struct token tok = {0};
+	switch (lex(lexer, &tok)) {
+	case T_APPEND:
+	case T_INSERT:
+		exp = mkexpr(&tok.loc);
+		exp->type = tok.token == T_APPEND ? EXPR_APPEND : EXPR_INSERT;
+		want(lexer, T_LPAREN, NULL);
+
+		struct ast_append_values **next;
 		// Easier to parse an expression and let check limit it to
 		// object-selector/*unary-expression
-		exp->append.expr = parse_expression(lexer);
+		switch (exp->type) {
+		case EXPR_APPEND:
+			exp->append.expr = parse_expression(lexer);
+			next = &exp->append.values;
+			break;
+		case EXPR_INSERT:
+			exp->insert.expr = parse_expression(lexer);
+			next = &exp->insert.values;
+			break;
+		default:
+			assert(0);
+		}
+
 		want(lexer, T_COMMA, NULL);
-		struct ast_append_values **next = &exp->append.values;
+
 		while (tok.token != T_RPAREN) {
 			if (lex(lexer, &tok) == T_ELLIPSIS) {
 				exp->append.variadic =
@@ -1284,13 +1318,6 @@ parse_allocation_expression(struct lexer *lexer)
 
 			next = &(*next)->next;
 		}
-		break;
-	case T_FREE:
-		exp = mkexpr(&tok.loc);
-		exp->type = EXPR_FREE;
-		want(lexer, T_LPAREN, NULL);
-		exp->free.expr = parse_expression(lexer);
-		want(lexer, T_RPAREN, NULL);
 		break;
 	case T_DELETE:
 		exp = mkexpr(&tok.loc);
@@ -1398,11 +1425,14 @@ parse_builtin_expression(struct lexer *lexer)
 	struct token tok;
 	switch (lex(lexer, &tok)) {
 	case T_ALLOC:
-	case T_APPEND:
 	case T_FREE:
-	case T_DELETE:
 		unlex(lexer, &tok);
 		return parse_allocation_expression(lexer);
+	case T_APPEND:
+	case T_DELETE:
+	case T_INSERT:
+		unlex(lexer, &tok);
+		return parse_slice_mutation(lexer);
 	case T_ABORT:
 	case T_ASSERT:
 	case T_STATIC:

@@ -240,6 +240,12 @@ struct ast_expression_if {
 	struct ast_expression *true_branch, *false_branch;
 };
 
+struct ast_expression_insert {
+	struct ast_expression *expr;
+	struct ast_expression *variadic;
+	struct ast_append_values *values;
+};
+
 struct ast_expression_list {
 	struct ast_expression *expr;
 	struct ast_expression_list *next;
@@ -346,6 +352,7 @@ struct ast_expression {
 		struct ast_expression_for _for;
 		struct ast_expression_free free;
 		struct ast_expression_if _if;
+		struct ast_expression_insert insert;
 		struct ast_expression_list list;
 		struct ast_expression_match match;
 		struct ast_expression_measure measure;

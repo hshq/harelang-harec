@@ -2646,6 +2646,8 @@ gen_expression(struct gen_context *ctx,
 	case EXPR_IF:
 		gen_expr_if(ctx, expr, out);
 		break;
+	case EXPR_INSERT:
+		assert(0); // TODO
 	case EXPR_LIST:
 		gen_expr_list(ctx, expr, out);
 		break;

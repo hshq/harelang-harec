@@ -48,6 +48,7 @@ static const char *tokens[] = {
 	[T_I64] = "i64",
 	[T_I8] = "i8",
 	[T_IF] = "if",
+	[T_INSERT] = "insert",
 	[T_INT] = "int",
 	[T_IS] = "is",
 	[T_LEN] = "len",

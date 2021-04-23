@@ -40,6 +40,7 @@ enum lexical_token {
 	T_I64,
 	T_I8,
 	T_IF,
+	T_INSERT,
 	T_INT,
 	T_IS,
 	T_LEN,

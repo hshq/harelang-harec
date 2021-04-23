@@ -652,6 +652,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_FOR:
 	case EXPR_FREE:
 	case EXPR_IF:
+	case EXPR_INSERT:
 	case EXPR_LIST:
 	case EXPR_MATCH:
 	case EXPR_PROPAGATE:

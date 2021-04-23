@@ -2485,6 +2485,8 @@ check_expression(struct context *ctx,
 	case EXPR_IF:
 		errors = check_expr_if(ctx, aexpr, expr, hint, errors);
 		break;
+	case EXPR_INSERT:
+		assert(0); // TODO
 	case EXPR_LIST:
 		errors = check_expr_list(ctx, aexpr, expr, hint, errors);
 		break;
@@ -2922,6 +2924,8 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 		return expr_is_specified(ctx, aexpr->_if.cond)
 			&& expr_is_specified(ctx, aexpr->_if.true_branch)
 			&& expr_is_specified(ctx, aexpr->_if.false_branch);
+	case EXPR_INSERT:
+		assert(0); // TODO
 	case EXPR_LIST:
 		for (const struct ast_expression_list *list = &aexpr->list;
 				list; list = list->next) {
