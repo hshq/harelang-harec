@@ -1034,8 +1034,10 @@ check_expr_cast(struct context *ctx,
 		xcalloc(1, sizeof(struct expression));
 	const struct type *secondary = expr->cast.secondary =
 		type_store_lookup_atype(ctx->store, aexpr->cast.type);
-	errors = check_expression(ctx, aexpr->cast.value, value, secondary,
-		errors);
+	// TODO: Instead of allowing errors on casts to void, we should use a
+	// different nonterminal
+	errors = check_expression(ctx, aexpr->cast.value, value,
+		secondary == &builtin_type_void ? NULL : secondary, errors);
 
 	if (aexpr->cast.kind == C_ASSERTION || aexpr->cast.kind == C_TEST) {
 		const struct type *primary = type_dealias(expr->cast.value->result);
@@ -1609,23 +1611,15 @@ check_expr_list(struct context *ctx,
 			alist->next ? &builtin_type_void : hint, errors);
 		list->expr = lexpr;
 
-		if (alist->next) {
-			expect(&alist->expr->loc, !type_has_error(lexpr->result),
-					"Cannot ignore error here");
+		alist = alist->next;
+		if (alist) {
 			*next = xcalloc(1, sizeof(struct expressions));
 			list = *next;
 			next = &list->next;
 		} else {
-			// XXX: This is a bit of a hack
-			if (hint && !type_has_error(hint)) {
-				expect(&alist->expr->loc,
-					!type_has_error(lexpr->result),
-					"Cannot ignore error here");
-			}
 			expr->result = lexpr->result;
 			expr->terminates = lexpr->terminates;
 		}
-		alist = alist->next;
 	}
 
 	scope_pop(&ctx->scope);
@@ -2552,6 +2546,24 @@ check_expression(struct context *ctx,
 		break;
 	}
 	assert(expr->result);
+	if (hint && hint->storage == STORAGE_VOID) {
+		if ((expr->result->flags & TYPE_ERROR) != 0) {
+			return error(aexpr->loc, expr, errors,
+				"Cannot assign error type to void");
+		}
+		if (type_dealias(expr->result)->storage != STORAGE_TAGGED) {
+			return errors;
+		}
+		const struct type_tagged_union *tu =
+			&type_dealias(expr->result)->tagged;
+		for (; tu; tu = tu->next) {
+			if ((tu->type->flags & TYPE_ERROR) == 0) {
+				continue;
+			}
+			return error(aexpr->loc, expr, errors,
+				"Cannot assign error type to void");
+		}
+	}
 	return errors;
 }
 
