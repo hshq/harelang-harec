@@ -1,3 +1,5 @@
+use rt;
+
 type err_int = int!;
 
 fn assignability() void = {
@@ -26,7 +28,18 @@ fn propagate() void = {
 	assert(indirect(false) is error);
 };
 
+fn cannotignore() void = {
+	assert(rt::compile("type error = void!;
+
+export fn main() int = {
+	error;
+	return 42;
+};") != 0);
+	err_if_false(true)!;
+};
+
 export fn main() void = {
 	assignability();
 	propagate();
+	cannotignore();
 };

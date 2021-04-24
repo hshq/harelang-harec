@@ -1376,9 +1376,11 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		lvalue = parse_index_slice_expression(lexer, lvalue);
 		break;
 	case T_QUESTION:
+	case T_LNOT:
 		exp = mkexpr(&lexer->loc);
 		exp->type = EXPR_PROPAGATE;
 		exp->propagate.value = lvalue;
+		exp->propagate.abort = tok.token == T_LNOT;
 		lvalue = exp;
 		break;
 	default:

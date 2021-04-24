@@ -67,6 +67,26 @@ type_get_value(const struct type *type, uintmax_t index)
 	return NULL;
 }
 
+// Returns true if this type is or contains an error type
+bool
+type_has_error(const struct type *type)
+{
+	if (type->flags & TYPE_ERROR) {
+		return true;
+	}
+	type = type_dealias(type);
+	if (type->storage != STORAGE_TAGGED) {
+		return false;
+	}
+	const struct type_tagged_union *tu = &type->tagged;
+	for (; tu; tu = tu->next) {
+		if (tu->type->flags & TYPE_ERROR) {
+			return true;
+		}
+	}
+	return false;
+}
+
 const char *
 type_storage_unparse(enum type_storage storage)
 {
@@ -641,6 +661,10 @@ castable_from_tagged(const struct type *to, const struct type *from)
 bool
 type_is_castable(const struct type *to, const struct type *from)
 {
+	if (to->storage == STORAGE_VOID) {
+		return true;
+	}
+
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		return tagged_select_subtype(to, from) != NULL
 			|| tagged_subset_compat(to, from);

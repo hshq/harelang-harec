@@ -257,6 +257,7 @@ struct expression_measure {
 
 struct expression_propagate {
 	struct expression *value;
+	bool abort;
 };
 
 struct expression_return {

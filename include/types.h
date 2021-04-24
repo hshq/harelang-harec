@@ -168,6 +168,7 @@ bool type_is_signed(const struct type *type);
 bool type_is_integer(const struct type *type);
 bool type_is_numeric(const struct type *type);
 bool type_is_float(const struct type *type);
+bool type_has_error(const struct type *type);
 
 uint32_t type_hash(const struct type *type);
 

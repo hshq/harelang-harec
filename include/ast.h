@@ -277,6 +277,7 @@ struct ast_expression_measure {
 
 struct ast_expression_propagate {
 	struct ast_expression *value;
+	bool abort;
 };
 
 struct ast_expression_return {

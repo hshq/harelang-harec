@@ -1608,15 +1608,23 @@ check_expr_list(struct context *ctx,
 			alist->next ? NULL : hint, errors);
 		list->expr = lexpr;
 
-		alist = alist->next;
-		if (alist) {
+		if (alist->next) {
+			expect(&alist->expr->loc, !type_has_error(lexpr->result),
+					"Cannot ignore error here");
 			*next = xcalloc(1, sizeof(struct expressions));
 			list = *next;
 			next = &list->next;
 		} else {
+			// XXX: This is a bit of a hack
+			if (hint && !type_has_error(hint)) {
+				expect(&alist->expr->loc,
+					!type_has_error(lexpr->result),
+					"Cannot ignore error here");
+			}
 			expr->result = lexpr->result;
 			expr->terminates = lexpr->terminates;
 		}
+		alist = alist->next;
 	}
 
 	scope_pop(&ctx->scope);
@@ -1807,13 +1815,15 @@ check_expr_propagate(struct context *ctx,
 		return error(aexpr->loc, expr, errors,
 			"Cannot use error propagation with non-tagged type");
 	}
-	if (ctx->deferring) {
-		return error(aexpr->loc, expr, errors,
-			"Cannot use error propagation in a defer expression");
-	}
-	if (ctx->fntype->func.flags & FN_NORETURN) {
-		return error(aexpr->loc, expr, errors,
-			"Cannot use error propagation inside @noreturn function");
+	if (!aexpr->propagate.abort) {
+		if (ctx->deferring) {
+			return error(aexpr->loc, expr, errors,
+				"Cannot use error propagation in a defer expression");
+		}
+		if (ctx->fntype->func.flags & FN_NORETURN) {
+			return error(aexpr->loc, expr, errors,
+				"Cannot use error propagation inside @noreturn function");
+		}
 	}
 
 	struct type_tagged_union result_tagged = {0};
@@ -1870,11 +1880,6 @@ check_expr_propagate(struct context *ctx,
 		result_type = result_tagged.type;
 	}
 
-	if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
-		return error(aexpr->loc, expr, errors,
-			"Error type is not assignable to function result type");
-	}
-
 	// Lower to a match expression
 	expr->type = EXPR_MATCH;
 	expr->match.value = lvalue;
@@ -1910,17 +1915,42 @@ check_expr_propagate(struct context *ctx,
 	case_err->type = return_type;
 	case_err->object = err_obj;
 	case_err->value = xcalloc(1, sizeof(struct expression));
-	case_err->value->type = EXPR_RETURN;
+
+	if (aexpr->propagate.abort) {
+		case_err->value->type = EXPR_ASSERT;
+		case_err->value->assert.cond = NULL;
+		case_err->value->assert.is_static = false;
+
+		int n = snprintf(NULL, 0, "Assertion failed: error occured at %s:%d:%d",
+			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+		char *s = xcalloc(1, n + 1);
+		snprintf(s, n, "Assertion failed: error occured at %s:%d:%d",
+			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+
+		case_err->value->assert.message = xcalloc(1, sizeof(struct expression));
+		case_err->value->assert.message->type = EXPR_CONSTANT;
+		case_err->value->assert.message->result = &builtin_type_const_str;
+		case_err->value->assert.message->constant.string.value = s;
+		case_err->value->assert.message->constant.string.len = n - 1;
+	} else {
+		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
+			return error(aexpr->loc, expr, errors,
+				"Error type is not assignable to function result type");
+		}
+
+		case_err->value->type = EXPR_RETURN;
+
+		struct expression *rval =
+			xcalloc(1, sizeof(struct expression));
+		rval->type = EXPR_ACCESS;
+		rval->access.type = ACCESS_IDENTIFIER;
+		rval->access.object = err_obj;
+		rval->result = return_type;
+		case_err->value->_return.value = lower_implicit_cast(
+				ctx->fntype->func.result, rval);
+	}
 	case_err->value->terminates = true;
 	case_err->value->result = &builtin_type_void;
-	struct expression *rval =
-		xcalloc(1, sizeof(struct expression));
-	rval->type = EXPR_ACCESS;
-	rval->access.type = ACCESS_IDENTIFIER;
-	rval->access.object = err_obj;
-	rval->result = return_type;
-	case_err->value->_return.value = lower_implicit_cast(
-			ctx->fntype->func.result, rval);
 
 	expr->match.cases = case_ok;
 	case_ok->next = case_err;
