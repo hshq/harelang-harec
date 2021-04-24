@@ -1222,7 +1222,10 @@ gen_cast_to_tagged(struct gen_context *ctx,
 
 	gen_temp(ctx, &ptr, &qbe_long, "to_tagged.from.%d");
 	pushc(ctx->current, "to_tagged; valid subtype");
-	assert(subtype->id == from->id); // Lowered by check
+	struct type ssub = *subtype, sfrom = *from;
+	ssub.flags = 0;
+	sfrom.flags = 0;
+	assert(type_hash(&ssub) == type_hash(&sfrom)); // Lowered by check
 
 	struct qbe_value *storage;
 	if (expr->cast.value->result->size == 0) {
