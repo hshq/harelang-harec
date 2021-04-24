@@ -160,7 +160,7 @@ check_expr_access(struct context *ctx,
 		errors = check_expression(ctx, aexpr->access.array,
 			expr->access.array, NULL, errors);
 		errors = check_expression(ctx, aexpr->access.index,
-			expr->access.index, NULL, errors);
+			expr->access.index, &builtin_type_size, errors);
 		const struct type *atype =
 			type_dereference(expr->access.array->result);
 		if (!atype) {
@@ -1353,7 +1353,7 @@ check_expr_defer(struct context *ctx,
 	expr->defer.deferred = xcalloc(1, sizeof(struct expression));
 	ctx->deferring = true;
 	errors = check_expression(ctx, aexpr->defer.deferred,
-		expr->defer.deferred, NULL, errors);
+		expr->defer.deferred, &builtin_type_void, errors);
 	ctx->deferring = false;
 	return errors;
 }
@@ -1486,12 +1486,13 @@ check_expr_for(struct context *ctx,
 	if (aexpr->_for.afterthought) {
 		afterthought = xcalloc(1, sizeof(struct expression));
 		errors = check_expression(ctx, aexpr->_for.afterthought,
-			afterthought, NULL, errors);
+			afterthought, &builtin_type_void, errors);
 		expr->_for.afterthought = afterthought;
 	}
 
 	body = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->_for.body, body, NULL, errors);
+	errors = check_expression(ctx, aexpr->_for.body, body,
+		&builtin_type_void, errors);
 	expr->_for.body = body;
 
 	scope_pop(&ctx->scope);
@@ -1605,7 +1606,7 @@ check_expr_list(struct context *ctx,
 	while (alist) {
 		struct expression *lexpr = xcalloc(1, sizeof(struct expression));
 		errors = check_expression(ctx, alist->expr, lexpr,
-			alist->next ? NULL : hint, errors);
+			alist->next ? &builtin_type_void : hint, errors);
 		list->expr = lexpr;
 
 		if (alist->next) {
@@ -1807,8 +1808,8 @@ check_expr_propagate(struct context *ctx,
 	struct errors *errors)
 {
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->propagate.value, lvalue, hint,
-		errors);
+	errors = check_expression(ctx, aexpr->propagate.value, lvalue,
+		hint == &builtin_type_void ? NULL : hint, errors);
 
 	const struct type *intype = lvalue->result;
 	if (type_dealias(intype)->storage != STORAGE_TAGGED) {
@@ -2029,7 +2030,7 @@ check_expr_slice(struct context *ctx,
 	if (aexpr->slice.start) {
 		expr->slice.start = xcalloc(1, sizeof(struct expression));
 		errors = check_expression(ctx, aexpr->slice.start,
-			expr->slice.start, NULL, errors);
+			expr->slice.start, &builtin_type_size, errors);
 		itype = type_dealias(expr->slice.start->result);
 		if (!type_is_integer(itype)) {
 			return error(aexpr->slice.start->loc, expr, errors,
@@ -2043,7 +2044,7 @@ check_expr_slice(struct context *ctx,
 	if (aexpr->slice.end) {
 		expr->slice.end = xcalloc(1, sizeof(struct expression));
 		errors = check_expression(ctx, aexpr->slice.end,
-			expr->slice.end, NULL, errors);
+			expr->slice.end, &builtin_type_size, errors);
 		itype = type_dealias(expr->slice.end->result);
 		if (!type_is_integer(itype)) {
 			return error(aexpr->slice.end->loc, expr, errors,
