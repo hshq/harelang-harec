@@ -361,19 +361,17 @@ tagged_cmp(const void *ptr_a, const void *ptr_b)
 static size_t
 tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 {
-	// Prune duplicates
-	for (size_t i = 1; i < nmemb; ++i)
-	for (size_t j = 0; j < i; ++j) {
-		if (tu[j]->type->id == tu[i]->type->id) {
-			memmove(&tu[i], &tu[i + 1], (nmemb - i - 1)
-				* sizeof(struct type_tagged_union *));
-			--nmemb;
-			break;
-		}
-	}
-
 	// Sort by ID
 	qsort(tu, nmemb, sizeof(tu[0]), tagged_cmp);
+
+	// Prune duplicates
+	size_t nmemb_dedup = 1;
+	for (size_t i = 1; i < nmemb; ++i) {
+		if (tu[i]->type->id != tu[nmemb_dedup - 1]->type->id) {
+			tu[nmemb_dedup++] = tu[i];
+		}
+	}
+	nmemb = nmemb_dedup;
 
 	// First one free
 	type->tagged = *tu[0];
