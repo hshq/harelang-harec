@@ -57,6 +57,12 @@ fn reduction() void = {
 	const c: (i8 | i16 | i32) = a;
 	const d: (i8 | i16 | i8 | i16) = a;
 	assert(rt::compile(
+		// Cannot reduce to a single member
+		"fn test() void = {
+			let a: (u8 | u8) = 42u8;
+		};"
+	) != 0);
+	assert(rt::compile(
 		// Cannot assign from more general type
 		"fn test() void = {
 			let a: (i8 | i16 | i32) = 42i8;

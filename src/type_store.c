@@ -358,7 +358,7 @@ tagged_cmp(const void *ptr_a, const void *ptr_b)
 		: (*a)->type->id > (*b)->type->id ? 1 : 0;
 }
 
-static void
+static size_t
 tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 {
 	// Prune duplicates
@@ -412,6 +412,8 @@ tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 	if (type->align < builtin_type_uint.align) {
 		type->align = builtin_type_uint.align;
 	}
+
+	return nmemb;
 }
 
 static void
@@ -423,7 +425,10 @@ tagged_init_from_atype(struct type_store *store,
 		xcalloc(nmemb, sizeof(struct type_tagged_union *));
 	size_t i = 0;
 	collect_atagged_memb(store, tu, &atype->tagged_union, &i);
-	tagged_init(type, tu, nmemb);
+	nmemb = tagged_init(type, tu, nmemb);
+
+	expect(&atype->loc, nmemb > 1,
+			"Cannot create tagged union with a single member");
 }
 
 static void
