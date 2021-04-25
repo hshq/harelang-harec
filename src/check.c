@@ -2549,7 +2549,7 @@ check_expression(struct context *ctx,
 	if (hint && hint->storage == STORAGE_VOID) {
 		if ((expr->result->flags & TYPE_ERROR) != 0) {
 			return error(aexpr->loc, expr, errors,
-				"Cannot assign error type to void");
+				"Cannot ignore error here");
 		}
 		if (type_dealias(expr->result)->storage != STORAGE_TAGGED) {
 			return errors;
@@ -2561,7 +2561,7 @@ check_expression(struct context *ctx,
 				continue;
 			}
 			return error(aexpr->loc, expr, errors,
-				"Cannot assign error type to void");
+				"Cannot ignore error here");
 		}
 	}
 	return errors;
