@@ -403,15 +403,11 @@ tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 		next = &tu[i]->next;
 	}
 
-	if (type->align == 0) {
-		type->align = builtin_type_uint.align;
-	}
-
-	type->size += builtin_type_uint.size % type->align
-		+ builtin_type_uint.align;
 	if (type->align < builtin_type_uint.align) {
 		type->align = builtin_type_uint.align;
 	}
+	type->size += builtin_type_uint.size % type->align
+		+ builtin_type_uint.align;
 
 	return nmemb;
 }
