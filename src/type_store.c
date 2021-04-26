@@ -171,7 +171,9 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	struct struct_field *field, _temp = {0};
 	if (fields != NULL) {
 		field = *fields;
-		assert(field == NULL || strcmp(field->name, atype->field.name) != 0);
+		expect(&atype->field.type->loc,
+			field == NULL || strcmp(field->name, atype->field.name) != 0,
+			"Duplicate struct/union member '%s'", atype->field.name);
 		*fields = xcalloc(1, sizeof(struct struct_field));
 		(*fields)->next = field;
 		field = *fields;

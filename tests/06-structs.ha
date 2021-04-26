@@ -100,6 +100,8 @@ fn invariants() void = {
 	};
 	",
 
+	// Duplicate members
+	"fn test() void = { let x: struct { a: int, a: int } = struct { a: int = 2 };"
 	// Dereference non-nullable pointer:
 	"fn test() void = { let x: nullable *struct { y: int } = null; x.y; };",
 	// Select field from non-struct object:
