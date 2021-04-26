@@ -35,7 +35,7 @@ expect(const struct location *loc, bool constraint, char *fmt, ...)
 			loc->path, loc->lineno, loc->colno);
 		vfprintf(stderr, fmt, ap);
 		fprintf(stderr, "\n");
-		abort();
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -54,7 +54,7 @@ handle_errors(struct errors *errors)
 		error = next;
 	}
 	if (errors) {
-		abort();
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -3549,7 +3549,7 @@ check_internal(struct type_store *ts,
 
 	if (!unit->declarations) {
 		fprintf(stderr, "Error: module contains no declarations\n");
-		abort();
+		exit(EXIT_FAILURE);
 	}
 
 	return ctx.unit;
