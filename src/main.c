@@ -49,7 +49,7 @@ parse_stage(const char *s)
 		return STAGE_EMIT;
 	} else {
 		fprintf(stderr, "Unknown HA_STAGE value '%s'\n", s);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -74,14 +74,14 @@ parse_define(const char *argv_0, const char *in)
 	if (lex(&lexer, &tok) != T_COLON) {
 		lex_finish(&lexer);
 		usage(argv_0);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	def->type = parse_type(&lexer);
 
 	if (lex(&lexer, &tok) != T_EQUAL) {
 		lex_finish(&lexer);
 		usage(argv_0);
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	def->initializer = parse_expression(&lexer);
 
@@ -113,7 +113,7 @@ main(int argc, char *argv[])
 			tags = parse_tags(optarg);
 			if (!tags) {
 				fprintf(stderr, "Invalid tags\n");
-				return 1;
+				return EXIT_FAILURE;
 			}
 			break;
 		case 't':
@@ -128,14 +128,14 @@ main(int argc, char *argv[])
 			break;
 		default:
 			usage(argv[0]);
-			return 1;
+			return EXIT_FAILURE;
 		}
 	}
 
 	size_t ninputs = argc - optind;
 	if (ninputs == 0) {
 		usage(argv[0]);
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	struct ast_unit aunit = {0};
@@ -155,7 +155,7 @@ main(int argc, char *argv[])
 		if (!in) {
 			fprintf(stderr, "Unable to open %s for reading: %s\n",
 					path, strerror(errno));
-			return 1;
+			return EXIT_FAILURE;
 		}
 
 		lex_init(&lexer, in, path);
@@ -174,14 +174,14 @@ main(int argc, char *argv[])
 	}
 
 	if (stage == STAGE_PARSE || stage == STAGE_LEX) {
-		return 0;
+		return EXIT_SUCCESS;
 	}
 
 	static struct type_store ts = {0};
 	builtin_types_init();
 	check(&ts, tags, defines, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
-		return 0;
+		return EXIT_SUCCESS;
 	}
 
 	if (typedefs) {
@@ -189,7 +189,7 @@ main(int argc, char *argv[])
 		if (!out) {
 			fprintf(stderr, "Unable to open %s for writing: %s\n",
 					typedefs, strerror(errno));
-			return 1;
+			return EXIT_FAILURE;
 		}
 		emit_typedefs(&unit, out);
 		fclose(out);
@@ -198,7 +198,7 @@ main(int argc, char *argv[])
 	struct qbe_program prog = {0};
 	gen(&unit, &prog);
 	if (stage == STAGE_GEN) {
-		return 0;
+		return EXIT_SUCCESS;
 	}
 
 	FILE *out;
@@ -209,10 +209,10 @@ main(int argc, char *argv[])
 		if (!out) {
 			fprintf(stderr, "Unable to open %s for writing: %s\n",
 					output, strerror(errno));
-			return 1;
+			return EXIT_FAILURE;
 		}
 	}
 	emit(&prog, out);
 	fclose(out);
-	return 0;
+	return EXIT_SUCCESS;
 }

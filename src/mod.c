@@ -85,7 +85,7 @@ module_resolve(struct modcache *cache[],
 		fprintf(stderr, "Could not open module '%s' for reading from %s: %s\n",
 				identifier_unparse(ident), path,
 				strerror(errno));
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	lex_init(&lexer, f, path);
