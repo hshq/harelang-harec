@@ -11,14 +11,14 @@ export fn compile(src: const str) int = {
 		close(1);
 		close(2);
 
-		const path = "./harec";
+		const path = "./harec\0";
 		const argv: [_]nullable *const char = [
 			constchar(path),
-			constchar("-"),
+			constchar("-\0"),
 			null
 		];
 		const envp: [_]nullable *const char = [null];
-		execve(path, &argv, &envp);
+		execve(constchar(path), &argv, &envp);
 		abort();
 	} else {
 		close(pipefd[0]);
