@@ -42,9 +42,19 @@ fn variadic() void = {
 	free(y);
 };
 
+fn static_append() void = {
+	let buf: [4]int = [0...];
+	let x = buf[..0];
+	static append(x, 1, 2);
+	static append(x, [3, 4]...);
+	assert(x[0] == 1 && x[1] == 2 && x[2] == 3 && x[3] == 4);
+	assert(buf[0] == 1 && buf[1] == 2 && buf[2] == 3 && buf[3] == 4);
+};
+
 export fn main() void = {
 	simple();
 	variadic();
+	static_append();
 
 	assert(rt::compile("fn test() void = append([1], 2);") != 0);
 	assert(rt::compile("fn test() void = { let x: []int = alloc([1], 1z); append(x[..], 2); };") != 0);

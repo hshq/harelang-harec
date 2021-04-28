@@ -702,12 +702,39 @@ gen_expr_append(struct gen_context *ctx,
 	const struct type *mtype =
 		type_dealias(expr->append.expr->result)->array.members;
 
-	struct qbe_value rtfunc = {0}, membsz = {0};
+	struct qbe_value membsz = {0};
 	constl(&membsz, mtype->size);
-	rtfunc.kind = QV_GLOBAL;
-	rtfunc.name = strdup("rt.ensure");
-	rtfunc.type = &qbe_long;
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, NULL);
+	if (!expr->append.is_static) {
+		struct qbe_value rtfunc = {0};
+		rtfunc.kind = QV_GLOBAL;
+		rtfunc.name = strdup("rt.ensure");
+		rtfunc.type = &qbe_long;
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, NULL);
+	} else {
+		struct qbe_value capptr = {0}, cap = {0};
+		gen_temp(ctx, &capptr, &qbe_long, "append.capptr.%d");
+		constl(&temp, builtin_type_size.size);
+		pushi(ctx->current, &capptr, Q_ADD, &lenptr, &temp, NULL);
+		qval_deref(&capptr);
+		gen_loadtemp(ctx, &cap, &capptr, &qbe_long, false);
+
+		struct qbe_statement validl = {0}, invalidl = {0};
+		struct qbe_value bvalid = {0}, binvalid = {0};
+		bvalid.kind = QV_LABEL;
+		bvalid.name = strdup(genl(&validl, &ctx->id, "bounds.valid.%d"));
+		binvalid.kind = QV_LABEL;
+		binvalid.name = strdup(genl(&invalidl, &ctx->id, "bounds.invalid.%d"));
+
+		struct qbe_value valid = {0};
+		gen_temp(ctx, &valid, &qbe_word, "valid.%d");
+		pushi(ctx->current, &valid, Q_CULEL, &newlen, &cap, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &invalidl);
+
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+
+		push(&ctx->current->body, &validl);
+	}
 
 	struct qbe_value ptr = {0};
 	const struct qbe_type *type = qtype_for_type(ctx, mtype, true);
@@ -1983,9 +2010,36 @@ gen_expr_insert(struct gen_context *ctx,
 	struct qbe_value rtfunc = {0}, membsz = {0};
 	constl(&membsz, mtype->size);
 	rtfunc.kind = QV_GLOBAL;
-	rtfunc.name = strdup("rt.ensure");
 	rtfunc.type = &qbe_long;
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, NULL);
+
+	if (!expr->insert.is_static) {
+		rtfunc.name = strdup("rt.ensure");
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, NULL);
+	} else {
+		struct qbe_value capptr = {0}, cap = {0};
+		gen_temp(ctx, &capptr, &qbe_long, "append.capptr.%d");
+		constl(&temp, builtin_type_size.size);
+		pushi(ctx->current, &capptr, Q_ADD, &lenptr, &temp, NULL);
+		qval_deref(&capptr);
+		gen_loadtemp(ctx, &cap, &capptr, &qbe_long, false);
+
+		struct qbe_statement validl = {0}, invalidl = {0};
+		struct qbe_value bvalid = {0}, binvalid = {0};
+		bvalid.kind = QV_LABEL;
+		bvalid.name = strdup(genl(&validl, &ctx->id, "bounds.valid.%d"));
+		binvalid.kind = QV_LABEL;
+		binvalid.name = strdup(genl(&invalidl, &ctx->id, "bounds.invalid.%d"));
+
+		struct qbe_value valid = {0};
+		gen_temp(ctx, &valid, &qbe_word, "valid.%d");
+		pushi(ctx->current, &valid, Q_CULEL, &newlen, &cap, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &invalidl);
+
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+
+		push(&ctx->current->body, &validl);
+	}
 
 	struct qbe_value ptr = {0};
 	const struct qbe_type *type = qtype_for_type(ctx, mtype, true);

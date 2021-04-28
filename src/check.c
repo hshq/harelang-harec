@@ -331,9 +331,10 @@ check_expr_append(struct context *ctx,
 	struct errors *errors)
 {
 	assert(aexpr->type == EXPR_APPEND);
-	assert(!aexpr->append.is_static); // TODO
 	expr->type = EXPR_APPEND;
 	expr->result = &builtin_type_void;
+	expr->append.is_static = aexpr->append.is_static;
+	expr->insert.loc = aexpr->loc;
 	expr->append.expr = xcalloc(sizeof(struct expression), 1);
 	errors = check_expression(ctx, aexpr->append.expr, expr->append.expr,
 		NULL, errors);
@@ -1596,9 +1597,10 @@ check_expr_insert(struct context *ctx,
 	struct errors *errors)
 {
 	assert(aexpr->type == EXPR_INSERT);
-	assert(!aexpr->insert.is_static); // TODO
 	expr->type = EXPR_INSERT;
 	expr->result = &builtin_type_void;
+	expr->insert.is_static = aexpr->insert.is_static;
+	expr->insert.loc = aexpr->loc;
 	expr->insert.expr = xcalloc(sizeof(struct expression), 1);
 	errors = check_expression(ctx, aexpr->insert.expr,
 			expr->insert.expr, NULL, errors);

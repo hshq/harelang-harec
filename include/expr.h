@@ -80,6 +80,8 @@ struct expression_append {
 	struct expression *expr;
 	struct expression *variadic;
 	struct append_values *values;
+	struct location loc;
+	bool is_static;
 };
 
 struct expression_assert {
@@ -222,6 +224,8 @@ struct expression_insert {
 	struct expression *expr;
 	struct expression *variadic;
 	struct append_values *values;
+	struct location loc;
+	bool is_static;
 };
 
 struct expressions {
