@@ -2550,7 +2550,7 @@ gen_expr_slice(struct gen_context *ctx,
 		constl(&temp, 16);
 		pushi(ctx->current, &object, Q_ADD, &object, &temp, NULL);
 		pushi(ctx->current, &src, Q_LOADL, &object, NULL);
-		pushi(ctx->current, &offset, Q_SUB, &src, &offset, NULL);
+		pushi(ctx->current, &offset, Q_SUB, &src, &start, NULL);
 		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
 	} else {
 		gen_temp(ctx, &src, &qbe_long, "length.%d");
@@ -2572,7 +2572,7 @@ gen_expr_slice(struct gen_context *ctx,
 
 		if (otype->array.length != SIZE_UNDEFINED) {
 			constl(&temp, otype->array.length);
-			pushi(ctx->current, &offset, Q_SUB, &temp, &offset, NULL);
+			pushi(ctx->current, &offset, Q_SUB, &temp, &start, NULL);
 			pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
 		}
 		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);

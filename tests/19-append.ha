@@ -49,6 +49,12 @@ fn static_append() void = {
 	static append(x, [3, 4]...);
 	assert(x[0] == 1 && x[1] == 2 && x[2] == 3 && x[3] == 4);
 	assert(buf[0] == 1 && buf[1] == 2 && buf[2] == 3 && buf[3] == 4);
+
+	let buf: [4]int = [1, 2, 0...];
+	let x = buf[..2];
+	static append(x, 3, 4);
+	assert(x[0] == 1 && x[1] == 2 && x[2] == 3 && x[3] == 4);
+	assert(buf[0] == 1 && buf[1] == 2 && buf[2] == 3 && buf[3] == 4);
 };
 
 export fn main() void = {
