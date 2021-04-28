@@ -24,13 +24,13 @@ export fn main() void = {
 	let x: (void | int) = 10;
 	match (x) {
 		i: int => assert(i == 10),
-		_: void => abort(),
+		void => abort(),
 	};
 
 	let p = 0;
 	let p = &p: uintptr: u64: (u64 | void);
 	let p = match (p) {
-		_: void => abort(),
+		void => abort(),
 		p: u64 => p: uintptr: *int,
 	};
 	assert(*p == 0);
@@ -38,7 +38,7 @@ export fn main() void = {
         let thing: int = 0;
         let thing = &thing: (*int | int);
         let p = match (thing) {
-                _: int => abort(),
+                int => abort(),
                 p: *int => p,
         };
         *p = 0;
