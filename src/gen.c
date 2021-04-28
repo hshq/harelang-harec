@@ -2485,13 +2485,18 @@ gen_expr_slice(struct gen_context *ctx,
 		pushi(ctx->current, &offset, Q_ADD, &src, &offset, NULL);
 		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
 
-		pushc(ctx->current, "store length & capacity");
+		pushc(ctx->current, "store length");
 		constl(&temp, 8); // XXX: ARCH
 		pushi(ctx->current, &offset, Q_SUB, &end, &start, NULL);
-		constl(&temp, 8); // XXX: ARCH
 		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
 		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
+
+		pushc(ctx->current, "store capacity");
 		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
+		constl(&temp, 16);
+		pushi(ctx->current, &object, Q_ADD, &object, &temp, NULL);
+		pushi(ctx->current, &src, Q_LOADL, &object, NULL);
+		pushi(ctx->current, &offset, Q_SUB, &src, &offset, NULL);
 		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
 	} else {
 		gen_temp(ctx, &src, &qbe_long, "length.%d");
@@ -2504,9 +2509,17 @@ gen_expr_slice(struct gen_context *ctx,
 		pushi(ctx->current, &offset, Q_SUB, &end, &start, NULL);
 
 		constl(&temp, 8); // XXX: ARCH
+		pushc(ctx->current, "store length");
 		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
 		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
+
+		pushc(ctx->current, "store capacity");
 		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
+		// XXX: Does this assert need to be enforced higher up the
+		// stack?
+		assert(otype->array.length != SIZE_UNDEFINED);
+		constl(&temp, otype->array.length);
+		pushi(ctx->current, &offset, Q_SUB, &temp, &offset, NULL);
 		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
 	}
 }
