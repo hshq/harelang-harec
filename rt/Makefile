@@ -5,6 +5,7 @@ libhart_srcs+=\
 	rt/ensure.ha \
 	rt/malloc.ha \
 	rt/memcpy.ha \
+	rt/memmove.ha \
 	rt/memset.ha \
 	rt/rtmain.ha \
 	rt/strcmp.ha

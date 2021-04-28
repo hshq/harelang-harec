@@ -1589,6 +1589,65 @@ check_expr_if(struct context *ctx,
 }
 
 static struct errors *
+check_expr_insert(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint,
+	struct errors *errors)
+{
+	assert(aexpr->type == EXPR_INSERT);
+	assert(!aexpr->insert.is_static); // TODO
+	expr->type = EXPR_INSERT;
+	expr->result = &builtin_type_void;
+	expr->insert.expr = xcalloc(sizeof(struct expression), 1);
+	errors = check_expression(ctx, aexpr->insert.expr,
+			expr->insert.expr, NULL, errors);
+	// TODO: Handle dereferences
+	assert(expr->insert.expr->type == EXPR_ACCESS
+			&& expr->insert.expr->access.type == ACCESS_INDEX);
+	const struct type *sltype = expr->insert.expr->access.array->result;
+	if (type_dealias(sltype)->storage != STORAGE_SLICE) {
+		return error(aexpr->insert.expr->loc, expr, errors,
+			"cannot insert into non-slice type %s",
+			type_storage_unparse(type_dealias(sltype)->storage));
+	}
+	if (type_dealias(sltype)->flags & TYPE_CONST) {
+		return error(aexpr->insert.expr->loc, expr, errors,
+			"insert must operate on a mutable slice");
+	}
+	const struct type *memb = type_dealias(sltype)->array.members;
+	struct append_values **next = &expr->insert.values;
+	for (struct ast_append_values *avalue = aexpr->insert.values; avalue;
+			avalue = avalue->next) {
+		struct append_values *value = *next =
+			xcalloc(sizeof(struct append_values), 1);
+		value->expr = 
+			xcalloc(sizeof(struct expression), 1);
+		errors = check_expression(ctx, avalue->expr,
+				value->expr, memb, errors);
+		if (!type_is_assignable(memb, value->expr->result)) {
+			return error(avalue->expr->loc, expr, errors,
+				"inserted value must be assignable to member type");
+		}
+		value->expr = lower_implicit_cast(memb, value->expr);
+		next = &value->next;
+	}
+	if (aexpr->insert.variadic != NULL) {
+		const struct type *type = expr->insert.expr->result;
+		expr->insert.variadic = xcalloc(sizeof(struct expression), 1);
+		errors = check_expression(ctx, aexpr->insert.variadic,
+			expr->insert.variadic, type, errors);
+		if (!type_is_assignable(type, expr->insert.variadic->result)) {
+			return error(aexpr->insert.variadic->loc, expr, errors,
+				"inserted slice must be assignable to slice type");
+		}
+		expr->insert.variadic =
+			lower_implicit_cast(type, expr->insert.variadic);
+	}
+	return errors;
+}
+
+static struct errors *
 check_expr_list(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -2513,7 +2572,8 @@ check_expression(struct context *ctx,
 		errors = check_expr_if(ctx, aexpr, expr, hint, errors);
 		break;
 	case EXPR_INSERT:
-		assert(0); // TODO
+		errors = check_expr_insert(ctx, aexpr, expr, hint, errors);
+		break;
 	case EXPR_LIST:
 		errors = check_expr_list(ctx, aexpr, expr, hint, errors);
 		break;

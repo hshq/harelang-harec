@@ -30,7 +30,8 @@ tests() {
 		24-imports \
 		25-promotion \
 		26-gen \
-		27-rt
+		27-rt \
+		28-insert
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha

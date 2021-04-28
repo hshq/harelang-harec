@@ -218,6 +218,12 @@ struct expression_if {
 	struct expression *true_branch, *false_branch;
 };
 
+struct expression_insert {
+	struct expression *expr;
+	struct expression *variadic;
+	struct append_values *values;
+};
+
 struct expressions {
 	struct expression *expr;
 	struct expressions *next;
@@ -337,6 +343,7 @@ struct expression {
 		struct expression_for _for;
 		struct expression_free free;
 		struct expression_if _if;
+		struct expression_insert insert;
 		struct expression_list list;
 		struct expression_match match;
 		struct expression_measure measure;

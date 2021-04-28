@@ -1916,6 +1916,93 @@ gen_expr_if(struct gen_context *ctx,
 }
 
 static void
+gen_expr_insert(struct gen_context *ctx,
+	const struct expression *expr,
+	const struct qbe_value *out)
+{
+	assert(expr->type == EXPR_INSERT);
+	assert(!expr->insert.variadic); // TODO
+
+	struct qbe_value val = {0}, temp = {0};
+	gen_temp(ctx, &val, &qbe_long, "insert.val.%d");
+	assert(expr->insert.expr->type == EXPR_ACCESS
+			&& expr->insert.expr->access.type == ACCESS_INDEX);
+
+	// TODO: Automatic dereference here
+	const struct expression *expr_array = expr->insert.expr->access.array;
+	struct qbe_value addr = {0};
+	address_object(ctx, expr_array, &addr);
+	qval_address(&addr);
+	gen_store(ctx, &val, &addr);
+
+	const struct expression *expr_index = expr->insert.expr->access.index;
+	struct qbe_value index = {0};
+	gen_temp(ctx, &index, &qbe_long, "insert.index.%d");
+	gen_expression(ctx, expr_index, &index);
+
+	const struct type *sltype = expr->insert.expr->access.array->result;
+	const struct type *mtype = type_dealias(sltype)->array.members;
+
+	struct qbe_value len = {0}, newlen = {0}, lenptr = {0}, nadd = {0};
+	gen_temp(ctx, &lenptr, &qbe_long, "insert.lenptr.%d");
+	gen_temp(ctx, &newlen, &qbe_long, "insert.newlen.%d");
+	gen_loadtemp(ctx, &lenptr, &val, &qbe_long, false);
+	constl(&temp, builtin_type_size.size);
+	pushi(ctx->current, &lenptr, Q_ADD, &lenptr, &temp, NULL);
+	qval_deref(&lenptr);
+	gen_loadtemp(ctx, &len, &lenptr, &qbe_long, false);
+	size_t args = 0;
+	for (struct append_values *value = expr->insert.values;
+			value; value = value->next) {
+		args++;
+	}
+	constl(&nadd, args);
+	pushi(ctx->current, &newlen, Q_ADD, &len, &nadd, NULL);
+	gen_store(ctx, &lenptr, &newlen);
+
+	struct qbe_value rtfunc = {0}, membsz = {0};
+	constl(&membsz, mtype->size);
+	rtfunc.kind = QV_GLOBAL;
+	rtfunc.name = strdup("rt.ensure");
+	rtfunc.type = &qbe_long;
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &val, &membsz, NULL);
+
+	struct qbe_value ptr = {0};
+	const struct qbe_type *type = qtype_for_type(ctx, mtype, true);
+	qval_deref(&val);
+	gen_loadtemp(ctx, &ptr, &val, &qbe_long, "insert.ptr.%d");
+	qval_address(&ptr);
+
+	pushi(ctx->current, &index, Q_MUL, &index, &membsz, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &index, NULL);
+
+	struct qbe_value dest = {0}, ncopy = {0}, nbytes = {0};
+	gen_temp(ctx, &dest, &qbe_long, "insert.dest.%d");
+	gen_temp(ctx, &ncopy, &qbe_long, "insert.ncopy.%d");
+	gen_temp(ctx, &nbytes, &qbe_long, "insert.ninsert.%d");
+	pushi(ctx->current, &dest, Q_COPY, &ptr, NULL);
+	pushi(ctx->current, &ncopy, Q_MUL, &len, &membsz, NULL);
+	pushi(ctx->current, &ncopy, Q_SUB, &ncopy, &index, NULL);
+	pushi(ctx->current, &nbytes, Q_MUL, &nadd, &membsz, NULL);
+	pushi(ctx->current, &dest, Q_ADD, &dest, &nbytes, NULL);
+	rtfunc.name = strdup("rt.memmove");
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dest, &ptr, &ncopy, NULL);
+
+	for (struct append_values *value = expr->insert.values; value;
+			value = value->next) {
+		struct qbe_value v = {0};
+		alloc_temp(ctx, &v, value->expr->result, "insert.value.%d");
+		qval_deref(&v);
+		gen_expression(ctx, value->expr, &v);
+		v.indirect = false;
+		ptr.type = type;
+		gen_copy(ctx, &ptr, &v);
+		ptr.type = &qbe_long;
+		pushi(ctx->current, &ptr, Q_ADD, &ptr, &membsz, NULL);
+	}
+}
+
+static void
 gen_expr_list(struct gen_context *ctx,
 	const struct expression *expr,
 	const struct qbe_value *out)
@@ -2650,7 +2737,8 @@ gen_expression(struct gen_context *ctx,
 		gen_expr_if(ctx, expr, out);
 		break;
 	case EXPR_INSERT:
-		assert(0); // TODO
+		gen_expr_insert(ctx, expr, out);
+		break;
 	case EXPR_LIST:
 		gen_expr_list(ctx, expr, out);
 		break;
