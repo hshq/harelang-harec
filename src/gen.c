@@ -2569,11 +2569,12 @@ gen_expr_slice(struct gen_context *ctx,
 
 		pushc(ctx->current, "store capacity");
 		pushi(ctx->current, &dest, Q_ADD, &dest, &temp, NULL);
-		// XXX: Does this assert need to be enforced higher up the
-		// stack?
-		assert(otype->array.length != SIZE_UNDEFINED);
-		constl(&temp, otype->array.length);
-		pushi(ctx->current, &offset, Q_SUB, &temp, &offset, NULL);
+
+		if (otype->array.length != SIZE_UNDEFINED) {
+			constl(&temp, otype->array.length);
+			pushi(ctx->current, &offset, Q_SUB, &temp, &offset, NULL);
+			pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
+		}
 		pushi(ctx->current, NULL, Q_STOREL, &offset, &dest, NULL);
 	}
 }
