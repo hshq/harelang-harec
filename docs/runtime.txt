@@ -10,6 +10,40 @@ fn @noreturn rt::abort_fixed(reason: int) void
 	0: Slice or array access out-of-bounds
 	1: Type assertion failed
 
+fn memcpy(dest: *void, src: *void, n: size) void;
+	Copy "n" bytes from "src" to "dest". The memory areas shall not
+	overlap.
+
+fn memmove(dest: *void, src: *void, n: size) void;
+	Copy "n" bytes from "src" to "dest". The memory areas may overlap.
+
+fn memset(dest: *void, val: u8, n: size) void;
+	Set "n" bytes, starting from the address at "dest", to "val".
+
+fn strcmp(a: str, b: str) bool;
+	Compare strings "a" and "b", returning true of they are equal.
+
+"ensure" and "unensure" are called when slices are expanded or deleted. The
+"length" field of the slice will have been updated, and ensure should allocate
+or re-allocate the data field to have sufficient space, and update the capacity
+field accordingly. "unensure" is called when the space is no longer needed, and
+should shrink the allocation as appropriate.
+
+	type slice = struct {
+		data: *void,
+		length: size,
+		capacity: size,
+	};
+
+	fn ensure(s: *slice, membsz: size) void;
+	fn unensure(s: *slice, membsz: size) void;
+
+"malloc" and "free" are required to support the "alloc" and "free" built-ins.
+
+	fn malloc(n: size) nullable *void;
+
+	@symbol("rt.free") fn free_(_p: nullable *void) void;
+
 The runtime is also expected to provide startup code. A list of function
 pointers of type `fn() void` is provided in the __init_array_start and
 __fini_array_start globals, which are respectively terminated by
