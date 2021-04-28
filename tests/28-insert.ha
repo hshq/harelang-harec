@@ -24,7 +24,21 @@ fn basics() void = {
 	assert(sleq(x, [1, 2, 7, 8, 9, 3, 4, 5, 6]));
 };
 
+fn variadic() void = {
+	let x: []int = [];
+	defer free(x);
+	append(x, 1, 2, 3, 4, 5, 6);
+	insert(x[2], [7, 8, 9]...);
+	assert(sleq(x, [1, 2, 7, 8, 9, 3, 4, 5, 6]));
+
+	let x: []int = [];
+	defer free(x);
+	append(x, 1, 2, 3, 4, 5, 6);
+	insert(x[2], 7, 8, 9, [10, 11, 12]...);
+	assert(sleq(x, [1, 2, 7, 8, 9, 10, 11, 12, 3, 4, 5, 6]));
+};
+
 export fn main() void = {
 	basics();
-	// TODO: Variadic insert
+	variadic();
 };

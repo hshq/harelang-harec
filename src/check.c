@@ -1633,16 +1633,16 @@ check_expr_insert(struct context *ctx,
 		next = &value->next;
 	}
 	if (aexpr->insert.variadic != NULL) {
-		const struct type *type = expr->insert.expr->result;
 		expr->insert.variadic = xcalloc(sizeof(struct expression), 1);
 		errors = check_expression(ctx, aexpr->insert.variadic,
-			expr->insert.variadic, type, errors);
-		if (!type_is_assignable(type, expr->insert.variadic->result)) {
+			expr->insert.variadic, sltype, errors);
+		if (!type_is_assignable(sltype, expr->insert.variadic->result)) {
 			return error(aexpr->insert.variadic->loc, expr, errors,
-				"inserted slice must be assignable to slice type");
+				"inserted slice type %s must be assignable to slice type",
+				type_storage_unparse(expr->insert.variadic->result->storage));
 		}
-		expr->insert.variadic =
-			lower_implicit_cast(type, expr->insert.variadic);
+		expr->insert.variadic = lower_implicit_cast(
+				sltype, expr->insert.variadic);
 	}
 	return errors;
 }

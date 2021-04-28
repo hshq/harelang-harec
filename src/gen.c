@@ -1921,7 +1921,6 @@ gen_expr_insert(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	assert(expr->type == EXPR_INSERT);
-	assert(!expr->insert.variadic); // TODO
 
 	struct qbe_value val = {0}, temp = {0};
 	gen_temp(ctx, &val, &qbe_long, "insert.val.%d");
@@ -1951,13 +1950,34 @@ gen_expr_insert(struct gen_context *ctx,
 	pushi(ctx->current, &lenptr, Q_ADD, &lenptr, &temp, NULL);
 	qval_deref(&lenptr);
 	gen_loadtemp(ctx, &len, &lenptr, &qbe_long, false);
+
+	struct qbe_value variadic = {0}, vptr = {0}, vlen = {0};
+	pushi(ctx->current, &newlen, Q_COPY, &len, NULL);
+
 	size_t args = 0;
 	for (struct append_values *value = expr->insert.values;
 			value; value = value->next) {
 		args++;
 	}
 	constl(&nadd, args);
-	pushi(ctx->current, &newlen, Q_ADD, &len, &nadd, NULL);
+	pushi(ctx->current, &newlen, Q_ADD, &newlen, &nadd, NULL);
+
+	if (expr->insert.variadic) {
+		struct qbe_value vlenptr = {0};
+		alloc_temp(ctx, &variadic,
+			expr->insert.variadic->result, "insert.variadic.%d");
+		gen_expression(ctx, expr->insert.variadic, &variadic);
+		qval_deref(&variadic);
+		gen_loadtemp(ctx, &vptr, &variadic, &qbe_long, false);
+		qval_deref(&vptr);
+		gen_temp(ctx, &vlenptr, &qbe_long, "insert.vlenptr.%d");
+		constl(&temp, builtin_type_size.size);
+		pushi(ctx->current, &vlenptr, Q_ADD, &vptr, &temp, NULL);
+		qval_deref(&vlenptr);
+		gen_loadtemp(ctx, &vlen, &vlenptr, &qbe_long, false);
+		pushi(ctx->current, &newlen, Q_ADD, &newlen, &vlen, NULL);
+	}
+
 	gen_store(ctx, &lenptr, &newlen);
 
 	struct qbe_value rtfunc = {0}, membsz = {0};
@@ -1984,6 +2004,10 @@ gen_expr_insert(struct gen_context *ctx,
 	pushi(ctx->current, &ncopy, Q_MUL, &len, &membsz, NULL);
 	pushi(ctx->current, &ncopy, Q_SUB, &ncopy, &index, NULL);
 	pushi(ctx->current, &nbytes, Q_MUL, &nadd, &membsz, NULL);
+	if (expr->insert.variadic) {
+		pushi(ctx->current, &vlen, Q_MUL, &vlen, &membsz, NULL);
+		pushi(ctx->current, &nbytes, Q_ADD, &nbytes, &vlen, NULL);
+	}
 	pushi(ctx->current, &dest, Q_ADD, &dest, &nbytes, NULL);
 	rtfunc.name = strdup("rt.memmove");
 	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dest, &ptr, &ncopy, NULL);
@@ -1999,6 +2023,14 @@ gen_expr_insert(struct gen_context *ctx,
 		gen_copy(ctx, &ptr, &v);
 		ptr.type = &qbe_long;
 		pushi(ctx->current, &ptr, Q_ADD, &ptr, &membsz, NULL);
+	}
+	if (expr->append.variadic) {
+		struct qbe_value rtmemcpy = {0}, v = {0};
+		gen_loadtemp(ctx, &v, &vptr, &qbe_long, false);
+		rtmemcpy.kind = QV_GLOBAL;
+		rtmemcpy.name = strdup("rt.memcpy");
+		rtmemcpy.type = &qbe_long;
+		pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &ptr, &v, &vlen, NULL);
 	}
 }
 
