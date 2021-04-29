@@ -10,7 +10,7 @@
 uint32_t
 fnv1a(uint32_t hash, unsigned char c)
 {
-	return (hash ^ c) * 1099511628211;
+	return (hash ^ c) * 16777619;
 }
 
 uint32_t

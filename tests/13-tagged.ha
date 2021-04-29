@@ -20,19 +20,19 @@ fn storage() void = {
 		tag: uint,
 		union { _u8: u8, _u16: u16, _u32: u32, _u64: u64 },
 	};
-	assert(y.tag == 1228467311); // u8 type ID
+	assert(y.tag == 3181589295); // u8 type ID
 	assert(y._u8 == 42);
 
 	x = 1337u16;
-	assert(y.tag == 1226007386); // u16 type ID
+	assert(y.tag == 3481467866); // u16 type ID
 	assert(y._u16 == 1337);
 
 	x = 0xCAFEBABEu32;
-	assert(y.tag == 1228088861); // u32 type ID
+	assert(y.tag == 1906196061); // u32 type ID
 	assert(y._u32 == 0xCAFEBABE);
 
 	x = 0xCAFEBABEDEADBEEFu64;
-	assert(y.tag == 1227899636); // u64 type ID
+	assert(y.tag == 1268499444); // u64 type ID
 	assert(y._u64 == 0xCAFEBABEDEADBEEF);
 };
 
