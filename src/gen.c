@@ -908,6 +908,32 @@ gen_expr_assign(struct gen_context *ctx,
 			qval_deref(&src);
 		}
 		gen_expression(ctx, value, &src);
+	} else if (expr->assign.op == BIN_LAND || expr->assign.op == BIN_LOR) {
+		struct qbe_statement rlabel = {0}, slabel = {0};
+		struct qbe_value rbranch = {0}, sbranch = {0}, result = {0};
+		rbranch.kind = QV_LABEL;
+		rbranch.name = strdup(genl(&rlabel, &ctx->id, "value.%d"));
+		sbranch.kind = QV_LABEL;
+		sbranch.name = strdup(genl(&slabel, &ctx->id, "short_circuit.%d"));
+
+		struct qbe_value load;
+		gen_loadtemp(ctx, &load, &src, otype, type_is_signed(objtype));
+		if (expr->binarithm.op == BIN_LAND) {
+			pushi(ctx->current, NULL, Q_JNZ, &load, &rbranch,
+				&sbranch, NULL);
+		} else {
+			pushi(ctx->current, NULL, Q_JNZ, &load, &sbranch,
+				&rbranch, NULL);
+		}
+
+		push(&ctx->current->body, &rlabel);
+		gen_temp(ctx, &result, otype, "assign.result.%d");
+		gen_expression(ctx, value, &result);
+		gen_store(ctx, &src, &result);
+		if (!value->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &sbranch, NULL);
+		}
+		push(&ctx->current->body, &slabel);
 	} else {
 		struct qbe_value v = {0};
 		gen_temp(ctx, &v, vtype, "assign.value.%d");
@@ -917,8 +943,7 @@ gen_expr_assign(struct gen_context *ctx,
 		gen_temp(ctx, &result, otype, "assign.result.%d");
 
 		struct qbe_value load;
-		gen_loadtemp(ctx, &load, &src, otype,
-			type_is_signed(objtype));
+		gen_loadtemp(ctx, &load, &src, otype, type_is_signed(objtype));
 		pushi(ctx->current, &result,
 			binarithm_for_op(expr->assign.op, otype,
 				type_is_signed(objtype)),

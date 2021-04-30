@@ -8,7 +8,7 @@ fn set(x: *int) bool = {
 	return true;
 };
 
-fn andor() void = {
+fn andorxor() void = {
 	assert((false || false) == false);
 	assert((false || true) == true);
 	assert((true || false) == true);
@@ -18,6 +18,18 @@ fn andor() void = {
 	assert((false || set(&x)) == true);
 	assert(x == 42);
 
+	let x = 0;
+	let f = false;
+	f ||= false;
+	assert(!f);
+	f ||= set(&x);
+	assert(x == 42);
+	assert(f);
+	f || error();
+	assert(f);
+	f ||= false;
+	assert(f);
+
 	assert((false && false) == false);
 	assert((false && true) == false);
 	assert((true && false) == false);
@@ -26,6 +38,33 @@ fn andor() void = {
 	x = 0;
 	assert((true && set(&x)) == true);
 	assert(x == 42);
+
+	let x = 0;
+	let f = true;
+	f &&= true;
+	f &&= set(&x);
+	assert(x == 42);
+	assert(f);
+	f &&= false;
+	assert(!f);
+	f &&= error();
+	f &&= true;
+	assert(!f);
+
+	assert((false ^^ false) == false);
+	assert((false ^^ true) == true);
+	assert((true ^^ false) == true);
+	assert((true ^^ true) == false);
+
+	let f = true;
+	f ^^= true;
+	assert(!f);
+	f ^^= false;
+	assert(!f);
+	f ^^= true;
+	assert(f);
+	f ^^= false;
+	assert(f);
 };
 
 fn sar_shr() void = {
@@ -52,6 +91,6 @@ fn sar_shr() void = {
 
 export fn main() void = {
 	// TODO: other binarithms
-	andor();
+	andorxor();
 	sar_shr();
 };

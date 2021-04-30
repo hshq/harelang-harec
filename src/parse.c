@@ -2180,8 +2180,10 @@ parse_expression(struct lexer *lexer)
 	switch (lex(lexer, &tok)) {
 	case T_EQUAL:
 		return parse_assignment(lexer, value, indirect, BIN_LEQUAL);
-	case T_ANDEQ:
+	case T_BANDEQ:
 		return parse_assignment(lexer, value, indirect, BIN_BAND);
+	case T_LANDEQ:
+		return parse_assignment(lexer, value, indirect, BIN_LAND);
 	case T_DIVEQ:
 		return parse_assignment(lexer, value, indirect, BIN_DIV);
 	case T_LSHIFTEQ:
@@ -2190,8 +2192,10 @@ parse_expression(struct lexer *lexer)
 		return parse_assignment(lexer, value, indirect, BIN_MINUS);
 	case T_MODEQ:
 		return parse_assignment(lexer, value, indirect, BIN_MODULO);
-	case T_OREQ:
+	case T_BOREQ:
 		return parse_assignment(lexer, value, indirect, BIN_BOR);
+	case T_LOREQ:
+		return parse_assignment(lexer, value, indirect, BIN_LOR);
 	case T_PLUSEQ:
 		return parse_assignment(lexer, value, indirect, BIN_PLUS);
 	case T_RSHIFTEQ:
@@ -2200,6 +2204,8 @@ parse_expression(struct lexer *lexer)
 		return parse_assignment(lexer, value, indirect, BIN_TIMES);
 	case T_BXOREQ:
 		return parse_assignment(lexer, value, indirect, BIN_BXOR);
+	case T_LXOREQ:
+		return parse_assignment(lexer, value, indirect, BIN_LXOR);
 	default:
 		unlex(lexer, &tok);
 		if (indirect) {
