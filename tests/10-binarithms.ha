@@ -89,8 +89,19 @@ fn sar_shr() void = {
 	assert(h1 == -189203912);
 };
 
+def FLOAT: f64 = 6.0 * 7.0;
+def I8: i8 = 127 * 2;
+def U8: u8 = 128 * 2;
+
+fn eval() void = {
+	assert(FLOAT == 42.0);
+	assert(I8 == 126);
+	assert(U8 == 0);
+};
+
 export fn main() void = {
 	// TODO: other binarithms
 	andorxor();
 	sar_shr();
+	eval();
 };
