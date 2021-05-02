@@ -414,15 +414,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_UINTPTR:
 	case STORAGE_SIZE:
 	case STORAGE_RUNE:
-		if (type_is_float(val.result)) {
-			out->constant.ival =
-				itrunc(to, (intmax_t)val.constant.fval);
-		} else if (type_is_signed(val.result)) {
-			out->constant.ival = itrunc(to, val.constant.ival);
-		} else {
-			assert(type_is_integer(val.result));
-			out->constant.ival = itrunc(to, val.constant.uval);
-		}
+		out->constant.uval = itrunc(to, val.constant.uval);
 		return EVAL_OK;
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
