@@ -424,7 +424,16 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
-		out->constant.fval = ftrunc(to, val.constant.fval);
+		if (type_is_float(val.result)) {
+			out->constant.fval = ftrunc(to, val.constant.fval);
+		} else if (type_is_signed(val.result)) {
+			out->constant.fval =
+				ftrunc(to, (double)val.constant.ival);
+		} else {
+			assert(type_is_integer(val.result));
+			out->constant.fval =
+				ftrunc(to, (double)val.constant.uval);
+		}
 		return EVAL_OK;
 	case STORAGE_CHAR:
 	case STORAGE_ENUM:
