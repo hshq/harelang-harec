@@ -106,17 +106,6 @@ itrunc(const struct type *type, uintmax_t val)
 	assert(0);
 }
 
-static double
-ftrunc(const struct type *type, double val)
-{
-	if (type->storage == STORAGE_F32) {
-		return (float)val;
-	} else if (type->storage == STORAGE_F64) {
-		return val;
-	}
-	assert(0);
-}
-
 enum eval_result
 eval_binarithm(struct context *ctx, struct expression *in, struct expression *out)
 {
@@ -131,107 +120,90 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	}
 
 	bool blval = lvalue.constant.bval, brval = rvalue.constant.bval, bval;
-	intmax_t ilval = lvalue.constant.ival, irval = rvalue.constant.ival, ival;
-	uintmax_t ulval = lvalue.constant.uval, urval = rvalue.constant.uval, uval;
-	double flval = lvalue.constant.fval, frval = rvalue.constant.fval, fval;
+	intmax_t ilval = itrunc(lvalue.result, lvalue.constant.ival),
+		 irval = itrunc(rvalue.result, rvalue.constant.ival), ival;
+	uintmax_t ulval = itrunc(lvalue.result, lvalue.constant.uval),
+		  urval = itrunc(rvalue.result, rvalue.constant.uval), uval;
 	// Type promotion is lowered in check
 	assert(lvalue.result->storage == rvalue.result->storage);
 	switch (in->binarithm.op) {
 	case BIN_BAND:
-		assert(!type_is_float(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) & itrunc(rvalue.result, irval);
+			ival = ilval & irval;
 		} else {
-			uval = itrunc(lvalue.result, ulval) & itrunc(rvalue.result, urval);
+			uval = ulval & urval;
 		}
 		break;
 	case BIN_BOR:
-		assert(!type_is_float(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) | itrunc(rvalue.result, irval);
+			ival = ilval | irval;
 		} else {
-			uval = itrunc(lvalue.result, ulval) | itrunc(rvalue.result, frval);
+			uval = ulval | urval;
 		}
 		break;
 	case BIN_DIV:
-		if (type_is_float(lvalue.result)) {
-			fval = ftrunc(lvalue.result, flval) / ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) / itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			ival = ilval / irval;
 		} else {
-			uval = itrunc(lvalue.result, ulval) / itrunc(rvalue.result, urval);
+			uval = ulval / urval;
 		}
 		break;
 	case BIN_LSHIFT:
 		assert(!type_is_signed(rvalue.result));
-		assert(!type_is_float(lvalue.result));
-		uval = itrunc(lvalue.result, ulval) << itrunc(rvalue.result, urval);
+		uval = ulval << urval;
 		break;
 	case BIN_MINUS:
-		if (type_is_float(lvalue.result)) {
-			fval = ftrunc(lvalue.result, flval) - ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) - itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			ival = ilval - irval;
 		} else {
-			uval = itrunc(lvalue.result, ulval) - itrunc(rvalue.result, urval);
+			uval = ulval - urval;
 		}
 		break;
 	case BIN_MODULO:
-		assert(!type_is_float(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) % itrunc(rvalue.result, irval);
+			ival = ilval % irval;
 		} else {
-			uval = itrunc(lvalue.result, ulval) % itrunc(rvalue.result, urval);
+			uval = ulval % urval;
 		}
 		break;
 	case BIN_PLUS:
-		if (type_is_float(lvalue.result)) {
-			fval = ftrunc(lvalue.result, flval) + ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) + itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			ival = ilval + irval;
 		} else {
-			uval = itrunc(lvalue.result, ulval) + itrunc(rvalue.result, urval);
+			uval = ulval + urval;
 		}
 		break;
 	case BIN_RSHIFT:
 		assert(!type_is_signed(rvalue.result));
-		assert(!type_is_float(lvalue.result));
-		uval = itrunc(lvalue.result, ulval) >> itrunc(rvalue.result, urval);
+		uval = ulval >> urval;
 		break;
 	case BIN_TIMES:
-		if (type_is_float(lvalue.result)) {
-			fval = ftrunc(lvalue.result, flval) * ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) * itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			ival = ilval * irval;
 		} else {
-			uval = itrunc(lvalue.result, ulval) * itrunc(rvalue.result, urval);
+			uval = ulval * urval;
 		}
 		break;
 	case BIN_BXOR:
-		assert(!type_is_float(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) ^ itrunc(rvalue.result, irval);
+			ival = ilval ^ irval;
 		} else {
-			uval = itrunc(lvalue.result, ulval) ^ itrunc(rvalue.result, urval);
+			uval = ulval ^ urval;
 		}
 		break;
 	// Logical arithmetic
 	case BIN_GREATER:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) > ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) > itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			bval = ilval > irval;
 		} else {
-			bval = itrunc(lvalue.result, ulval) > itrunc(rvalue.result, urval);
+			bval = ulval > urval;
 		}
 		break;
 	case BIN_GREATEREQ:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) >= ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) >= itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			bval = ilval >= irval;
 		} else {
-			bval = itrunc(lvalue.result, ulval) >= itrunc(rvalue.result, urval);
+			bval = ulval >= urval;
 		}
 		break;
 	case BIN_LAND:
@@ -240,30 +212,24 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		bval = blval && brval;
 		break;
 	case BIN_LEQUAL:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) == ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) == itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			bval = ilval == irval;
 		} else {
-			bval = itrunc(lvalue.result, ulval) == itrunc(rvalue.result, urval);
+			bval = ulval == urval;
 		}
 		break;
 	case BIN_LESS:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) < ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) < itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			bval = ilval < irval;
 		} else {
-			bval = itrunc(lvalue.result, ulval) < itrunc(rvalue.result, urval);
+			bval = ulval < urval;
 		}
 		break;
 	case BIN_LESSEQ:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) <= ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) <= itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			bval = ilval <= irval;
 		} else {
-			bval = itrunc(lvalue.result, ulval) <= itrunc(rvalue.result, urval);
+			bval = ulval <= urval;
 		}
 		break;
 	case BIN_LOR:
@@ -277,25 +243,23 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		bval = blval != brval;
 		break;
 	case BIN_NEQUAL:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) != ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) != itrunc(rvalue.result, irval);
+		if (type_is_signed(lvalue.result)) {
+			bval = ilval != irval;
 		} else {
-			bval = itrunc(lvalue.result, ulval) != itrunc(rvalue.result, urval);
+			bval = ulval != urval;
 		}
 		break;
 	}
+	uval = itrunc(in->result, uval);
+	ival = itrunc(in->result, ival);
 	out->type = EXPR_CONSTANT;
 	out->result = in->result;
-	if (type_is_float(in->result)) {
-		out->constant.fval = fval;
-	} else if (type_is_signed(in->result)) {
-		out->constant.ival = itrunc(in->result, ival);
+	if (type_is_signed(in->result)) {
+		out->constant.ival = ival;
 	} else if (type_dealias(in->result)->storage == STORAGE_BOOL) {
 		out->constant.bval = bval;
 	} else {
-		out->constant.uval = itrunc(in->result, uval);
+		out->constant.uval = uval;
 	}
 	return EVAL_OK;
 }
