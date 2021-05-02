@@ -424,6 +424,8 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
+		out->constant.fval = ftrunc(to, val.constant.fval);
+		return EVAL_OK;
 	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_NULL:
