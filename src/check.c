@@ -1184,7 +1184,16 @@ lower_constant(const struct type *type, struct expression *expr)
 					continue;
 				}
 				// Ambiguous
-				return lower_constant(&builtin_type_int, expr);
+				switch (expr->result->storage) {
+				case STORAGE_ICONST:
+					return lower_constant(&builtin_type_int, expr);
+				case STORAGE_FCONST:
+					return lower_constant(&builtin_type_f64, expr);
+				case STORAGE_RUNE:
+					return lower_constant(&builtin_type_rune, expr);
+				default:
+					assert(0);
+				}
 			}
 		}
 		return tag;
@@ -1192,7 +1201,7 @@ lower_constant(const struct type *type, struct expression *expr)
 	if (type_is_float(type) && type_is_float(expr->result)) {
 		return type;
 	}
-	if (!type_is_integer(type)) {
+	if (!type_is_integer(type) && type->storage != STORAGE_RUNE) {
 		return NULL;
 	}
 	if (type_is_signed(type)) {
@@ -1279,6 +1288,20 @@ check_expr_constant(struct context *ctx,
 			// TODO: This error message is awful
 			return error(aexpr->loc, expr, errors,
 				"Floating constant out of range");
+		}
+		expr->result = type;
+	}
+
+	if (expr->result && expr->result->storage == STORAGE_RUNE) {
+		if (hint == NULL) {
+			hint = builtin_type_for_storage(STORAGE_RUNE, false);
+		}
+		expr->constant.uval = aexpr->constant.uval;
+		const struct type *type = lower_constant(hint, expr);
+		if (!type) {
+			// TODO: This error message is awful
+			return error(aexpr->loc, expr, errors,
+				"Rune constant out of range");
 		}
 		expr->result = type;
 	}
