@@ -1,9 +1,9 @@
 use rt;
 
-let x: int = 42;
+let x: int = 42, y: int = 69;
 
 fn write() void = {
-	assert(x == 42);
+	assert(x == 42 && y == 69);
 	x = 1337;
 	assert(x == 1337);
 };

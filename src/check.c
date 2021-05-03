@@ -2654,18 +2654,18 @@ check_expression(struct context *ctx,
 
 static struct declaration *
 check_const(struct context *ctx,
-	const struct ast_decl *adecl)
+	const struct ast_global_decl *adecl)
 {
 	const struct type *type = type_store_lookup_atype(
-			ctx->store, adecl->constant.type);
+			ctx->store, adecl->type);
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	const struct scope_object *obj = scope_lookup(
-			ctx->unit, &adecl->constant.ident);
+			ctx->unit, &adecl->ident);
 	assert(obj && obj->otype == O_CONST);
 	decl->type = DECL_CONST;
 	decl->constant.type = type;
 	decl->constant.value = obj->value;
-	mkident(ctx, &decl->ident, &adecl->constant.ident);
+	mkident(ctx, &decl->ident, &adecl->ident);
 	return decl;
 }
 
@@ -2757,25 +2757,24 @@ check_function(struct context *ctx,
 
 static struct declaration *
 check_global(struct context *ctx,
-	const struct ast_decl *adecl)
+	const struct ast_global_decl *adecl)
 {
-	const struct ast_global_decl *agdecl = &adecl->global;
-	if (!agdecl->init) {
+	if (!adecl->init) {
 		return NULL; // Forward declaration
 	}
 
 	const struct type *type = type_store_lookup_atype(
-			ctx->store, agdecl->type);
+			ctx->store, adecl->type);
 
 	// TODO: Free initialier
 	struct expression *initializer =
 		xcalloc(1, sizeof(struct expression));
-	struct errors *errors = check_expression(ctx, agdecl->init, initializer,
+	struct errors *errors = check_expression(ctx, adecl->init, initializer,
 		type, NULL);
 	// TODO: Pass errors up and deal with them at the end of check
 	handle_errors(errors);
 
-	expect(&agdecl->init->loc,
+	expect(&adecl->init->loc,
 		type_is_assignable(type, initializer->result),
 		"Constant type is not assignable from initializer type");
 	initializer = lower_implicit_cast(type, initializer);
@@ -2783,7 +2782,7 @@ check_global(struct context *ctx,
 	struct expression *value =
 		xcalloc(1, sizeof(struct expression));
 	enum eval_result r = eval_expr(ctx, initializer, value);
-	expect(&agdecl->init->loc, r == EVAL_OK,
+	expect(&adecl->init->loc, r == EVAL_OK,
 		"Unable to evaluate global initializer at compile time");
 
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
@@ -2791,11 +2790,11 @@ check_global(struct context *ctx,
 	decl->global.type = type;
 	decl->global.value = value;
 
-	if (agdecl->symbol) {
-		decl->ident.name = strdup(agdecl->symbol);
-		decl->symbol = strdup(agdecl->symbol);
+	if (adecl->symbol) {
+		decl->ident.name = strdup(adecl->symbol);
+		decl->symbol = strdup(adecl->symbol);
 	} else {
-		mkident(ctx, &decl->ident, &agdecl->ident);
+		mkident(ctx, &decl->ident, &adecl->ident);
 	}
 
 	return decl;
@@ -2824,13 +2823,34 @@ check_declarations(struct context *ctx,
 		const struct ast_decl *adecl = &adecls->decl;
 		switch (adecl->decl_type) {
 		case AST_DECL_CONST:
-			decl = check_const(ctx, adecl);
+			for (const struct ast_global_decl *c = &adecl->constant;
+					c; c = c->next) {
+				decl = check_const(ctx, c);
+				struct declarations *decls = *next =
+					xcalloc(1, sizeof(struct declarations));
+				decl->exported = adecl->exported;
+				decls->decl = decl;
+				next = &decls->next;
+			}
+			decl = NULL;
 			break;
 		case AST_DECL_FUNC:
 			decl = check_function(ctx, adecl);
 			break;
 		case AST_DECL_GLOBAL:
-			decl = check_global(ctx, adecl);
+			for (const struct ast_global_decl *g = &adecl->global;
+					g; g = g->next) {
+				decl = check_global(ctx, g);
+				if (decl == NULL) {
+					continue;
+				}
+				struct declarations *decls = *next =
+					xcalloc(1, sizeof(struct declarations));
+				decl->exported = adecl->exported;
+				decls->decl = decl;
+				next = &decls->next;
+			}
+			decl = NULL;
 			break;
 		case AST_DECL_TYPE:
 			decl = check_type(ctx, adecl);
@@ -3231,11 +3251,9 @@ static bool
 scan_global(struct context *ctx, const struct ast_global_decl *decl)
 {
 	// TODO: Get rid of this once the type store bubbles up errors
-	for (const struct ast_global_decl *d = decl; d; d = d->next) {
-		if (!type_is_specified(ctx, d->type)
-				|| !expr_is_specified(ctx, d->init)) {
-			return false;
-		}
+	if (!type_is_specified(ctx, decl->type)
+			|| !expr_is_specified(ctx, decl->init)) {
+		return false;
 	}
 
 	const struct type *type = type_store_lookup_atype(
@@ -3334,11 +3352,23 @@ scan_declaration(struct context *ctx, const struct ast_decl *decl)
 {
 	switch (decl->decl_type) {
 	case AST_DECL_CONST:
-		return scan_const(ctx, &decl->constant);
+		for (const struct ast_global_decl *c = &decl->constant; c;
+				c = c->next) {
+			if (!scan_const(ctx, c)) {
+				return false;
+			}
+		}
+		return true;
 	case AST_DECL_FUNC:
 		return scan_function(ctx, &decl->function);
 	case AST_DECL_GLOBAL:
-		return scan_global(ctx, &decl->global);
+		for (const struct ast_global_decl *g = &decl->global; g;
+				g = g->next) {
+			if (!scan_global(ctx, g)) {
+				return false;
+			}
+		}
+		return true;
 	case AST_DECL_TYPE:
 		return scan_type(ctx, &decl->type);
 	}
