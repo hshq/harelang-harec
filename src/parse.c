@@ -598,6 +598,14 @@ parse_type(struct lexer *lexer)
 		unlex(lexer, &tok);
 		break;
 	}
+	switch (lex(lexer, &tok)) {
+	case T_LNOT:
+		flags |= TYPE_ERROR;
+		break;
+	default:
+		unlex(lexer, &tok);
+		break;
+	}
 	struct ast_type *type = NULL;
 	bool noreturn = false, nullable = false, unwrap = false;
 	switch (lex(lexer, &tok)) {
@@ -703,12 +711,6 @@ parse_type(struct lexer *lexer)
 		break;
 	}
 	type->flags |= flags;
-
-	if (lex(lexer, &tok) == T_LNOT) {
-		type->flags |= TYPE_ERROR;
-	} else {
-		unlex(lexer, &tok);
-	}
 
 	return type;
 }

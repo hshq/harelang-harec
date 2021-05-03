@@ -1,15 +1,15 @@
 use rt;
 
-type err_int = int!;
+type err_int = !int;
 
 fn assignability() void = {
 	// Error and non-error types are interchangable:
-	let a: int! = 10;
+	let a: !int = 10;
 	let b: int = a;
 	assert(a == b);
 };
 
-type error = void!;
+type error = !void;
 
 fn err_if_false(in: bool) (error | int) = {
 	if (in) {

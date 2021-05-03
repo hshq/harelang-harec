@@ -182,6 +182,9 @@ emit_type(const struct type *type, FILE *out)
 	if (type->flags & TYPE_CONST) {
 		fprintf(out, "const ");
 	}
+	if (type->flags & TYPE_ERROR) {
+		fprintf(out, "!");
+	}
 
 	char *ident;
 	switch (type->storage) {
@@ -300,10 +303,6 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 		assert(0); // Invariant
-	}
-
-	if (type->flags & TYPE_ERROR) {
-		fprintf(out, "!");
 	}
 }
 
