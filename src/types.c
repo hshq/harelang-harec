@@ -385,7 +385,7 @@ type_hash(const struct type *type)
 		break;
 	case STORAGE_ARRAY:
 		hash = fnv1a_u32(hash, type_hash(type->array.members));
-		hash = fnv1a_u32(hash, type->array.length);
+		hash = fnv1a_size(hash, type->array.length);
 		break;
 	case STORAGE_FUNCTION:
 		hash = fnv1a_u32(hash, type_hash(type->func.result));
@@ -401,7 +401,7 @@ type_hash(const struct type *type)
 		for (struct type_enum_value *value = type->_enum.values; value;
 				value = value->next) {
 			hash = fnv1a_s(hash, value->name);
-			hash = fnv1a(hash, value->uval);
+			hash = fnv1a_u64(hash, value->uval);
 		}
 		break;
 	case STORAGE_POINTER:
@@ -417,7 +417,7 @@ type_hash(const struct type *type)
 				field; field = field->next) {
 			hash = fnv1a_s(hash, field->name);
 			hash = fnv1a_u32(hash, type_hash(field->type));
-			hash = fnv1a_u32(hash, field->offset);
+			hash = fnv1a_size(hash, field->offset);
 		}
 		break;
 	case STORAGE_TAGGED:

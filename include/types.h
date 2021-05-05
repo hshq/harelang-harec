@@ -60,8 +60,8 @@ struct type_enum_value {
 	char *name;
 	struct type_enum_value *next;
 	union {
-		intmax_t ival;
-		uintmax_t uval;
+		int64_t ival;
+		uint64_t uval;
 	};
 };
 
