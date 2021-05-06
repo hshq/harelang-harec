@@ -572,7 +572,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 			from_secondary = strip_flags(from_secondary, &_from_secondary);
 			switch (to_secondary->storage) {
 			case STORAGE_VOID:
-				return true;
+				break;
 			case STORAGE_ARRAY:
 				if (type_is_assignable(to_secondary, from_secondary)) {
 					return true;
