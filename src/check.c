@@ -607,8 +607,12 @@ type_promote(struct type_store *store,
 		if (db->storage != STORAGE_POINTER) {
 			return NULL;
 		}
-		const struct type *r = type_promote(store, da->pointer.referent,
-			db->pointer.referent);
+		if (da->pointer.referent->storage == STORAGE_VOID ||
+				db->pointer.referent->storage == STORAGE_VOID) {
+			return a;
+		}
+		const struct type *r = type_promote(store,
+			da->pointer.referent, db->pointer.referent);
 		if (r == da->pointer.referent) {
 			return a;
 		}
