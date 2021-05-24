@@ -731,7 +731,7 @@ gen_expr_append(struct gen_context *ctx,
 		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
 		push(&ctx->current->body, &invalidl);
 
-		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+		gen_fixed_abort(ctx, expr->loc, ABORT_STATIC_EXCEEDED);
 
 		push(&ctx->current->body, &validl);
 	}
@@ -2061,7 +2061,7 @@ gen_expr_insert(struct gen_context *ctx,
 		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
 		push(&ctx->current->body, &invalidl);
 
-		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+		gen_fixed_abort(ctx, expr->loc, ABORT_STATIC_EXCEEDED);
 
 		push(&ctx->current->body, &validl);
 	}

@@ -10,7 +10,8 @@
 enum fixed_aborts {
 	ABORT_OOB = 0,
 	ABORT_TYPE_ASSERTION = 1,
-	ABORT_ALLOC_FAILURE = 2
+	ABORT_ALLOC_FAILURE = 2,
+	ABORT_STATIC_EXCEEDED = 3,
 };
 
 struct unit;
