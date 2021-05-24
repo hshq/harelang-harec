@@ -50,8 +50,11 @@ fn double_alloc() void = {
 	free(y);
 };
 
+type aslice = []int;
+type aarray = [3]int;
+
 fn slice() void = {
-	let x: []int = alloc([1, 2, 3], 10);
+	let x: aslice = alloc([1, 2, 3]: aarray, 10);
 	assert(len(x) == 3);
 	for (let i = 0z; i < len(x); i += 1) {
 		assert(x[i] == (i + 1): int);

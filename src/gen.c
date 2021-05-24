@@ -539,9 +539,10 @@ gen_slice_alloc(struct gen_context *ctx,
 		"slice.size.%d");
 
 	const struct expression *initializer = expr->alloc.expr;
-	if (initializer->result->storage == STORAGE_ARRAY) {
-		assert(initializer->result->array.length != SIZE_UNDEFINED);
-		constl(&len, initializer->result->array.length);
+	const struct type *itype = type_dealias(initializer->result);
+	if (itype->storage == STORAGE_ARRAY) {
+		assert(itype->array.length != SIZE_UNDEFINED);
+		constl(&len, itype->array.length);
 	} else {
 		assert(0); // TODO: Initialize one slice from another
 	}
@@ -575,7 +576,7 @@ gen_slice_alloc(struct gen_context *ctx,
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &temp, NULL);
 	pushi(ctx->current, NULL, Q_STOREL, &cap, &ptr, NULL);
 
-	if (initializer->result->storage == STORAGE_ARRAY) {
+	if (itype->storage == STORAGE_ARRAY) {
 		ret.type = qtype_for_type(ctx, initializer->result, true);
 		ret.indirect = false;
 		gen_expression(ctx, initializer, &ret);
