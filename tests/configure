@@ -31,7 +31,8 @@ tests() {
 		25-promotion \
 		26-gen \
 		27-rt \
-		28-insert
+		28-insert \
+		29-unarithm
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
