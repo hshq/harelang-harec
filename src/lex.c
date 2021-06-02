@@ -1009,7 +1009,7 @@ lexical_token_str(enum lexical_token tok)
 static const char *
 rune_unparse(uint32_t c)
 {
-	static char buf[7];
+	static char buf[11];
 	switch (c) {
 	case '\0':
 		snprintf(buf, sizeof(buf), "\\0");
@@ -1045,7 +1045,9 @@ rune_unparse(uint32_t c)
 		snprintf(buf, sizeof(buf), "\\\"");
 		break;
 	default:
-		if (c > 0x7F) {
+		if (c > 0xffff) {
+			snprintf(buf, sizeof(buf), "\\U%08x", c);
+		} else if (c > 0x7F) {
 			snprintf(buf, sizeof(buf), "\\u%04x", c);
 		} else if (!isprint(c)) {
 			snprintf(buf, sizeof(buf), "\\x%02x", c);
