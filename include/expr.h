@@ -200,6 +200,7 @@ struct expression_defer {
 
 struct expression_delete {
 	struct expression *expr;
+	bool is_static;
 };
 
 struct expression_for {

@@ -10,7 +10,7 @@ fn index() void = {
 	assert(len(x) == 4);
 	assert(x[0] == 1 && x[1] == 3 && x[2] == 4 && x[3] == 5);
 
-	delete(y[3]);
+	static delete(y[3]);
 	assert(len(x) == 3);
 	assert(x[0] == 1 && x[1] == 3 && x[2] == 4);
 	free(x);
@@ -25,7 +25,7 @@ fn slice() void = {
 	assert(len(x) == 2);
 	assert(x[0] == 4 && x[1] == 5);
 
-	delete(y[..]);
+	static delete(y[..]);
 	assert(len(x) == 0);
 	assert(s.capacity < 5);
 

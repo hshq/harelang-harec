@@ -1396,7 +1396,7 @@ check_expr_delete(struct context *ctx,
 	struct errors *errors)
 {
 	expr->type = EXPR_DELETE;
-	assert(!aexpr->delete.is_static); // TODO
+	expr->delete.is_static = aexpr->delete.is_static;
 	expr->result = &builtin_type_void;
 	struct expression *dexpr = expr->delete.expr =
 		xcalloc(1, sizeof(struct expression));

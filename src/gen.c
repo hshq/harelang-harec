@@ -1847,11 +1847,37 @@ gen_expr_delete(struct gen_context *ctx,
 	rtmemcpy.type = &qbe_long;
 	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &sptr, &eptr, &len, NULL);
 
-	struct qbe_value rtunensure = {0};
-	rtunensure.kind = QV_GLOBAL;
-	rtunensure.name = strdup("rt.unensure");
-	rtunensure.type = &qbe_long;
-	pushi(ctx->current, NULL, Q_CALL, &rtunensure, &object, &membsz, NULL);
+	if (!expr->delete.is_static) {
+		struct qbe_value rtunensure = {0};
+		rtunensure.kind = QV_GLOBAL;
+		rtunensure.name = strdup("rt.unensure");
+		rtunensure.type = &qbe_long;
+		pushi(ctx->current, NULL, Q_CALL, &rtunensure, &object, &membsz, NULL);
+	} else {
+		struct qbe_value capptr = {0}, cap = {0};
+		gen_temp(ctx, &capptr, &qbe_long, "append.capptr.%d");
+		constl(&temp, builtin_type_size.size);
+		pushi(ctx->current, &capptr, Q_ADD, &lenptr, &temp, NULL);
+		qval_deref(&capptr);
+		gen_loadtemp(ctx, &cap, &capptr, &qbe_long, false);
+
+		struct qbe_statement validl = {0}, invalidl = {0};
+		struct qbe_value bvalid = {0}, binvalid = {0};
+		bvalid.kind = QV_LABEL;
+		bvalid.name = strdup(genl(&validl, &ctx->id, "bounds.valid.%d"));
+		binvalid.kind = QV_LABEL;
+		binvalid.name = strdup(genl(&invalidl, &ctx->id, "bounds.invalid.%d"));
+
+		struct qbe_value valid = {0};
+		gen_temp(ctx, &valid, &qbe_word, "valid.%d");
+		pushi(ctx->current, &valid, Q_CULEL, &newlen, &cap, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &invalidl);
+
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+
+		push(&ctx->current->body, &validl);
+	}
 }
 
 static void
