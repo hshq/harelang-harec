@@ -5,7 +5,6 @@
 #include "types.h"
 #include "type_store.h"
 
-struct build_tags;
 struct expression;
 struct scope;
 
@@ -33,7 +32,7 @@ struct context {
 	struct type_store *store;
 	const struct type *fntype;
 	struct identifier *ns;
-	struct build_tags *tags;
+	bool is_test;
 	struct scope *unit;
 	struct scope *scope;
 	bool deferring;
@@ -100,14 +99,14 @@ struct unit {
 };
 
 struct scope *check(struct type_store *ts,
-	struct build_tags *tags,
+	bool is_test,
 	struct define *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 
 struct scope *check_internal(struct type_store *ts,
 	struct modcache **cache,
-	struct build_tags *tags,
+	bool is_test,
 	struct define *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,

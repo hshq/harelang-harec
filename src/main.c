@@ -11,7 +11,6 @@
 #include "lex.h"
 #include "parse.h"
 #include "qbe.h"
-#include "tags.h"
 #include "type_store.h"
 #include "typedef.h"
 #include "util.h"
@@ -20,7 +19,7 @@ static void
 usage(const char *argv_0)
 {
 	fprintf(stderr,
-		"Usage: %s [-o output] [-T tags...] [-t typdefs] [-N namespace]\n",
+		"Usage: %s [-o output] [-T] [-t typdefs] [-N namespace]\n",
 		argv_0);
 }
 
@@ -93,13 +92,13 @@ int
 main(int argc, char *argv[])
 {
 	char *output = NULL, *typedefs = NULL;
-	struct build_tags *tags = NULL;
+	bool is_test = false;
 	struct unit unit = {0};
 	struct lexer lexer;
 	struct define *defines = NULL, *def;
 
 	int c;
-	while ((c = getopt(argc, argv, "D:o:T:t:N:")) != -1) {
+	while ((c = getopt(argc, argv, "D:o:Tt:N:")) != -1) {
 		switch (c) {
 		case 'D':
 			def = parse_define(argv[0], optarg);
@@ -110,11 +109,7 @@ main(int argc, char *argv[])
 			output = optarg;
 			break;
 		case 'T':
-			tags = parse_tags(optarg);
-			if (!tags) {
-				fprintf(stderr, "Invalid tags\n");
-				return EXIT_FAILURE;
-			}
+			is_test = true;
 			break;
 		case 't':
 			typedefs = optarg;
@@ -179,7 +174,7 @@ main(int argc, char *argv[])
 
 	static struct type_store ts = {0};
 	builtin_types_init();
-	check(&ts, tags, defines, &aunit, &unit);
+	check(&ts, is_test, defines, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
 		return EXIT_SUCCESS;
 	}

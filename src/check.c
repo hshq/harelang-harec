@@ -9,7 +9,6 @@
 #include "expr.h"
 #include "mod.h"
 #include "scope.h"
-#include "tags.h"
 #include "type_store.h"
 #include "types.h"
 #include "util.h"
@@ -2678,7 +2677,7 @@ check_function(struct context *ctx,
 	const struct ast_decl *adecl)
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
-	if ((adecl->function.flags & FN_TEST) && !tag_enabled(ctx->tags, "test")) {
+	if ((adecl->function.flags & FN_TEST) && !ctx->is_test) {
 		return NULL;
 	}
 
@@ -3217,7 +3216,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 static bool
 scan_function(struct context *ctx, const struct ast_function_decl *decl)
 {
-	if ((decl->flags & FN_TEST) && !tag_enabled(ctx->tags, "test")) {
+	if ((decl->flags & FN_TEST) && !ctx->is_test) {
 		return true;
 	}
 	const struct ast_type fn_atype = {
@@ -3504,7 +3503,7 @@ load_import(struct context *ctx, struct ast_imports *import,
 struct scope *
 check_internal(struct type_store *ts,
 	struct modcache **cache,
-	struct build_tags *tags,
+	bool is_test,
 	struct define *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
@@ -3512,7 +3511,7 @@ check_internal(struct type_store *ts,
 {
 	struct context ctx = {0};
 	ctx.ns = unit->ns;
-	ctx.tags = tags;
+	ctx.is_test = is_test;
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
 	ctx.modcache = cache;
@@ -3676,12 +3675,12 @@ check_internal(struct type_store *ts,
 
 struct scope *
 check(struct type_store *ts,
-	struct build_tags *tags,
+	bool is_test,
 	struct define *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit)
 {
 	struct modcache *modcache[MODCACHE_BUCKETS];
 	memset(modcache, 0, sizeof(modcache));
-	return check_internal(ts, modcache, tags, defines, aunit, unit, false);
+	return check_internal(ts, modcache, is_test, defines, aunit, unit, false);
 }
