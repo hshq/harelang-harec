@@ -124,7 +124,7 @@ type_storage_unparse(enum type_storage storage)
 	case STORAGE_POINTER:
 		return "pointer";
 	case STORAGE_NULL:
-		return "rune";
+		return "null";
 	case STORAGE_RUNE:
 		return "rune";
 	case STORAGE_SIZE:
