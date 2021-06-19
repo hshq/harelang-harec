@@ -1574,18 +1574,17 @@ check_expr_if(struct context *ctx,
 		errors = check_expression(ctx, aexpr->_if.false_branch,
 			false_branch, hint, errors);
 
-		if (true_branch->terminates && false_branch->terminates) {
+		bool tt = true_branch->terminates, ft = false_branch->terminates;
+		if (tt && ft) {
 			expr->terminates = true;
 			expr->result = &builtin_type_void;
-		} else if (true_branch->terminates) {
-			expr->result = false_branch->result;
-		} else if (false_branch->terminates) {
+		} else if (!tt && ft) {
 			expr->result = true_branch->result;
+		} else if (tt && !ft) {
+			expr->result = false_branch->result;
 		} else if (hint && type_is_assignable(hint, true_branch->result)
 				&& type_is_assignable(hint, false_branch->result)) {
 			expr->result = hint;
-		} else if (true_branch->result == false_branch->result) {
-			expr->result = true_branch->result;
 		} else {
 			struct type_tagged_union _tags = {
 				.type = false_branch->result,
@@ -1595,7 +1594,11 @@ check_expr_if(struct context *ctx,
 				.next = &_tags,
 			};
 			expr->result =
-				type_store_lookup_tagged(ctx->store, &tags);
+				type_store_reduce_tagged(ctx->store, &tags);
+			if (expr->result == NULL) {
+				return error(aexpr->loc, expr, errors,
+					"Invalid result type (dangling or ambiguous null)");
+			}
 		}
 		true_branch = lower_implicit_cast(expr->result, true_branch);
 		false_branch = lower_implicit_cast(expr->result, false_branch);
@@ -1815,8 +1818,12 @@ check_expr_match(struct context *ctx,
 		if (hint) {
 			expr->result = hint;
 		} else {
-			expr->result = type_store_lookup_tagged(
+			expr->result = type_store_reduce_tagged(
 				ctx->store, &result_type);
+			if (expr->result == NULL) {
+				return error(aexpr->loc, expr, errors,
+					"Invalid result type (dangling or ambiguous null)");
+			}
 		}
 
 		struct match_case *_case = expr->match.cases;
@@ -2354,8 +2361,12 @@ check_expr_switch(struct context *ctx,
 		if (hint) {
 			expr->result = hint;
 		} else {
-			expr->result = type_store_lookup_tagged(
+			expr->result = type_store_reduce_tagged(
 				ctx->store, &result_type);
+			if (expr->result == NULL) {
+				return error(aexpr->loc, expr, errors,
+					"Invalid result type (dangling or ambiguous null)");
+			}
 		}
 
 		struct switch_case *_case = expr->_switch.cases;

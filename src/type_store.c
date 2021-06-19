@@ -862,3 +862,89 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 	}
 	return type_store_lookup_type(store, &type);
 }
+
+// Algorithm:
+// - Deduplicate and collect nested unions
+// - Merge *type with nullable *type
+// - If one of the types is null:
+// 	- If there's more than one pointer type, error out
+// 	- If there's one pointer type, make it nullable and drop the null
+// 	- If there are no pointer types, keep the null
+// - If the resulting union only has one type, return that type
+// - Otherwise, return a tagged union of all the selected types
+const struct type *
+type_store_reduce_tagged(struct type_store *store, struct type_tagged_union *in)
+{
+	if (!in) {
+		return &builtin_type_void;
+	}
+
+	const struct type *type = type_store_lookup_tagged(store, in);
+	struct type_tagged_union _in = type->tagged;
+	in = &_in;
+
+	struct type_tagged_union **null = NULL;
+	struct type_tagged_union *ptr = NULL;
+	bool multiple_ptrs = false;
+	struct type_tagged_union **tu = &in;
+	while (*tu != NULL) {
+		struct type_tagged_union *i = *tu;
+		bool dropped = false;
+		const struct type *it = i->type;
+		for (struct type_tagged_union *j = in; j != i; j = j->next) {
+			const struct type *jt = j->type;
+			assert(it->id != jt->id);
+			if (it->storage != STORAGE_POINTER
+					|| jt->storage != STORAGE_POINTER) {
+				break;
+			}
+			if (it->pointer.referent->id != jt->pointer.referent->id) {
+				break;
+			}
+			if (it->flags != jt->flags) {
+				break;
+			}
+			if ((it->pointer.flags & PTR_NULLABLE)
+					|| (jt->pointer.flags & PTR_NULLABLE)) {
+				it = type_store_lookup_pointer(store,
+					it->pointer.referent, PTR_NULLABLE);
+				jt = type_store_lookup_pointer(store,
+					jt->pointer.referent, PTR_NULLABLE);
+				if (it == jt) {
+					dropped = true;
+					*tu = i->next;
+					j->type = jt;
+					break;
+				}
+			};
+		}
+
+		if (i->type->storage == STORAGE_NULL) {
+			null = tu;
+		}
+		if (!dropped) {
+			if (i->type->storage == STORAGE_POINTER) {
+				if (ptr != NULL) {
+					multiple_ptrs = true;
+				}
+				ptr = i;
+			}
+			tu = &i->next;
+		}
+	}
+
+	if (null != NULL && (multiple_ptrs || ptr == NULL)) {
+		return NULL;
+	}
+
+	if (null != NULL && ptr != NULL) {
+		*null = (*null)->next;
+		ptr->type = type_store_lookup_pointer(store,
+			ptr->type->pointer.referent, PTR_NULLABLE);
+	}
+
+	if (in->next == NULL) {
+		return in->type;
+	}
+	return type_store_lookup_tagged(store, in);
+}
