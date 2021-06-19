@@ -2,6 +2,7 @@
 all="$all tests"
 
 tests() {
+	# Hare tests
 	for t in \
 		00-constants \
 		01-arrays \
@@ -47,6 +48,39 @@ check: tests/$t
 
 clean-test-$t:
 	@rm -f tests/$t
+.PHONY: clean-test-$t
+
+clean-tests: clean-test-$t
+EOF
+	done
+
+	# C tests
+	for t in \
+		30-reduction
+	do
+		cat <<EOF
+test_objects=\
+	src/lex.o \
+	src/parse.o \
+	src/type_store.o \
+	src/scope.o \
+	src/identifier.o \
+	src/util.o \
+	src/types.o \
+	src/check.o \
+	src/utf8.o \
+	src/eval.o \
+	src/typedef.o \
+	src/mod.o
+
+tests/$t: tests/$t.c \$(test_objects)
+	@printf 'CC\ttests/$t\n'
+	@\$(CC) \$(LDFLAGS) \$(CFLAGS) -o \$@ tests/$t.c \$(test_objects) \$(LIBS)
+
+check: tests/$t
+
+clean-test-$t:
+	@rm -f tests/$t tests/$t.o
 .PHONY: clean-test-$t
 
 clean-tests: clean-test-$t
