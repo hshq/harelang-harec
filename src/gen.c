@@ -514,7 +514,7 @@ gen_expr_access(struct gen_context *ctx,
 	address_object(ctx, expr, &src);
 	if (src.indirect) {
 		gen_loadtemp(ctx, &temp, &src,
-			qtype_for_type(ctx, expr->result, false),
+			qtype_for_type(ctx, expr->result, true),
 			type_is_signed(expr->result));
 		gen_store(ctx, out, &temp);
 	} else {

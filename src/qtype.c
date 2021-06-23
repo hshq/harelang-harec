@@ -302,7 +302,6 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 		}
 		// Fallthrough
 	case STORAGE_BOOL:
-	case STORAGE_ENUM:
 	case STORAGE_I32:
 	case STORAGE_U32:
 	case STORAGE_RUNE:
@@ -317,7 +316,11 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_VOID:
-		return qtype_for_xtype(qstype_for_type(type), false);
+		return qtype_for_xtype(qstype_for_type(type), extended);
+	case STORAGE_ENUM:
+		return qtype_for_type(ctx,
+			builtin_type_for_storage(type->_enum.storage, true),
+			extended);
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
@@ -327,7 +330,7 @@ qtype_for_type(struct gen_context *ctx, const struct type *type, bool extended)
 	case STORAGE_UNION:
 		return lookup_aggregate(ctx, type);
 	case STORAGE_FUNCTION:
-		return qtype_for_xtype(Q__AGGREGATE, false);
+		return qtype_for_xtype(Q__AGGREGATE, extended);
 	case STORAGE_ALIAS:
 		return qtype_for_type(ctx, type->alias.type, extended);
 	case STORAGE_FCONST:

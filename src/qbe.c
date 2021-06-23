@@ -256,6 +256,14 @@ pushi(struct qbe_func *func, const struct qbe_value *out,
 	struct qbe_statement stmt = {0};
 	va_list ap;
 	va_start(ap, instr);
+
+	struct qbe_value hack;
+	if (out && (out->type->stype == Q_BYTE || out->type->stype == Q_HALF)) {
+		hack = *out;
+		hack.type = &qbe_word;
+		out = &hack;
+	}
+
 	va_geni(&stmt, instr, out, ap);
 	va_end(ap);
 	push(&func->body, &stmt);
