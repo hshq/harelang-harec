@@ -873,7 +873,7 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 // - If the resulting union only has one type, return that type
 // - Otherwise, return a tagged union of all the selected types
 const struct type *
-type_store_reduce_tagged(struct type_store *store, struct type_tagged_union *in)
+type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 {
 	if (!in) {
 		return &builtin_type_void;

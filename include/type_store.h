@@ -18,7 +18,7 @@ struct type_store {
 };
 
 // Applies the type reduction algorithm to the given tagged union.
-const struct type *type_store_reduce_tagged(struct type_store *store,
+const struct type *type_store_reduce_result(struct type_store *store,
 		struct type_tagged_union *in);
 
 struct ast_type;

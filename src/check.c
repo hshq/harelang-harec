@@ -1594,7 +1594,7 @@ check_expr_if(struct context *ctx,
 				.next = &_tags,
 			};
 			expr->result =
-				type_store_reduce_tagged(ctx->store, &tags);
+				type_store_reduce_result(ctx->store, &tags);
 			if (expr->result == NULL) {
 				return error(aexpr->loc, expr, errors,
 					"Invalid result type (dangling or ambiguous null)");
@@ -1818,7 +1818,7 @@ check_expr_match(struct context *ctx,
 		if (hint) {
 			expr->result = hint;
 		} else {
-			expr->result = type_store_reduce_tagged(
+			expr->result = type_store_reduce_result(
 				ctx->store, &result_type);
 			if (expr->result == NULL) {
 				return error(aexpr->loc, expr, errors,
@@ -2361,7 +2361,7 @@ check_expr_switch(struct context *ctx,
 		if (hint) {
 			expr->result = hint;
 		} else {
-			expr->result = type_store_reduce_tagged(
+			expr->result = type_store_reduce_result(
 				ctx->store, &result_type);
 			if (expr->result == NULL) {
 				return error(aexpr->loc, expr, errors,
