@@ -315,7 +315,6 @@ constw(struct qbe_value *val, uint32_t w)
 	val->kind = QV_CONST;
 	val->type = &qbe_word;
 	val->wval = w;
-	val->indirect = false;
 }
 
 void
@@ -324,7 +323,6 @@ constl(struct qbe_value *val, uint64_t l)
 	val->kind = QV_CONST;
 	val->type = &qbe_long;
 	val->lval = l;
-	val->indirect = false;
 }
 
 void
@@ -333,7 +331,6 @@ consts(struct qbe_value *val, float s)
 	val->kind = QV_CONST;
 	val->type = &qbe_single;
 	val->sval = s;
-	val->indirect = false;
 }
 
 void
@@ -342,7 +339,6 @@ constd(struct qbe_value *val, double d)
 	val->kind = QV_CONST;
 	val->type = &qbe_double;
 	val->dval = d;
-	val->indirect = false;
 }
 
 void
@@ -350,5 +346,4 @@ const_void(struct qbe_value *val)
 {
 	val->kind = QV_CONST;
 	val->type = &qbe_void;
-	val->indirect = false;
 }

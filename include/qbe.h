@@ -2,6 +2,7 @@
 #define HAREC_QBE_H
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 enum qbe_stype {
@@ -54,27 +55,9 @@ enum qbe_value_kind {
 	QV_TEMPORARY,
 };
 
-// Represents a value which can be an argument to a QBE instruction.
-//
-// If the value is a non-aggregate type, indirect determines if it is a pointer
-// to the value, or the value itself.
-//
-// let x = 10;	// %x =l alloc4 4; storew 10, %x
-// 		// qbe_value{QV_TEMPORARY, =l, true, %x}
-// x;		// %temp =w loadw %x
-// 		// qbe_value{QV_TEMPORARY, =w, false, %temp}
-//
-// Aggregate types cannot be directly stored in temporaries, so if direct is
-// set, the value is still a pointer to an aggregate type.
-//
-// let x = [1, 2, 3];	// %x =l alloc4 12; storew 1, %x; ...
-// 			// qbe_value{QV_TEMPORARY, :aggregate, true, %x }
-// let y = &x;		// %y =l alloc8 8; storel %x, %y
-// 			// qbe_value{QV_TEMPORARY, =l, true, %y }
 struct qbe_value {
 	enum qbe_value_kind kind;
 	const struct qbe_type *type;
-	bool indirect;
 	union {
 		char *name;
 		uint32_t wval;
