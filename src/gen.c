@@ -190,6 +190,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	gen_expr(ctx, func->body, ctx->rval);
 
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
+		// XXX: This is incorrect; we need to load the value from the
+		// stack
 		struct qbe_value rval = {0};
 		qval_temp(ctx, &rval, ctx->rval);
 		pushi(ctx->current, NULL, Q_RET, &rval, NULL);
