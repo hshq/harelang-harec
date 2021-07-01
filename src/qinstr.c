@@ -66,3 +66,55 @@ store_for_type(const struct type *type)
 	}
 	abort(); // Unreachable
 }
+
+enum qbe_instr
+load_for_type(const struct type *type)
+{
+	switch (type->storage) {
+	case STORAGE_I8:
+		return Q_LOADSB;
+	case STORAGE_CHAR:
+	case STORAGE_U8:
+		return Q_LOADUB;
+	case STORAGE_I16:
+		return Q_LOADSH;
+	case STORAGE_U16:
+		return Q_LOADUH;
+	case STORAGE_U32:
+	case STORAGE_UINT:
+	case STORAGE_RUNE:
+	case STORAGE_BOOL:
+		return Q_LOADUW;
+	case STORAGE_I32:
+	case STORAGE_INT:
+		return Q_LOADSW;
+	case STORAGE_I64:
+	case STORAGE_U64:
+		return Q_LOADL;
+	case STORAGE_F32:
+		return Q_LOADS;
+	case STORAGE_F64:
+		return Q_LOADD;
+	case STORAGE_ENUM:
+	case STORAGE_POINTER:
+	case STORAGE_SIZE:
+	case STORAGE_UINTPTR:
+		assert(0); // TODO
+	case STORAGE_ALIAS:
+		return store_for_type(type->alias.type);
+	case STORAGE_ARRAY:
+	case STORAGE_FCONST:
+	case STORAGE_FUNCTION:
+	case STORAGE_ICONST:
+	case STORAGE_NULL:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+	case STORAGE_VOID:
+		abort(); // Invariant
+	}
+	abort(); // Unreachable
+}

@@ -18,14 +18,19 @@ gen_name(struct gen_context *ctx, const char *fmt)
 	return str;
 }
 
+// Initializes a qval with a reference to a gen temporary.
 static void
-qval_temp(struct gen_context *ctx, struct qbe_value *out, struct gen_temp *temp)
+qval_temp(struct gen_context *ctx,
+		struct qbe_value *out,
+		const struct gen_temp *temp)
 {
 	out->kind = QV_TEMPORARY;
 	out->type = qtype_lookup(ctx, temp->type);
 	out->name = temp->name;
 }
 
+// Allocates a temporary of the given type on the stack in this function's
+// preamble.
 static struct gen_temp *
 alloc_temp(struct gen_context *ctx, const struct type *type, const char *fmt)
 {
@@ -44,6 +49,33 @@ alloc_temp(struct gen_context *ctx, const struct type *type, const char *fmt)
 	constl(&size, type->size);
 	pushprei(ctx->current, &out, alloc_for_align(type->align), &size, NULL);
 	return temp;
+}
+
+// Loads a gen temporary into a qbe temporary. For types representable in qbe's
+// type system, this loads the actual value into a qbe temporary. Otherwise,
+// this behaves equivalently to qval_temp, but sets the temporary type to the
+// platform's pointer type (e.g. =l).
+static void
+load_temp(struct gen_context *ctx,
+	struct qbe_value *out,
+	const struct gen_temp *temp)
+{
+	const struct qbe_type *qtype = qtype_lookup(ctx, temp->type);
+	assert(qtype->stype != Q__VOID);
+
+	out->kind = QV_TEMPORARY;
+	if (qtype->stype == Q__AGGREGATE) {
+		out->name = temp->name;
+		out->type = ctx->arch.ptr;
+	} else {
+		out->name = gen_name(ctx, "load.%d");
+		out->type = qtype;
+
+		struct qbe_value addr;
+		qval_temp(ctx, &addr, temp);
+		enum qbe_instr instr = load_for_type(temp->type);
+		pushi(ctx->current, out, instr, &addr, NULL);
+	}
 }
 
 static void
@@ -190,10 +222,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	gen_expr(ctx, func->body, ctx->rval);
 
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
-		// XXX: This is incorrect; we need to load the value from the
-		// stack
 		struct qbe_value rval = {0};
-		qval_temp(ctx, &rval, ctx->rval);
+		load_temp(ctx, &rval, ctx->rval);
 		pushi(ctx->current, NULL, Q_RET, &rval, NULL);
 	} else {
 		pushi(ctx->current, NULL, Q_RET, NULL);
