@@ -78,6 +78,9 @@ load_temp(struct gen_context *ctx,
 	}
 }
 
+static void gen_expr(struct gen_context *ctx,
+	const struct expression *expr, struct gen_temp *out);
+
 static void
 gen_expr_constant(struct gen_context *ctx,
 		const struct expression *expr,
@@ -144,6 +147,36 @@ gen_expr_constant(struct gen_context *ctx,
 }
 
 static void
+gen_expr_list(struct gen_context *ctx,
+		const struct expression *expr,
+		struct gen_temp *out)
+{
+	for (const struct expressions *item = &expr->list.exprs;
+			item; item = item->next) {
+		if (!item->next) {
+			gen_expr(ctx, item->expr, out);
+		} else {
+			gen_expr(ctx, item->expr, NULL);
+		}
+	}
+}
+
+static void
+gen_expr_return(struct gen_context *ctx,
+		const struct expression *expr,
+		struct gen_temp *out)
+{
+	struct qbe_value label = {
+		.kind = QV_LABEL,
+		.name = strdup(ctx->end),
+	};
+	if (expr->_return.value) {
+		gen_expr(ctx, expr->_return.value, ctx->rval);
+	}
+	pushi(ctx->current, NULL, Q_JMP, &label, NULL);
+}
+
+static void
 gen_expr(struct gen_context *ctx,
 		const struct expression *expr,
 		struct gen_temp *out)
@@ -170,14 +203,20 @@ gen_expr(struct gen_context *ctx,
 	case EXPR_FREE:
 	case EXPR_IF:
 	case EXPR_INSERT:
+		assert(0); // TODO
 	case EXPR_LIST:
+		gen_expr_list(ctx, expr, out);
+		break;
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
 		assert(0); // TODO
 	case EXPR_PROPAGATE:
 		assert(0); // Lowered in check (XXX: for now...)
 	case EXPR_RETURN:
+		gen_expr_return(ctx, expr, out);
+		break;
 	case EXPR_SLICE:
+		assert(0); // TODO
 	case EXPR_STRUCT:
 	case EXPR_SWITCH:
 	case EXPR_TUPLE:
@@ -205,7 +244,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	ctx->current = &qdef->func;
 
 	struct qbe_statement start_label = {0};
+	struct qbe_statement end_label = {0};
 	genl(&start_label, &ctx->id, "start.%d");
+	ctx->end = genl(&end_label, &ctx->id, "end.%d");
 	push(&qdef->func.prelude, &start_label);
 
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
@@ -221,7 +262,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	gen_expr(ctx, func->body, ctx->rval);
 
-	pushl(&qdef->func, &ctx->id, "end.%d");
+	push(&qdef->func.body, &end_label);
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
 		struct qbe_value rval = {0};
 		load_temp(ctx, &rval, ctx->rval);

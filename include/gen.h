@@ -27,6 +27,8 @@ struct gen_context {
 	struct type_store *store;
 	struct identifier *ns;
 	struct qbe_func *current;
+	const struct type *functype;
+	const char *end;
 	struct gen_temp *rval;
 	struct gen_arch arch;
 	uint64_t id;
