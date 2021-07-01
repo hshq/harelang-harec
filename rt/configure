@@ -1,5 +1,7 @@
 #!/bin/sh
-all="$all rt"
+# Temporarily disabled
+#all="$all rt"
+all="$all"
 
 rt() {
 	arch=$(uname -m)
