@@ -1,7 +1,9 @@
 #include <assert.h>
 #include <stdlib.h>
+#include "gen.h"
 #include "qbe.h"
 #include "types.h"
+#include "type_store.h"
 
 enum qbe_instr
 alloc_for_align(size_t align)
@@ -19,7 +21,7 @@ alloc_for_align(size_t align)
 }
 
 enum qbe_instr
-store_for_type(const struct type *type)
+store_for_type(struct gen_context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_CHAR:
@@ -43,13 +45,28 @@ store_for_type(const struct type *type)
 		return Q_STORES;
 	case STORAGE_F64:
 		return Q_STORED;
-	case STORAGE_ENUM:
-	case STORAGE_POINTER:
 	case STORAGE_SIZE:
+		switch (ctx->arch.sz->stype) {
+		case Q_LONG:
+			return Q_STOREL;
+		default:
+			assert(0);
+		}
+		break;
+	case STORAGE_POINTER:
 	case STORAGE_UINTPTR:
-		assert(0); // TODO
+		switch (ctx->arch.ptr->stype) {
+		case Q_LONG:
+			return Q_STOREL;
+		default:
+			assert(0);
+		}
+		break;
+	case STORAGE_ENUM:
+		return store_for_type(ctx, builtin_type_for_storage(
+				type->_enum.storage, false));
 	case STORAGE_ALIAS:
-		return store_for_type(type->alias.type);
+		return store_for_type(ctx, type->alias.type);
 	case STORAGE_ARRAY:
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
@@ -68,7 +85,7 @@ store_for_type(const struct type *type)
 }
 
 enum qbe_instr
-load_for_type(const struct type *type)
+load_for_type(struct gen_context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_I8:
@@ -95,13 +112,28 @@ load_for_type(const struct type *type)
 		return Q_LOADS;
 	case STORAGE_F64:
 		return Q_LOADD;
-	case STORAGE_ENUM:
-	case STORAGE_POINTER:
 	case STORAGE_SIZE:
+		switch (ctx->arch.sz->stype) {
+		case Q_LONG:
+			return Q_LOADL;
+		default:
+			assert(0);
+		}
+		break;
+	case STORAGE_POINTER:
 	case STORAGE_UINTPTR:
-		assert(0); // TODO
+		switch (ctx->arch.ptr->stype) {
+		case Q_LONG:
+			return Q_LOADL;
+		default:
+			assert(0);
+		}
+		break;
+	case STORAGE_ENUM:
+		return load_for_type(ctx, builtin_type_for_storage(
+				type->_enum.storage, false));
 	case STORAGE_ALIAS:
-		return store_for_type(type->alias.type);
+		return load_for_type(ctx, type->alias.type);
 	case STORAGE_ARRAY:
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:

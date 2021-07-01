@@ -18,14 +18,14 @@ gen_name(struct gen_context *ctx, const char *fmt)
 	return str;
 }
 
-// Initializes a qval with a reference to a gen temporary.
+// Initializes a qval with a qbe temporary for a given gen temporary.
 static void
 qval_temp(struct gen_context *ctx,
-		struct qbe_value *out,
-		const struct gen_temp *temp)
+	struct qbe_value *out,
+	const struct gen_temp *temp)
 {
 	out->kind = QV_TEMPORARY;
-	out->type = qtype_lookup(ctx, temp->type);
+	out->type = qtype_lookup(ctx, temp->type, false);
 	out->name = temp->name;
 }
 
@@ -60,7 +60,7 @@ load_temp(struct gen_context *ctx,
 	struct qbe_value *out,
 	const struct gen_temp *temp)
 {
-	const struct qbe_type *qtype = qtype_lookup(ctx, temp->type);
+	const struct qbe_type *qtype = qtype_lookup(ctx, temp->type, true);
 	assert(qtype->stype != Q__VOID);
 
 	out->kind = QV_TEMPORARY;
@@ -73,7 +73,7 @@ load_temp(struct gen_context *ctx,
 
 		struct qbe_value addr;
 		qval_temp(ctx, &addr, temp);
-		enum qbe_instr instr = load_for_type(temp->type);
+		enum qbe_instr instr = load_for_type(ctx, temp->type);
 		pushi(ctx->current, out, instr, &addr, NULL);
 	}
 }
@@ -142,7 +142,7 @@ gen_expr_constant(struct gen_context *ctx,
 		abort(); // Invariant
 	}
 
-	enum qbe_instr instr = store_for_type(expr->result);
+	enum qbe_instr instr = store_for_type(ctx, expr->result);
 	pushi(ctx->current, NULL, instr, &qval, &qout, NULL);
 }
 
@@ -251,7 +251,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
 		ctx->rval = alloc_temp(ctx, fntype->func.result, "rval.%d");
-		qdef->func.returns = qtype_lookup(ctx, fntype->func.result);
+		qdef->func.returns = qtype_lookup(ctx, fntype->func.result, true);
 	} else {
 		qdef->func.returns = &qbe_void;
 	}
@@ -299,6 +299,7 @@ gen(const struct unit *unit, struct type_store *store, struct qbe_program *out)
 		.ns = unit->ns,
 		.arch = {
 			.ptr = &qbe_long,
+			.sz = &qbe_long,
 		},
 	};
 	ctx.out->next = &ctx.out->defs;
