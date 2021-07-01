@@ -221,6 +221,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	gen_expr(ctx, func->body, ctx->rval);
 
+	pushl(&qdef->func, &ctx->id, "end.%d");
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
 		struct qbe_value rval = {0};
 		load_temp(ctx, &rval, ctx->rval);
