@@ -3,6 +3,7 @@
 #include "gen.h"
 #include "qbe.h"
 #include "types.h"
+#include "type_store.h"
 
 const struct qbe_type *qtype_lookup(
 		struct gen_context *ctx,
@@ -36,7 +37,9 @@ const struct qbe_type *qtype_lookup(
 	case STORAGE_F64:
 		return &qbe_double;
 	case STORAGE_ENUM:
-		assert(0); // TODO
+		return qtype_lookup(ctx,
+			builtin_type_for_storage(type->_enum.storage, false),
+			xtype);
 	case STORAGE_ALIAS:
 		return qtype_lookup(ctx, type->alias.type, xtype);
 	case STORAGE_ARRAY:

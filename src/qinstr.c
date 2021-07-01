@@ -15,8 +15,10 @@ alloc_for_align(size_t align)
 		return Q_ALLOC4;
 	case 8:
 		return Q_ALLOC8;
-	default:
+	case 16:
 		return Q_ALLOC16;
+	default:
+		abort();
 	}
 }
 

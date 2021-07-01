@@ -96,7 +96,12 @@ gen_expr_constant(struct gen_context *ctx,
 	struct qbe_value qout, qval = {0};
 	qval_temp(ctx, &qout, out);
 
-	switch (type_dealias(expr->result)->storage) {
+	enum type_storage storage = type_dealias(expr->result)->storage;
+	if (storage == STORAGE_ENUM) {
+		storage = type_dealias(expr->result)->_enum.storage;
+	}
+
+	switch (storage) {
 	case STORAGE_CHAR:
 	case STORAGE_I8:
 	case STORAGE_U8:
@@ -123,8 +128,6 @@ gen_expr_constant(struct gen_context *ctx,
 	case STORAGE_POINTER:
 	case STORAGE_F32:
 	case STORAGE_F64:
-	case STORAGE_ENUM:
-		assert(0); // TODO
 	case STORAGE_ARRAY:
 	case STORAGE_NULL:
 	case STORAGE_SLICE:
@@ -136,6 +139,7 @@ gen_expr_constant(struct gen_context *ctx,
 		assert(0); // TODO
 	case STORAGE_ICONST:
 	case STORAGE_FCONST:
+	case STORAGE_ENUM:
 	case STORAGE_VOID:
 	case STORAGE_ALIAS:
 	case STORAGE_FUNCTION:
