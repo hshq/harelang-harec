@@ -191,7 +191,7 @@ main(int argc, char *argv[])
 	}
 
 	struct qbe_program prog = {0};
-	gen(&unit, &prog);
+	gen(&unit, &ts, &prog);
 	if (stage == STAGE_GEN) {
 		return EXIT_SUCCESS;
 	}

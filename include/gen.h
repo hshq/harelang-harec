@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include "identifier.h"
 #include "qbe.h"
+#include "type_store.h"
 #include "types.h"
 
 enum fixed_aborts {
@@ -23,6 +24,7 @@ struct gen_arch {
 
 struct gen_context {
 	struct qbe_program *out;
+	struct type_store *store;
 	struct identifier *ns;
 	struct qbe_func *current;
 	struct gen_temp *rval;
@@ -31,7 +33,9 @@ struct gen_context {
 };
 
 struct unit;
-void gen(const struct unit *unit, struct qbe_program *out);
+void gen(const struct unit *unit,
+		struct type_store *store,
+		struct qbe_program *out);
 
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);
