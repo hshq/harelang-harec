@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 #include "check.h"
 #include "expr.h"
@@ -17,6 +18,14 @@ gen_name(struct gen_context *ctx, const char *fmt)
 	return str;
 }
 
+static void
+qval_temp(struct gen_context *ctx, struct qbe_value *out, struct gen_temp *temp)
+{
+	out->kind = QV_TEMPORARY;
+	out->type = qtype_lookup(ctx, temp->type);
+	out->name = temp->name;
+}
+
 static struct gen_temp *
 alloc_temp(struct gen_context *ctx, const struct type *type, const char *fmt)
 {
@@ -26,22 +35,86 @@ alloc_temp(struct gen_context *ctx, const struct type *type, const char *fmt)
 	temp->type = type;
 	temp->name = gen_name(ctx, fmt);
 
-	// TODO: Look up qbe type
-	assert(type_dealias(type)->storage == STORAGE_INT);
 	struct qbe_value out = {
 		.kind = QV_TEMPORARY,
-		.type = &qbe_word,
+		.type = ctx->arch.ptr,
 		.name = temp->name,
 	};
 	struct qbe_value size;
 	constl(&size, type->size);
 	pushprei(ctx->current, &out, alloc_for_align(type->align), &size, NULL);
-
 	return temp;
 }
 
 static void
-gen_expr(struct gen_context *ctx, const struct expression *expr)
+gen_expr_constant(struct gen_context *ctx,
+		const struct expression *expr,
+		struct gen_temp *out)
+{
+	if (out == NULL) {
+		pushc(ctx->current, "Useless constant expression dropped");
+		return;
+	}
+	const struct expression_constant *constexpr = &expr->constant;
+	assert(constexpr->object == NULL); // TODO
+
+	struct qbe_value qout, qval = {0};
+	qval_temp(ctx, &qout, out);
+
+	switch (type_dealias(expr->result)->storage) {
+	case STORAGE_CHAR:
+	case STORAGE_I8:
+	case STORAGE_U8:
+		constw(&qval, constexpr->uval);
+		break;
+	case STORAGE_I16:
+	case STORAGE_U16:
+		constw(&qval, constexpr->uval);
+		break;
+	case STORAGE_I32:
+	case STORAGE_U32:
+	case STORAGE_INT:
+	case STORAGE_UINT:
+	case STORAGE_RUNE:
+	case STORAGE_BOOL:
+		constw(&qval, constexpr->uval);
+		break;
+	case STORAGE_I64:
+	case STORAGE_U64:
+	case STORAGE_SIZE:
+	case STORAGE_UINTPTR:
+		constl(&qval, constexpr->uval);
+		break;
+	case STORAGE_POINTER:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_ENUM:
+		assert(0); // TODO
+	case STORAGE_ARRAY:
+	case STORAGE_NULL:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+		assert(0); // TODO
+	case STORAGE_ICONST:
+	case STORAGE_FCONST:
+	case STORAGE_VOID:
+	case STORAGE_ALIAS:
+	case STORAGE_FUNCTION:
+		abort(); // Invariant
+	}
+
+	enum qbe_instr instr = store_for_type(expr->result);
+	pushi(ctx->current, NULL, instr, &qval, &qout, NULL);
+}
+
+static void
+gen_expr(struct gen_context *ctx,
+		const struct expression *expr,
+		struct gen_temp *out)
 {
 	switch (expr->type) {
 	case EXPR_ACCESS:
@@ -55,7 +128,10 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_CONTINUE:
 	case EXPR_CALL:
 	case EXPR_CAST:
+		assert(0); // TODO
 	case EXPR_CONSTANT:
+		gen_expr_constant(ctx, expr, out);
+		break;
 	case EXPR_DEFER:
 	case EXPR_DELETE:
 	case EXPR_FOR:
@@ -101,10 +177,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	push(&qdef->func.prelude, &start_label);
 
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
-		alloc_temp(ctx, fntype->func.result, "rval.%d");
-		// TODO: Look up qbe type
-		assert(type_dealias(fntype->func.result)->storage == STORAGE_INT);
-		qdef->func.returns = &qbe_word;
+		ctx->rval = alloc_temp(ctx, fntype->func.result, "rval.%d");
+		qdef->func.returns = qtype_lookup(ctx, fntype->func.result);
 	} else {
 		qdef->func.returns = &qbe_void;
 	}
@@ -113,7 +187,15 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	assert(!func->scope->objects);
 
 	pushl(&qdef->func, &ctx->id, "body.%d");
-	gen_expr(ctx, func->body);
+	gen_expr(ctx, func->body, ctx->rval);
+
+	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
+		struct qbe_value rval = {0};
+		qval_temp(ctx, &rval, ctx->rval);
+		pushi(ctx->current, NULL, Q_RET, &rval, NULL);
+	} else {
+		pushi(ctx->current, NULL, Q_RET, NULL);
+	}
 
 	qbe_append_def(ctx->out, qdef);
 	ctx->current = NULL;
@@ -140,6 +222,9 @@ gen(const struct unit *unit, struct qbe_program *out)
 	struct gen_context ctx = {
 		.out = out,
 		.ns = unit->ns,
+		.arch = {
+			.ptr = &qbe_long,
+		},
 	};
 	ctx.out->next = &ctx.out->defs;
 	const struct declarations *decls = unit->declarations;

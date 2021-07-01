@@ -12,23 +12,33 @@ enum fixed_aborts {
 	ABORT_STATIC_EXCEEDED = 3,
 };
 
-struct unit;
-
-void gen(const struct unit *unit, struct qbe_program *out);
-
-struct gen_context {
-	struct qbe_program *out;
-	struct identifier *ns;
-	struct qbe_func *current;
-	uint64_t id;
-};
-
 struct gen_temp {
 	char *name;
 	const struct type *type;
 };
 
+struct gen_arch {
+	const struct qbe_type *ptr;
+};
+
+struct gen_context {
+	struct qbe_program *out;
+	struct identifier *ns;
+	struct qbe_func *current;
+	struct gen_temp *rval;
+	struct gen_arch arch;
+	uint64_t id;
+};
+
+struct unit;
+void gen(const struct unit *unit, struct qbe_program *out);
+
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);
+enum qbe_instr store_for_type(const struct type *type);
+
+// qtype.c
+const struct qbe_type *qtype_lookup(struct gen_context *ctx,
+		const struct type *type);
 
 #endif
