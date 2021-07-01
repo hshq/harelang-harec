@@ -25,17 +25,26 @@ qval_temp(struct gen_context *ctx,
 	const struct gen_temp *temp)
 {
 	out->kind = QV_TEMPORARY;
-	out->type = qtype_lookup(ctx, temp->type, false);
+	out->type = qtype_lookup(ctx, temp->type, true);
 	out->name = temp->name;
 }
 
-// Allocates a temporary of the given type on the stack in this function's
-// preamble.
+// Initializes a qbe_value as a qbe temporary for the given qbe type.
+static void
+gen_qtemp(struct gen_context *ctx, struct qbe_value *out,
+		const struct qbe_type *type, const char *fmt)
+{
+	out->kind = QV_TEMPORARY;
+	out->type = type;
+	out->name = gen_name(ctx, fmt);
+}
+
+// Allocates a temporary of the given type on the stack in the current
+// function's preamble.
 static struct gen_temp *
 alloc_temp(struct gen_context *ctx, const struct type *type, const char *fmt)
 {
 	assert(type->size != 0 && type->size != SIZE_UNDEFINED);
-
 	struct gen_temp *temp = xcalloc(1, sizeof(struct gen_temp));
 	temp->type = type;
 	temp->name = gen_name(ctx, fmt);
@@ -132,10 +141,8 @@ gen_expr_constant(struct gen_context *ctx,
 	case STORAGE_NULL:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
-	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
-	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_ICONST:
 	case STORAGE_FCONST:
@@ -143,6 +150,8 @@ gen_expr_constant(struct gen_context *ctx,
 	case STORAGE_VOID:
 	case STORAGE_ALIAS:
 	case STORAGE_FUNCTION:
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
 		abort(); // Invariant
 	}
 
@@ -178,6 +187,50 @@ gen_expr_return(struct gen_context *ctx,
 		gen_expr(ctx, expr->_return.value, ctx->rval);
 	}
 	pushi(ctx->current, NULL, Q_JMP, &label, NULL);
+}
+
+static void
+gen_expr_struct(struct gen_context *ctx,
+		const struct expression *expr,
+		struct gen_temp *out)
+{
+	if (!out) {
+		pushc(ctx->current, "Useless struct expression dropped");
+		return;
+	}
+	struct qbe_value base = {0}, ptr = {0}, offs = {0};
+	qval_temp(ctx, &base, out);
+	gen_qtemp(ctx, &ptr, ctx->arch.ptr, "offset.%d");
+
+	if (expr->_struct.autofill) {
+		struct qbe_value rtfunc = {0}, size = {0}, zero = {0};
+		rtfunc.kind = QV_GLOBAL;
+		rtfunc.name = strdup("rt.memset");
+		rtfunc.type = &qbe_long;
+		constl(&size, expr->result->size);
+		constl(&zero, 0);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc,
+				&base, &zero, &size, NULL);
+	}
+
+	const struct expr_struct_field *field = &expr->_struct.fields;
+	while (field) {
+		if (!field->value) {
+			assert(expr->_struct.autofill);
+			field = field->next;
+			continue;
+		}
+
+		constl(&offs, field->field->offset);
+		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
+
+		struct gen_temp temp = {
+			.name = ptr.name,
+			.type = field->field->type,
+		};
+		gen_expr(ctx, field->value, &temp);
+		field = field->next;
+	}
 }
 
 static void
@@ -222,6 +275,8 @@ gen_expr(struct gen_context *ctx,
 	case EXPR_SLICE:
 		assert(0); // TODO
 	case EXPR_STRUCT:
+		gen_expr_struct(ctx, expr, out);
+		break;
 	case EXPR_SWITCH:
 	case EXPR_TUPLE:
 	case EXPR_UNARITHM:

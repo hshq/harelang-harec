@@ -11,77 +11,33 @@ const struct qbe_type
 qbe_byte = {
 	.stype = Q_BYTE,
 	.size = 1,
-	.align = 1,
-},
-qbe_byte_s = {
-	.stype = Q_BYTE,
-	.size = 1,
-	.align = 1,
-	.is_signed = true,
 },
 qbe_half = {
 	.stype = Q_HALF,
 	.size = 2,
-	.align = 2,
-},
-qbe_half_s = {
-	.stype = Q_HALF,
-	.size = 2,
-	.align = 2,
-	.is_signed = true,
 },
 qbe_word = {
 	.stype = Q_WORD,
 	.size = 4,
-	.align = 4,
 },
 qbe_long = {
 	.stype = Q_LONG,
 	.size = 8,
-	.align = 8,
 },
 qbe_single = {
 	.stype = Q_SINGLE,
 	.size = 4,
-	.align = 4,
 },
 qbe_double = {
 	.stype = Q_DOUBLE,
 	.size = 8,
-	.align = 8,
 },
 qbe_void = {
 	.stype = Q__VOID,
 },
-// Used for some types which are unrepresentible in the qbe type system, but
-// still representable as values (e.g. functions)
 qbe_aggregate = {
 	.stype = Q__AGGREGATE,
 };
-
-const struct qbe_type *
-qtype_for_xtype(enum qbe_stype type, bool is_signed)
-{
-	switch (type) {
-	case Q_BYTE:
-		return is_signed ? &qbe_byte_s : &qbe_byte;
-	case Q_HALF:
-		return is_signed ? &qbe_half_s : &qbe_half;
-	case Q_WORD:
-		return &qbe_word;
-	case Q_LONG:
-		return &qbe_long;
-	case Q_SINGLE:
-		return &qbe_single;
-	case Q_DOUBLE:
-		return &qbe_double;
-	case Q__VOID:
-		return &qbe_void;
-	case Q__AGGREGATE:
-		return &qbe_aggregate;
-	}
-	assert(0); // Unreachable
-}
 
 const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_ADD] = "add",
