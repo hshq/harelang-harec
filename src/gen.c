@@ -134,9 +134,13 @@ gen_expr_constant(struct gen_context *ctx,
 	case STORAGE_UINTPTR:
 		constl(&qval, constexpr->uval);
 		break;
-	case STORAGE_POINTER:
 	case STORAGE_F32:
+		consts(&qval, constexpr->fval);
+		break;
 	case STORAGE_F64:
+		constd(&qval, constexpr->fval);
+		break;
+	case STORAGE_POINTER:
 	case STORAGE_ARRAY:
 	case STORAGE_NULL:
 	case STORAGE_SLICE:
