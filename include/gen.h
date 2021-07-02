@@ -13,11 +13,16 @@ enum fixed_aborts {
 	ABORT_STATIC_EXCEEDED = 3,
 };
 
+// A gen temporary is a reference to a qbe temporary by name (the qbe temporary
+// is always of a pointer type) and the Hare type which can be found at that
+// address.
 struct gen_temp {
 	char *name;
 	const struct type *type;
 };
 
+// A gen binding stores the gen_temp for a scope object and is part of a linked
+// list of objects being tracked by gen.
 struct gen_binding {
 	const struct scope_object *object;
 	struct gen_temp temp;
@@ -45,6 +50,7 @@ struct gen_context {
 };
 
 struct unit;
+
 void gen(const struct unit *unit,
 		struct type_store *store,
 		struct qbe_program *out);
