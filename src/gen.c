@@ -156,37 +156,61 @@ gen_copy(struct gen_context *ctx,
 }
 
 static void gen_expr(struct gen_context *ctx,
-	const struct expression *expr, struct gen_temp *out);
+	const struct expression *expr, const struct gen_temp *out);
 
-static void
-gen_access_object(struct gen_context *ctx,
-		const struct scope_object *obj,
-		struct gen_temp *out)
+static const struct gen_temp *
+gen_address_object(struct gen_context *ctx,
+		const struct scope_object *obj)
 {
 	const struct gen_binding *binding = binding_lookup(ctx, obj);
-	gen_copy(ctx, out, &binding->temp);
+	return &binding->temp;
 }
 
-static void
-gen_expr_access(struct gen_context *ctx,
-		const struct expression *expr,
-		struct gen_temp *out)
+static const struct gen_temp *
+gen_access_address(struct gen_context *ctx,
+		const struct expression *expr)
 {
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
-		gen_access_object(ctx, expr->access.object, out);
-		break;
+		return gen_address_object(ctx, expr->access.object);
 	case ACCESS_INDEX:
 	case ACCESS_FIELD:
 	case ACCESS_TUPLE:
 		assert(0); // TODO
 	}
+	abort(); // Invariant
+}
+
+static void
+gen_expr_access(struct gen_context *ctx,
+		const struct expression *expr,
+		const struct gen_temp *out)
+{
+	const struct gen_temp *src = gen_access_address(ctx, expr);
+	gen_copy(ctx, out, src);
+}
+
+static void
+gen_expr_assign(struct gen_context *ctx,
+		const struct expression *expr,
+		const struct gen_temp *out)
+{
+	const struct expression *object = expr->assign.object;
+	const struct expression *value = expr->assign.value;
+	if (object->type == EXPR_SLICE) {
+		assert(0); // TODO
+	}
+	assert(!expr->assign.indirect); // TODO
+
+	assert(object->type == EXPR_ACCESS); // Invariant
+	const struct gen_temp *obj = gen_access_address(ctx, object);
+	gen_expr(ctx, value, obj);
 }
 
 static void
 gen_expr_binding(struct gen_context *ctx,
 		const struct expression *expr,
-		struct gen_temp *out)
+		const struct gen_temp *out)
 {
 	for (const struct expression_binding *binding = &expr->binding;
 			binding; binding = binding->next) {
@@ -206,7 +230,7 @@ gen_expr_binding(struct gen_context *ctx,
 static void
 gen_expr_constant(struct gen_context *ctx,
 		const struct expression *expr,
-		struct gen_temp *out)
+		const struct gen_temp *out)
 {
 	if (out == NULL) {
 		pushc(ctx->current, "Useless constant expression dropped");
@@ -283,7 +307,7 @@ gen_expr_constant(struct gen_context *ctx,
 static void
 gen_expr_list(struct gen_context *ctx,
 		const struct expression *expr,
-		struct gen_temp *out)
+		const struct gen_temp *out)
 {
 	for (const struct expressions *item = &expr->list.exprs;
 			item; item = item->next) {
@@ -298,7 +322,7 @@ gen_expr_list(struct gen_context *ctx,
 static void
 gen_expr_return(struct gen_context *ctx,
 		const struct expression *expr,
-		struct gen_temp *out)
+		const struct gen_temp *out)
 {
 	struct qbe_value label = {
 		.kind = QV_LABEL,
@@ -313,7 +337,7 @@ gen_expr_return(struct gen_context *ctx,
 static void
 gen_expr_struct(struct gen_context *ctx,
 		const struct expression *expr,
-		struct gen_temp *out)
+		const struct gen_temp *out)
 {
 	if (!out) {
 		pushc(ctx->current, "Useless struct expression dropped");
@@ -357,7 +381,7 @@ gen_expr_struct(struct gen_context *ctx,
 static void
 gen_expr(struct gen_context *ctx,
 		const struct expression *expr,
-		struct gen_temp *out)
+		const struct gen_temp *out)
 {
 	switch (expr->type) {
 	case EXPR_ACCESS:
@@ -366,7 +390,10 @@ gen_expr(struct gen_context *ctx,
 	case EXPR_ALLOC:
 	case EXPR_APPEND:
 	case EXPR_ASSERT:
+		assert(0); // TODO
 	case EXPR_ASSIGN:
+		gen_expr_assign(ctx, expr, out);
+		break;
 	case EXPR_BINARITHM:
 		assert(0); // TODO
 	case EXPR_BINDING:
@@ -437,7 +464,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
 		ctx->rval = xcalloc(1, sizeof(struct gen_temp));
 		alloc_temp(ctx, ctx->rval, fntype->func.result, "rval.%d");
-		qdef->func.returns = qtype_lookup(ctx, fntype->func.result, true);
+		qdef->func.returns = qtype_lookup(ctx, fntype->func.result, false);
 	} else {
 		qdef->func.returns = &qbe_void;
 	}

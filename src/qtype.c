@@ -149,7 +149,6 @@ const struct qbe_type *qtype_lookup(
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
-		assert(xtype);
 		return aggregate_lookup(ctx, type);
 	case STORAGE_VOID:
 	case STORAGE_FUNCTION:
