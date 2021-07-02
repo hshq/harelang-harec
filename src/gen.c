@@ -166,13 +166,12 @@ gen_copy(struct gen_context *ctx,
 	case STORAGE_U8:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
+	case STORAGE_POINTER:
 		// Implemented below
 		break;
 	case STORAGE_ARRAY:
 		gen_copy_array(ctx, dest, src);
 		return;
-	case STORAGE_FUNCTION:
-	case STORAGE_POINTER:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
@@ -182,6 +181,7 @@ gen_copy(struct gen_context *ctx,
 		assert(0); // TODO
 	case STORAGE_ALIAS:
 	case STORAGE_FCONST:
+	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
 	case STORAGE_VOID:
 		abort(); // Invariant
