@@ -18,6 +18,12 @@ struct gen_temp {
 	const struct type *type;
 };
 
+struct gen_binding {
+	const struct scope_object *object;
+	struct gen_temp temp;
+	struct gen_binding *next;
+};
+
 struct gen_arch {
 	const struct qbe_type *ptr;
 	const struct qbe_type *sz;
@@ -25,14 +31,17 @@ struct gen_arch {
 
 struct gen_context {
 	struct qbe_program *out;
+	struct gen_arch arch;
 	struct type_store *store;
 	struct identifier *ns;
+
+	uint64_t id;
+	struct gen_binding *bindings;
+
 	struct qbe_func *current;
 	const struct type *functype;
 	const char *end;
 	struct gen_temp *rval;
-	struct gen_arch arch;
-	uint64_t id;
 };
 
 struct unit;

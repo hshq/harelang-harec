@@ -41,11 +41,11 @@ gen_qtemp(struct gen_context *ctx, struct qbe_value *out,
 
 // Allocates a temporary of the given type on the stack in the current
 // function's preamble.
-static struct gen_temp *
-alloc_temp(struct gen_context *ctx, const struct type *type, const char *fmt)
+static void
+alloc_temp(struct gen_context *ctx, struct gen_temp *temp,
+		const struct type *type, const char *fmt)
 {
 	assert(type->size != 0 && type->size != SIZE_UNDEFINED);
-	struct gen_temp *temp = xcalloc(1, sizeof(struct gen_temp));
 	temp->type = type;
 	temp->name = gen_name(ctx, fmt);
 
@@ -57,7 +57,6 @@ alloc_temp(struct gen_context *ctx, const struct type *type, const char *fmt)
 	struct qbe_value size;
 	constl(&size, type->size);
 	pushprei(ctx->current, &out, alloc_for_align(type->align), &size, NULL);
-	return temp;
 }
 
 // Loads a gen temporary into a qbe temporary. For types representable in qbe's
@@ -89,6 +88,26 @@ load_temp(struct gen_context *ctx,
 
 static void gen_expr(struct gen_context *ctx,
 	const struct expression *expr, struct gen_temp *out);
+
+static void
+gen_expr_binding(struct gen_context *ctx,
+		const struct expression *expr,
+		struct gen_temp *out)
+{
+	for (const struct expression_binding *binding = &expr->binding;
+			binding; binding = binding->next) {
+		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
+		alloc_temp(ctx, &gb->temp, binding->object->type, "binding.%d");
+		gb->object = binding->object;
+		pushc(ctx->current, "binding %s => %s",
+				binding->object->ident.name,
+				gb->temp.name);
+
+		gen_expr(ctx, binding->initializer, &gb->temp);
+		gb->next = ctx->bindings;
+		ctx->bindings = gb;
+	}
+}
 
 static void
 gen_expr_constant(struct gen_context *ctx,
@@ -253,7 +272,10 @@ gen_expr(struct gen_context *ctx,
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINARITHM:
+		assert(0); // TODO
 	case EXPR_BINDING:
+		gen_expr_binding(ctx, expr, out);
+		break;
 	case EXPR_BREAK:
 	case EXPR_CONTINUE:
 	case EXPR_CALL:
@@ -317,7 +339,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	push(&qdef->func.prelude, &start_label);
 
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
-		ctx->rval = alloc_temp(ctx, fntype->func.result, "rval.%d");
+		ctx->rval = xcalloc(1, sizeof(struct gen_temp));
+		alloc_temp(ctx, ctx->rval, fntype->func.result, "rval.%d");
 		qdef->func.returns = qtype_lookup(ctx, fntype->func.result, true);
 	} else {
 		qdef->func.returns = &qbe_void;
