@@ -98,6 +98,45 @@ binding_lookup(struct gen_context *ctx, const struct scope_object *obj)
 	abort(); // Invariant
 }
 
+static void
+gen_copy_memcpy(struct gen_context *ctx,
+	const struct gen_temp *dest,
+	const struct gen_temp *src)
+{
+	struct qbe_value rtfunc = {0}, size = {0};
+	rtfunc.kind = QV_GLOBAL;
+	rtfunc.name = strdup("rt.memcpy");
+	rtfunc.type = &qbe_long;
+	constl(&size, dest->type->size);
+	struct qbe_value dtemp = {
+		.kind = QV_TEMPORARY,
+		.type = ctx->arch.ptr,
+		.name = dest->name,
+	}, stemp = {
+		.kind = QV_TEMPORARY,
+		.type = ctx->arch.ptr,
+		.name = src->name,
+	};
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc,
+			&dtemp, &stemp, &size, NULL);
+}
+
+static void
+gen_copy_array(struct gen_context *ctx,
+	const struct gen_temp *dest,
+	const struct gen_temp *src)
+{
+	const struct type *atype = type_dealias(dest->type);
+	assert(atype->storage == STORAGE_ARRAY);
+	assert(atype->array.length != SIZE_UNDEFINED);
+	if (atype->array.length > 8) {
+		gen_copy_memcpy(ctx, dest, src);
+		return;
+	}
+	// TODO: Generate more efficient approach
+	gen_copy_memcpy(ctx, dest, src);
+}
+
 // Generates a copy operation from one gen temporary to another. For primitive
 // types this is a load+store operation; for aggregate types this may emit more
 // complex code or a memcpy.
@@ -127,9 +166,11 @@ gen_copy(struct gen_context *ctx,
 	case STORAGE_U8:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
-		// fallthrough
+		// Implemented below
 		break;
 	case STORAGE_ARRAY:
+		gen_copy_array(ctx, dest, src);
+		return;
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
@@ -257,6 +298,33 @@ gen_expr_binding(struct gen_context *ctx,
 }
 
 static void
+gen_expr_const_array(struct gen_context *ctx,
+		const struct type *atype,
+		const struct array_constant *expr,
+		const struct gen_temp *out)
+{
+	assert(!expr->expand); // TODO
+
+	struct qbe_value base = {0}, ptr = {0}, membsz = {0};
+	qval_temp(ctx, &base, out);
+	gen_qtemp(ctx, &ptr, ctx->arch.ptr, "offset.%d");
+	constl(&membsz, atype->array.members->size);
+	pushi(ctx->current, &ptr, Q_COPY, &base, NULL);
+
+	for (const struct array_constant *ac = expr; ac; ac = ac->next) {
+		struct gen_temp temp = {
+			.type = atype->array.members,
+			.name = ptr.name,
+		};
+		gen_expr(ctx, ac->value, &temp);
+
+		if (ac->next) {
+			pushi(ctx->current, &ptr, Q_ADD, &ptr, &membsz, NULL);
+		}
+	}
+}
+
+static void
 gen_expr_constant(struct gen_context *ctx,
 		const struct expression *expr,
 		const struct gen_temp *out)
@@ -309,9 +377,12 @@ gen_expr_constant(struct gen_context *ctx,
 			abort();
 		}
 		break;
+	case STORAGE_ARRAY:
+		gen_expr_const_array(ctx, type_dealias(expr->result),
+				constexpr->array, out);
+		return;
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
-	case STORAGE_ARRAY:
 	case STORAGE_NULL:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
