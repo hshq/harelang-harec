@@ -146,6 +146,7 @@ gen_copy(struct gen_context *ctx,
 	const struct gen_temp *src)
 {
 	const struct type *dtype = type_dealias(dest->type);
+	assert(dtype == type_dealias(src->type));
 	switch (dtype->storage) {
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
