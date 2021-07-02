@@ -158,27 +158,53 @@ gen_copy(struct gen_context *ctx,
 static void gen_expr(struct gen_context *ctx,
 	const struct expression *expr, const struct gen_temp *out);
 
-static const struct gen_temp *
-gen_address_object(struct gen_context *ctx,
-		const struct scope_object *obj)
+static void gen_access_address(struct gen_context *ctx,
+	struct gen_temp *temp, const struct expression *expr);
+
+static void
+gen_address_object(struct gen_context *ctx, struct gen_temp *temp,
+	const struct scope_object *obj)
 {
 	const struct gen_binding *binding = binding_lookup(ctx, obj);
-	return &binding->temp;
+	*temp = binding->temp;
 }
 
-static const struct gen_temp *
-gen_access_address(struct gen_context *ctx,
+static void
+gen_address_field(struct gen_context *ctx, struct gen_temp *temp,
+	const struct expression_access *access)
+{
+	assert(access->type == ACCESS_FIELD);
+
+	const struct expression *object = access->_struct;
+	assert(object->type == EXPR_ACCESS); // Invariant
+
+	struct gen_temp base;
+	struct qbe_value qbase = {0}, field = {0}, offset = {0};
+	gen_access_address(ctx, &base, object);
+	qval_temp(ctx, &qbase, &base);
+	gen_qtemp(ctx, &field, ctx->arch.ptr, "field.%d");
+	constl(&offset, access->field->offset);
+	pushi(ctx->current, &field, Q_ADD, &qbase, &offset, NULL);
+	temp->name = field.name;
+	temp->type = access->field->type;
+}
+
+static void
+gen_access_address(struct gen_context *ctx, struct gen_temp *temp,
 		const struct expression *expr)
 {
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
-		return gen_address_object(ctx, expr->access.object);
+		gen_address_object(ctx, temp, expr->access.object);
+		break;
 	case ACCESS_INDEX:
+		assert(0); // TODO
 	case ACCESS_FIELD:
+		gen_address_field(ctx, temp, &expr->access);
+		break;
 	case ACCESS_TUPLE:
 		assert(0); // TODO
 	}
-	abort(); // Invariant
 }
 
 static void
@@ -186,8 +212,9 @@ gen_expr_access(struct gen_context *ctx,
 		const struct expression *expr,
 		const struct gen_temp *out)
 {
-	const struct gen_temp *src = gen_access_address(ctx, expr);
-	gen_copy(ctx, out, src);
+	struct gen_temp src;
+	gen_access_address(ctx, &src, expr);
+	gen_copy(ctx, out, &src);
 }
 
 static void
@@ -200,11 +227,13 @@ gen_expr_assign(struct gen_context *ctx,
 	if (object->type == EXPR_SLICE) {
 		assert(0); // TODO
 	}
-	assert(!expr->assign.indirect); // TODO
 
+	assert(!expr->assign.indirect); // TODO
 	assert(object->type == EXPR_ACCESS); // Invariant
-	const struct gen_temp *obj = gen_access_address(ctx, object);
-	gen_expr(ctx, value, obj);
+
+	struct gen_temp obj;
+	gen_access_address(ctx, &obj, object);
+	gen_expr(ctx, value, &obj);
 }
 
 static void
