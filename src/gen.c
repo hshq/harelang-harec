@@ -114,12 +114,8 @@ gen_expr_constant(struct gen_context *ctx,
 	case STORAGE_CHAR:
 	case STORAGE_I8:
 	case STORAGE_U8:
-		constw(&qval, constexpr->uval);
-		break;
 	case STORAGE_I16:
 	case STORAGE_U16:
-		constw(&qval, constexpr->uval);
-		break;
 	case STORAGE_I32:
 	case STORAGE_U32:
 	case STORAGE_INT:
