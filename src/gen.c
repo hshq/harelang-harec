@@ -130,8 +130,6 @@ gen_expr_constant(struct gen_context *ctx,
 		break;
 	case STORAGE_I64:
 	case STORAGE_U64:
-	case STORAGE_SIZE:
-	case STORAGE_UINTPTR:
 		constl(&qval, constexpr->uval);
 		break;
 	case STORAGE_F32:
@@ -140,6 +138,16 @@ gen_expr_constant(struct gen_context *ctx,
 	case STORAGE_F64:
 		constd(&qval, constexpr->fval);
 		break;
+	case STORAGE_SIZE:
+		switch (ctx->arch.sz->size) {
+		case 8:
+			constl(&qval, constexpr->uval);
+			break;
+		default:
+			abort();
+		}
+		break;
+	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
 	case STORAGE_ARRAY:
 	case STORAGE_NULL:
