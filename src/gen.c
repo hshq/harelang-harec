@@ -86,8 +86,102 @@ load_temp(struct gen_context *ctx,
 	}
 }
 
+static const struct gen_binding *
+binding_lookup(struct gen_context *ctx, const struct scope_object *obj)
+{
+	for (struct gen_binding *binding = ctx->bindings;
+			binding; binding = binding->next) {
+		if (binding->object == obj) {
+			return binding;
+		}
+	}
+	abort(); // Invariant
+}
+
+// Generates a copy operation from one gen temporary to another. For primitive
+// types this is a load+store operation; for aggregate types this may emit more
+// complex code or a memcpy.
+static void
+gen_copy(struct gen_context *ctx,
+	const struct gen_temp *dest,
+	const struct gen_temp *src)
+{
+	const struct type *dtype = type_dealias(dest->type);
+	switch (dtype->storage) {
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_INT:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+		// fallthrough
+		break;
+	case STORAGE_ARRAY:
+	case STORAGE_FUNCTION:
+	case STORAGE_POINTER:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+		assert(0); // TODO
+	case STORAGE_ALIAS:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+	case STORAGE_VOID:
+		abort(); // Invariant
+	}
+
+	// Copy between types which have a native qbe representation
+	struct qbe_value value = {0}, dtemp = {0};
+	load_temp(ctx, &value, src);
+	qval_temp(ctx, &dtemp, dest);
+
+	enum qbe_instr instr = store_for_type(ctx, dtype);
+	pushi(ctx->current, NULL, instr, &value, &dtemp, NULL);
+}
+
 static void gen_expr(struct gen_context *ctx,
 	const struct expression *expr, struct gen_temp *out);
+
+static void
+gen_access_object(struct gen_context *ctx,
+		const struct scope_object *obj,
+		struct gen_temp *out)
+{
+	const struct gen_binding *binding = binding_lookup(ctx, obj);
+	gen_copy(ctx, out, &binding->temp);
+}
+
+static void
+gen_expr_access(struct gen_context *ctx,
+		const struct expression *expr,
+		struct gen_temp *out)
+{
+	switch (expr->access.type) {
+	case ACCESS_IDENTIFIER:
+		gen_access_object(ctx, expr->access.object, out);
+		break;
+	case ACCESS_INDEX:
+	case ACCESS_FIELD:
+	case ACCESS_TUPLE:
+		assert(0); // TODO
+	}
+}
 
 static void
 gen_expr_binding(struct gen_context *ctx,
@@ -267,6 +361,8 @@ gen_expr(struct gen_context *ctx,
 {
 	switch (expr->type) {
 	case EXPR_ACCESS:
+		gen_expr_access(ctx, expr, out);
+		break;
 	case EXPR_ALLOC:
 	case EXPR_APPEND:
 	case EXPR_ASSERT:
