@@ -144,6 +144,8 @@ gen_copy_memcpy(struct gen_context *ctx,
 	const struct gen_temp *dest,
 	const struct gen_temp *src)
 {
+	assert(dest->indirect);
+	assert(src->indirect);
 	struct qbe_value rtfunc = {0}, size = {0};
 	rtfunc.kind = QV_GLOBAL;
 	rtfunc.name = strdup("rt.memcpy");
@@ -167,6 +169,7 @@ gen_copy_array(struct gen_context *ctx,
 	const struct gen_temp *dest,
 	const struct gen_temp *src)
 {
+	assert(dest->indirect);
 	const struct type *atype = type_dealias(dest->type);
 	assert(atype->storage == STORAGE_ARRAY);
 	assert(atype->array.length != SIZE_UNDEFINED);
@@ -183,6 +186,7 @@ gen_copy_struct(struct gen_context *ctx,
 	const struct gen_temp *dest,
 	const struct gen_temp *src)
 {
+	assert(dest->indirect);
 	const struct type *stype = type_dealias(dest->type);
 	assert(stype->storage == STORAGE_STRUCT);
 	if (stype->size > 32) {
