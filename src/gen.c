@@ -157,6 +157,21 @@ gen_copy_array(struct gen_context *ctx,
 	gen_copy_memcpy(ctx, dest, src);
 }
 
+static void
+gen_copy_struct(struct gen_context *ctx,
+	const struct gen_temp *dest,
+	const struct gen_temp *src)
+{
+	const struct type *stype = type_dealias(dest->type);
+	assert(stype->storage == STORAGE_STRUCT);
+	if (stype->size > 32) {
+		gen_copy_memcpy(ctx, dest, src);
+		return;
+	}
+	// TODO: Generate more efficient approach
+	gen_copy_memcpy(ctx, dest, src);
+}
+
 // Generates a copy operation from one gen temporary to another. For primitive
 // types this is a load+store operation; for aggregate types this may emit more
 // complex code or a memcpy.
@@ -193,12 +208,16 @@ gen_copy(struct gen_context *ctx,
 	case STORAGE_ARRAY:
 		gen_copy_array(ctx, dest, src);
 		return;
+	case STORAGE_STRUCT:
+		gen_copy_struct(ctx, dest, src);
+		return;
+	case STORAGE_UNION:
+		gen_copy_memcpy(ctx, dest, src);
+		return;
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
-	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
-	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_ALIAS:
 	case STORAGE_FCONST:
