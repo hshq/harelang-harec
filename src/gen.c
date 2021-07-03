@@ -39,6 +39,20 @@ gen_qtemp(struct gen_context *ctx, struct qbe_value *out,
 	out->name = gen_name(ctx, fmt);
 }
 
+// Generates a direct temporary of the given type, which must be a primitive
+// type.
+static void
+gen_direct(struct gen_context *ctx, struct gen_temp *temp,
+		const struct type *type, const char *fmt)
+{
+	assert(type->size != 0 && type->size != SIZE_UNDEFINED);
+	temp->type = type;
+	temp->name = gen_name(ctx, fmt);
+	temp->indirect = false;
+	const struct qbe_type *qtype = qtype_lookup(ctx, type, false);
+	assert(qtype->stype != Q__AGGREGATE && qtype->stype != Q__VOID);
+}
+
 // Allocates a temporary of the given type on the stack in the current
 // function's preamble.
 static void
@@ -48,6 +62,7 @@ alloc_temp(struct gen_context *ctx, struct gen_temp *temp,
 	assert(type->size != 0 && type->size != SIZE_UNDEFINED);
 	temp->type = type;
 	temp->name = gen_name(ctx, fmt);
+	temp->indirect = true;
 
 	struct qbe_value out = {
 		.kind = QV_TEMPORARY,
@@ -218,7 +233,7 @@ gen_address_field(struct gen_context *ctx, struct gen_temp *temp,
 	assert(access->type == ACCESS_FIELD);
 
 	const struct expression *object = access->_struct;
-	assert(object->type == EXPR_ACCESS); // Invariant
+	assert(object->type == EXPR_ACCESS); // TODO: Other cases?
 
 	struct gen_temp base;
 	struct qbe_value qbase = {0}, field = {0}, offset = {0};
@@ -232,6 +247,38 @@ gen_address_field(struct gen_context *ctx, struct gen_temp *temp,
 }
 
 static void
+gen_address_index(struct gen_context *ctx, struct gen_temp *temp,
+	const struct expression_access *access)
+{
+	assert(access->type == ACCESS_INDEX);
+
+	const struct type *atype = access->array->result;
+	const struct expression *object = access->array;
+	assert(object->type == EXPR_ACCESS); // TODO: Other cases?
+
+	struct gen_temp base;
+	gen_access_address(ctx, &base, object);
+
+	struct gen_temp index;
+	gen_direct(ctx, &index, &builtin_type_size, "index.%d");
+	gen_expr(ctx, access->index, &index);
+
+	// TODO: Check bounds
+
+	struct qbe_value qbase = {0}, membsz = {0}, offset = {0}, qindex = {0};
+	constl(&membsz, atype->array.members->size);
+	qval_temp(ctx, &qindex, &index);
+	pushi(ctx->current, &qindex, Q_MUL, &qindex, &membsz, NULL);
+
+	qval_temp(ctx, &qbase, &base);
+	gen_qtemp(ctx, &offset, ctx->arch.ptr, "offset.%d");
+	pushi(ctx->current, &offset, Q_ADD, &qbase, &qindex, NULL);
+
+	temp->name = offset.name;
+	temp->type = atype->array.members;
+}
+
+static void
 gen_access_address(struct gen_context *ctx, struct gen_temp *temp,
 		const struct expression *expr)
 {
@@ -240,7 +287,8 @@ gen_access_address(struct gen_context *ctx, struct gen_temp *temp,
 		gen_address_object(ctx, temp, expr->access.object);
 		break;
 	case ACCESS_INDEX:
-		assert(0); // TODO
+		gen_address_index(ctx, temp, &expr->access);
+		break;
 	case ACCESS_FIELD:
 		gen_address_field(ctx, temp, &expr->access);
 		break;
@@ -316,6 +364,7 @@ gen_expr_const_array(struct gen_context *ctx,
 		struct gen_temp temp = {
 			.type = atype->array.members,
 			.name = ptr.name,
+			.indirect = true,
 		};
 		gen_expr(ctx, ac->value, &temp);
 
@@ -401,8 +450,12 @@ gen_expr_constant(struct gen_context *ctx,
 		abort(); // Invariant
 	}
 
-	enum qbe_instr instr = store_for_type(ctx, expr->result);
-	pushi(ctx->current, NULL, instr, &qval, &qout, NULL);
+	if (out->indirect) {
+		enum qbe_instr instr = store_for_type(ctx, expr->result);
+		pushi(ctx->current, NULL, instr, &qval, &qout, NULL);
+	} else {
+		pushi(ctx->current, &qout, Q_COPY, &qval, NULL);
+	}
 }
 
 static void
@@ -473,6 +526,7 @@ gen_expr_struct(struct gen_context *ctx,
 		struct gen_temp temp = {
 			.name = ptr.name,
 			.type = field->field->type,
+			.indirect = true,
 		};
 		gen_expr(ctx, field->value, &temp);
 		field = field->next;
