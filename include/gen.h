@@ -64,6 +64,7 @@ enum qbe_instr load_for_type(struct gen_context *ctx, const struct type *type);
 
 // qtype.c
 const struct qbe_type *qtype_lookup(struct gen_context *ctx,
-		const struct type *type, bool xtype);
+	const struct type *type, bool xtype);
+bool type_is_aggregate(const struct type *type);
 
 #endif

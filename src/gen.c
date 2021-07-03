@@ -88,16 +88,21 @@ load_temp(struct gen_context *ctx,
 
 	out->kind = QV_TEMPORARY;
 	if (qtype->stype == Q__AGGREGATE) {
+		assert(temp->indirect);
 		out->name = temp->name;
 		out->type = ctx->arch.ptr;
 	} else {
 		out->name = gen_name(ctx, "load.%d");
 		out->type = qtype;
 
-		struct qbe_value addr;
-		qval_temp(ctx, &addr, temp);
-		enum qbe_instr instr = load_for_type(ctx, temp->type);
-		pushi(ctx->current, out, instr, &addr, NULL);
+		struct qbe_value src;
+		qval_temp(ctx, &src, temp);
+		if (temp->indirect) {
+			enum qbe_instr instr = load_for_type(ctx, temp->type);
+			pushi(ctx->current, out, instr, &src, NULL);
+		} else {
+			pushi(ctx->current, out, Q_COPY, &src, NULL);
+		}
 	}
 }
 
@@ -208,8 +213,12 @@ gen_copy(struct gen_context *ctx,
 	load_temp(ctx, &value, src);
 	qval_temp(ctx, &dtemp, dest);
 
-	enum qbe_instr instr = store_for_type(ctx, dtype);
-	pushi(ctx->current, NULL, instr, &value, &dtemp, NULL);
+	if (dest->indirect) {
+		enum qbe_instr instr = store_for_type(ctx, dtype);
+		pushi(ctx->current, NULL, instr, &value, &dtemp, NULL);
+	} else {
+		pushi(ctx->current, &dtemp, Q_COPY, &value, NULL);
+	}
 }
 
 static void gen_expr(struct gen_context *ctx,
@@ -223,6 +232,7 @@ gen_address_object(struct gen_context *ctx, struct gen_temp *temp,
 	const struct scope_object *obj)
 {
 	const struct gen_binding *binding = binding_lookup(ctx, obj);
+	assert(binding->temp.indirect);
 	*temp = binding->temp;
 }
 
@@ -624,8 +634,35 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		qdef->func.returns = &qbe_void;
 	}
 
-	// TODO: Allocate parameters
-	assert(!func->scope->objects);
+	struct qbe_func_param *param, **next = &qdef->func.params;
+	struct scope_object *obj = decl->func.scope->objects;
+	while (obj) {
+		param = *next = xcalloc(1, sizeof(struct qbe_func_param));
+		assert(!obj->ident.ns); // Invariant
+		param->name = strdup(obj->ident.name);
+		param->type = qtype_lookup(ctx, obj->type, false);
+
+		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
+		if (type_is_aggregate(obj->type)) {
+			gb->temp.name = strdup(param->name);
+			gb->temp.type = obj->type;
+			gb->temp.indirect = true;
+		} else {
+			alloc_temp(ctx, &gb->temp, obj->type, "parameter.%d");
+			struct gen_temp temp = {
+				.name = param->name,
+				.type = obj->type,
+				.indirect = false,
+			};
+			gen_copy(ctx, &gb->temp, &temp);
+		}
+		gb->object = obj;
+		gb->next = ctx->bindings;
+		ctx->bindings = gb;
+
+		obj = obj->lnext;
+		next = &param->next;
+	}
 
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	gen_expr(ctx, func->body, ctx->rval);

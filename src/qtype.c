@@ -163,3 +163,47 @@ const struct qbe_type *qtype_lookup(
 	}
 	abort(); // Invariant
 }
+
+bool
+type_is_aggregate(const struct type *type)
+{
+	switch (type->storage) {
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_INT:
+	case STORAGE_POINTER:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
+		return false;
+	case STORAGE_ALIAS:
+		return type_is_aggregate(type->alias.type);
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+	case STORAGE_FUNCTION:
+		return true;
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+		assert(0); // Lowered in check
+	}
+	assert(0); // Unreachable
+}
