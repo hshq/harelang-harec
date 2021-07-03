@@ -116,6 +116,17 @@ temp_address(struct gen_temp *temp, const struct type *type)
 	temp->type = type;
 }
 
+// Dereferences a temporary, changing it to an indirect address to its referent
+// type.
+static void
+temp_deref(struct gen_temp *temp)
+{
+	assert(type_dealias(temp->type)->storage == STORAGE_POINTER);
+	assert(!temp->indirect);
+	temp->indirect = true;
+	temp->type = temp->type->pointer.referent;
+}
+
 static const struct gen_binding *
 binding_lookup(struct gen_context *ctx, const struct scope_object *obj)
 {
@@ -586,8 +597,13 @@ gen_expr_unarithm(struct gen_context *ctx,
 		temp_address(&temp, out->type);
 		gen_copy(ctx, out, &temp);
 		break;
-	case UN_BNOT:
 	case UN_DEREF:
+		gen_direct(ctx, &temp, operand->result, "deref.%d");
+		gen_expr(ctx, operand, &temp);
+		temp_deref(&temp);
+		gen_copy(ctx, out, &temp);
+		break;
+	case UN_BNOT:
 	case UN_LNOT:
 	case UN_MINUS:
 	case UN_PLUS:
