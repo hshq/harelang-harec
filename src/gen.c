@@ -106,6 +106,16 @@ load_temp(struct gen_context *ctx,
 	}
 }
 
+// Obtains the address of a temporary and changes it to the given pointer type.
+static void
+temp_address(struct gen_temp *temp, const struct type *type)
+{
+	assert(type_dealias(type)->storage == STORAGE_POINTER);
+	assert(temp->indirect);
+	temp->indirect = false;
+	temp->type = type;
+}
+
 static const struct gen_binding *
 binding_lookup(struct gen_context *ctx, const struct scope_object *obj)
 {
@@ -382,6 +392,7 @@ gen_expr_const_array(struct gen_context *ctx,
 		const struct gen_temp *out)
 {
 	assert(!expr->expand); // TODO
+	assert(out); // TODO: Ensure side-effects occur
 
 	struct qbe_value base = {0}, ptr = {0}, membsz = {0};
 	qval_temp(ctx, &base, out);
@@ -522,10 +533,7 @@ gen_expr_struct(struct gen_context *ctx,
 		const struct expression *expr,
 		const struct gen_temp *out)
 {
-	if (!out) {
-		pushc(ctx->current, "Useless struct expression dropped");
-		return;
-	}
+	assert(out); // TODO: Ensure side-effects occur
 	struct qbe_value base = {0}, ptr = {0}, offs = {0};
 	qval_temp(ctx, &base, out);
 	gen_qtemp(ctx, &ptr, ctx->arch.ptr, "offset.%d");
@@ -559,6 +567,31 @@ gen_expr_struct(struct gen_context *ctx,
 		};
 		gen_expr(ctx, field->value, &temp);
 		field = field->next;
+	}
+}
+
+static void
+gen_expr_unarithm(struct gen_context *ctx,
+		const struct expression *expr,
+		const struct gen_temp *out)
+{
+	assert(out); // TODO: Ensure side-effects occur
+
+	struct gen_temp temp;
+	const struct expression *operand = expr->unarithm.operand;
+	switch (expr->unarithm.op) {
+	case UN_ADDRESS:
+		assert(operand->type == EXPR_ACCESS);
+		gen_access_address(ctx, &temp, operand);
+		temp_address(&temp, out->type);
+		gen_copy(ctx, out, &temp);
+		break;
+	case UN_BNOT:
+	case UN_DEREF:
+	case UN_LNOT:
+	case UN_MINUS:
+	case UN_PLUS:
+		assert(0); // TODO
 	}
 }
 
@@ -616,8 +649,10 @@ gen_expr(struct gen_context *ctx,
 		break;
 	case EXPR_SWITCH:
 	case EXPR_TUPLE:
-	case EXPR_UNARITHM:
 		assert(0); // TODO
+	case EXPR_UNARITHM:
+		gen_expr_unarithm(ctx, expr, out);
+		break;
 	}
 }
 
