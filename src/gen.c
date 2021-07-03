@@ -368,12 +368,26 @@ gen_expr_assign(struct gen_context *ctx,
 		assert(0); // TODO
 	}
 
-	assert(!expr->assign.indirect); // TODO
 	assert(object->type == EXPR_ACCESS); // Invariant
 
 	struct gen_temp obj;
 	gen_access_address(ctx, &obj, object);
-	gen_expr(ctx, value, &obj);
+	if (expr->assign.indirect) {
+		struct gen_temp temp;
+		gen_direct(ctx, &temp, object->result, "assign.%d");
+
+		struct qbe_value qtemp, otemp;
+		qval_temp(ctx, &qtemp, &temp);
+		qval_temp(ctx, &otemp, &obj);
+		enum qbe_instr instr = load_for_type(ctx, object->result);
+		pushi(ctx->current, &qtemp, instr, &otemp, NULL);
+
+		temp.indirect = true;
+		temp.type = type_dereference(object->result);
+		gen_expr(ctx, value, &temp);
+	} else {
+		gen_expr(ctx, value, &obj);
+	}
 }
 
 static void
