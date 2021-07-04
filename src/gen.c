@@ -53,6 +53,18 @@ gen_direct(struct gen_context *ctx, struct gen_temp *temp,
 	assert(qtype->stype != Q__AGGREGATE && qtype->stype != Q__VOID);
 }
 
+// Emits a qbe copy instruction which makes a working copy of a gen temporary.
+static void
+temp_workcopy(struct gen_context *ctx, struct qbe_value *qval,
+		const struct qbe_type *qtype,
+		const struct gen_temp *temp, const char *fmt)
+{
+	struct qbe_value qtemp = {0};
+	gen_qtemp(ctx, qval, qtype, fmt);
+	qval_temp(ctx, &qtemp, temp);
+	pushi(ctx->current, qval, Q_COPY, &qtemp, NULL);
+}
+
 // Allocates a temporary of the given type on the stack in the current
 // function's preamble.
 static void
@@ -209,16 +221,10 @@ gen_copy_string(struct gen_context *ctx,
 	enum qbe_instr load = load_for_type(ctx, voidptr);
 
 	struct qbe_value dptr = {0}, sptr = {0}, temp = {0}, offset = {0};
-	struct qbe_value qdest = {0}, qsrc = {0};
-	gen_qtemp(ctx, &dptr, ctx->arch.ptr, "dptr.%d");
-	gen_qtemp(ctx, &sptr, ctx->arch.ptr, "sptr.%d");
+	temp_workcopy(ctx, &dptr, ctx->arch.ptr, dest, "dptr.%d");
+	temp_workcopy(ctx, &sptr, ctx->arch.ptr, src, "sptr.%d");
 	gen_qtemp(ctx, &temp, ctx->arch.ptr, "temp.%d");
-	qval_temp(ctx, &qdest, dest);
-	qval_temp(ctx, &qsrc, src);
 	constl(&offset, voidptr->size);
-
-	pushi(ctx->current, &dptr, Q_COPY, &qdest, NULL);
-	pushi(ctx->current, &sptr, Q_COPY, &qsrc, NULL);
 
 	// Data
 	pushi(ctx->current, &temp, load, &sptr, NULL);
@@ -463,11 +469,9 @@ gen_expr_const_array(struct gen_context *ctx,
 	assert(!expr->expand); // TODO
 	assert(out); // TODO: Ensure side-effects occur
 
-	struct qbe_value base = {0}, ptr = {0}, membsz = {0};
-	qval_temp(ctx, &base, out);
-	gen_qtemp(ctx, &ptr, ctx->arch.ptr, "offset.%d");
+	struct qbe_value ptr = {0}, membsz = {0};
+	temp_workcopy(ctx, &ptr, ctx->arch.ptr, out, "offset.%d");
 	constl(&membsz, atype->array.members->size);
-	pushi(ctx->current, &ptr, Q_COPY, &base, NULL);
 
 	for (const struct array_constant *ac = expr; ac; ac = ac->next) {
 		struct gen_temp temp = {
@@ -508,10 +512,8 @@ gen_expr_const_string(struct gen_context *ctx,
 	}
 
 	assert(out->indirect); // Invariant
-	struct qbe_value qout = {0}, temp = {0};
-	qval_temp(ctx, &qout, out);
-	gen_qtemp(ctx, &temp, ctx->arch.ptr, "str.%d");
-	pushi(ctx->current, &temp, Q_COPY, &qout, NULL);
+	struct qbe_value temp = {0};
+	temp_workcopy(ctx, &temp, ctx->arch.ptr, out, "str.%d");
 
 	struct qbe_value offset = {0}, qlength = {0};
 	const struct type *voidptr = type_store_lookup_pointer(ctx->store,
