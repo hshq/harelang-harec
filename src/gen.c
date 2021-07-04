@@ -265,6 +265,54 @@ gen_expr_access(struct gen_context *ctx,
 }
 
 static void
+gen_expr_assert(struct gen_context *ctx,
+		const struct expression *expr,
+		const struct gen_temp *out)
+{
+	assert(expr->assert.message); // Invariant
+	if (expr->assert.is_static) {
+		return;
+	}
+
+	struct qbe_statement failedl = {0}, passedl = {0};
+	struct qbe_value bfailed = {0}, bpassed = {0};
+	struct qbe_value rtfunc = {0};
+	rtfunc.kind = QV_GLOBAL;
+	rtfunc.name = strdup("rt.abort");
+	rtfunc.type = &qbe_long;
+
+	struct gen_temp msg = {0};
+	alloc_temp(ctx, &msg, &builtin_type_str, "abortstr.%d");
+
+	if (expr->assert.cond) {
+		bfailed.kind = QV_LABEL;
+		bfailed.name = strdup(genl(&failedl, &ctx->id, "failed.%d"));
+		bpassed.kind = QV_LABEL;
+		bpassed.name = strdup(genl(&passedl, &ctx->id, "passed.%d"));
+
+		struct gen_temp cond = {0};
+		gen_direct(ctx, &cond, &builtin_type_bool, "cond.%d");
+		gen_expr(ctx, expr->assert.cond, &cond);
+
+		struct qbe_value qcond = {0};
+		qval_temp(ctx, &qcond, &cond);
+		pushi(ctx->current, NULL, Q_JNZ, &qcond, &bpassed, &bfailed, NULL);
+		push(&ctx->current->body, &failedl);
+		gen_expr(ctx, expr->assert.message, &msg);
+	} else {
+		gen_expr(ctx, expr->assert.message, &msg);
+	}
+
+	struct qbe_value qmsg = {0};
+	qval_temp(ctx, &qmsg, &msg);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qmsg, NULL);
+
+	if (expr->assert.cond) {
+		push(&ctx->current->body, &passedl);
+	}
+}
+
+static void
 gen_expr_assign(struct gen_context *ctx,
 		const struct expression *expr,
 		const struct gen_temp *out)
@@ -587,8 +635,10 @@ gen_expr(struct gen_context *ctx,
 		break;
 	case EXPR_ALLOC:
 	case EXPR_APPEND:
-	case EXPR_ASSERT:
 		assert(0); // TODO
+	case EXPR_ASSERT:
+		gen_expr_assert(ctx, expr, out);
+		break;
 	case EXPR_ASSIGN:
 		gen_expr_assign(ctx, expr, out);
 		break;
