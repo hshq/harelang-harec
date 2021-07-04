@@ -44,7 +44,11 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		field->type = qtype_lookup(ctx, type->array.members, true);
 		break;
 	case STORAGE_STRING:
-		assert(0); // TODO
+		// XXX: This assertion does not hold for all architectures
+		assert(ctx->arch.ptr->stype == ctx->arch.sz->stype);
+		field->type = ctx->arch.ptr;
+		field->count = 3;
+		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
 		assert(type->struct_union.c_compat); // TODO

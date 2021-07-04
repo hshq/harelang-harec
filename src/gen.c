@@ -444,6 +444,51 @@ gen_expr_const_array(struct gen_context *ctx,
 }
 
 static void
+gen_expr_const_string(struct gen_context *ctx,
+		size_t length, const char *value,
+		const struct gen_temp *out)
+{
+	struct qbe_value global = {0};
+	gen_qtemp(ctx, &global, ctx->arch.ptr, "strdata.%d");
+	global.kind = QV_GLOBAL;
+
+	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
+	def->name = global.name;
+	def->kind = Q_DATA;
+	def->data.items.type = QD_STRING;
+	def->data.items.str = xcalloc(1, length);
+	memcpy(def->data.items.str, value, length);
+	def->data.items.sz = length;
+
+	if (length != 0) {
+		qbe_append_def(ctx->out, def);
+	} else {
+		free(def);
+		constl(&global, 0);
+	}
+
+	assert(out->indirect); // Invariant
+	struct qbe_value qout = {0}, temp = {0};
+	qval_temp(ctx, &qout, out);
+	gen_qtemp(ctx, &temp, ctx->arch.ptr, "str.%d");
+	pushi(ctx->current, &temp, Q_COPY, &qout, NULL);
+
+	struct qbe_value offset = {0}, qlength = {0};
+	const struct type *voidptr = type_store_lookup_pointer(ctx->store,
+			&builtin_type_void, 0);
+	pushi(ctx->current, NULL, store_for_type(ctx, voidptr),
+		&global, &temp, NULL);
+	constl(&offset, voidptr->size);
+	constl(&qlength, length);
+	pushi(ctx->current, &temp, Q_ADD, &temp, &offset, NULL);
+	pushi(ctx->current, NULL, store_for_type(ctx, &builtin_type_size),
+		&qlength, &temp, NULL);
+	pushi(ctx->current, &temp, Q_ADD, &temp, &offset, NULL);
+	pushi(ctx->current, NULL, store_for_type(ctx, &builtin_type_size),
+		&qlength, &temp, NULL);
+}
+
+static void
 gen_expr_constant(struct gen_context *ctx,
 		const struct expression *expr,
 		const struct gen_temp *out)
@@ -500,11 +545,14 @@ gen_expr_constant(struct gen_context *ctx,
 		gen_expr_const_array(ctx, type_dealias(expr->result),
 				constexpr->array, out);
 		return;
+	case STORAGE_STRING:
+		gen_expr_const_string(ctx, constexpr->string.len,
+				constexpr->string.value, out);
+		return;
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
 	case STORAGE_NULL:
 	case STORAGE_SLICE:
-	case STORAGE_STRING:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 		assert(0); // TODO
