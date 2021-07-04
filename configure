@@ -9,6 +9,7 @@ harec() {
 		src/emit.c \
 		src/eval.c \
 		src/gen.c \
+		src/genutil.c \
 		src/identifier.c \
 		src/lex.c \
 		src/main.c \

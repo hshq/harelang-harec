@@ -57,6 +57,26 @@ void gen(const struct unit *unit,
 		struct type_store *store,
 		struct qbe_program *out);
 
+// genutil.c
+char *gen_name(struct gen_context *ctx, const char *fmt);
+void qval_temp(struct gen_context *ctx, struct qbe_value *out,
+	const struct gen_temp *temp);
+void gen_qtemp(struct gen_context *ctx, struct qbe_value *out,
+	const struct qbe_type *type, const char *fmt);
+void gen_direct(struct gen_context *ctx, struct gen_temp *temp,
+	const struct type *type, const char *fmt);
+void temp_workcopy(struct gen_context *ctx, struct qbe_value *qval,
+	const struct qbe_type *qtype, const struct gen_temp *temp,
+	const char *fmt);
+void alloc_temp(struct gen_context *ctx, struct gen_temp *temp,
+	const struct type *type, const char *fmt);
+void load_temp(struct gen_context *ctx, struct qbe_value *out,
+	const struct gen_temp *temp);
+void temp_address(struct gen_temp *temp, const struct type *type);
+void temp_deref(struct gen_temp *temp);
+const struct gen_binding *binding_lookup(struct gen_context *ctx,
+	const struct scope_object *obj);
+
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);
 enum qbe_instr store_for_type(struct gen_context *ctx, const struct type *type);
