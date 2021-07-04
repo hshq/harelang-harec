@@ -197,6 +197,44 @@ gen_copy_struct(struct gen_context *ctx,
 	gen_copy_memcpy(ctx, dest, src);
 }
 
+static void
+gen_copy_string(struct gen_context *ctx,
+	const struct gen_temp *dest,
+	const struct gen_temp *src)
+{
+	assert(dest->indirect && src->indirect);
+	const struct type *voidptr = type_store_lookup_pointer(ctx->store,
+			&builtin_type_void, 0);
+	enum qbe_instr store = store_for_type(ctx, voidptr);
+	enum qbe_instr load = load_for_type(ctx, voidptr);
+
+	struct qbe_value dptr = {0}, sptr = {0}, temp = {0}, offset = {0};
+	struct qbe_value qdest = {0}, qsrc = {0};
+	gen_qtemp(ctx, &dptr, ctx->arch.ptr, "dptr.%d");
+	gen_qtemp(ctx, &sptr, ctx->arch.ptr, "sptr.%d");
+	gen_qtemp(ctx, &temp, ctx->arch.ptr, "temp.%d");
+	qval_temp(ctx, &qdest, dest);
+	qval_temp(ctx, &qsrc, src);
+	constl(&offset, voidptr->size);
+
+	pushi(ctx->current, &dptr, Q_COPY, &qdest, NULL);
+	pushi(ctx->current, &sptr, Q_COPY, &qsrc, NULL);
+
+	// Data
+	pushi(ctx->current, &temp, load, &sptr, NULL);
+	pushi(ctx->current, NULL, store, &dptr, &temp, NULL);
+	// Length
+	pushi(ctx->current, &dptr, Q_ADD, &dptr, &offset, NULL);
+	pushi(ctx->current, &sptr, Q_ADD, &sptr, &offset, NULL);
+	pushi(ctx->current, &temp, load, &sptr, NULL);
+	pushi(ctx->current, NULL, store, &dptr, &temp, NULL);
+	// Capacity
+	pushi(ctx->current, &dptr, Q_ADD, &dptr, &offset, NULL);
+	pushi(ctx->current, &sptr, Q_ADD, &sptr, &offset, NULL);
+	pushi(ctx->current, &temp, load, &sptr, NULL);
+	pushi(ctx->current, NULL, store, &dptr, &temp, NULL);
+}
+
 // Generates a copy operation from one gen temporary to another. For primitive
 // types this is a load+store operation; for aggregate types this may emit more
 // complex code or a memcpy.
@@ -239,8 +277,10 @@ gen_copy(struct gen_context *ctx,
 	case STORAGE_UNION:
 		gen_copy_memcpy(ctx, dest, src);
 		return;
-	case STORAGE_SLICE:
 	case STORAGE_STRING:
+		gen_copy_string(ctx, dest, src);
+		return;
+	case STORAGE_SLICE:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 		assert(0); // TODO
