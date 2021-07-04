@@ -2,47 +2,16 @@
 all="$all tests"
 
 tests() {
-	# Hare tests
+	# Temporary test suite
 	for t in \
-		00-constants \
-		01-arrays \
-		02-integers \
-		03-pointers \
-		04-strings \
-		05-implicit-casts \
-		06-structs \
-		07-aliases \
-		08-slices \
-		09-funcs \
-		10-binarithms \
-		11-globals \
-		12-loops \
-		13-tagged \
-		14-switch \
-		15-enums \
-		16-defer \
-		17-alloc \
-		18-match \
-		19-append \
-		20-if \
-		21-tuples \
-		22-delete \
-		23-errors \
-		24-imports \
-		25-promotion \
-		26-gen \
-		27-rt \
-		28-insert \
-		29-unarithm
+		900-basics
 	do
 		cat <<EOF
-tests/$t: libhart.a tests/$t.ha
-	@printf 'HAREC\t%s\t$@\n' "tests/$t"
+tests/$t: tests/$t.ha
+	@printf 'HARECC\t%s\t$@\n' "tests/$t"
 	@HARECACHE=\$(HARECACHE) ./harec -o tests/$t.ssa tests/$t.ha
 	@\$(QBE) -o tests/$t.s tests/$t.ssa
-	@\$(AS) -o tests/$t.o tests/$t.s
-	@\$(LD) --gc-sections -T rt/hare.sc -o tests/$t $rtstart tests/$t.o libhart.a
-	@rm tests/$t.s tests/$t.ssa tests/$t.o
+	@\$(CC) -o tests/$t tests/$t.s
 
 check: tests/$t
 
@@ -53,6 +22,58 @@ clean-test-$t:
 clean-tests: clean-test-$t
 EOF
 	done
+
+#	# Hare tests
+#	for t in \
+#		00-constants \
+#		01-arrays \
+#		02-integers \
+#		03-pointers \
+#		04-strings \
+#		05-implicit-casts \
+#		06-structs \
+#		07-aliases \
+#		08-slices \
+#		09-funcs \
+#		10-binarithms \
+#		11-globals \
+#		12-loops \
+#		13-tagged \
+#		14-switch \
+#		15-enums \
+#		16-defer \
+#		17-alloc \
+#		18-match \
+#		19-append \
+#		20-if \
+#		21-tuples \
+#		22-delete \
+#		23-errors \
+#		24-imports \
+#		25-promotion \
+#		26-gen \
+#		27-rt \
+#		28-insert \
+#		29-unarithm
+#	do
+#		cat <<EOF
+#tests/$t: libhart.a tests/$t.ha
+#	@printf 'HAREC\t%s\t$@\n' "tests/$t"
+#	@HARECACHE=\$(HARECACHE) ./harec -o tests/$t.ssa tests/$t.ha
+#	@\$(QBE) -o tests/$t.s tests/$t.ssa
+#	@\$(AS) -o tests/$t.o tests/$t.s
+#	@\$(LD) --gc-sections -T rt/hare.sc -o tests/$t $rtstart tests/$t.o libhart.a
+#	@rm tests/$t.s tests/$t.ssa tests/$t.o
+#
+#check: tests/$t
+#
+#clean-test-$t:
+#	@rm -f tests/$t
+#.PHONY: clean-test-$t
+#
+#clean-tests: clean-test-$t
+#EOF
+#	done
 
 	# C tests
 	for t in \
