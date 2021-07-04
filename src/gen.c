@@ -246,28 +246,6 @@ gen_copy(struct gen_context *ctx,
 	const struct type *dtype = type_dealias(dest->type);
 	assert(dtype == type_dealias(src->type));
 	switch (dtype->storage) {
-	case STORAGE_BOOL:
-	case STORAGE_CHAR:
-	case STORAGE_ENUM:
-	case STORAGE_F32:
-	case STORAGE_F64:
-	case STORAGE_I16:
-	case STORAGE_I32:
-	case STORAGE_I64:
-	case STORAGE_I8:
-	case STORAGE_INT:
-	case STORAGE_NULL:
-	case STORAGE_RUNE:
-	case STORAGE_SIZE:
-	case STORAGE_U16:
-	case STORAGE_U32:
-	case STORAGE_U64:
-	case STORAGE_U8:
-	case STORAGE_UINT:
-	case STORAGE_UINTPTR:
-	case STORAGE_POINTER:
-		// Implemented below
-		break;
 	case STORAGE_ARRAY:
 		gen_copy_array(ctx, dest, src);
 		return;
@@ -290,6 +268,28 @@ gen_copy(struct gen_context *ctx,
 	case STORAGE_ICONST:
 	case STORAGE_VOID:
 		abort(); // Invariant
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_INT:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_POINTER:
+		// Implemented below
+		break;
 	}
 
 	// Copy between types which have a native qbe representation
