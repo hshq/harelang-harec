@@ -458,7 +458,7 @@ finalize:
 	default:
 		assert(0);
 	}
-	if (errno == ERANGE) {
+	if (errno == ERANGE && !isfloat) {
 		out->token = T_ERROR;
 	}
 	consume(lexer, -1);
