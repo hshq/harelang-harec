@@ -2921,9 +2921,10 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 	case STORAGE_ALIAS:
 		return scope_lookup(ctx->scope, &atype->alias) != NULL;
 	case STORAGE_ARRAY:
-	case STORAGE_SLICE:
 		return type_is_specified(ctx, atype->array.members)
 			&& expr_is_specified(ctx, atype->array.length);
+	case STORAGE_SLICE:
+		return true;
 	case STORAGE_ENUM:
 		for (struct ast_enum_field *field = atype->_enum.values;
 				field; field = field->next) {

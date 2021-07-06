@@ -129,6 +129,36 @@ fn slicing() void = {
 	) != 0, "slicing object with non-array, non-slice range");
 };
 
+type tree = struct {
+	value: u64,
+	children: []tree,
+};
+
+fn sum_tree(t: tree) u64 = {
+ 	let sum = t.value;
+	for (let i = 0z; i < len(t.children); i += 1) {
+		sum += sum_tree(t.children[i]);
+	};
+	return sum;
+};
+
+fn recursive_structure() void = {
+	const t = tree {
+		value = 15,
+		children = [tree {
+			value = 23,
+			children = [tree {
+				value = 62,
+				children = [],
+			}, tree {
+				value = 34,
+				children = [],
+			}],
+		}],
+	};
+	assert(sum_tree(t) == 134, "recursive structure using slices");
+};
+
 export fn main() void = {
 	from_array();
 	storage();
@@ -136,4 +166,5 @@ export fn main() void = {
 	indexing();
 	assignment();
 	slicing();
+	recursive_structure();
 };
