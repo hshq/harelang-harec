@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "check.h"
@@ -63,9 +64,18 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
-		fprintf(out, "%lf%s", val->fval,
-			storage_to_suffix(expr->result->storage));
+	{
+		const char *suffix = storage_to_suffix(expr->result->storage);
+		if (isnan(val->fval)) {
+			fprintf(out, "0.0%s / 0.0%s", suffix, suffix);
+		} else if (isinf(val->fval)) {
+			fprintf(out, "%s1.0%s / 0.0%s",
+				(val->fval > 0) ? "" : "-", suffix, suffix);
+		} else {
+			fprintf(out, "%lf%s", val->fval, suffix);
+		}
 		break;
+	}
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
