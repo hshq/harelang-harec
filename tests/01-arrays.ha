@@ -82,6 +82,15 @@ fn expanded() void = {
 	for (let i = 0z; i < len(c); i += 1) {
 		assert(c[i] == expected[i]);
 	};
+
+	let q: [65535]int = [1, 2, 3...];
+	let expected = [1, 2, 3];
+	for (let i = 0z; i < len(expected); i += 1) {
+		assert(q[i] == expected[i]);
+	};
+	for (let i = 3z; i < len(q); i += 1) {
+		assert(q[i] == 3);
+	};
 };
 
 fn extype() void = {

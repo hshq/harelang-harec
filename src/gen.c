@@ -1599,19 +1599,35 @@ gen_array(struct gen_context *ctx,
 	}
 
 	pushc(ctx->current, "expanding array to length %zd", type->array.length);
-	struct qbe_value last = {0};
-	if (type_is_aggregate(type->array.members)) {
-		alloc_temp(ctx, &last, type->array.members, "expand.%d");
-		qval_deref(&last);
+	if (type->array.length < 16) {
+		struct qbe_value last = {0};
+		if (type_is_aggregate(type->array.members)) {
+			alloc_temp(ctx, &last, type->array.members, "expand.%d");
+			qval_deref(&last);
+		} else {
+			gen_temp(ctx, &last,
+				qtype_for_type(ctx, type->array.members, false),
+				"expand.%d");
+		}
+		gen_load(ctx, &last, &val, type_is_signed(type->array.members));
+		for (; n < type->array.length; ++n) {
+			pushi(ctx->current, &ptr, Q_ADD, &ptr, &size, NULL);
+			gen_store(ctx, &val, &last);
+		}
 	} else {
-		gen_temp(ctx, &last,
-			qtype_for_type(ctx, type->array.members, false),
-			"expand.%d");
-	}
-	gen_load(ctx, &last, &val, type_is_signed(type->array.members));
-	for (; n < type->array.length; ++n) {
-		pushi(ctx->current, &ptr, Q_ADD, &ptr, &size, NULL);
-		gen_store(ctx, &val, &last);
+		struct qbe_value totalsize = {0};
+		constl(&totalsize, (type->array.length - n) * type->array.members->size);
+		struct qbe_value offset = {0};
+		gen_temp(ctx, &offset, &qbe_long, "ptr.%d");
+		pushi(ctx->current, &offset, Q_ADD, &val, &size, NULL);
+		val.type = &qbe_long;
+
+		struct qbe_value rtmemcpy = {0};
+		rtmemcpy.kind = QV_GLOBAL;
+		rtmemcpy.name = strdup("rt.memcpy");
+		rtmemcpy.type = &qbe_long;
+		pushi(ctx->current, NULL, Q_CALL, &rtmemcpy,
+				&offset, &val, &totalsize, NULL);
 	}
 }
 
