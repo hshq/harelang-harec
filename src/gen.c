@@ -42,7 +42,7 @@ gen_copy_array(struct gen_context *ctx,
 	const struct type *atype = type_dealias(dest->type);
 	assert(atype->storage == STORAGE_ARRAY);
 	assert(atype->array.length != SIZE_UNDEFINED);
-	if (atype->array.length > 8) {
+	if (atype->size > 128) {
 		gen_copy_memcpy(ctx, dest, src);
 		return;
 	}
@@ -58,7 +58,7 @@ gen_copy_struct(struct gen_context *ctx,
 	assert(dest->indirect);
 	const struct type *stype = type_dealias(dest->type);
 	assert(stype->storage == STORAGE_STRUCT);
-	if (stype->size > 32) {
+	if (stype->size > 128) {
 		gen_copy_memcpy(ctx, dest, src);
 		return;
 	}
