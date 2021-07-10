@@ -2694,16 +2694,27 @@ gen_expr_switch(struct gen_context *ctx,
 	const struct qbe_value *out)
 {
 	struct qbe_value sval = {0};
-	gen_temp(ctx, &sval,
-		qtype_for_type(ctx, expr->_switch.value->result, false),
-		"switch.%d");
+	if (type_is_aggregate(expr->_switch.value->result)) {
+		alloc_temp(ctx, &sval, expr->_switch.value->result, "switch.%d");
+		qval_deref(&sval);
+	} else {
+		gen_temp(ctx, &sval,
+			qtype_for_type(ctx, expr->_switch.value->result, false),
+			"switch.%d");
+	}
 	gen_expression(ctx, expr->_switch.value, &sval);
 
 	struct qbe_value match = {0}, temp = {0};
-	gen_temp(ctx, &match,
-		qtype_for_type(ctx, expr->_switch.value->result, false),
-		"value.%d");
+	if (type_is_aggregate(expr->_switch.value->result)) {
+		alloc_temp(ctx, &match, expr->_switch.value->result, "value.%d");
+		qval_deref(&match);
+	} else {
+		gen_temp(ctx, &match,
+			qtype_for_type(ctx, expr->_switch.value->result, false),
+			"value.%d");
+	}
 	gen_temp(ctx, &temp, &qbe_word, "temp.%d");
+
 	struct qbe_statement olabel = {0};
 	struct qbe_value obranch = {0};
 	obranch.kind = QV_LABEL;
@@ -2731,10 +2742,22 @@ gen_expr_switch(struct gen_context *ctx,
 			nbranch.kind = QV_LABEL;
 			nbranch.name = strdup(genl(&nlabel, &ctx->id, "next.opt.%d"));
 
-			gen_expr_constant(ctx, opt->value, &match);
-			pushi(ctx->current, &temp, binarithm_for_op(
-				BIN_LEQUAL, sval.type, sval.type->is_signed),
-				&match, &sval, NULL);
+			gen_expression(ctx, opt->value, &match);
+
+			if (type_dealias(opt->value->result)->storage ==
+					STORAGE_STRING) {
+				struct qbe_value rtfunc = {0};
+				rtfunc.kind = QV_GLOBAL;
+				rtfunc.name = strdup("rt.strcmp");
+				rtfunc.type = &qbe_long;
+				pushi(ctx->current, &temp, Q_CALL,
+					&rtfunc, &match, &sval, NULL);
+			} else {
+				pushi(ctx->current, &temp, binarithm_for_op(
+					BIN_LEQUAL, sval.type, sval.type->is_signed),
+					&match, &sval, NULL);
+			}
+
 			pushi(ctx->current, NULL, Q_JNZ,
 				&temp, &tbranch, &nbranch, NULL);
 			push(&ctx->current->body, &nlabel);

@@ -40,9 +40,18 @@ fn tagged_result() void = {
 	assert(y is uint);
 };
 
+fn str_switching() void = {
+	let result = switch ("hare") {
+		"world" => abort(),
+		"hare" => true,
+	};
+	assert(result == true);
+};
+
 export fn main() void = {
 	basics();
 	termination();
 	tagged_result();
+	str_switching();
 	// TODO: Test exhaustiveness and dupe detection
 };
