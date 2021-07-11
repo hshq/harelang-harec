@@ -81,6 +81,8 @@ const struct gen_binding *binding_lookup(struct gen_context *ctx,
 enum qbe_instr alloc_for_align(size_t align);
 enum qbe_instr store_for_type(struct gen_context *ctx, const struct type *type);
 enum qbe_instr load_for_type(struct gen_context *ctx, const struct type *type);
+enum qbe_instr binarithm_for_op(struct gen_context *ctx,
+	enum binarithm_operator op, const struct type *type);
 
 // qtype.c
 const struct qbe_type *qtype_lookup(struct gen_context *ctx,

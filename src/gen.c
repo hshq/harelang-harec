@@ -346,6 +346,42 @@ gen_expr_assign(struct gen_context *ctx,
 }
 
 static void
+gen_expr_binarithm(struct gen_context *ctx,
+		const struct expression *expr,
+		const struct gen_temp *out)
+{
+	assert(expr->binarithm.op != BIN_LAND && expr->binarithm.op != BIN_LOR); // TODO
+	assert(!type_is_aggregate(expr->result)); // TODO
+
+	const struct expression *lvexpr = expr->binarithm.lvalue;
+	const struct expression *rvexpr = expr->binarithm.rvalue;
+
+	struct qbe_value lvalue, rvalue;
+	gen_qtemp(ctx, &lvalue,
+		qtype_lookup(ctx, lvexpr->result, false), "lvalue.%d");
+	gen_qtemp(ctx, &rvalue,
+		qtype_lookup(ctx, rvexpr->result, false), "rvalue.%d");
+
+	struct gen_temp lvg = {
+		.name = lvalue.name,
+		.type = lvexpr->result,
+		.indirect = false,
+	}, rvg = {
+		.name = rvalue.name,
+		.type = rvexpr->result,
+		.indirect = false,
+	};
+	gen_expr(ctx, lvexpr, &lvg);
+	gen_expr(ctx, rvexpr, &rvg);
+
+	enum qbe_instr instr = binarithm_for_op(
+		ctx, expr->binarithm.op, lvexpr->result);
+	struct qbe_value qout;
+	qval_temp(ctx, &qout, out);
+	pushi(ctx->current, &qout, instr, &lvalue, &rvalue, NULL);
+}
+
+static void
 gen_expr_binding(struct gen_context *ctx,
 		const struct expression *expr,
 		const struct gen_temp *out)
@@ -643,7 +679,8 @@ gen_expr(struct gen_context *ctx,
 		gen_expr_assign(ctx, expr, out);
 		break;
 	case EXPR_BINARITHM:
-		assert(0); // TODO
+		gen_expr_binarithm(ctx, expr, out);
+		break;
 	case EXPR_BINDING:
 		gen_expr_binding(ctx, expr, out);
 		break;

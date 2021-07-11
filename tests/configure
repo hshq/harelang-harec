@@ -4,7 +4,8 @@ all="$all tests"
 tests() {
 	# Temporary test suite
 	for t in \
-		900-basics
+		900-basics \
+		901-primitives
 	do
 		cat <<EOF
 tests/$t: tests/$t.ha
