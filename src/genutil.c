@@ -115,6 +115,22 @@ load_temp(struct gen_context *ctx,
 	}
 }
 
+void
+store_temp(struct gen_context *ctx,
+	const struct gen_temp *temp,
+	struct qbe_value *value)
+{
+	struct qbe_value out;
+	qval_temp(ctx, &out, temp);
+
+	if (temp->indirect) {
+		enum qbe_instr instr = store_for_type(ctx, temp->type);
+		pushi(ctx->current, NULL, instr, value, &out, NULL);
+	} else {
+		pushi(ctx->current, &out, Q_COPY, value, NULL);
+	}
+}
+
 // Obtains the address of a temporary and changes it to the given pointer type.
 void
 temp_address(struct gen_temp *temp, const struct type *type)

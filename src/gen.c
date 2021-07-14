@@ -156,16 +156,9 @@ gen_copy(struct gen_context *ctx,
 	}
 
 	// Copy between types which have a native qbe representation
-	struct qbe_value value = {0}, dtemp = {0};
+	struct qbe_value value = {0};
 	load_temp(ctx, &value, src);
-	qval_temp(ctx, &dtemp, dest);
-
-	if (dest->indirect) {
-		enum qbe_instr instr = store_for_type(ctx, dtype);
-		pushi(ctx->current, NULL, instr, &value, &dtemp, NULL);
-	} else {
-		pushi(ctx->current, &dtemp, Q_COPY, &value, NULL);
-	}
+	store_temp(ctx, dest, &value);
 }
 
 static void gen_expr(struct gen_context *ctx,
@@ -376,9 +369,10 @@ gen_expr_binarithm(struct gen_context *ctx,
 
 	enum qbe_instr instr = binarithm_for_op(
 		ctx, expr->binarithm.op, lvexpr->result);
-	struct qbe_value qout;
-	qval_temp(ctx, &qout, out);
-	pushi(ctx->current, &qout, instr, &lvalue, &rvalue, NULL);
+	struct qbe_value result;
+	gen_qtemp(ctx, &result, lvalue.type, "result.%d");
+	pushi(ctx->current, &result, instr, &lvalue, &rvalue, NULL);
+	store_temp(ctx, out, &result);
 }
 
 static void

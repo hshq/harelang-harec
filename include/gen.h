@@ -72,6 +72,8 @@ void alloc_temp(struct gen_context *ctx, struct gen_temp *temp,
 	const struct type *type, const char *fmt);
 void load_temp(struct gen_context *ctx, struct qbe_value *out,
 	const struct gen_temp *temp);
+void store_temp(struct gen_context *ctx,const struct gen_temp *temp,
+	struct qbe_value *value);
 void temp_address(struct gen_temp *temp, const struct type *type);
 void temp_deref(struct gen_temp *temp);
 const struct gen_binding *binding_lookup(struct gen_context *ctx,

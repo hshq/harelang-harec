@@ -5,7 +5,8 @@ tests() {
 	# Temporary test suite
 	for t in \
 		900-basics \
-		901-primitives
+		901-primitives \
+		902-arithm
 	do
 		cat <<EOF
 tests/$t: tests/$t.ha
