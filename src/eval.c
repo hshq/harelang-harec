@@ -645,12 +645,13 @@ static enum eval_result
 eval_unarithm(struct context *ctx, struct expression *in, struct expression *out)
 {
 	struct expression lvalue = {0};
-	enum eval_result r = eval_expr(ctx, in->binarithm.lvalue, &lvalue);
+	enum eval_result r = eval_expr(ctx, in->unarithm.operand, &lvalue);
 	if (r != EVAL_OK) {
 		return r;
 	}
 
 	out->type = EXPR_CONSTANT;
+	out->result = lvalue.result;
 	switch (in->unarithm.op) {
 	case UN_ADDRESS:
 		assert(lvalue.type == EXPR_CONSTANT);
@@ -660,11 +661,19 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		out->constant = lvalue.constant;
 		break;
 	case UN_BNOT:
+		out->constant.uval = ~lvalue.constant.uval;
+		break;
 	case UN_DEREF:
-	case UN_LNOT:
-	case UN_MINUS:
-	case UN_PLUS:
 		assert(0); // TODO
+	case UN_LNOT:
+		out->constant.bval = !lvalue.constant.bval;
+		break;
+	case UN_MINUS:
+		out->constant.ival = -lvalue.constant.ival;
+		break;
+	case UN_PLUS:
+		out->constant = lvalue.constant;
+		break;
 	}
 
 	return EVAL_OK;
