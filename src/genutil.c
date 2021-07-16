@@ -20,7 +20,11 @@ qval_temp(struct gen_context *ctx,
 	struct qbe_value *out,
 	const struct gen_temp *temp)
 {
-	out->kind = QV_TEMPORARY;
+	if (temp->is_global) {
+		out->kind = QV_GLOBAL;
+	} else {
+		out->kind = QV_TEMPORARY;
+	}
 	out->type = qtype_lookup(ctx, temp->type, true);
 	out->name = temp->name;
 }

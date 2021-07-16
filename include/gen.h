@@ -21,6 +21,7 @@ struct gen_temp {
 	char *name;
 	const struct type *type;
 	bool indirect;
+	bool is_global;
 };
 
 // A gen binding stores the gen_temp for a scope object and is part of a linked

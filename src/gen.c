@@ -171,9 +171,24 @@ static void
 gen_address_object(struct gen_context *ctx, struct gen_temp *temp,
 	const struct scope_object *obj)
 {
-	const struct gen_binding *binding = binding_lookup(ctx, obj);
-	assert(binding->temp.indirect);
-	*temp = binding->temp;
+	const struct gen_binding *binding = NULL;
+	switch (obj->otype) {
+	case O_BIND:
+		binding = binding_lookup(ctx, obj);
+		assert(binding->temp.indirect);
+		*temp = binding->temp;
+		return;
+	case O_DECL:
+		temp->is_global = true;
+		temp->indirect = false;
+		temp->type = obj->type;
+		temp->name = ident_to_sym(&obj->ident);
+		return;
+	case O_CONST:
+	case O_TYPE:
+		abort(); // Invariant
+	}
+	abort();
 }
 
 static void
