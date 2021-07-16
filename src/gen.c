@@ -185,7 +185,7 @@ gen_address_field(struct gen_context *ctx, struct gen_temp *temp,
 	const struct expression *object = access->_struct;
 	assert(object->type == EXPR_ACCESS); // TODO: Other cases?
 
-	struct gen_temp base;
+	struct gen_temp base = {0};
 	struct qbe_value qbase = {0}, field = {0}, offset = {0};
 	gen_access_address(ctx, &base, object);
 	qval_temp(ctx, &qbase, &base);
@@ -206,10 +206,10 @@ gen_address_index(struct gen_context *ctx, struct gen_temp *temp,
 	const struct expression *object = access->array;
 	assert(object->type == EXPR_ACCESS); // TODO: Other cases?
 
-	struct gen_temp base;
+	struct gen_temp base = {0};
 	gen_access_address(ctx, &base, object);
 
-	struct gen_temp index;
+	struct gen_temp index = {0};
 	gen_direct(ctx, &index, &builtin_type_size, "index.%d");
 	gen_expr(ctx, access->index, &index);
 
@@ -252,7 +252,7 @@ gen_expr_access(struct gen_context *ctx,
 		const struct expression *expr,
 		const struct gen_temp *out)
 {
-	struct gen_temp src;
+	struct gen_temp src = {0};
 	gen_access_address(ctx, &src, expr);
 	gen_copy(ctx, out, &src);
 }
@@ -318,10 +318,10 @@ gen_expr_assign(struct gen_context *ctx,
 
 	assert(object->type == EXPR_ACCESS); // Invariant
 
-	struct gen_temp obj;
+	struct gen_temp obj = {0};
 	gen_access_address(ctx, &obj, object);
 	if (expr->assign.indirect) {
-		struct gen_temp temp;
+		struct gen_temp temp = {0};
 		gen_direct(ctx, &temp, object->result, "assign.%d");
 
 		struct qbe_value qtemp, otemp;
@@ -631,7 +631,7 @@ gen_expr_unarithm(struct gen_context *ctx,
 {
 	assert(out); // TODO: Ensure side-effects occur
 
-	struct gen_temp temp;
+	struct gen_temp temp = {0};
 	const struct expression *operand = expr->unarithm.operand;
 	switch (expr->unarithm.op) {
 	case UN_ADDRESS:
