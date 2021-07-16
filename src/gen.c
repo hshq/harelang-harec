@@ -226,6 +226,7 @@ gen_address_index(struct gen_context *ctx, struct gen_temp *temp,
 
 	temp->name = offset.name;
 	temp->type = atype->array.members;
+	temp->indirect = true;
 }
 
 static void
