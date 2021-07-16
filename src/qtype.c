@@ -158,8 +158,9 @@ const struct qbe_type *qtype_lookup(
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
 		return aggregate_lookup(ctx, type);
-	case STORAGE_VOID:
 	case STORAGE_FUNCTION:
+		return ctx->arch.ptr;
+	case STORAGE_VOID:
 	case STORAGE_NULL:
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:

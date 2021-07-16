@@ -127,7 +127,6 @@ gen_copy(struct gen_context *ctx,
 		assert(0); // TODO
 	case STORAGE_ALIAS:
 	case STORAGE_FCONST:
-	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
 	case STORAGE_VOID:
 		abort(); // Invariant
@@ -136,6 +135,7 @@ gen_copy(struct gen_context *ctx,
 	case STORAGE_ENUM:
 	case STORAGE_F32:
 	case STORAGE_F64:
+	case STORAGE_FUNCTION:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
