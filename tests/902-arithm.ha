@@ -1,10 +1,10 @@
 export fn main() int = {
-	// Direct
+	// Indirect
 	let x: int = 10;
 	x = 2 + 2;
 	assert(x == 4);
 
-	// Indirect
+	// Direct
 	let x = [1, 2, 3];
 	assert(x[1 + 1] == 3);
 	return 0;
