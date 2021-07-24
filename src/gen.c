@@ -470,7 +470,12 @@ gen_expr_call(struct gen_context *ctx,
 	while (carg) {
 		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		struct gen_temp arg = {0};
-		alloc_temp(ctx, &arg, carg->value->result, "call.arg.%d");
+		if (type_is_aggregate(carg->value->result)) {
+			alloc_temp(ctx, &arg, carg->value->result, "call.arg.%d");
+		} else {
+			gen_direct(ctx, &arg, carg->value->result, "call.arg.%d");
+		}
+
 		gen_expr(ctx, carg->value, &arg);
 		qval_temp(ctx, &args->value, &arg);
 		carg = carg->next;
