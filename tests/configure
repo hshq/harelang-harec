@@ -11,7 +11,7 @@ tests() {
 		904-deref
 	do
 		cat <<EOF
-tests/$t: tests/$t.ha tests/rt.o
+tests/$t: harec tests/$t.ha tests/rt.o
 	@printf 'HARECC\t%s\t$@\n' "tests/$t"
 	@HARECACHE=\$(HARECACHE) ./harec -o tests/$t.ssa tests/$t.ha
 	@\$(QBE) -o tests/$t.s tests/$t.ssa
