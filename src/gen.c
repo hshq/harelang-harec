@@ -9,6 +9,24 @@
 #include "util.h"
 
 static void
+gen_auto_deref(struct gen_context *ctx, struct gen_temp *val)
+{
+	const struct type *type = val->type;
+	struct qbe_value qval = {0};
+	qval_temp(ctx, &qval, val);
+	while (type_dealias(type)->storage == STORAGE_POINTER) {
+		type = type_dealias(type)->pointer.referent;
+		// XXX: On some obsolete architectures, uintptr and pointer are
+		// not necessarily the same representation.
+		pushi(ctx->current, &qval,
+			load_for_type(ctx, &builtin_type_uintptr),
+			&qval, NULL);
+	}
+	val->type = type;
+	val->indirect = true;
+}
+
+static void
 gen_copy_memcpy(struct gen_context *ctx,
 	const struct gen_temp *dest,
 	const struct gen_temp *src)
@@ -161,24 +179,6 @@ gen_copy(struct gen_context *ctx,
 	store_temp(ctx, dest, &value);
 }
 
-static void
-auto_deref(struct gen_context *ctx, struct gen_temp *val)
-{
-	const struct type *type = val->type;
-	struct qbe_value qval = {0};
-	qval_temp(ctx, &qval, val);
-	while (type_dealias(type)->storage == STORAGE_POINTER) {
-		type = type_dealias(type)->pointer.referent;
-		// XXX: On some obsolete architectures, uintptr and pointer are
-		// not necessarily the same representation.
-		pushi(ctx->current, &qval,
-			load_for_type(ctx, &builtin_type_uintptr),
-			&qval, NULL);
-	}
-	val->type = type;
-	val->indirect = true;
-}
-
 static void gen_expr(struct gen_context *ctx,
 	const struct expression *expr, const struct gen_temp *out);
 
@@ -223,7 +223,7 @@ gen_address_field(struct gen_context *ctx, struct gen_temp *temp,
 	struct gen_temp base = {0};
 	struct qbe_value qbase = {0}, field = {0}, offset = {0};
 	gen_access_address(ctx, &base, object);
-	auto_deref(ctx, &base);
+	gen_auto_deref(ctx, &base);
 	qval_temp(ctx, &qbase, &base);
 	gen_qtemp(ctx, &field, ctx->arch.ptr, "field.%d");
 	constl(&offset, access->field->offset);
@@ -246,7 +246,7 @@ gen_address_index(struct gen_context *ctx, struct gen_temp *temp,
 
 	struct gen_temp base = {0};
 	gen_access_address(ctx, &base, object);
-	auto_deref(ctx, &base);
+	gen_auto_deref(ctx, &base);
 
 	struct gen_temp index = {0};
 	gen_direct(ctx, &index, &builtin_type_size, "index.%d");
@@ -443,7 +443,7 @@ gen_expr_call(struct gen_context *ctx,
 	struct gen_temp lvalue = {0};
 	gen_direct(ctx, &lvalue, expr->call.lvalue->result, "call.lvalue.%d");
 	gen_expr(ctx, expr->call.lvalue, &lvalue);
-	auto_deref(ctx, &lvalue);
+	gen_auto_deref(ctx, &lvalue);
 
 	const struct type *rtype = lvalue.type;
 	assert(rtype->storage == STORAGE_FUNCTION);
