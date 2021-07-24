@@ -12,6 +12,10 @@ static void
 gen_auto_deref(struct gen_context *ctx, struct gen_temp *val)
 {
 	const struct type *type = val->type;
+	if (!val->indirect && type_dealias(type)->storage == STORAGE_POINTER) {
+		// We get one free dereference in this case
+		type = type_dealias(type)->pointer.referent;
+	}
 	struct qbe_value qval = {0};
 	qval_temp(ctx, &qval, val);
 	while (type_dealias(type)->storage == STORAGE_POINTER) {
@@ -217,8 +221,6 @@ gen_address_field(struct gen_context *ctx, struct gen_temp *temp,
 
 	const struct expression *object = access->_struct;
 	assert(object->type == EXPR_ACCESS); // TODO: Other cases?
-
-	pushc(ctx->current, "XXX");
 
 	struct gen_temp base = {0};
 	struct qbe_value qbase = {0}, field = {0}, offset = {0};

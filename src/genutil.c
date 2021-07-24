@@ -147,7 +147,7 @@ void
 temp_address(struct gen_temp *temp, const struct type *type)
 {
 	assert(type_dealias(type)->storage == STORAGE_POINTER);
-	assert(temp->indirect);
+	assert(temp->indirect || temp->is_global);
 	temp->indirect = false;
 	temp->type = type;
 }
