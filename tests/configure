@@ -6,7 +6,9 @@ tests() {
 	for t in \
 		900-basics \
 		901-primitives \
-		902-arithm
+		902-arithm \
+		903-call \
+		904-deref
 	do
 		cat <<EOF
 tests/$t: tests/$t.ha
