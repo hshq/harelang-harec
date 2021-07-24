@@ -436,6 +436,53 @@ gen_expr_binding(struct gen_context *ctx,
 }
 
 static void
+gen_expr_call(struct gen_context *ctx,
+		const struct expression *expr,
+		const struct gen_temp *out)
+{
+	struct gen_temp lvalue = {0};
+	gen_direct(ctx, &lvalue, expr->call.lvalue->result, "call.lvalue.%d");
+	gen_expr(ctx, expr->call.lvalue, &lvalue);
+	auto_deref(ctx, &lvalue);
+
+	const struct type *rtype = lvalue.type;
+	assert(rtype->storage == STORAGE_FUNCTION);
+	// TODO: Run deferred expressions if rtype->func.flags & FN_NORETURN
+	struct qbe_statement call = {
+		.type = Q_INSTR,
+		.instr = Q_CALL,
+	};
+	struct gen_temp returns = {0};
+	if (out) {
+		// XXX: This is definitely broken on aggregate returns
+		gen_direct(ctx, &returns, expr->result, "call.returns.%d");
+		call.out = xcalloc(1, sizeof(struct qbe_value));
+		qval_temp(ctx, call.out, &returns);
+	}
+
+	struct qbe_arguments *args, **next = &call.args;
+	struct call_argument *carg = expr->call.args;
+	args = *next = xcalloc(1, sizeof(struct qbe_arguments));
+	qval_temp(ctx, &args->value, &lvalue);
+	next = &args->next;
+	while (carg) {
+		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
+		struct gen_temp arg = {0};
+		alloc_temp(ctx, &arg, carg->value->result, "call.arg.%d");
+		gen_expr(ctx, carg->value, &arg);
+		qval_temp(ctx, &args->value, &arg);
+		carg = carg->next;
+		next = &args->next;
+	}
+
+	push(&ctx->current->body, &call);
+
+	if (out) {
+		gen_copy(ctx, out, &returns);
+	}
+}
+
+static void
 gen_expr_const_array(struct gen_context *ctx,
 		const struct type *atype,
 		const struct array_constant *expr,
@@ -720,7 +767,10 @@ gen_expr(struct gen_context *ctx,
 		break;
 	case EXPR_BREAK:
 	case EXPR_CONTINUE:
+		assert(0); // TODO
 	case EXPR_CALL:
+		gen_expr_call(ctx, expr, out);
+		break;
 	case EXPR_CAST:
 		assert(0); // TODO
 	case EXPR_CONSTANT:
