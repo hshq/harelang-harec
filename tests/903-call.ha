@@ -1,4 +1,8 @@
+type coords = struct { x: int, y: int };
+
 fn foo() size = 2;
+fn equal(x: int, y: int) bool = x == y;
+fn aggregate(c: coords) int = c.x;
 
 export fn main() int = {
 	// Indirect
@@ -8,5 +12,13 @@ export fn main() int = {
 	// Direct
 	let x = [1, 2, 3];
 	assert(x[foo()] == 3);
+
+	// Direct & indirect params
+	let x = 1234;
+	assert(equal(x, 1234));
+
+	// Aggregate params
+	let x = coords { x = 1234, y = 4321 };
+	assert(aggregate(x) == 1234);
 	return 0;
 };
