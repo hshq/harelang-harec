@@ -454,12 +454,10 @@ gen_expr_call(struct gen_context *ctx,
 		.type = Q_INSTR,
 		.instr = Q_CALL,
 	};
-	struct gen_temp returns = {0};
 	if (out) {
-		// XXX: This is definitely broken on aggregate returns
-		gen_direct(ctx, &returns, expr->result, "call.returns.%d");
 		call.out = xcalloc(1, sizeof(struct qbe_value));
-		qval_temp(ctx, call.out, &returns);
+		gen_qtemp(ctx, call.out, qtype_lookup(ctx, expr->result, true),
+			"call.returns.%d");
 	}
 
 	struct qbe_arguments *args, **next = &call.args;
@@ -485,6 +483,15 @@ gen_expr_call(struct gen_context *ctx,
 	push(&ctx->current->body, &call);
 
 	if (out) {
+		struct gen_temp returns = {
+			.name = call.out->name,
+			.type = expr->result,
+			.is_global = false,
+			.indirect = false,
+		};
+		if (type_is_aggregate(expr->result)) {
+			returns.indirect = true;
+		}
 		gen_copy(ctx, out, &returns);
 	}
 }

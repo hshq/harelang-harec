@@ -2,7 +2,7 @@ type coords = struct { x: int, y: int };
 
 fn foo() size = 2;
 fn equal(x: int, y: int) bool = x == y;
-fn aggregate(c: coords) int = c.x;
+fn aggregate(c: coords) coords = c;
 
 export fn main() int = {
 	// Indirect
@@ -17,8 +17,11 @@ export fn main() int = {
 	let x = 1234;
 	assert(equal(x, 1234));
 
-	// Aggregate params
+	// Aggregate params and return
 	let x = coords { x = 1234, y = 4321 };
-	assert(aggregate(x) == 1234);
+	let x = aggregate(x);
+	// TODO: Use &&
+	assert(x.x == 1234);
+	assert(x.y == 4321);
 	return 0;
 };
