@@ -24,14 +24,6 @@ struct gen_temp {
 	bool is_global;
 };
 
-// A gen binding stores the gen_temp for a scope object and is part of a linked
-// list of objects being tracked by gen.
-struct gen_binding {
-	const struct scope_object *object;
-	struct gen_temp temp;
-	struct gen_binding *next;
-};
-
 struct gen_arch {
 	const struct qbe_type *ptr;
 	const struct qbe_type *sz;
@@ -44,7 +36,6 @@ struct gen_context {
 	struct identifier *ns;
 
 	uint64_t id;
-	struct gen_binding *bindings;
 
 	struct qbe_func *current;
 	const struct type *functype;
@@ -60,25 +51,6 @@ void gen(const struct unit *unit,
 
 // genutil.c
 char *gen_name(struct gen_context *ctx, const char *fmt);
-void qval_temp(struct gen_context *ctx, struct qbe_value *out,
-	const struct gen_temp *temp);
-void gen_qtemp(struct gen_context *ctx, struct qbe_value *out,
-	const struct qbe_type *type, const char *fmt);
-void gen_direct(struct gen_context *ctx, struct gen_temp *temp,
-	const struct type *type, const char *fmt);
-void temp_workcopy(struct gen_context *ctx, struct qbe_value *qval,
-	const struct qbe_type *qtype, const struct gen_temp *temp,
-	const char *fmt);
-void alloc_temp(struct gen_context *ctx, struct gen_temp *temp,
-	const struct type *type, const char *fmt);
-void load_temp(struct gen_context *ctx, struct qbe_value *out,
-	const struct gen_temp *temp);
-void store_temp(struct gen_context *ctx,const struct gen_temp *temp,
-	struct qbe_value *value);
-void temp_address(struct gen_temp *temp, const struct type *type);
-void temp_deref(struct gen_temp *temp);
-const struct gen_binding *binding_lookup(struct gen_context *ctx,
-	const struct scope_object *obj);
 
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);
