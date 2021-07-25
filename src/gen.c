@@ -220,16 +220,26 @@ gen_address_field(struct gen_context *ctx, struct gen_temp *temp,
 	assert(access->type == ACCESS_FIELD);
 
 	const struct expression *object = access->_struct;
-	assert(object->type == EXPR_ACCESS); // TODO: Other cases?
 
+	// XXX: If gen_temp had an "allocate before use" flag, we might be able
+	// to avoid allocating it here. It remains to be seen if this would be
+	// useful; other expressions will tell (such as len() or casts).
 	struct gen_temp base = {0};
-	struct qbe_value qbase = {0}, field = {0}, offset = {0};
-	gen_access_address(ctx, &base, object);
+	if (object->type == EXPR_ACCESS) {
+		gen_access_address(ctx, &base, object);
+	} else {
+		alloc_temp(ctx, &base, object->result, "fieldtemp.%d");
+		gen_expr(ctx, object, &base);
+	}
+
 	gen_auto_deref(ctx, &base);
+
+	struct qbe_value qbase = {0}, field = {0}, offset = {0};
 	qval_temp(ctx, &qbase, &base);
 	gen_qtemp(ctx, &field, ctx->arch.ptr, "field.%d");
 	constl(&offset, access->field->offset);
 	pushi(ctx->current, &field, Q_ADD, &qbase, &offset, NULL);
+
 	temp->name = field.name;
 	temp->type = access->field->type;
 	temp->indirect = true;
@@ -244,10 +254,18 @@ gen_address_index(struct gen_context *ctx, struct gen_temp *temp,
 	const struct type *atype = type_dereference(access->array->result);
 	assert(atype->storage == STORAGE_ARRAY);
 	const struct expression *object = access->array;
-	assert(object->type == EXPR_ACCESS); // TODO: Other cases?
 
+	// XXX: If gen_temp had an "allocate before use" flag, we might be able
+	// to avoid allocating it here. It remains to be seen if this would be
+	// useful; other expressions will tell (such as len() or casts).
 	struct gen_temp base = {0};
-	gen_access_address(ctx, &base, object);
+	if (object->type == EXPR_ACCESS) {
+		gen_access_address(ctx, &base, object);
+	} else {
+		alloc_temp(ctx, &base, object->result, "indextemp.%d");
+		gen_expr(ctx, object, &base);
+	}
+
 	gen_auto_deref(ctx, &base);
 
 	struct gen_temp index = {0};
