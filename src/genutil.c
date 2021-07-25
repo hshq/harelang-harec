@@ -45,16 +45,8 @@ void
 gen_direct(struct gen_context *ctx, struct gen_temp *temp,
 		const struct type *type, const char *fmt)
 {
-	// Functions are a special case: the Hare type system (correctly) states
-	// that they have an undefined size and storage, but we can assign them
-	// to qbe temporaries as pointers (=l), so they are suitable for use as
-	// direct objects.
-	if (type_dealias(type)->storage != STORAGE_FUNCTION) {
-		assert(type->size != 0 && type->size != SIZE_UNDEFINED);
-		const struct qbe_type *qtype = qtype_lookup(ctx, type, false);
-		assert(qtype->stype != Q__AGGREGATE && qtype->stype != Q__VOID);
-	}
-
+	assert(!type_is_aggregate(type));
+	assert(type_dealias(type)->storage != STORAGE_VOID);
 	temp->type = type;
 	temp->name = gen_name(ctx, fmt);
 	temp->indirect = false;

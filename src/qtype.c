@@ -195,6 +195,9 @@ type_is_aggregate(const struct type *type)
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
 		return false;
+	case STORAGE_FUNCTION:
+		// Special case
+		return false;
 	case STORAGE_ALIAS:
 		return type_is_aggregate(type->alias.type);
 	case STORAGE_ARRAY:
@@ -204,7 +207,6 @@ type_is_aggregate(const struct type *type)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
-	case STORAGE_FUNCTION:
 		return true;
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
