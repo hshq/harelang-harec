@@ -102,7 +102,6 @@ load_temp(struct gen_context *ctx,
 	struct qbe_value *out,
 	const struct gen_temp *temp)
 {
-	// TODO: Audit me
 	const struct qbe_type *qtype = qtype_lookup(ctx, temp->type, true);
 	assert(qtype->stype != Q__VOID);
 
