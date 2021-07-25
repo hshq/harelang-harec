@@ -7,9 +7,8 @@ tests() {
 		900-basics \
 		901-primitives \
 		902-arithm \
-		903-call \
-		904-deref \
-		905-copy
+		903-postfix \
+		904-copy
 	do
 		cat <<EOF
 tests/$t: harec tests/$t.ha tests/rt.o
