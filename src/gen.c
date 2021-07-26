@@ -17,7 +17,7 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	};
 
 	// Special cases
-	switch (expr->result->storage) {
+	switch (type_dealias(expr->result)->storage) {
 	case STORAGE_BOOL:
 		val.wval = expr->constant.bval ? 1 : 0;
 		return val;
