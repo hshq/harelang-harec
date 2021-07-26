@@ -13,15 +13,22 @@ enum fixed_aborts {
 	ABORT_STATIC_EXCEEDED = 3,
 };
 
-// A gen temporary is a reference to a qbe temporary by name, and the
-// corresponding Hare type. If indirect is true, the qbe temporary is a pointer
-// to the actual storage; otherwise the type will be representable as a qbe
-// primitive.
-struct gen_temp {
-	char *name;
+enum gen_value_kind {
+	GV_CONST,
+	GV_GLOBAL,
+	GV_TEMP,
+};
+
+struct gen_value {
+	enum gen_value_kind kind;
 	const struct type *type;
-	bool indirect;
-	bool is_global;
+	union {
+		char *name;
+		uint32_t wval;
+		uint64_t lval;
+		float sval;
+		double dval;
+	};
 };
 
 struct gen_arch {
@@ -40,7 +47,6 @@ struct gen_context {
 	struct qbe_func *current;
 	const struct type *functype;
 	const char *end;
-	struct gen_temp *rval;
 };
 
 struct unit;
@@ -51,6 +57,7 @@ void gen(const struct unit *unit,
 
 // genutil.c
 char *gen_name(struct gen_context *ctx, const char *fmt);
+struct qbe_value mkqval(struct gen_context *ctx, struct gen_value *value);
 
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);

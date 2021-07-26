@@ -13,3 +13,25 @@ gen_name(struct gen_context *ctx, const char *fmt)
 	++ctx->id;
 	return str;
 }
+
+struct qbe_value
+mkqval(struct gen_context *ctx, struct gen_value *value)
+{
+	struct qbe_value qval = {0};
+	switch (value->kind) {
+	case GV_CONST:
+		qval.kind = QV_CONST;
+		qval.lval = value->lval; // XXX: Kind of hacky
+		break;
+	case GV_GLOBAL:
+		qval.kind = QV_GLOBAL;
+		qval.name = value->name;
+		break;
+	case GV_TEMP:
+		qval.kind = QV_TEMPORARY;
+		qval.name = value->name;
+		break;
+	}
+	qval.type = qtype_lookup(ctx, value->type, true);
+	return qval;
+}
