@@ -157,6 +157,7 @@ run_configure() {
 	CC=$CC
 	AS=$AS
 	LD=$LD
+	AR=$AR
 	QBE=$QBE
 	SCDOC=$SCDOC
 	LIBS=$LIBS
