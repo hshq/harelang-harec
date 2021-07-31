@@ -8,6 +8,9 @@
 #include "types.h"
 #include "util.h"
 
+static struct gen_value gen_expr(struct gen_context *ctx,
+		const struct expression *expr);
+
 static struct gen_value
 gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 {
@@ -61,6 +64,19 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_list(struct gen_context *ctx, const struct expression *expr)
+{
+	for (const struct expressions *exprs = &expr->list.exprs;
+			true; exprs = exprs->next) {
+		if (!exprs->next) {
+			return gen_expr(ctx, exprs->expr);
+		}
+		gen_expr(ctx, exprs->expr);
+	}
+	abort(); // Unreachable
+}
+
+static struct gen_value
 gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
 	switch (expr->type) {
@@ -84,7 +100,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_FREE:
 	case EXPR_IF:
 	case EXPR_INSERT:
+		assert(0); // TODO
 	case EXPR_LIST:
+		return gen_expr_list(ctx, expr);
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
 		assert(0); // TODO
