@@ -8,6 +8,11 @@
 #include "types.h"
 #include "util.h"
 
+static const struct gen_value gv_void = {
+	.kind = GV_CONST,
+	.type = &builtin_type_void,
+};
+
 static struct gen_value gen_expr(struct gen_context *ctx,
 		const struct expression *expr);
 
@@ -66,6 +71,7 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_list(struct gen_context *ctx, const struct expression *expr)
 {
+	// TODO: Set up defer scope
 	for (const struct expressions *exprs = &expr->list.exprs;
 			true; exprs = exprs->next) {
 		if (!exprs->next) {
@@ -74,6 +80,16 @@ gen_expr_list(struct gen_context *ctx, const struct expression *expr)
 		gen_expr(ctx, exprs->expr);
 	}
 	abort(); // Unreachable
+}
+
+static struct gen_value
+gen_expr_return(struct gen_context *ctx, const struct expression *expr)
+{
+	// TODO: Run defers
+	struct gen_value ret = gen_expr(ctx, expr->_return.value);
+	struct qbe_value qret = mkqval(ctx, &ret);
+	pushi(ctx->current, NULL, Q_RET, &qret, NULL);
+	return gv_void;
 }
 
 static struct gen_value
@@ -109,6 +125,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_PROPAGATE:
 		assert(0); // Lowered in check (for now?)
 	case EXPR_RETURN:
+		return gen_expr_return(ctx, expr);
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_SWITCH:
@@ -138,9 +155,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	ctx->current = &qdef->func;
 
 	struct qbe_statement start_label = {0};
-	struct qbe_statement end_label = {0};
 	genl(&start_label, &ctx->id, "start.%d");
-	ctx->end = genl(&end_label, &ctx->id, "end.%d");
 	push(&qdef->func.prelude, &start_label);
 
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
@@ -155,8 +170,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	struct gen_value ret = gen_expr(ctx, decl->func.body);
 
-	push(&qdef->func.body, &end_label);
-	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
+	if (decl->func.body->terminates) {
+		// Do nothing
+	} else if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
 		struct qbe_value qret = mkqval(ctx, &ret);
 		pushi(ctx->current, NULL, Q_RET, &qret, NULL);
 	} else {
