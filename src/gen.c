@@ -13,8 +13,57 @@ static const struct gen_value gv_void = {
 	.type = &builtin_type_void,
 };
 
+static void
+gen_store(struct gen_context *ctx,
+	struct gen_value object,
+	struct gen_value value)
+{
+	switch (type_dealias(object.type)->storage) {
+	case STORAGE_ARRAY:
+	case STORAGE_ENUM:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+		assert(0); // TODO
+	default:
+		break; // no-op
+	}
+
+	struct qbe_value qobj = mkqval(ctx, &object),
+		qval = mkqval(ctx, &value);
+	enum qbe_instr qi = store_for_type(ctx, object.type);
+	pushi(ctx->current, NULL, qi, &qval, &qobj, NULL);
+}
+
 static struct gen_value gen_expr(struct gen_context *ctx,
 		const struct expression *expr);
+
+static struct gen_value
+gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
+{
+	for (const struct expression_binding *binding = &expr->binding;
+			binding; binding = binding->next) {
+		const struct type *type = binding->initializer->result;
+		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
+		gb->value.kind = GV_TEMP;
+		gb->value.type = type;
+		gb->value.name = gen_name(ctx, "binding.%d");
+		gb->next = ctx->bindings;
+		ctx->bindings = gb;
+
+		struct qbe_value qv = mklval(ctx, &gb->value);
+		struct qbe_value sz = constl(type->size);
+		enum qbe_instr qi = alloc_for_align(type->align);
+		pushprei(ctx->current, &qv, qi, &sz, NULL);
+
+		struct gen_value init = gen_expr(ctx, binding->initializer);
+		gen_store(ctx, gb->value, init);
+	}
+	return gv_void;
+}
 
 static struct gen_value
 gen_expr_const(struct gen_context *ctx, const struct expression *expr)
@@ -102,7 +151,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
 	case EXPR_BINARITHM:
+		assert(0); // TODO
 	case EXPR_BINDING:
+		return gen_expr_binding(ctx, expr);
 	case EXPR_BREAK:
 	case EXPR_CALL:
 	case EXPR_CAST:

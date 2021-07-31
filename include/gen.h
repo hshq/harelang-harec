@@ -13,6 +13,11 @@ enum fixed_aborts {
 	ABORT_STATIC_EXCEEDED = 3,
 };
 
+struct gen_arch {
+	const struct qbe_type *ptr;
+	const struct qbe_type *sz;
+};
+
 enum gen_value_kind {
 	GV_CONST,
 	GV_GLOBAL,
@@ -31,9 +36,9 @@ struct gen_value {
 	};
 };
 
-struct gen_arch {
-	const struct qbe_type *ptr;
-	const struct qbe_type *sz;
+struct gen_binding {
+	struct gen_value value;
+	struct gen_binding *next;
 };
 
 struct gen_context {
@@ -46,7 +51,7 @@ struct gen_context {
 
 	struct qbe_func *current;
 	const struct type *functype;
-	const char *end;
+	struct gen_binding *bindings;
 };
 
 struct unit;
@@ -58,6 +63,7 @@ void gen(const struct unit *unit,
 // genutil.c
 char *gen_name(struct gen_context *ctx, const char *fmt);
 struct qbe_value mkqval(struct gen_context *ctx, struct gen_value *value);
+struct qbe_value mklval(struct gen_context *ctx, struct gen_value *value);
 
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);

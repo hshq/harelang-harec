@@ -35,3 +35,11 @@ mkqval(struct gen_context *ctx, struct gen_value *value)
 	qval.type = qtype_lookup(ctx, value->type, true);
 	return qval;
 }
+
+struct qbe_value
+mklval(struct gen_context *ctx, struct gen_value *value)
+{
+	struct qbe_value qval = mkqval(ctx, value);
+	qval.type = ctx->arch.ptr;
+	return qval;
+}

@@ -262,10 +262,6 @@ void push(struct qbe_statements *stmts, struct qbe_statement *stmt);
 
 struct qbe_value *qval_dup(const struct qbe_value *val);
 
-void constw(struct qbe_value *val, uint32_t l);
-void constl(struct qbe_value *val, uint64_t l);
-void consts(struct qbe_value *val, float l);
-void constd(struct qbe_value *val, double l);
-void const_void(struct qbe_value *val);
+struct qbe_value constl(uint64_t l);
 
 #endif
