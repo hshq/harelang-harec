@@ -37,6 +37,7 @@ struct gen_value {
 };
 
 struct gen_binding {
+	const struct scope_object *object;
 	struct gen_value value;
 	struct gen_binding *next;
 };

@@ -38,8 +38,65 @@ gen_store(struct gen_context *ctx,
 	pushi(ctx->current, NULL, qi, &qval, &qobj, NULL);
 }
 
+static struct gen_value
+gen_load(struct gen_context *ctx, struct gen_value object)
+{
+	switch (type_dealias(object.type)->storage) {
+	case STORAGE_ARRAY:
+	case STORAGE_ENUM:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+		assert(0); // TODO
+	default:
+		break; // no-op
+	}
+
+	struct gen_value value = {
+		.kind = GV_TEMP,
+		.type = object.type,
+		.name = gen_name(ctx, "load.%d"),
+	};
+	struct qbe_value qobj = mkqval(ctx, &object),
+		qval = mkqval(ctx, &value);
+	enum qbe_instr qi = load_for_type(ctx, object.type);
+	pushi(ctx->current, &qval, qi, &qobj, NULL);
+	return value;
+}
+
 static struct gen_value gen_expr(struct gen_context *ctx,
 		const struct expression *expr);
+
+static struct gen_value
+gen_access_ident(struct gen_context *ctx, const struct expression *expr)
+{
+	for (const struct gen_binding *gb = ctx->bindings; gb; gb = gb->next) {
+		if (gb->object == expr->access.object) {
+			return gb->value;
+		}
+	}
+	abort(); // Invariant
+}
+
+static struct gen_value
+gen_expr_access(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value addr;
+	switch (expr->access.type) {
+	case ACCESS_IDENTIFIER:
+		addr = gen_access_ident(ctx, expr);
+		break;
+	case ACCESS_INDEX:
+	case ACCESS_FIELD:
+	case ACCESS_TUPLE:
+		assert(0); // TODO
+	}
+
+	return gen_load(ctx, addr);
+}
 
 static struct gen_value
 gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
@@ -51,6 +108,7 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		gb->value.kind = GV_TEMP;
 		gb->value.type = type;
 		gb->value.name = gen_name(ctx, "binding.%d");
+		gb->object = binding->object;
 		gb->next = ctx->bindings;
 		ctx->bindings = gb;
 
@@ -146,6 +204,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
 	switch (expr->type) {
 	case EXPR_ACCESS:
+		return gen_expr_access(ctx, expr);
 	case EXPR_ALLOC:
 	case EXPR_APPEND:
 	case EXPR_ASSERT:
