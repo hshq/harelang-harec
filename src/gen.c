@@ -14,19 +14,49 @@ static const struct gen_value gv_void = {
 };
 
 static void
+gen_copy_memcpy(struct gen_context *ctx,
+	struct gen_value dest, struct gen_value src)
+{
+	struct qbe_value rtfunc = {
+		.kind = QV_GLOBAL,
+		.name = strdup("rt.memcpy"),
+		.type = &qbe_long,
+	};
+	struct qbe_value sz = constl(dest.type->size);
+	struct qbe_value dtemp = {
+		.kind = QV_TEMPORARY,
+		.type = ctx->arch.ptr,
+		.name = dest.name,
+	}, stemp = {
+		.kind = QV_TEMPORARY,
+		.type = ctx->arch.ptr,
+		.name = src.name,
+	};
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc,
+			&dtemp, &stemp, &sz, NULL);
+}
+
+static void
 gen_store(struct gen_context *ctx,
 	struct gen_value object,
 	struct gen_value value)
 {
 	switch (type_dealias(object.type)->storage) {
 	case STORAGE_ARRAY:
-	case STORAGE_ENUM:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
+		assert(0); // TODO
 	case STORAGE_STRUCT:
+		// TODO: More specific approach
+		gen_copy_memcpy(ctx, object, value);
+		return;
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+		assert(0); // TODO
 	case STORAGE_UNION:
+		gen_copy_memcpy(ctx, object, value);
+		return;
+	case STORAGE_ENUM:
 		assert(0); // TODO
 	default:
 		break; // no-op
@@ -43,13 +73,14 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 {
 	switch (type_dealias(object.type)->storage) {
 	case STORAGE_ARRAY:
-	case STORAGE_ENUM:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
+		return object;
+	case STORAGE_ENUM:
 		assert(0); // TODO
 	default:
 		break; // no-op
@@ -117,6 +148,8 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		enum qbe_instr qi = alloc_for_align(type->align);
 		pushprei(ctx->current, &qv, qi, &sz, NULL);
 
+		// TODO: We likely want to special-case this to avoid emitting a
+		// copy for every new aggregate binding.
 		struct gen_value init = gen_expr(ctx, binding->initializer);
 		gen_store(ctx, gb->value, init);
 	}
@@ -200,6 +233,51 @@ gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_struct(struct gen_context *ctx, const struct expression *expr)
+{
+	// TODO: Merge me into constant expressions
+	struct gen_value stemp = mktemp(ctx, expr->result, "struct.%d");
+	struct qbe_value base = mkqval(ctx, &stemp);
+	struct qbe_value sz = constl(expr->result->size);
+	enum qbe_instr ai = alloc_for_align(expr->result->align);
+	pushprei(ctx->current, &base, ai, &sz, NULL);
+
+	if (expr->_struct.autofill) {
+		struct qbe_value rtfunc = {
+			.kind = QV_GLOBAL,
+			.name = strdup("rt.memset"),
+			.type = &qbe_long,
+		};
+		struct qbe_value size =
+			constl(expr->result->size), zero = constl(0);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc,
+			&base, &zero, &size, NULL);
+	}
+
+	struct gen_value ftemp = mktemp(ctx, &builtin_type_void, "field.%d");
+	for (const struct expr_struct_field *field = &expr->_struct.fields;
+			field; field = field->next) {
+		if (!field->value) {
+			assert(expr->_struct.autofill);
+			field = field->next;
+			continue;
+		}
+
+		// TODO: We likely want to special-case this in the same way as
+		// the comment for gen_expr_binding describes.
+		struct qbe_value offs = constl(field->field->offset);
+		ftemp.type = field->value->result;
+		struct qbe_value ptr = mkqval(ctx, &ftemp);
+		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
+
+		struct gen_value init = gen_expr(ctx, field->value);
+		gen_store(ctx, ftemp, init);
+	}
+
+	return stemp;
+}
+
+static struct gen_value
 gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
 	switch (expr->type) {
@@ -237,7 +315,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_RETURN:
 		return gen_expr_return(ctx, expr);
 	case EXPR_SLICE:
+		assert(0); // TODO
 	case EXPR_STRUCT:
+		return gen_expr_struct(ctx, expr);
 	case EXPR_SWITCH:
 	case EXPR_TUPLE:
 	case EXPR_UNARITHM:

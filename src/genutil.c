@@ -43,3 +43,13 @@ mklval(struct gen_context *ctx, struct gen_value *value)
 	qval.type = ctx->arch.ptr;
 	return qval;
 }
+
+struct gen_value
+mktemp(struct gen_context *ctx, const struct type *type, const char *fmt)
+{
+	return (struct gen_value){
+		.kind = GV_TEMP,
+		.type = type,
+		.name = gen_name(ctx, fmt),
+	};
+}
