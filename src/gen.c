@@ -227,11 +227,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	};
 	struct gen_value rval = gv_void;
 	if (type_dealias(rtype->func.result)->storage != STORAGE_VOID) {
-		rval = (struct gen_value){
-			.kind = GV_TEMP,
-			.type = rtype->func.result,
-			.name = gen_name(ctx, "returns.%d"),
-		};
+		rval = mktemp(ctx, rtype->func.result, "returns.%d");
 		call.out = xcalloc(1, sizeof(struct qbe_value));
 		*call.out = mkqval(ctx, &rval);
 	}
