@@ -138,6 +138,14 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 	return value;
 }
 
+static struct gen_value
+gen_autoderef(struct gen_context *ctx, struct gen_value val)
+{
+	// TODO
+	assert(type_dealias(val.type)->storage != STORAGE_POINTER);
+	return val;
+}
+
 static struct gen_value gen_expr(struct gen_context *ctx,
 	const struct expression *expr);
 static void gen_expr_at(struct gen_context *ctx,
@@ -178,6 +186,7 @@ gen_access_field(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct struct_field *field = expr->access.field;
 	struct gen_value glval = gen_expr(ctx, expr->access._struct);
+	glval = gen_autoderef(ctx, glval);
 	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qfval = mkqtmp(ctx, ctx->arch.ptr, "field.%d");
 	struct qbe_value offs = constl(field->offset);
@@ -236,7 +245,7 @@ static struct gen_value
 gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value lvalue = gen_expr(ctx, expr->call.lvalue);
-	assert(type_dealias(lvalue.type)->storage != STORAGE_POINTER); // TODO
+	lvalue = gen_autoderef(ctx, lvalue);
 
 	const struct type *rtype = lvalue.type;
 	assert(rtype->storage == STORAGE_FUNCTION);
