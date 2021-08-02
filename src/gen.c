@@ -265,6 +265,7 @@ gen_expr_struct_at(struct gen_context *ctx,
 		struct qbe_value offs = constl(field->field->offset);
 		ftemp.type = field->value->result;
 		struct qbe_value ptr = mkqval(ctx, &ftemp);
+		ptr.type = ctx->arch.ptr;
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
 
 		struct gen_value init = gen_expr(ctx, field->value);
