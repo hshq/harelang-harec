@@ -207,34 +207,24 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	abort(); // Invariant
 }
 
-// TODO: Decide how/if gen_expr_list and gen_expr_list_at should be merged
 static struct gen_value
-gen_expr_list(struct gen_context *ctx, const struct expression *expr)
-{
-	// TODO: Set up defer scope
-	for (const struct expressions *exprs = &expr->list.exprs;
-			true; exprs = exprs->next) {
-		if (!exprs->next) {
-			return gen_expr(ctx, exprs->expr);
-		}
-		gen_expr(ctx, exprs->expr);
-	}
-	abort(); // Unreachable
-}
-
-static void
-gen_expr_list_at(struct gen_context *ctx,
+gen_expr_list_with(struct gen_context *ctx,
 	const struct expression *expr,
-	struct gen_value out)
+	struct gen_value *out)
 {
 	// TODO: Set up defer scope
 	for (const struct expressions *exprs = &expr->list.exprs;
 			exprs; exprs = exprs->next) {
-		if (!exprs->next) {
-			gen_expr_at(ctx, exprs->expr, out);
+		if (!exprs->next && out) {
+			gen_expr_at(ctx, exprs->expr, *out);
+			return *out;
+		} else if (!exprs->next && !out) {
+			return gen_expr(ctx, exprs->expr);
+		} else {
+			gen_expr(ctx, exprs->expr);
 		}
-		gen_expr(ctx, exprs->expr);
 	}
+	abort(); // Unreachable
 }
 
 static struct gen_value
@@ -314,7 +304,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_INSERT:
 		assert(0); // TODO
 	case EXPR_LIST:
-		return gen_expr_list(ctx, expr);
+		return gen_expr_list_with(ctx, expr, NULL);
 	case EXPR_MATCH:
 	case EXPR_MEASURE:
 		assert(0); // TODO
@@ -323,7 +313,6 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_RETURN:
 		return gen_expr_return(ctx, expr);
 	case EXPR_SLICE:
-		assert(0); // TODO
 	case EXPR_SWITCH:
 	case EXPR_TUPLE:
 	case EXPR_UNARITHM:
@@ -350,7 +339,7 @@ gen_expr_at(struct gen_context *ctx,
 
 	switch (expr->type) {
 	case EXPR_LIST:
-		gen_expr_list_at(ctx, expr, out);
+		gen_expr_list_with(ctx, expr, &out);
 		return;
 	case EXPR_STRUCT:
 		gen_expr_struct_at(ctx, expr, out);
