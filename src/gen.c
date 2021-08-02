@@ -151,8 +151,8 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 
 		struct qbe_value qv = mklval(ctx, &gb->value);
 		struct qbe_value sz = constl(type->size);
-		enum qbe_instr qi = alloc_for_align(type->align);
-		pushprei(ctx->current, &qv, qi, &sz, NULL);
+		enum qbe_instr alloc = alloc_for_align(type->align);
+		pushprei(ctx->current, &qv, alloc, &sz, NULL);
 		gen_expr_at(ctx, binding->initializer, gb->value);
 	}
 	return gv_void;
@@ -391,7 +391,42 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		qdef->func.returns = &qbe_void;
 	}
 
-	assert(!decl->func.scope->objects); // TODO: Parameters
+	struct qbe_func_param *param, **next = &qdef->func.params;
+	for (struct scope_object *obj = decl->func.scope->objects;
+			obj; obj = obj->lnext) {
+		const struct type *type = obj->type;
+		param = *next = xcalloc(1, sizeof(struct qbe_func_param));
+		assert(!obj->ident.ns); // Invariant
+		param->name = strdup(obj->ident.name);
+		param->type = qtype_lookup(ctx, type, false);
+
+		struct gen_binding *gb =
+			xcalloc(1, sizeof(struct gen_binding));
+		gb->value.kind = GV_TEMP;
+		gb->value.type = type;
+		gb->object = obj;
+		if (type_is_aggregate(type)) {
+			// No need to copy to stack
+			gb->value.name = strdup(param->name);
+		} else {
+			gb->value.name = gen_name(ctx, "param.%d");
+
+			struct qbe_value qv = mklval(ctx, &gb->value);
+			struct qbe_value sz = constl(type->size);
+			enum qbe_instr alloc = alloc_for_align(type->align);
+			pushprei(ctx->current, &qv, alloc, &sz, NULL);
+			struct gen_value src = {
+				.kind = GV_TEMP,
+				.type = type,
+				.name = param->name,
+			};
+			gen_store(ctx, gb->value, src);
+		}
+
+		gb->next = ctx->bindings;
+		ctx->bindings = gb;
+		next = &param->next;
+	}
 
 	pushl(&qdef->func, &ctx->id, "body.%d");
 	struct gen_value ret = gen_expr(ctx, decl->func.body);
