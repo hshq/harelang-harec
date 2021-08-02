@@ -174,6 +174,21 @@ gen_access_ident(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_access_field(struct gen_context *ctx, const struct expression *expr)
+{
+	const struct struct_field *field = expr->access.field;
+	struct gen_value glval = gen_expr(ctx, expr->access._struct);
+	struct qbe_value qlval = mkcopy(ctx, &glval, "object.%d");
+	struct qbe_value offs = constl(field->offset);
+	pushi(ctx->current, &qlval, Q_ADD, &qlval, &offs, NULL);
+	return (struct gen_value){
+		.kind = GV_TEMP,
+		.type = field->type,
+		.name = qlval.name,
+	};
+}
+
+static struct gen_value
 gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value addr;
@@ -182,7 +197,10 @@ gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 		addr = gen_access_ident(ctx, expr);
 		break;
 	case ACCESS_INDEX:
+		assert(0); // TODO
 	case ACCESS_FIELD:
+		addr = gen_access_field(ctx, expr);
+		break;
 	case ACCESS_TUPLE:
 		assert(0); // TODO
 	}
