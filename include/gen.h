@@ -67,6 +67,8 @@ struct gen_value mktemp(struct gen_context *ctx,
 	const struct type *type, const char *fmt);
 struct qbe_value mkqval(struct gen_context *ctx, struct gen_value *value);
 struct qbe_value mklval(struct gen_context *ctx, struct gen_value *value);
+struct qbe_value mkcopy(struct gen_context *ctx,
+		struct gen_value *value, const char *fmt);
 
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);

@@ -37,6 +37,44 @@ gen_copy_memcpy(struct gen_context *ctx,
 }
 
 static void
+gen_copy_struct(struct gen_context *ctx,
+	struct gen_value dest, struct gen_value src)
+{
+	const struct type *stype = type_dealias(dest.type);
+	assert(stype->storage == STORAGE_STRUCT);
+	if (stype->size > 128) {
+		gen_copy_memcpy(ctx, dest, src);
+		return;
+	}
+	enum qbe_instr load, store;
+	assert(dest.type->align && (dest.type->align & (dest.type->align - 1)) == 0);
+	switch (dest.type->align) {
+	case 1: load = Q_LOADUB, store = Q_STOREB; break;
+	case 2: load = Q_LOADUH, store = Q_STOREH; break;
+	case 4: load = Q_LOADUW, store = Q_STOREW; break;
+	default:
+		assert(dest.type->align == 8);
+		load = Q_LOADL, store = Q_STOREL;
+		break;
+	}
+	struct qbe_value temp = {
+		.kind = QV_TEMPORARY,
+		.type = ctx->arch.ptr,
+		.name = gen_name(ctx, "item.%d"),
+	};
+	struct qbe_value destp = mkcopy(ctx, &dest, "dest.%d");
+	struct qbe_value srcp = mkcopy(ctx, &src, "src.%d");
+	struct qbe_value align = constl(dest.type->align);
+	for (size_t offset = 0; offset < dest.type->size;
+			offset += dest.type->align) {
+		pushi(ctx->current, &temp, load, &srcp, NULL);
+		pushi(ctx->current, NULL, store, &temp, &destp, NULL);
+		pushi(ctx->current, &srcp, Q_ADD, &srcp, &align, NULL);
+		pushi(ctx->current, &destp, Q_ADD, &destp, &align, NULL);
+	}
+}
+
+static void
 gen_store(struct gen_context *ctx,
 	struct gen_value object,
 	struct gen_value value)
@@ -47,8 +85,7 @@ gen_store(struct gen_context *ctx,
 	case STORAGE_STRING:
 		assert(0); // TODO
 	case STORAGE_STRUCT:
-		// TODO: More specific approach
-		gen_copy_memcpy(ctx, object, value);
+		gen_copy_struct(ctx, object, value);
 		return;
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
