@@ -73,6 +73,7 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 {
 	switch (type_dealias(object.type)->storage) {
 	case STORAGE_ARRAY:
+	case STORAGE_FUNCTION:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
@@ -110,10 +111,25 @@ static struct gen_value gen_expr_with(struct gen_context *ctx,
 static struct gen_value
 gen_access_ident(struct gen_context *ctx, const struct expression *expr)
 {
-	for (const struct gen_binding *gb = ctx->bindings; gb; gb = gb->next) {
-		if (gb->object == expr->access.object) {
-			return gb->value;
+	const struct scope_object *obj = expr->access.object;
+	switch (obj->otype) {
+	case O_BIND:
+		for (const struct gen_binding *gb = ctx->bindings;
+				gb; gb = gb->next) {
+			if (gb->object == obj) {
+				return gb->value;
+			}
 		}
+		break;
+	case O_DECL:
+		return (struct gen_value){
+			.kind = GV_GLOBAL,
+			.type = obj->type,
+			.name = ident_to_sym(&obj->ident),
+		};
+	case O_CONST:
+	case O_TYPE:
+		abort(); // Invariant
 	}
 	abort(); // Invariant
 }
@@ -156,6 +172,47 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		gen_expr_at(ctx, binding->initializer, gb->value);
 	}
 	return gv_void;
+}
+
+static struct gen_value
+gen_expr_call(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value lvalue = gen_expr(ctx, expr->call.lvalue);
+	assert(type_dealias(lvalue.type)->storage != STORAGE_POINTER); // TODO
+
+	const struct type *rtype = lvalue.type;
+	assert(rtype->storage == STORAGE_FUNCTION);
+	// TODO: Run deferred expressions if rtype->func.flags & FN_NORETURN
+
+	struct qbe_statement call = {
+		.type = Q_INSTR,
+		.instr = Q_CALL,
+	};
+	struct gen_value rval = gv_void;
+	if (type_dealias(rtype->func.result)->storage != STORAGE_VOID) {
+		rval = (struct gen_value){
+			.kind = GV_TEMP,
+			.type = rtype->func.result,
+			.name = gen_name(ctx, "returns.%d"),
+		};
+		call.out = xcalloc(1, sizeof(struct qbe_value));
+		*call.out = mkqval(ctx, &rval);
+	}
+
+	struct qbe_arguments *args, **next = &call.args;
+	args = *next = xcalloc(1, sizeof(struct qbe_arguments));
+	args->value = mkqval(ctx, &lvalue);
+	next = &args->next;
+	for (struct call_argument *carg = expr->call.args;
+			carg; carg = carg->next) {
+		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
+		struct gen_value arg = gen_expr(ctx, carg->value);
+		args->value = mkqval(ctx, &arg);
+		next = &args->next;
+	}
+	push(&ctx->current->body, &call);
+
+	return rval;
 }
 
 static struct gen_value
@@ -289,7 +346,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_BINDING:
 		return gen_expr_binding(ctx, expr);
 	case EXPR_BREAK:
+		assert(0); // TODO
 	case EXPR_CALL:
+		return gen_expr_call(ctx, expr);
 	case EXPR_CAST:
 		assert(0); // TODO
 	case EXPR_CONSTANT:
