@@ -273,18 +273,6 @@ gen_expr_struct_at(struct gen_context *ctx,
 }
 
 static struct gen_value
-gen_expr_struct(struct gen_context *ctx, const struct expression *expr)
-{
-	struct gen_value out = mktemp(ctx, expr->result, "struct.%d");
-	struct qbe_value base = mkqval(ctx, &out);
-	struct qbe_value sz = constl(expr->result->size);
-	enum qbe_instr ai = alloc_for_align(expr->result->align);
-	pushprei(ctx->current, &base, ai, &sz, NULL);
-	gen_expr_struct_at(ctx, expr, out);
-	return out;
-}
-
-static struct gen_value
 gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
 	switch (expr->type) {
@@ -323,14 +311,22 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_return(ctx, expr);
 	case EXPR_SLICE:
 		assert(0); // TODO
-	case EXPR_STRUCT:
-		return gen_expr_struct(ctx, expr);
 	case EXPR_SWITCH:
 	case EXPR_TUPLE:
 	case EXPR_UNARITHM:
 		assert(0); // TODO
+	case EXPR_STRUCT:
+		// Prefers _at style
+		break;
 	}
-	abort(); // Unreachable
+
+	struct gen_value out = mktemp(ctx, expr->result, "object.%d");
+	struct qbe_value base = mkqval(ctx, &out);
+	struct qbe_value sz = constl(expr->result->size);
+	enum qbe_instr alloc = alloc_for_align(expr->result->align);
+	pushprei(ctx->current, &base, alloc, &sz, NULL);
+	gen_expr_at(ctx, expr, out);
+	return out;
 }
 
 static void
