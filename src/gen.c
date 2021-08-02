@@ -60,17 +60,19 @@ gen_copy_struct(struct gen_context *ctx,
 	struct qbe_value temp = {
 		.kind = QV_TEMPORARY,
 		.type = ctx->arch.ptr,
-		.name = gen_name(ctx, "item.%d"),
+		.name = gen_name(ctx, ".%d"),
 	};
-	struct qbe_value destp = mkcopy(ctx, &dest, "dest.%d");
-	struct qbe_value srcp = mkcopy(ctx, &src, "src.%d");
+	struct qbe_value destp = mkcopy(ctx, &dest, ".%d");
+	struct qbe_value srcp = mkcopy(ctx, &src, ".%d");
 	struct qbe_value align = constl(dest.type->align);
 	for (size_t offset = 0; offset < dest.type->size;
 			offset += dest.type->align) {
 		pushi(ctx->current, &temp, load, &srcp, NULL);
 		pushi(ctx->current, NULL, store, &temp, &destp, NULL);
-		pushi(ctx->current, &srcp, Q_ADD, &srcp, &align, NULL);
-		pushi(ctx->current, &destp, Q_ADD, &destp, &align, NULL);
+		if (offset + dest.type->align < dest.type->size) {
+			pushi(ctx->current, &srcp, Q_ADD, &srcp, &align, NULL);
+			pushi(ctx->current, &destp, Q_ADD, &destp, &align, NULL);
+		}
 	}
 }
 
