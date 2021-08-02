@@ -260,16 +260,12 @@ gen_expr_struct_at(struct gen_context *ctx,
 			continue;
 		}
 
-		// TODO: We likely want to special-case this in the same way as
-		// the comment for gen_expr_binding describes.
 		struct qbe_value offs = constl(field->field->offset);
 		ftemp.type = field->value->result;
 		struct qbe_value ptr = mkqval(ctx, &ftemp);
 		ptr.type = ctx->arch.ptr;
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
-
-		struct gen_value init = gen_expr(ctx, field->value);
-		gen_store(ctx, ftemp, init);
+		gen_expr_at(ctx, field->value, ftemp);
 	}
 }
 
