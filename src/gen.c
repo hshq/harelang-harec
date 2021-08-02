@@ -99,7 +99,10 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 }
 
 static struct gen_value gen_expr(struct gen_context *ctx,
-		const struct expression *expr);
+	const struct expression *expr);
+static void gen_expr_at(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value out);
 
 static struct gen_value
 gen_access_ident(struct gen_context *ctx, const struct expression *expr)
@@ -147,11 +150,7 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		struct qbe_value sz = constl(type->size);
 		enum qbe_instr qi = alloc_for_align(type->align);
 		pushprei(ctx->current, &qv, qi, &sz, NULL);
-
-		// TODO: We likely want to special-case this to avoid emitting a
-		// copy for every new aggregate binding.
-		struct gen_value init = gen_expr(ctx, binding->initializer);
-		gen_store(ctx, gb->value, init);
+		gen_expr_at(ctx, binding->initializer, gb->value);
 	}
 	return gv_void;
 }
@@ -232,15 +231,13 @@ gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 	return gv_void;
 }
 
-static struct gen_value
-gen_expr_struct(struct gen_context *ctx, const struct expression *expr)
+static void
+gen_expr_struct_at(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value out)
 {
 	// TODO: Merge me into constant expressions
-	struct gen_value stemp = mktemp(ctx, expr->result, "struct.%d");
-	struct qbe_value base = mkqval(ctx, &stemp);
-	struct qbe_value sz = constl(expr->result->size);
-	enum qbe_instr ai = alloc_for_align(expr->result->align);
-	pushprei(ctx->current, &base, ai, &sz, NULL);
+	struct qbe_value base = mkqval(ctx, &out);
 
 	if (expr->_struct.autofill) {
 		struct qbe_value rtfunc = {
@@ -273,8 +270,18 @@ gen_expr_struct(struct gen_context *ctx, const struct expression *expr)
 		struct gen_value init = gen_expr(ctx, field->value);
 		gen_store(ctx, ftemp, init);
 	}
+}
 
-	return stemp;
+static struct gen_value
+gen_expr_struct(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value out = mktemp(ctx, expr->result, "struct.%d");
+	struct qbe_value base = mkqval(ctx, &out);
+	struct qbe_value sz = constl(expr->result->size);
+	enum qbe_instr ai = alloc_for_align(expr->result->align);
+	pushprei(ctx->current, &base, ai, &sz, NULL);
+	gen_expr_struct_at(ctx, expr, out);
+	return out;
 }
 
 static struct gen_value
@@ -324,6 +331,24 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		assert(0); // TODO
 	}
 	abort(); // Unreachable
+}
+
+static void
+gen_expr_at(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value out)
+{
+	assert(out.kind != GV_CONST);
+
+	switch (expr->type) {
+	case EXPR_STRUCT:
+		gen_expr_struct_at(ctx, expr, out);
+		return;
+	default:
+		break; // Does not have an _at implementation
+	}
+
+	gen_store(ctx, out, gen_expr(ctx, expr));
 }
 
 static void
