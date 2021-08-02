@@ -178,13 +178,14 @@ gen_access_field(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct struct_field *field = expr->access.field;
 	struct gen_value glval = gen_expr(ctx, expr->access._struct);
-	struct qbe_value qlval = mkcopy(ctx, &glval, "object.%d");
+	struct qbe_value qlval = mkqval(ctx, &glval);
+	struct qbe_value qfval = mkqtmp(ctx, ctx->arch.ptr, "field.%d");
 	struct qbe_value offs = constl(field->offset);
-	pushi(ctx->current, &qlval, Q_ADD, &qlval, &offs, NULL);
+	pushi(ctx->current, &qfval, Q_ADD, &qlval, &offs, NULL);
 	return (struct gen_value){
 		.kind = GV_TEMP,
 		.type = field->type,
-		.name = qlval.name,
+		.name = qfval.name,
 	};
 }
 

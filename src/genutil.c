@@ -48,13 +48,19 @@ struct qbe_value
 mkcopy(struct gen_context *ctx, struct gen_value *value, const char *fmt)
 {
 	struct qbe_value qval = mkqval(ctx, value);
-	struct qbe_value copy = {
-		.kind = QV_TEMPORARY,
-		.type = ctx->arch.ptr,
-		.name = gen_name(ctx, fmt),
-	};
+	struct qbe_value copy = mkqtmp(ctx, ctx->arch.ptr, fmt);
 	pushi(ctx->current, &copy, Q_COPY, &qval, NULL);
 	return copy;
+}
+
+struct qbe_value mkqtmp(struct gen_context *ctx,
+	const struct qbe_type *qtype, const char *fmt)
+{
+	return (struct qbe_value){
+		.kind = QV_TEMPORARY,
+		.type = qtype,
+		.name = gen_name(ctx, fmt),
+	};
 }
 
 struct gen_value
