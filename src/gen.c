@@ -141,8 +141,10 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 static struct gen_value
 gen_autoderef(struct gen_context *ctx, struct gen_value val)
 {
-	// TODO
-	assert(type_dealias(val.type)->storage != STORAGE_POINTER);
+	while (type_dealias(val.type)->storage == STORAGE_POINTER) {
+		val.type = type_dealias(val.type)->pointer.referent;
+		val = gen_load(ctx, val);
+	}
 	return val;
 }
 
