@@ -199,7 +199,7 @@ gen_access_field(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
-gen_expr_access(struct gen_context *ctx, const struct expression *expr)
+gen_expr_access_addr(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value addr;
 	switch (expr->access.type) {
@@ -214,7 +214,13 @@ gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 	case ACCESS_TUPLE:
 		assert(0); // TODO
 	}
+	return addr;
+}
 
+static struct gen_value
+gen_expr_access(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value addr = gen_expr_access_addr(ctx, expr);
 	return gen_load(ctx, addr);
 }
 
@@ -394,6 +400,32 @@ gen_expr_struct_at(struct gen_context *ctx,
 }
 
 static struct gen_value
+gen_expr_unarithm(struct gen_context *ctx,
+	const struct expression *expr)
+{
+	struct gen_value val;
+	const struct expression *operand = expr->unarithm.operand;
+	switch (expr->unarithm.op) {
+	case UN_ADDRESS:
+		assert(operand->type == EXPR_ACCESS);
+		val = gen_expr_access_addr(ctx, operand);
+		val.type = expr->result;
+		return val;
+	case UN_DEREF:
+		val = gen_expr(ctx, operand);
+		assert(type_dealias(val.type)->storage == STORAGE_POINTER);
+		val.type = type_dealias(val.type)->pointer.referent;
+		return gen_load(ctx, val);
+	case UN_BNOT:
+	case UN_LNOT:
+	case UN_MINUS:
+	case UN_PLUS:
+		assert(0); // TODO
+	}
+	abort(); // Invariant
+}
+
+static struct gen_value
 gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
 	switch (expr->type) {
@@ -435,8 +467,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_SLICE:
 	case EXPR_SWITCH:
 	case EXPR_TUPLE:
-	case EXPR_UNARITHM:
 		assert(0); // TODO
+	case EXPR_UNARITHM:
+		return gen_expr_unarithm(ctx, expr);
 	case EXPR_STRUCT:
 		break; // Prefers -at style
 	}
