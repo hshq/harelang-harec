@@ -805,7 +805,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct gen_value ret = gen_expr(ctx, decl->func.body);
 
 	if (decl->func.body->terminates) {
-		// Do nothing
+		pushi(ctx->current, NULL, Q_RET, NULL);
 	} else if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
 		struct qbe_value qret = mkqval(ctx, &ret);
 		pushi(ctx->current, NULL, Q_RET, &qret, NULL);
