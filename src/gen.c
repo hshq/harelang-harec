@@ -193,6 +193,8 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &qival, Q_MUL, &qindex, &itemsz, NULL);
 	pushi(ctx->current, &qival, Q_ADD, &qlval, &qival, NULL);
 
+	// TODO: Check bounds
+
 	return (struct gen_value){
 		.kind = GV_TEMP,
 		.type = expr->result,
@@ -260,6 +262,44 @@ gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value addr = gen_expr_access_addr(ctx, expr);
 	return gen_load(ctx, addr);
+}
+
+static struct gen_value
+gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
+{
+	assert(expr->assert.message); // Invariant
+	if (expr->assert.is_static) {
+		return gv_void;
+	}
+
+	struct qbe_statement failedl = {0}, passedl = {0};
+	struct qbe_value bfailed = {0}, bpassed = {0};
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.abort");
+	struct gen_value msg;
+
+	if (expr->assert.cond) {
+		bfailed.kind = QV_LABEL;
+		bfailed.name = strdup(genl(&failedl, &ctx->id, "failed.%d"));
+		bpassed.kind = QV_LABEL;
+		bpassed.name = strdup(genl(&passedl, &ctx->id, "passed.%d"));
+
+		struct gen_value cond = gen_expr(ctx, expr->assert.cond);
+		struct qbe_value qcond = mkqval(ctx, &cond);
+		pushi(ctx->current, NULL, Q_JNZ, &qcond, &bpassed, &bfailed, NULL);
+		push(&ctx->current->body, &failedl);
+		msg = gen_expr(ctx, expr->assert.message);
+	} else {
+		msg = gen_expr(ctx, expr->assert.message);
+	}
+
+	struct qbe_value qmsg = mkqval(ctx, &msg);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qmsg, NULL);
+
+	if (expr->assert.cond) {
+		push(&ctx->current->body, &passedl);
+	}
+
+	return gv_void;
 }
 
 static struct gen_value
@@ -365,6 +405,7 @@ gen_const_string_at(struct gen_context *ctx,
 	const char *val = constexpr->string.value;
 	size_t len = constexpr->string.len;
 
+	// TODO: Generate string data structure as global also?
 	struct qbe_value global = mkqtmp(ctx, ctx->arch.ptr, "strdata.%d");
 	global.kind = QV_GLOBAL;
 
@@ -588,7 +629,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_access(ctx, expr);
 	case EXPR_ALLOC:
 	case EXPR_APPEND:
+		assert(0); // TODO
 	case EXPR_ASSERT:
+		return gen_expr_assert(ctx, expr);
 	case EXPR_ASSIGN:
 		assert(0); // TODO
 	case EXPR_BINARITHM:
