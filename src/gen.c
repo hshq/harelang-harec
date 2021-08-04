@@ -263,6 +263,21 @@ gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value lvalue = gen_expr(ctx, expr->binarithm.lvalue);
+	struct gen_value rvalue = gen_expr(ctx, expr->binarithm.rvalue);
+	struct gen_value result = mktemp(ctx, expr->result, ".%d");
+	struct qbe_value qlval = mkqval(ctx, &lvalue);
+	struct qbe_value qrval = mkqval(ctx, &rvalue);
+	struct qbe_value qresult = mkqval(ctx, &result);
+	enum qbe_instr instr = binarithm_for_op(ctx, expr->binarithm.op,
+		expr->binarithm.lvalue->result);
+	pushi(ctx->current, &qresult, instr, &qlval, &qrval, NULL);
+	return result;
+}
+
+static struct gen_value
 gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 {
 	for (const struct expression_binding *binding = &expr->binding;
@@ -545,8 +560,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_APPEND:
 	case EXPR_ASSERT:
 	case EXPR_ASSIGN:
-	case EXPR_BINARITHM:
 		assert(0); // TODO
+	case EXPR_BINARITHM:
+		return gen_expr_binarithm(ctx, expr);
 	case EXPR_BINDING:
 		return gen_expr_binding(ctx, expr);
 	case EXPR_BREAK:
