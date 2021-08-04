@@ -18,18 +18,10 @@ gen_copy_memcpy(struct gen_context *ctx,
 	struct gen_value dest, struct gen_value src)
 {
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
+	struct qbe_value dtemp = mklval(ctx, &dest);
+	struct qbe_value stemp = mklval(ctx, &src);
 	struct qbe_value sz = constl(dest.type->size);
-	struct qbe_value dtemp = {
-		.kind = QV_TEMPORARY,
-		.type = ctx->arch.ptr,
-		.name = dest.name,
-	}, stemp = {
-		.kind = QV_TEMPORARY,
-		.type = ctx->arch.ptr,
-		.name = src.name,
-	};
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc,
-			&dtemp, &stemp, &sz, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dtemp, &stemp, &sz, NULL);
 }
 
 static void
