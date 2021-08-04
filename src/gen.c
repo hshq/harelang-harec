@@ -282,9 +282,67 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	return rval;
 }
 
+static void
+gen_const_array_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
+{
+	struct array_constant *aexpr = expr->constant.array;
+	assert(!aexpr->expand); // TODO
+	struct qbe_value base = mkqval(ctx, &out);
+
+	size_t index = 0;
+	const struct type *atype = type_dealias(expr->result);
+	struct gen_value item = mktemp(ctx, atype->array.members, "item.%d");
+	for (const struct array_constant *ac = aexpr; ac; ac = ac->next) {
+		struct qbe_value offs = constl(index * atype->array.members->size);
+		struct qbe_value ptr = mklval(ctx, &item);
+		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
+		gen_expr_at(ctx, ac->value, item);
+		++index;
+	}
+}
+
+static void
+gen_const_string_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
+{
+	assert(0); // TODO
+}
+
+static void
+gen_expr_const_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
+{
+	if (!type_is_aggregate(type_dealias(expr->result))) {
+		gen_store(ctx, out, gen_expr(ctx, expr));
+		return;
+	}
+
+	switch (type_dealias(expr->result)->storage) {
+	case STORAGE_ARRAY:
+		gen_const_array_at(ctx, expr, out);
+		break;
+	case STORAGE_STRING:
+		gen_const_string_at(ctx, expr, out);
+		break;
+	default:
+		abort(); // Invariant
+	}
+}
+
 static struct gen_value
 gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 {
+	if (type_is_aggregate(type_dealias(expr->result))) {
+		struct gen_value out = mktemp(ctx, expr->result, "object.%d");
+		struct qbe_value base = mkqval(ctx, &out);
+		struct qbe_value sz = constl(expr->result->size);
+		enum qbe_instr alloc = alloc_for_align(expr->result->align);
+		pushprei(ctx->current, &base, alloc, &sz, NULL);
+		gen_expr_at(ctx, expr, out);
+		return out;
+	}
+
 	struct gen_value val = {
 		.kind = GV_CONST,
 		.type = expr->result,
@@ -300,10 +358,6 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_NULL:
 		val.lval = 0;
 		return val;
-	case STORAGE_ARRAY:
-		assert(0); // TODO
-	case STORAGE_STRING:
-		assert(0); // TODO
 	default:
 		// Moving right along
 		break;
@@ -485,6 +539,9 @@ gen_expr_at(struct gen_context *ctx,
 	assert(out.kind != GV_CONST);
 
 	switch (expr->type) {
+	case EXPR_CONSTANT:
+		gen_expr_const_at(ctx, expr, out);
+		return;
 	case EXPR_LIST:
 		gen_expr_list_with(ctx, expr, &out);
 		return;
