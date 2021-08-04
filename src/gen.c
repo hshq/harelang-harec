@@ -303,6 +303,22 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
+{
+	struct expression *object = expr->assign.object;
+	struct expression *value = expr->assign.value;
+	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
+	assert(object->type != EXPR_SLICE); // TODO
+	assert(!expr->assign.indirect); // TODO
+	assert(expr->assign.op == BIN_LEQUAL); // TODO
+
+	struct gen_value obj = gen_expr_access_addr(ctx, object);
+	gen_store(ctx, obj, gen_expr(ctx, value));
+
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value lvalue = gen_expr(ctx, expr->binarithm.lvalue);
@@ -633,7 +649,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_ASSERT:
 		return gen_expr_assert(ctx, expr);
 	case EXPR_ASSIGN:
-		assert(0); // TODO
+		return gen_expr_assign(ctx, expr);
 	case EXPR_BINARITHM:
 		return gen_expr_binarithm(ctx, expr);
 	case EXPR_BINDING:
