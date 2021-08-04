@@ -361,7 +361,37 @@ static void
 gen_const_string_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	assert(0); // TODO
+	const struct expression_constant *constexpr = &expr->constant;
+	const char *val = constexpr->string.value;
+	size_t len = constexpr->string.len;
+
+	struct qbe_value global = mkqtmp(ctx, ctx->arch.ptr, "strdata.%d");
+	global.kind = QV_GLOBAL;
+
+	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
+	def->name = global.name;
+	def->kind = Q_DATA;
+	def->data.items.type = QD_STRING;
+	def->data.items.str = xcalloc(1, len);
+	memcpy(def->data.items.str, val, len);
+	def->data.items.sz = len;
+
+	if (len != 0) {
+		qbe_append_def(ctx->out, def);
+	} else {
+		free(def);
+		global = constl(0);
+	}
+
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
+	struct qbe_value strp = mkcopy(ctx, &out, ".%d");
+	struct qbe_value qlen = constl(len);
+	struct qbe_value offs = constl(builtin_type_size.size);
+	pushi(ctx->current, NULL, store, &qlen, &strp, NULL);
+	pushi(ctx->current, &strp, Q_ADD, &strp, &offs, NULL);
+	pushi(ctx->current, NULL, store, &qlen, &strp, NULL);
+	pushi(ctx->current, &strp, Q_ADD, &strp, &offs, NULL);
+	pushi(ctx->current, NULL, store, &global, &strp, NULL);
 }
 
 static void
