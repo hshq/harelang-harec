@@ -302,7 +302,7 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 		obj = gen_expr_access_addr(ctx, object);
 	}
 	if (expr->assign.op == BIN_LEQUAL) {
-		gen_store(ctx, obj, gen_expr(ctx, value));
+		gen_expr_at(ctx, value, obj);
 	} else if (expr->assign.op == BIN_LAND || expr->assign.op == BIN_LOR) {
 		assert(0); // TODO
 	} else {
@@ -310,8 +310,8 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 		struct gen_value rvalue = gen_expr(ctx, value);
 		struct qbe_value qlval = mkqval(ctx, &lvalue);
 		struct qbe_value qrval = mkqval(ctx, &rvalue);
-		enum qbe_instr instr = binarithm_for_op(ctx, expr->assign.op,
-			lvalue.type);
+		enum qbe_instr instr = binarithm_for_op(ctx,
+			expr->assign.op, lvalue.type);
 		pushi(ctx->current, &qlval, instr, &qlval, &qrval, NULL);
 		gen_store(ctx, obj, lvalue);
 	}
