@@ -81,7 +81,8 @@ gen_store(struct gen_context *ctx,
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
-		assert(0); // TODO
+		gen_copy_memcpy(ctx, object, value); // TODO
+		return;
 	case STORAGE_STRUCT:
 		gen_copy_struct(ctx, object, value);
 		return;
