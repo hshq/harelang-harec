@@ -180,23 +180,6 @@ gen_access_ident(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
-gen_access_field(struct gen_context *ctx, const struct expression *expr)
-{
-	const struct struct_field *field = expr->access.field;
-	struct gen_value glval = gen_expr(ctx, expr->access._struct);
-	glval = gen_autoderef(ctx, glval);
-	struct qbe_value qlval = mkqval(ctx, &glval);
-	struct qbe_value qfval = mkqtmp(ctx, ctx->arch.ptr, "field.%d");
-	struct qbe_value offs = constl(field->offset);
-	pushi(ctx->current, &qfval, Q_ADD, &qlval, &offs, NULL);
-	return (struct gen_value){
-		.kind = GV_TEMP,
-		.type = field->type,
-		.name = qfval.name,
-	};
-}
-
-static struct gen_value
 gen_access_index(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value glval = gen_expr(ctx, expr->access.array);
@@ -218,6 +201,40 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_access_field(struct gen_context *ctx, const struct expression *expr)
+{
+	const struct struct_field *field = expr->access.field;
+	struct gen_value glval = gen_expr(ctx, expr->access._struct);
+	glval = gen_autoderef(ctx, glval);
+	struct qbe_value qlval = mkqval(ctx, &glval);
+	struct qbe_value qfval = mkqtmp(ctx, ctx->arch.ptr, "field.%d");
+	struct qbe_value offs = constl(field->offset);
+	pushi(ctx->current, &qfval, Q_ADD, &qlval, &offs, NULL);
+	return (struct gen_value){
+		.kind = GV_TEMP,
+		.type = field->type,
+		.name = qfval.name,
+	};
+}
+
+static struct gen_value
+gen_access_value(struct gen_context *ctx, const struct expression *expr)
+{
+	const struct type_tuple *tuple = expr->access.tvalue;
+	struct gen_value glval = gen_expr(ctx, expr->access.tuple);
+	glval = gen_autoderef(ctx, glval);
+	struct qbe_value qlval = mkqval(ctx, &glval);
+	struct qbe_value qfval = mkqtmp(ctx, ctx->arch.ptr, "value.%d");
+	struct qbe_value offs = constl(tuple->offset);
+	pushi(ctx->current, &qfval, Q_ADD, &qlval, &offs, NULL);
+	return (struct gen_value){
+		.kind = GV_TEMP,
+		.type = tuple->type,
+		.name = qfval.name,
+	};
+}
+
+static struct gen_value
 gen_expr_access_addr(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value addr;
@@ -232,7 +249,8 @@ gen_expr_access_addr(struct gen_context *ctx, const struct expression *expr)
 		addr = gen_access_field(ctx, expr);
 		break;
 	case ACCESS_TUPLE:
-		assert(0); // TODO
+		addr = gen_access_value(ctx, expr);
+		break;
 	}
 	return addr;
 }

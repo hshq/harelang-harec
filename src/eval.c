@@ -28,23 +28,7 @@ eval_access(struct context *ctx, struct expression *in, struct expression *out)
 	case ACCESS_FIELD:
 		assert(0); // TODO
 	case ACCESS_TUPLE:
-		out->type = EXPR_CONSTANT;
-		struct expression tmp = {0};
-		enum eval_result r = eval_expr(ctx, in->access.value, &tmp);
-		if (r != EVAL_OK) {
-			return r;
-		}
-		size_t i = tmp.constant.uval;
-		// ensure the entire tuple is known at compile time
-		r = eval_expr(ctx, in->access.tuple, &tmp);
-		if (r != EVAL_OK) {
-			return r;
-		}
-		const struct tuple_constant *tuple = tmp.constant.tuple;
-		for (; i > 0; --i) {
-			tuple = tuple->next;
-		}
-		return eval_expr(ctx, tuple->value, out);
+		assert(0); // TODO
 	}
 
 	return EVAL_OK;

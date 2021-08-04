@@ -208,12 +208,12 @@ check_expr_access(struct context *ctx,
 		break;
 	case ACCESS_TUPLE:
 		expr->access.tuple = xcalloc(1, sizeof(struct expression));
-		expr->access.value = xcalloc(1, sizeof(struct expression));
+		struct expression *value = xcalloc(1, sizeof(struct expression));
 		errors = check_expression(ctx, aexpr->access.tuple,
 			expr->access.tuple, NULL, errors);
 		errors = check_expression(ctx, aexpr->access.value,
-			expr->access.value, NULL, errors);
-		assert(expr->access.value->type == EXPR_CONSTANT);
+			value, NULL, errors);
+		assert(value->type == EXPR_CONSTANT);
 
 		const struct type *ttype =
 			type_dereference(expr->access.tuple->result);
@@ -225,7 +225,7 @@ check_expr_access(struct context *ctx,
 			return error(aexpr->access.tuple->loc, expr, errors,
 				"Cannot select value from non-tuple object");
 		}
-		if (!type_is_integer(expr->access.value->result)) {
+		if (!type_is_integer(value->result)) {
 			return error(aexpr->access.tuple->loc, expr, errors,
 				"Cannot use non-integer constant to select tuple value");
 		}

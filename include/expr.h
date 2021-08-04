@@ -60,7 +60,6 @@ struct expression_access {
 		};
 		struct {
 			struct expression *tuple;
-			struct expression *value;
 			const struct type_tuple *tvalue;
 		};
 	};
