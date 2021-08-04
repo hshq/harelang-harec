@@ -805,7 +805,12 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct gen_value ret = gen_expr(ctx, decl->func.body);
 
 	if (decl->func.body->terminates) {
-		pushi(ctx->current, NULL, Q_RET, NULL);
+		// XXX: This is a bit hacky, to appease qbe
+		size_t ln = ctx->current->body.ln;
+		struct qbe_statement *last = &ctx->current->body.stmts[ln - 1];
+		if (last->type != Q_INSTR || last->instr != Q_RET) {
+			pushi(ctx->current, NULL, Q_RET, NULL);
+		}
 	} else if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
 		struct qbe_value qret = mkqval(ctx, &ret);
 		pushi(ctx->current, NULL, Q_RET, &qret, NULL);
