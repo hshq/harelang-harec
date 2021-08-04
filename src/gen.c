@@ -309,10 +309,15 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 	struct expression *value = expr->assign.value;
 	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
 	assert(object->type != EXPR_SLICE); // TODO
-	assert(!expr->assign.indirect); // TODO
 	assert(expr->assign.op == BIN_LEQUAL); // TODO
 
-	struct gen_value obj = gen_expr_access_addr(ctx, object);
+	struct gen_value obj;
+	if (expr->assign.indirect) {
+		obj = gen_expr(ctx, object);
+		obj.type = type_dealias(object->result)->pointer.referent;
+	} else {
+		obj = gen_expr_access_addr(ctx, object);
+	}
 	gen_store(ctx, obj, gen_expr(ctx, value));
 
 	return gv_void;
