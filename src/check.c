@@ -415,6 +415,18 @@ check_expr_assert(struct context *ctx,
 			return error(aexpr->assert.message->loc, expr, errors,
 				"Assertion message must be string");
 		}
+
+		assert(expr->assert.message->type == EXPR_CONSTANT);
+		int n = snprintf(NULL, 0, "%s:%d:%d: %s",
+			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno,
+			expr->assert.message->constant.string.value);
+		char *s = xcalloc(1, n + 1);
+		snprintf(s, n + 1, "%s:%d:%d: %s",
+			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno,
+			expr->assert.message->constant.string.value);
+
+		expr->assert.message->constant.string.value = s;
+		expr->assert.message->constant.string.len = n;
 	} else {
 		int n = snprintf(NULL, 0, "Assertion failed: %s:%d:%d",
 			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
