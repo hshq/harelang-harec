@@ -532,6 +532,48 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_if_with(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value *out)
+{
+	struct gen_value gvout = gv_void;
+	struct qbe_value qvout;
+	if (!out) {
+		gvout = mktemp(ctx, expr->result, ".%d");
+		qvout = mkqval(ctx, &gvout);
+	}
+
+	struct qbe_statement ltrue, lfalse, lend;
+	struct qbe_value btrue = mklabel(ctx, &ltrue, "true.%d");
+	struct qbe_value bfalse = mklabel(ctx, &lfalse, "false.%d");
+	struct qbe_value bend = mklabel(ctx, &lend, ".%d");
+	struct gen_value cond = gen_expr(ctx, expr->_if.cond);
+	struct qbe_value qcond = mkqval(ctx, &cond);
+	pushi(ctx->current, NULL, Q_JNZ, &qcond, &btrue, &bfalse, NULL);
+
+	push(&ctx->current->body, &ltrue);
+	struct gen_value vtrue = gen_expr_with(ctx, expr->_if.true_branch, out);
+	if (!out) {
+		struct qbe_value qvtrue = mkqval(ctx, &vtrue);
+		pushi(ctx->current, &qvout, Q_COPY, &qvtrue, NULL);
+	}
+	pushi(ctx->current, NULL, Q_JMP, &bend, NULL);
+
+	push(&ctx->current->body, &lfalse);
+	if (expr->_if.false_branch) {
+		struct gen_value vfalse = gen_expr_with(
+			ctx, expr->_if.false_branch, out);
+		if (!out) {
+			struct qbe_value qvfalse = mkqval(ctx, &vfalse);
+			pushi(ctx->current, &qvout, Q_COPY, &qvfalse, NULL);
+		}
+	}
+
+	push(&ctx->current->body, &lend);
+	return gvout;
+}
+
+static struct gen_value
 gen_expr_list_with(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
@@ -668,7 +710,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_DELETE:
 	case EXPR_FOR:
 	case EXPR_FREE:
+		assert(0); // TODO
 	case EXPR_IF:
+		return gen_expr_if_with(ctx, expr, NULL);
 	case EXPR_INSERT:
 		assert(0); // TODO
 	case EXPR_LIST:
@@ -710,6 +754,9 @@ gen_expr_at(struct gen_context *ctx,
 	case EXPR_CONSTANT:
 		gen_expr_const_at(ctx, expr, out);
 		return;
+	case EXPR_IF:
+		gen_expr_if_with(ctx, expr, &out);
+		return;
 	case EXPR_LIST:
 		gen_expr_list_with(ctx, expr, &out);
 		return;
@@ -723,7 +770,10 @@ gen_expr_at(struct gen_context *ctx,
 		break; // Prefers non-at style
 	}
 
-	gen_store(ctx, out, gen_expr(ctx, expr));
+	struct gen_value result = gen_expr(ctx, expr);
+	if (!expr->terminates) {
+		gen_store(ctx, out, result);
+	}
 }
 
 static struct gen_value

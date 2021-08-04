@@ -89,6 +89,6 @@ mklabel(struct gen_context *ctx, struct qbe_statement *stmt, const char *fmt)
 {
 	struct qbe_value val;
 	val.kind = QV_LABEL;
-	val.name = strdup(genl(stmt, &ctx->id, "failed.%d"));
+	val.name = strdup(genl(stmt, &ctx->id, fmt));
 	return val;
 }
