@@ -469,6 +469,28 @@ gen_expr_struct_at(struct gen_context *ctx,
 	}
 }
 
+static void
+gen_expr_tuple_at(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value out)
+{
+	// TODO: Merge me into constant expressions
+	struct qbe_value base = mkqval(ctx, &out);
+
+	const struct type *type = type_dealias(expr->result);
+	struct gen_value vtemp = mktemp(ctx, &builtin_type_void, "value.%d");
+	const struct expression_tuple *value = &expr->tuple;
+	for (const struct type_tuple *tuple = &type->tuple;
+			tuple; tuple = tuple->next) {
+		struct qbe_value offs = constl(tuple->offset);
+		vtemp.type = value->value->result;
+		struct qbe_value ptr = mklval(ctx, &vtemp);
+		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
+		gen_expr_at(ctx, value->value, vtemp);
+		value = value->next;
+	}
+}
+
 static struct gen_value
 gen_expr_unarithm(struct gen_context *ctx,
 	const struct expression *expr)
@@ -536,11 +558,11 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_return(ctx, expr);
 	case EXPR_SLICE:
 	case EXPR_SWITCH:
-	case EXPR_TUPLE:
 		assert(0); // TODO
 	case EXPR_UNARITHM:
 		return gen_expr_unarithm(ctx, expr);
 	case EXPR_STRUCT:
+	case EXPR_TUPLE:
 		break; // Prefers -at style
 	}
 
@@ -569,6 +591,9 @@ gen_expr_at(struct gen_context *ctx,
 		return;
 	case EXPR_STRUCT:
 		gen_expr_struct_at(ctx, expr, out);
+		return;
+	case EXPR_TUPLE:
+		gen_expr_tuple_at(ctx, expr, out);
 		return;
 	default:
 		break; // Prefers non-at style

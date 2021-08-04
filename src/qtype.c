@@ -77,9 +77,20 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		}
 		free(tfields);
 		break;
+	case STORAGE_TUPLE:
+		for (const struct type_tuple *tuple = &type->tuple;
+				tuple; tuple = tuple->next) {
+			field->type = qtype_lookup(ctx, tuple->type, true);
+			field->count = 1;
+
+			if (tuple->next) {
+				field->next = xcalloc(1, sizeof(struct qbe_field));
+				field = field->next;
+			}
+		}
+		break;
 	case STORAGE_SLICE:
 	case STORAGE_TAGGED:
-	case STORAGE_TUPLE:
 		assert(0); // TODO
 	case STORAGE_ENUM:
 	case STORAGE_ALIAS:
