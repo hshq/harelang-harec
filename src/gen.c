@@ -445,11 +445,11 @@ gen_const_string_at(struct gen_context *ctx,
 	struct qbe_value strp = mkcopy(ctx, &out, ".%d");
 	struct qbe_value qlen = constl(len);
 	struct qbe_value offs = constl(builtin_type_size.size);
-	pushi(ctx->current, NULL, store, &qlen, &strp, NULL);
-	pushi(ctx->current, &strp, Q_ADD, &strp, &offs, NULL);
-	pushi(ctx->current, NULL, store, &qlen, &strp, NULL);
-	pushi(ctx->current, &strp, Q_ADD, &strp, &offs, NULL);
 	pushi(ctx->current, NULL, store, &global, &strp, NULL);
+	pushi(ctx->current, &strp, Q_ADD, &strp, &offs, NULL);
+	pushi(ctx->current, NULL, store, &qlen, &strp, NULL);
+	pushi(ctx->current, &strp, Q_ADD, &strp, &offs, NULL);
+	pushi(ctx->current, NULL, store, &qlen, &strp, NULL);
 }
 
 static void

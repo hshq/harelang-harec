@@ -11,8 +11,8 @@ void *c_memcpy(void *dest, const void *src, size_t n) {
 }
 
 struct ha_str {
-	size_t len, cap;
 	char *str;
+	size_t len, cap;
 };
 
 void c_abort(struct ha_str str) {
