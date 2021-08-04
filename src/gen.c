@@ -17,11 +17,7 @@ static void
 gen_copy_memcpy(struct gen_context *ctx,
 	struct gen_value dest, struct gen_value src)
 {
-	struct qbe_value rtfunc = {
-		.kind = QV_GLOBAL,
-		.name = strdup("rt.memcpy"),
-		.type = &qbe_long,
-	};
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
 	struct qbe_value sz = constl(dest.type->size);
 	struct qbe_value dtemp = {
 		.kind = QV_TEMPORARY,
@@ -373,11 +369,7 @@ gen_expr_struct_at(struct gen_context *ctx,
 	struct qbe_value base = mkqval(ctx, &out);
 
 	if (expr->_struct.autofill) {
-		struct qbe_value rtfunc = {
-			.kind = QV_GLOBAL,
-			.name = strdup("rt.memset"),
-			.type = &qbe_long,
-		};
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memset");
 		struct qbe_value size =
 			constl(expr->result->size), zero = constl(0);
 		pushi(ctx->current, NULL, Q_CALL, &rtfunc,

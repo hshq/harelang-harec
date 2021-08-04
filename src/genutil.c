@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "gen.h"
 #include "qbe.h"
 #include "util.h"
@@ -70,5 +71,15 @@ mktemp(struct gen_context *ctx, const struct type *type, const char *fmt)
 		.kind = GV_TEMP,
 		.type = type,
 		.name = gen_name(ctx, fmt),
+	};
+}
+
+struct qbe_value
+mkrtfunc(struct gen_context *ctx, const char *name)
+{
+	return (struct qbe_value){
+		.kind = QV_GLOBAL,
+		.name = strdup(name),
+		.type = ctx->arch.ptr,
 	};
 }
