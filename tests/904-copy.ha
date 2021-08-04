@@ -36,8 +36,15 @@ export fn main() int = {
 	assert(&a != &b);
 	assert(a._16 == b._16);
 
-	// strings
-	// TODO: Need casts to examine string internals
+	// tuples
+	let a = (1, 2z, 3u8);
+	let b = a;
+	assert(a.0 == b.0);
+	assert(a.1 == b.1);
+	assert(a.2 == b.2);
+
+	// strings, slices
+	// TODO: Need casts to examine internals
 
 	return 0;
 };
