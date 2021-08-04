@@ -54,8 +54,8 @@ mkcopy(struct gen_context *ctx, struct gen_value *value, const char *fmt)
 	return copy;
 }
 
-struct qbe_value mkqtmp(struct gen_context *ctx,
-	const struct qbe_type *qtype, const char *fmt)
+struct qbe_value
+mkqtmp(struct gen_context *ctx, const struct qbe_type *qtype, const char *fmt)
 {
 	return (struct qbe_value){
 		.kind = QV_TEMPORARY,
@@ -82,4 +82,13 @@ mkrtfunc(struct gen_context *ctx, const char *name)
 		.name = strdup(name),
 		.type = ctx->arch.ptr,
 	};
+}
+
+struct qbe_value
+mklabel(struct gen_context *ctx, struct qbe_statement *stmt, const char *fmt)
+{
+	struct qbe_value val;
+	val.kind = QV_LABEL;
+	val.name = strdup(genl(stmt, &ctx->id, "failed.%d"));
+	return val;
 }

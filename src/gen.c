@@ -261,17 +261,12 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 		return gv_void;
 	}
 
-	struct qbe_statement failedl = {0}, passedl = {0};
-	struct qbe_value bfailed = {0}, bpassed = {0};
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.abort");
 	struct gen_value msg;
-
+	struct qbe_statement failedl, passedl;
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.abort");
 	if (expr->assert.cond) {
-		bfailed.kind = QV_LABEL;
-		bfailed.name = strdup(genl(&failedl, &ctx->id, "failed.%d"));
-		bpassed.kind = QV_LABEL;
-		bpassed.name = strdup(genl(&passedl, &ctx->id, "passed.%d"));
-
+		struct qbe_value bfailed = mklabel(ctx, &failedl, "failed.%d");
+		struct qbe_value bpassed = mklabel(ctx, &passedl, "passed.%d");
 		struct gen_value cond = gen_expr(ctx, expr->assert.cond);
 		struct qbe_value qcond = mkqval(ctx, &cond);
 		pushi(ctx->current, NULL, Q_JNZ, &qcond, &bpassed, &bfailed, NULL);
