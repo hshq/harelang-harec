@@ -8,7 +8,8 @@ tests() {
 		901-primitives \
 		902-arithm \
 		903-postfix \
-		904-copy
+		904-copy \
+		905-assign
 	do
 		cat <<EOF
 tests/$t: harec tests/$t.ha tests/rt.o
