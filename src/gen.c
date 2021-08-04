@@ -197,6 +197,27 @@ gen_access_field(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_access_index(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value glval = gen_expr(ctx, expr->access.array);
+	glval = gen_autoderef(ctx, glval);
+	struct qbe_value qlval = mkqval(ctx, &glval);
+	struct qbe_value qival = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+
+	struct gen_value index = gen_expr(ctx, expr->access.index);
+	struct qbe_value qindex = mkqval(ctx, &index);
+	struct qbe_value itemsz = constl(expr->result->size);
+	pushi(ctx->current, &qival, Q_MUL, &qindex, &itemsz, NULL);
+	pushi(ctx->current, &qival, Q_ADD, &qlval, &qival, NULL);
+
+	return (struct gen_value){
+		.kind = GV_TEMP,
+		.type = expr->result,
+		.name = qival.name,
+	};
+}
+
+static struct gen_value
 gen_expr_access_addr(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value addr;
@@ -205,7 +226,8 @@ gen_expr_access_addr(struct gen_context *ctx, const struct expression *expr)
 		addr = gen_access_ident(ctx, expr);
 		break;
 	case ACCESS_INDEX:
-		assert(0); // TODO
+		addr = gen_access_index(ctx, expr);
+		break;
 	case ACCESS_FIELD:
 		addr = gen_access_field(ctx, expr);
 		break;
