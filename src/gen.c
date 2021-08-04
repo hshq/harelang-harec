@@ -25,12 +25,10 @@ gen_copy_memcpy(struct gen_context *ctx,
 }
 
 static void
-gen_copy_struct(struct gen_context *ctx,
+gen_copy_aligned(struct gen_context *ctx,
 	struct gen_value dest, struct gen_value src)
 {
-	const struct type *stype = type_dealias(dest.type);
-	assert(stype->storage == STORAGE_STRUCT);
-	if (stype->size > 128) {
+	if (dest.type->size > 128) {
 		gen_copy_memcpy(ctx, dest, src);
 		return;
 	}
@@ -73,13 +71,11 @@ gen_store(struct gen_context *ctx,
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
-		gen_copy_memcpy(ctx, object, value); // TODO
-		return;
 	case STORAGE_STRUCT:
-		gen_copy_struct(ctx, object, value);
+	case STORAGE_TUPLE:
+		gen_copy_aligned(ctx, object, value);
 		return;
 	case STORAGE_TAGGED:
-	case STORAGE_TUPLE:
 		assert(0); // TODO
 	case STORAGE_UNION:
 		gen_copy_memcpy(ctx, object, value);
