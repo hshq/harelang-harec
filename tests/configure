@@ -11,7 +11,8 @@ tests() {
 		904-copy \
 		905-assign \
 		906-if \
-		907-casts
+		907-casts \
+		908-loops
 	do
 		cat <<EOF
 tests/$t: harec tests/$t.ha tests/rt.o

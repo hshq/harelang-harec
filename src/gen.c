@@ -662,6 +662,38 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_for(struct gen_context *ctx, const struct expression *expr)
+{
+	struct qbe_statement lloop, lbody, lafter, lend;
+	struct qbe_value bloop = mklabel(ctx, &lloop, "loop.%d");
+	struct qbe_value bbody = mklabel(ctx, &lbody, "body.%d");
+	struct qbe_value bend = mklabel(ctx, &lend, ".%d");
+	mklabel(ctx, &lafter, "after.%d");
+
+	if (expr->_for.bindings) {
+		gen_expr_binding(ctx, expr->_for.bindings);
+	}
+
+	push(&ctx->current->body, &lloop);
+	struct gen_value cond = gen_expr(ctx, expr->_for.cond);
+	struct qbe_value qcond = mkqval(ctx, &cond);
+	pushi(ctx->current, NULL, Q_JNZ, &qcond, &bbody, &bend, NULL);
+
+	push(&ctx->current->body, &lbody);
+	gen_expr(ctx, expr->_for.body);
+
+	push(&ctx->current->body, &lafter);
+	if (expr->_for.afterthought) {
+		gen_expr(ctx, expr->_for.afterthought);
+	}
+
+	pushi(ctx->current, NULL, Q_JMP, &bloop, NULL);
+
+	push(&ctx->current->body, &lend);
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_if_with(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
@@ -876,7 +908,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_CONTINUE:
 	case EXPR_DEFER:
 	case EXPR_DELETE:
+		assert(0); // TODO
 	case EXPR_FOR:
+		return gen_expr_for(ctx, expr);
 	case EXPR_FREE:
 		assert(0); // TODO
 	case EXPR_IF:
