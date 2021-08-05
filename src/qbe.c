@@ -274,3 +274,33 @@ constl(uint64_t l)
 		.lval = l,
 	};
 }
+
+struct qbe_value
+constw(uint32_t w)
+{
+	return (struct qbe_value){
+		.kind = QV_CONST,
+		.type = &qbe_word,
+		.wval = w,
+	};
+}
+
+struct qbe_value
+consts(float s)
+{
+	return (struct qbe_value){
+		.kind = QV_CONST,
+		.type = &qbe_single,
+		.sval = s,
+	};
+}
+
+struct qbe_value
+constd(double d)
+{
+	return (struct qbe_value){
+		.kind = QV_CONST,
+		.type = &qbe_double,
+		.dval = d,
+	};
+}
