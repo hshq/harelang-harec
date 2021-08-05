@@ -43,8 +43,23 @@ export fn main() int = {
 	assert(a.1 == b.1);
 	assert(a.2 == b.2);
 
-	// strings, slices
-	// TODO: Need casts to examine internals
+	let x = "hello world";
+	let y = x;
+	let px = &x: *struct {
+		data: *[*]u8,
+		length: size,
+		capacity: size,
+	};
+	let py = &y: *struct {
+		data: *[*]u8,
+		length: size,
+		capacity: size,
+	};
+	assert(px.length == py.length);
+	assert(px.capacity == py.capacity);
+	assert(px.data == py.data);
+
+	// TODO: Slices
 
 	return 0;
 };
