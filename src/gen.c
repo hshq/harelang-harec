@@ -5,6 +5,7 @@
 #include "expr.h"
 #include "gen.h"
 #include "scope.h"
+#include "typedef.h"
 #include "types.h"
 #include "util.h"
 
@@ -432,13 +433,77 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	return rval;
 }
 
+static struct gen_value gen_expr_cast(struct gen_context *ctx,
+		const struct expression *expr);
+
+static char *
+gen_typename(const struct type *type)
+{
+	size_t sz = 0;
+	char *ptr = NULL;
+	FILE *f = open_memstream(&ptr, &sz);
+	emit_type(type, f);
+	fclose(f);
+	return ptr;
+}
+
+static void
+gen_expr_cast_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
+{
+	// This function is only concerned with casting to tagged unions, which
+	// is more efficient with the _at usage. For all other cases, it falls
+	// back to gen_expr_cast.
+	const struct type *to = expr->result, *from = expr->cast.value->result;
+	if (type_dealias(to)->storage != STORAGE_TAGGED) {
+		struct gen_value result = gen_expr_cast(ctx, expr);
+		if (!expr->terminates) {
+			gen_store(ctx, out, result);
+		}
+		return;
+	}
+
+	// Cast to tagged union
+	const struct type *subtype = tagged_select_subtype(to, from);
+	assert(subtype); // TODO: Casting between incompatible tagged unions
+
+	struct qbe_value qout = mkqval(ctx, &out);
+	struct qbe_value id = constw(subtype->id);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+	char *tname = gen_typename(subtype);
+	pushc(ctx->current, "store tag for type %s", tname);
+	pushi(ctx->current, NULL, store, &id, &qout, NULL);
+	free(tname);
+
+	if (subtype->size == 0) {
+		return;
+	}
+
+	struct gen_value storage = mktemp(ctx, subtype, ".%d");
+	struct qbe_value qstor = mklval(ctx, &storage);
+	struct qbe_value offs = constl(to->align);
+	pushi(ctx->current, &qstor, Q_ADD, &qout, &offs, NULL);
+	gen_expr_at(ctx, expr->cast.value, storage);
+}
+
 static struct gen_value
 gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 {
 	assert(expr->cast.kind == C_CAST); // TODO
 	const struct type *to = expr->result, *from = expr->cast.value->result;
-	assert(type_dealias(to)->storage != STORAGE_TAGGED
-		&& type_dealias(from)->storage != STORAGE_TAGGED); // TODO
+
+	// Casting to tagged union prefers _at form
+	if (type_dealias(to)->storage == STORAGE_TAGGED) {
+		struct gen_value out = mktemp(ctx, expr->result, "object.%d");
+		struct qbe_value base = mkqval(ctx, &out);
+		struct qbe_value sz = constl(expr->result->size);
+		enum qbe_instr alloc = alloc_for_align(expr->result->align);
+		pushprei(ctx->current, &base, alloc, &sz, NULL);
+		gen_expr_cast_at(ctx, expr, out);
+		return out;
+	}
+
+	assert(type_dealias(from)->storage != STORAGE_TAGGED); // TODO
 
 	if (type_dealias(to)->storage == type_dealias(from)->storage
 			&& to->size == from->size) {
@@ -1007,6 +1072,9 @@ gen_expr_at(struct gen_context *ctx,
 	assert(out.kind != GV_CONST);
 
 	switch (expr->type) {
+	case EXPR_CAST:
+		gen_expr_cast_at(ctx, expr, out);
+		return;
 	case EXPR_CONSTANT:
 		gen_expr_const_at(ctx, expr, out);
 		return;

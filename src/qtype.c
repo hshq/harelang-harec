@@ -16,6 +16,47 @@ sf_compar(const void *_a, const void *_b)
 }
 
 static const struct qbe_type *
+tagged_qtype(struct gen_context *ctx, const struct type *type)
+{
+	int n = snprintf(NULL, 0, "tags.%zd", ctx->id);
+	char *name = xcalloc(1, n + 1);
+	snprintf(name, n + 1, "tags.%zd", ctx->id);
+	++ctx->id;
+
+	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
+	def->kind = Q_TYPE;
+	def->name = name;
+	def->exported = false;
+	def->type.stype = Q__AGGREGATE;
+	def->type.base = NULL;
+	def->type.name = name;
+	def->type.size = type->size - type->align;
+
+	struct qbe_field *field = &def->type.fields;
+	struct qbe_field **next = &field->next;
+	for (const struct type_tagged_union *tu = &type->tagged;
+			tu; tu = tu->next) {
+		if (tu->type->size == 0) {
+			if (!tu->next && *next) {
+				free(*next);
+				*next = NULL;
+			}
+			continue;
+		}
+		field->type = qtype_lookup(ctx, tu->type, true);
+		field->count = 1;
+		if (tu->next) {
+			field->next = xcalloc(1, sizeof(struct qbe_field));
+			next = &field->next;
+			field = field->next;
+		}
+	}
+
+	qbe_append_def(ctx->out, def);
+	return &def->type;
+}
+
+static const struct qbe_type *
 aggregate_lookup(struct gen_context *ctx, const struct type *type)
 {
 	for (struct qbe_def *def = ctx->out->defs; def; def = def->next) {
@@ -96,6 +137,14 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		}
 		break;
 	case STORAGE_TAGGED:
+		field->type = &qbe_word; // XXX: ARCH
+		field->count = 1;
+		if (type->size != builtin_type_uint.size) {
+			field->next = xcalloc(1, sizeof(struct qbe_field));
+			field = field->next;
+			field->type = tagged_qtype(ctx, type);
+			field->count = 1;
+		}
 		break;
 	case STORAGE_ENUM:
 	case STORAGE_ALIAS:

@@ -48,18 +48,21 @@ static void
 qemit_type(const struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_TYPE);
-	assert(def->type.base);
 	const struct type *base = def->type.base;
-	char *tn = gen_typename(def->type.base);
-	fprintf(out, "# %s [id: %u]\n", tn, def->type.base->id);
-	free(tn);
-	fprintf(out, "type :%s =", def->name);
-	if (base->align != (size_t)-1) {
-		fprintf(out, " align %zu", base->align);
+	if (base) {
+		char *tn = gen_typename(base);
+		fprintf(out, "# %s [id: %u]\n", tn, base->id);
+		free(tn);
+		fprintf(out, "type :%s =", def->name);
+		if (base->align != (size_t)-1) {
+			fprintf(out, " align %zu", base->align);
+		}
+	} else {
+		fprintf(out, "type :%s =", def->name);
 	}
 	fprintf(out, " {");
 
-	bool is_union = type_dealias(base)->storage == STORAGE_UNION;
+	bool is_union = base == NULL || type_dealias(base)->storage == STORAGE_UNION;
 	const struct qbe_field *field = &def->type.fields;
 	while (field) {
 		if (is_union) {
