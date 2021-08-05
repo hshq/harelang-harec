@@ -13,6 +13,53 @@ static const struct gen_value gv_void = {
 	.type = &builtin_type_void,
 };
 
+static struct gen_value gen_expr(struct gen_context *ctx,
+	const struct expression *expr);
+static void gen_expr_at(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value out);
+static struct gen_value gen_expr_with(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value *out);
+
+static void
+gen_defers(struct gen_context *ctx)
+{
+	assert(ctx->scope);
+	if (ctx->scope->defers) {
+		pushc(ctx->current, "gen defers");
+	}
+	for (struct gen_defer *defer = ctx->scope->defers; defer;
+			defer = defer->next) {
+		gen_expr(ctx, defer->expr);
+	}
+}
+
+static void
+push_scope(struct gen_context *ctx)
+{
+	struct gen_scope *scope = xcalloc(1, sizeof(struct gen_scope));
+	scope->parent = ctx->scope;
+	ctx->scope = scope;
+}
+
+static void
+pop_scope(struct gen_context *ctx, bool gendefers)
+{
+	if (gendefers) {
+		gen_defers(ctx);
+	}
+	struct gen_scope *scope = ctx->scope;
+	ctx->scope = scope->parent;
+	for (struct gen_defer *defer = scope->defers; defer; /* n/a */) {
+		struct gen_defer *next = defer->next;
+		free(defer);
+		defer = next;
+	}
+	free(scope);
+}
+
+
 static void
 gen_copy_memcpy(struct gen_context *ctx,
 	struct gen_value dest, struct gen_value src)
@@ -132,15 +179,6 @@ gen_autoderef(struct gen_context *ctx, struct gen_value val)
 	}
 	return val;
 }
-
-static struct gen_value gen_expr(struct gen_context *ctx,
-	const struct expression *expr);
-static void gen_expr_at(struct gen_context *ctx,
-	const struct expression *expr,
-	struct gen_value out);
-static struct gen_value gen_expr_with(struct gen_context *ctx,
-	const struct expression *expr,
-	struct gen_value *out);
 
 static struct gen_value
 gen_access_ident(struct gen_context *ctx, const struct expression *expr)
@@ -662,6 +700,16 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_defer(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_defer *defer = xcalloc(1, sizeof(struct gen_defer));
+	defer->expr = expr->defer.deferred;
+	defer->next = ctx->scope->defers;
+	ctx->scope->defers = defer;
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 {
 	struct qbe_statement lloop, lbody, lafter, lend;
@@ -732,11 +780,14 @@ gen_expr_list_with(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
 {
-	// TODO: Set up defer scope
+	push_scope(ctx);
 	for (const struct expressions *exprs = &expr->list.exprs;
 			exprs; exprs = exprs->next) {
 		if (!exprs->next) {
-			return gen_expr_with(ctx, exprs->expr, out);
+			struct gen_value gv = gen_expr_with(
+				ctx, exprs->expr, out);
+			pop_scope(ctx, !exprs->expr->terminates);
+			return gv;
 		}
 		gen_expr(ctx, exprs->expr);
 	}
@@ -792,9 +843,9 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 {
-	// TODO: Run defers
 	struct gen_value ret = gen_expr(ctx, expr->_return.value);
 	struct qbe_value qret = mkqval(ctx, &ret);
+	gen_defers(ctx);
 	pushi(ctx->current, NULL, Q_RET, &qret, NULL);
 	return gv_void;
 }
@@ -906,7 +957,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_CONSTANT:
 		return gen_expr_const(ctx, expr);
 	case EXPR_CONTINUE:
+		assert(0); // TODO
 	case EXPR_DEFER:
+		return gen_expr_defer(ctx, expr);
 	case EXPR_DELETE:
 		assert(0); // TODO
 	case EXPR_FOR:

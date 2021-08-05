@@ -42,6 +42,16 @@ struct gen_binding {
 	struct gen_binding *next;
 };
 
+struct gen_defer {
+	const struct expression *expr;
+	struct gen_defer *next;
+};
+
+struct gen_scope {
+	struct gen_defer *defers;
+	struct gen_scope *parent;
+};
+
 struct gen_context {
 	struct qbe_program *out;
 	struct gen_arch arch;
@@ -53,6 +63,7 @@ struct gen_context {
 	struct qbe_func *current;
 	const struct type *functype;
 	struct gen_binding *bindings;
+	struct gen_scope *scope;
 };
 
 struct unit;
