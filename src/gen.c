@@ -710,6 +710,52 @@ gen_expr_list_with(struct gen_context *ctx,
 }
 
 static struct gen_value
+gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
+{
+	size_t len;
+	struct gen_value gv, temp;
+	const struct expression *value = expr->measure.value;
+	switch (expr->measure.op) {
+	case M_LEN:
+		switch (type_dealias(value->result)->storage) {
+		case STORAGE_ARRAY:
+			len = type_dealias(value->result)->array.length;
+			assert(len != SIZE_UNDEFINED);
+			return (struct gen_value){
+				.kind = GV_CONST,
+				.type = &builtin_type_size,
+				.lval = len,
+			};
+		case STORAGE_SLICE:
+		case STORAGE_STRING:
+			gv = gen_expr(ctx, value);
+			gv = gen_autoderef(ctx, gv);
+			temp = mktemp(ctx, &builtin_type_size, ".%d");
+			struct qbe_value qv = mkqval(ctx, &gv),
+				qtemp = mkqval(ctx, &temp),
+				offs = constl(builtin_type_size.size);
+			enum qbe_instr load = load_for_type(ctx,
+				&builtin_type_size);
+			pushi(ctx->current, &qtemp, Q_ADD, &qv, &offs, NULL);
+			pushi(ctx->current, &qtemp, load, &qtemp, NULL);
+			return temp;
+		default:
+			abort(); // Invariant
+		}
+		break;
+	case M_SIZE:
+		return (struct gen_value){
+			.kind = GV_CONST,
+			.type = &builtin_type_size,
+			.lval = expr->measure.type->size,
+		};
+	case M_OFFSET:
+		assert(0); // TODO
+	}
+	abort(); // Invariant
+}
+
+static struct gen_value
 gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 {
 	// TODO: Run defers
@@ -838,8 +884,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_LIST:
 		return gen_expr_list_with(ctx, expr, NULL);
 	case EXPR_MATCH:
-	case EXPR_MEASURE:
 		assert(0); // TODO
+	case EXPR_MEASURE:
+		return gen_expr_measure(ctx, expr);
 	case EXPR_PROPAGATE:
 		assert(0); // Lowered in check (for now?)
 	case EXPR_RETURN:
