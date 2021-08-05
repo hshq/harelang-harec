@@ -538,7 +538,7 @@ gen_expr_if_with(struct gen_context *ctx,
 {
 	struct gen_value gvout = gv_void;
 	struct qbe_value qvout;
-	if (!out) {
+	if (!out && type_dealias(expr->result)->storage != STORAGE_VOID) {
 		gvout = mktemp(ctx, expr->result, ".%d");
 		qvout = mkqval(ctx, &gvout);
 	}
@@ -553,7 +553,7 @@ gen_expr_if_with(struct gen_context *ctx,
 
 	push(&ctx->current->body, &ltrue);
 	struct gen_value vtrue = gen_expr_with(ctx, expr->_if.true_branch, out);
-	if (!out) {
+	if (!out && type_dealias(expr->result)->storage != STORAGE_VOID) {
 		struct qbe_value qvtrue = mkqval(ctx, &vtrue);
 		pushi(ctx->current, &qvout, Q_COPY, &qvtrue, NULL);
 	}
@@ -563,7 +563,7 @@ gen_expr_if_with(struct gen_context *ctx,
 	if (expr->_if.false_branch) {
 		struct gen_value vfalse = gen_expr_with(
 			ctx, expr->_if.false_branch, out);
-		if (!out) {
+		if (!out && type_dealias(expr->result)->storage != STORAGE_VOID) {
 			struct qbe_value qvfalse = mkqval(ctx, &vfalse);
 			pushi(ctx->current, &qvout, Q_COPY, &qvfalse, NULL);
 		}

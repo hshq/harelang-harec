@@ -13,5 +13,7 @@ export fn main() int = {
 	} else abort();
 	assert(x.x == 10);
 
+	if (true) void else void;
+
 	return 0;
 };
