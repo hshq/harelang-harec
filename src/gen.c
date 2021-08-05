@@ -404,7 +404,9 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 
 	if (type_dealias(to)->storage == type_dealias(from)->storage
 			&& to->size == from->size) {
-		return gen_expr(ctx, expr->cast.value);
+		struct gen_value value = gen_expr(ctx, expr->cast.value);
+		value.type = to;
+		return value;
 	}
 
 	// Special cases
