@@ -394,6 +394,134 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	return rval;
 }
 
+static struct gen_value
+gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
+{
+	assert(expr->cast.kind == C_CAST); // TODO
+	const struct type *to = expr->result, *from = expr->cast.value->result;
+	assert(type_dealias(to)->storage != STORAGE_TAGGED
+		&& type_dealias(from)->storage != STORAGE_TAGGED); // TODO
+
+	if (type_dealias(to)->storage == type_dealias(from)->storage
+			&& to->size == from->size) {
+		return gen_expr(ctx, expr->cast.value);
+	}
+
+	// Special cases
+	switch (type_dealias(to)->storage) {
+	case STORAGE_POINTER:
+		if (type_dealias(from)->storage == STORAGE_SLICE) {
+			assert(0); // TODO
+		}
+		break;
+	case STORAGE_VOID:
+		gen_expr(ctx, expr->cast.value); // Side-effects
+		return gv_void;
+	default: break;
+	}
+
+	struct gen_value value = gen_expr(ctx, expr->cast.value);
+	struct qbe_value qvalue = mkqval(ctx, &value);
+	struct gen_value result = mktemp(ctx, expr->result, "cast.%d");
+	struct qbe_value qresult = mkqval(ctx, &result);
+
+	enum qbe_instr op;
+	bool is_signed = type_is_signed(from);
+	enum type_storage fstor = type_dealias(from)->storage,
+		tstor = type_dealias(to)->storage;
+	switch (tstor) {
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_U8:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_U16:
+	case STORAGE_I32:
+	case STORAGE_U32:
+	case STORAGE_INT:
+	case STORAGE_UINT:
+	case STORAGE_I64:
+	case STORAGE_U64:
+	case STORAGE_UINTPTR:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+		if (type_is_integer(from) && to->size <= from->size) {
+			op = Q_COPY;
+		} else if (type_is_integer(from) && to->size > from->size) {
+			switch (from->size) {
+			case 4: op = is_signed ? Q_EXTSW : Q_EXTUW; break;
+			case 2: op = is_signed ? Q_EXTSH : Q_EXTUH; break;
+			case 1: op = is_signed ? Q_EXTSB : Q_EXTUB; break;
+			default: abort(); // Invariant
+			}
+		} else if (fstor == STORAGE_POINTER || fstor == STORAGE_NULL) {
+			assert(tstor == STORAGE_UINTPTR);
+			op = Q_COPY;
+		} else if (fstor == STORAGE_RUNE) {
+			assert(tstor == STORAGE_U32);
+			op = Q_COPY;
+		} else if (type_is_float(from)) {
+			if (type_is_signed(to)) {
+				switch (fstor) {
+				case STORAGE_F32: op = Q_STOSI; break;
+				case STORAGE_F64: op = Q_DTOSI; break;
+				default: abort(); // Invariant
+				}
+			} else {
+				assert(0); // TODO
+			}
+		} else {
+			abort(); // Invariant
+		}
+		pushi(ctx->current, &qresult, op, &qvalue, NULL);
+		break;
+	case STORAGE_F32:
+	case STORAGE_F64:
+		if (type_is_float(from) && from->size == to->size) {
+			op = Q_COPY;
+		} else if (type_is_float(from) && to->size < from->size) {
+			op = Q_TRUNCD;
+		} else if (type_is_float(from) && to->size > from->size) {
+			op = Q_EXTS;
+		} else if (type_is_integer(from)) {
+			if (type_is_signed(from)) {
+				switch (from->size) {
+				case 4: op = Q_SWTOF; break;
+				case 8: op = Q_SLTOF; break;
+				default: abort(); // Invariant
+				}
+			} else {
+				assert(0); // TODO
+			}
+		} else {
+			abort(); // Invariant
+		}
+		pushi(ctx->current, &qresult, op, &qvalue, NULL);
+		break;
+	case STORAGE_NULL:
+	case STORAGE_POINTER:
+		pushi(ctx->current, &qresult, Q_COPY, &qvalue, NULL);
+		break;
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+		assert(0); // TODO
+	case STORAGE_ALIAS:
+	case STORAGE_BOOL:
+	case STORAGE_FCONST:
+	case STORAGE_FUNCTION:
+	case STORAGE_ICONST:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+	case STORAGE_VOID:
+		abort(); // Invariant
+	}
+
+	return result;
+}
+
 static void
 gen_const_array_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
@@ -694,7 +822,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_CALL:
 		return gen_expr_call(ctx, expr);
 	case EXPR_CAST:
-		assert(0); // TODO
+		return gen_expr_cast(ctx, expr);
 	case EXPR_CONSTANT:
 		return gen_expr_const(ctx, expr);
 	case EXPR_CONTINUE:
