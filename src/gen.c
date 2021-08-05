@@ -1010,7 +1010,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	ctx->current = &qdef->func;
 
 	struct qbe_statement start_label = {0};
-	genl(&start_label, &ctx->id, "start.%d");
+	mklabel(ctx, &start_label, "start.%d");
 	push(&qdef->func.prelude, &start_label);
 
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
