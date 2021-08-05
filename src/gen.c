@@ -537,7 +537,7 @@ gen_expr_if_with(struct gen_context *ctx,
 	struct gen_value *out)
 {
 	struct gen_value gvout = gv_void;
-	if (!out && type_dealias(expr->result)->storage != STORAGE_VOID) {
+	if (!out) {
 		gvout = mktemp(ctx, expr->result, ".%d");
 	}
 
