@@ -49,6 +49,12 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		field->type = ctx->arch.ptr;
 		field->count = 3;
 		break;
+	case STORAGE_SLICE:
+		// XXX: This assertion does not hold for all architectures
+		assert(ctx->arch.ptr->stype == ctx->arch.sz->stype);
+		field->type = ctx->arch.ptr;
+		field->count = 3;
+		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
 		assert(type->struct_union.c_compat); // TODO
@@ -89,9 +95,8 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 			}
 		}
 		break;
-	case STORAGE_SLICE:
 	case STORAGE_TAGGED:
-		assert(0); // TODO
+		break;
 	case STORAGE_ENUM:
 	case STORAGE_ALIAS:
 	case STORAGE_CHAR:
