@@ -74,6 +74,8 @@ struct qbe_value mkqtmp(struct gen_context *ctx,
 struct qbe_value mkrtfunc(struct gen_context *ctx, const char *name);
 struct qbe_value mklabel(struct gen_context *ctx,
 	struct qbe_statement *stmt, const char *fmt);
+void branch_copyresult(struct gen_context *ctx, struct gen_value result,
+	struct gen_value merged, struct gen_value *out);
 
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);

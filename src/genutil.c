@@ -92,3 +92,20 @@ mklabel(struct gen_context *ctx, struct qbe_statement *stmt, const char *fmt)
 	val.name = strdup(genl(stmt, &ctx->id, fmt));
 	return val;
 }
+
+void
+branch_copyresult(struct gen_context *ctx,
+	struct gen_value result,
+	struct gen_value merged,
+	struct gen_value *out)
+{
+	// Branching expressions written in the _with style may need to
+	// consolodate each branch's result into a single temporary to return to
+	// the caller. This function facilitates that.
+	if (out || type_dealias(result.type)->storage == STORAGE_VOID) {
+		return;
+	}
+	struct qbe_value qmerged = mkqval(ctx, &merged);
+	struct qbe_value qval = mkqval(ctx, &result);
+	pushi(ctx->current, &qmerged, Q_COPY, &qval, NULL);
+}
