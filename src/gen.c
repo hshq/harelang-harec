@@ -124,7 +124,9 @@ gen_store(struct gen_context *ctx,
 		gen_copy_aligned(ctx, object, value);
 		return;
 	case STORAGE_TAGGED:
-		assert(0); // TODO
+		// TODO: We can be smarter in this case
+		gen_copy_aligned(ctx, object, value);
+		return;
 	case STORAGE_UNION:
 		gen_copy_memcpy(ctx, object, value);
 		return;
@@ -463,10 +465,23 @@ gen_expr_cast_at(struct gen_context *ctx,
 		return;
 	}
 
-	// Cast to tagged union
 	const struct type *subtype = tagged_select_subtype(to, from);
-	assert(subtype); // TODO: Casting between incompatible tagged unions
+	assert(subtype || tagged_subset_compat(to, from));
+	if (!subtype && to->align == from->align) {
+		// Case 1: from is a union whose members are a subset of to, and
+		// the alignment matches, so we can just interpret values of
+		// type 'from' as if it were of type 'to'
+		struct gen_value out2 = out;
+		out2.type = from;
+		gen_expr_at(ctx, expr->cast.value, out2);
+		return;
+	} else if (!subtype) {
+		// Case 2: alignment mismatch, so (much) more work is required.
+		assert(0); // TODO
+		return;
+	}
 
+	// Case 3: from is a member of to
 	struct qbe_value qout = mkqval(ctx, &out);
 	struct qbe_value id = constw(subtype->id);
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);

@@ -1,4 +1,4 @@
-fn totagged() void = {
+fn membercast() void = {
 	// Simple case
 	let x: (int | void) = void;
 	let p = &x: *struct {
@@ -33,11 +33,28 @@ fn totagged() void = {
 	};
 	assert(p.id == 4119164483);
 	assert(p.data == 1337z);
+};
 
-	// TODO: More cases
+fn subsetcast() void = {
+	// Equal alignment
+	let x: (size | void) = 1337z;
+	let y: (size | int | void) = x;
+	let p = &y: *struct {
+		tag: uint,
+		data: union {
+			z: size,
+			i: int,
+		},
+	};
+	assert(p.tag == 4119164483);
+	assert(p.data.z == 1337z);
+
+	// Disjoint alignment
+	// TODO
 };
 
 export fn main() int = {
-	totagged();
+	membercast();
+	subsetcast();
 	return 0;
 };
