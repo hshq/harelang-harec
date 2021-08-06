@@ -63,8 +63,16 @@ fn subsetcast() void = {
 	assert(p.data.i == 1337);
 };
 
+fn castout() void = {
+	let x: (int | void) = 1337;
+	let y = x: int;
+	assert(y == 1337);
+	// XXX: We can probably expand this
+};
+
 export fn main() int = {
 	membercast();
 	subsetcast();
+	castout();
 	return 0;
 };

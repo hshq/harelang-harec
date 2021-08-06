@@ -544,8 +544,6 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		return out;
 	}
 
-	assert(type_dealias(from)->storage != STORAGE_TAGGED); // TODO
-
 	if (type_dealias(to)->storage == type_dealias(from)->storage
 			&& to->size == from->size) {
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
@@ -554,13 +552,28 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	// Special cases
+	if (type_dealias(from)->storage == STORAGE_TAGGED) {
+		// Cast from tagged union
+		struct gen_value value = gen_expr(ctx, expr->cast.value);
+		struct qbe_value base = mkcopy(ctx, &value, ".%d");
+		struct qbe_value align = constl(from->align);
+		pushi(ctx->current, &base, Q_ADD, &base, &align, NULL);
+		struct gen_value storage = (struct gen_value){
+			.kind = GV_TEMP,
+			.type = to,
+			.name = base.name,
+		};
+		return gen_load(ctx, storage);
+	}
 	switch (type_dealias(to)->storage) {
 	case STORAGE_POINTER:
 		if (type_dealias(from)->storage == STORAGE_SLICE) {
+			// Cast slice to pointer
 			assert(0); // TODO
 		}
 		break;
 	case STORAGE_VOID:
+		// Cast to void
 		gen_expr(ctx, expr->cast.value); // Side-effects
 		return gv_void;
 	default: break;
