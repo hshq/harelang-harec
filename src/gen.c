@@ -120,11 +120,8 @@ gen_store(struct gen_context *ctx,
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
-	case STORAGE_TUPLE:
-		gen_copy_aligned(ctx, object, value);
-		return;
 	case STORAGE_TAGGED:
-		// TODO: We can be smarter in this case
+	case STORAGE_TUPLE:
 		gen_copy_aligned(ctx, object, value);
 		return;
 	case STORAGE_UNION:
