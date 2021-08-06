@@ -1011,7 +1011,8 @@ static struct gen_value
 gen_expr_unarithm(struct gen_context *ctx,
 	const struct expression *expr)
 {
-	struct gen_value val;
+	struct gen_value val, temp;
+	struct qbe_value qval, qtmp;
 	const struct expression *operand = expr->unarithm.operand;
 	switch (expr->unarithm.op) {
 	case UN_ADDRESS:
@@ -1025,10 +1026,28 @@ gen_expr_unarithm(struct gen_context *ctx,
 		val.type = type_dealias(val.type)->pointer.referent;
 		return gen_load(ctx, val);
 	case UN_BNOT:
+		val = gen_expr(ctx, operand);
+		temp = mktemp(ctx, operand->result, ".%d");
+		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
+		struct qbe_value ones = constl((uint64_t)-1);
+		pushi(ctx->current, &qtmp, Q_XOR, &qval, &ones, NULL);
+		return temp;
 	case UN_LNOT:
+		val = gen_expr(ctx, operand);
+		temp = mktemp(ctx, operand->result, ".%d");
+		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
+		struct qbe_value one = constl(1);
+		pushi(ctx->current, &qtmp, Q_XOR, &qval, &one, NULL);
+		return temp;
 	case UN_MINUS:
+		val = gen_expr(ctx, operand);
+		temp = mktemp(ctx, operand->result, ".%d");
+		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
+		struct qbe_value minusone = constl(-1);
+		pushi(ctx->current, &qtmp, Q_MUL, &qval, &minusone, NULL);
+		return temp;
 	case UN_PLUS:
-		assert(0); // TODO
+		return gen_expr(ctx, operand);
 	}
 	abort(); // Invariant
 }
