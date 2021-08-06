@@ -438,17 +438,6 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value gen_expr_cast(struct gen_context *ctx,
 		const struct expression *expr);
 
-static char *
-gen_typename(const struct type *type)
-{
-	size_t sz = 0;
-	char *ptr = NULL;
-	FILE *f = open_memstream(&ptr, &sz);
-	emit_type(type, f);
-	fclose(f);
-	return ptr;
-}
-
 static void
 gen_expr_cast_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
@@ -474,7 +463,6 @@ gen_expr_cast_at(struct gen_context *ctx,
 		struct gen_value out2 = out;
 		out2.type = from;
 		gen_expr_at(ctx, expr->cast.value, out2);
-		return;
 	} else if (!subtype) {
 		// Case 2: like case 1, but with an alignment mismatch; more
 		// work is required.
@@ -504,27 +492,22 @@ gen_expr_cast_at(struct gen_context *ctx,
 		offs = constl(from->align);
 		pushi(ctx->current, &qival, Q_ADD, &qval, &offs, NULL);
 		gen_copy_aligned(ctx, iout, ival);
-		return;
+	} else {
+		// Case 3: from is a member of to
+		struct qbe_value qout = mkqval(ctx, &out);
+		struct qbe_value id = constw(subtype->id);
+		enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+		pushi(ctx->current, NULL, store, &id, &qout, NULL);
+		if (subtype->size == 0) {
+			return;
+		}
+
+		struct gen_value storage = mktemp(ctx, subtype, ".%d");
+		struct qbe_value qstor = mklval(ctx, &storage);
+		struct qbe_value offs = constl(to->align);
+		pushi(ctx->current, &qstor, Q_ADD, &qout, &offs, NULL);
+		gen_expr_at(ctx, expr->cast.value, storage);
 	}
-
-	// Case 3: from is a member of to
-	struct qbe_value qout = mkqval(ctx, &out);
-	struct qbe_value id = constw(subtype->id);
-	enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
-	char *tname = gen_typename(subtype);
-	pushc(ctx->current, "store tag for type %s", tname);
-	pushi(ctx->current, NULL, store, &id, &qout, NULL);
-	free(tname);
-
-	if (subtype->size == 0) {
-		return;
-	}
-
-	struct gen_value storage = mktemp(ctx, subtype, ".%d");
-	struct qbe_value qstor = mklval(ctx, &storage);
-	struct qbe_value offs = constl(to->align);
-	pushi(ctx->current, &qstor, Q_ADD, &qout, &offs, NULL);
-	gen_expr_at(ctx, expr->cast.value, storage);
 }
 
 static struct gen_value
