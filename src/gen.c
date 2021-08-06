@@ -494,7 +494,7 @@ gen_expr_cast_at(struct gen_context *ctx,
 		}
 
 		const struct type *innertype = type_store_tagged_to_union(
-				ctx->store, type_dealias(to));
+				ctx->store, type_dealias(from));
 		struct gen_value iout = mktemp(ctx, innertype, ".%d");
 		struct gen_value ival = mktemp(ctx, innertype, ".%d");
 		struct qbe_value qiout = mkqval(ctx, &iout);
