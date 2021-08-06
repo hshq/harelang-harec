@@ -50,7 +50,17 @@ fn subsetcast() void = {
 	assert(p.data.z == 1337z);
 
 	// Disjoint alignment
-	// TODO
+	let x: (int | void) = 1337;
+	let y: (size | int | void) = x;
+	let p = &y: *struct {
+		tag: uint,
+		data: union {
+			z: size,
+			i: int,
+		},
+	};
+	assert(p.tag == 1737287038);
+	assert(p.data.i == 1337);
 };
 
 export fn main() int = {

@@ -847,6 +847,40 @@ type_store_lookup_tagged(struct type_store *store,
 }
 
 const struct type *
+type_store_tagged_to_union(struct type_store *store, const struct type *tagged)
+{
+	assert(tagged->storage == STORAGE_TAGGED);
+	struct type type = {
+		.storage = STORAGE_UNION,
+		.flags = tagged->flags,
+	};
+	struct struct_field **next = &type.struct_union.fields;
+	for (const struct type_tagged_union *tu = &tagged->tagged;
+			tu; tu = tu->next) {
+		if (tu->type->size == 0) {
+			continue;
+		}
+		assert(tu->type->size != SIZE_UNDEFINED);
+
+		if (tu->type->size > type.size) {
+			type.size = tu->type->size;
+		}
+		if (tu->type->align > type.align) {
+			type.align = tu->type->align;
+		}
+
+		struct struct_field *sf =
+			xcalloc(1, sizeof(struct struct_field));
+		sf->name = "unnamed";
+		sf->type = tu->type;
+		sf->next = *next, *next = sf;
+		next = &sf->next;
+	}
+	type.struct_union.c_compat = true; // XXX: Unsure about this
+	return type_store_lookup_type(store, &type);
+}
+
+const struct type *
 type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 {
 	struct type type = {

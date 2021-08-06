@@ -476,8 +476,34 @@ gen_expr_cast_at(struct gen_context *ctx,
 		gen_expr_at(ctx, expr->cast.value, out2);
 		return;
 	} else if (!subtype) {
-		// Case 2: alignment mismatch, so (much) more work is required.
-		assert(0); // TODO
+		// Case 2: like case 1, but with an alignment mismatch; more
+		// work is required.
+		struct gen_value value = gen_expr(ctx, expr->cast.value);
+		struct qbe_value qval = mkqval(ctx, &value);
+		struct qbe_value qout = mkqval(ctx, &out);
+		struct qbe_value tag = mkqtmp(ctx,
+			qtype_lookup(ctx, &builtin_type_uint, false), "tag.%d");
+		enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+		enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+		pushi(ctx->current, &tag, load, &qval, NULL);
+		pushi(ctx->current, NULL, store, &tag, &qout, NULL);
+		if (to->size == builtin_type_uint.size ||
+				from->size == builtin_type_uint.size) {
+			// No data area to copy
+			return;
+		}
+
+		const struct type *innertype = type_store_tagged_to_union(
+				ctx->store, type_dealias(to));
+		struct gen_value iout = mktemp(ctx, innertype, ".%d");
+		struct gen_value ival = mktemp(ctx, innertype, ".%d");
+		struct qbe_value qiout = mkqval(ctx, &iout);
+		struct qbe_value qival = mkqval(ctx, &ival);
+		struct qbe_value offs = constl(to->align);
+		pushi(ctx->current, &qiout, Q_ADD, &qout, &offs, NULL);
+		offs = constl(from->align);
+		pushi(ctx->current, &qival, Q_ADD, &qval, &offs, NULL);
+		gen_copy_aligned(ctx, iout, ival);
 		return;
 	}
 
