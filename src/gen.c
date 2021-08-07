@@ -232,6 +232,12 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	glval = gen_autoderef(ctx, glval);
 	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qival = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	if (type_dealias(glval.type)->storage == STORAGE_SLICE) {
+		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
+		struct qbe_value temp = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &temp, load, &qlval, NULL);
+		qlval = temp;
+	}
 
 	struct gen_value index = gen_expr(ctx, expr->access.index);
 	struct qbe_value qindex = mkqval(ctx, &index);
@@ -1126,6 +1132,85 @@ gen_expr_struct_at(struct gen_context *ctx,
 }
 
 static void
+gen_expr_slice_at(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value out)
+{
+	struct gen_value object = gen_expr(ctx, expr->slice.object);
+	object = gen_autoderef(ctx, object);
+	const struct type *srctype = type_dealias(object.type);
+
+	struct gen_value length;
+	struct qbe_value qlength;
+	struct qbe_value qbase;
+	struct qbe_value qobject = mkqval(ctx, &object);
+	struct qbe_value offset = constl(builtin_type_size.size);
+	struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	switch (srctype->storage) {
+	case STORAGE_ARRAY:
+		assert(srctype->array.length != SIZE_UNDEFINED);
+		length = (struct gen_value){
+			.kind = GV_CONST,
+			.type = &builtin_type_size,
+			.lval = srctype->array.length,
+		};
+		qlength = mkqval(ctx, &length);
+		qbase = mkqval(ctx, &object);
+		break;
+	case STORAGE_SLICE:
+		qbase = mkqtmp(ctx, ctx->arch.sz, "base.%d");
+		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
+		pushi(ctx->current, &qbase, load, &qobject, NULL);
+		length = mktemp(ctx, &builtin_type_size, "len.%d");
+		qlength = mkqval(ctx, &length);
+		pushi(ctx->current, &qptr, Q_ADD, &qobject, &offset, NULL);
+		pushi(ctx->current, &qlength, load, &qptr, NULL);
+		break;
+	default: abort(); // Invariant
+	}
+
+	struct gen_value start;
+	if (expr->slice.start) {
+		start = gen_expr(ctx, expr->slice.start);
+	} else {
+		start = (struct gen_value){
+			.kind = GV_CONST,
+			.type = &builtin_type_size,
+			.lval = 0,
+		};
+	}
+
+	struct gen_value end;
+	if (expr->slice.end) {
+		end = gen_expr(ctx, expr->slice.end);
+	} else {
+		end = length;
+	}
+
+	struct qbe_value qstart = mkqval(ctx, &start);
+	struct qbe_value qend = mkqval(ctx, &end);
+	struct qbe_value isz = constl(srctype->array.members->size);
+
+	struct qbe_value qout = mkqval(ctx, &out);
+	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, "data.%d");
+	pushi(ctx->current, &data, Q_MUL, &qstart, &isz, NULL);
+	pushi(ctx->current, &data, Q_ADD, &qbase, &data, NULL);
+
+	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, "newlen.%d");
+	pushi(ctx->current, &newlen, Q_SUB, &qend, &qstart, NULL);
+	struct qbe_value newcap = mkqtmp(ctx, ctx->arch.sz, "newcap.%d");
+	pushi(ctx->current, &newcap, Q_SUB, &qlength, &qstart, NULL);
+
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
+	pushi(ctx->current, NULL, store, &data, &qout, NULL);
+	pushi(ctx->current, &qptr, Q_ADD, &qout, &offset, NULL);
+	pushi(ctx->current, NULL, store, &newlen, &qptr, NULL);
+	offset = constl(builtin_type_size.size * 2);
+	pushi(ctx->current, &qptr, Q_ADD, &qout, &offset, NULL);
+	pushi(ctx->current, NULL, store, &newcap, &qptr, NULL);
+}
+
+static void
 gen_expr_tuple_at(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value out)
@@ -1241,11 +1326,11 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		assert(0); // Lowered in check (for now?)
 	case EXPR_RETURN:
 		return gen_expr_return(ctx, expr);
-	case EXPR_SLICE:
 	case EXPR_SWITCH:
 		assert(0); // TODO
 	case EXPR_UNARITHM:
 		return gen_expr_unarithm(ctx, expr);
+	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_TUPLE:
 		break; // Prefers -at style
@@ -1279,6 +1364,9 @@ gen_expr_at(struct gen_context *ctx,
 		return;
 	case EXPR_LIST:
 		gen_expr_list_with(ctx, expr, &out);
+		return;
+	case EXPR_SLICE:
+		gen_expr_slice_at(ctx, expr, out);
 		return;
 	case EXPR_STRUCT:
 		gen_expr_struct_at(ctx, expr, out);

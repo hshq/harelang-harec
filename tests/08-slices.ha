@@ -120,7 +120,7 @@ fn slicing() void = {
 	assert_slice_eq(p[..3], [1, 2, 3]);
 	assert_slice_eq(p[1..3], [2, 3]);
 	assert_slice_eq(p[1..], [2, 3, 4, 5]);
-	
+
 	assert(rt::compile(
 		"fn test() void = { let x = \"test\"; x[1..3]; };"
 	) != 0, "slicing non-array, non-slice object");
