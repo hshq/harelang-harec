@@ -15,7 +15,8 @@ tests() {
 		908-loops \
 		909-defer \
 		910-tagged \
-		911-slices
+		911-slices \
+		912-enums
 	do
 		cat <<EOF
 tests/$t: harec tests/$t.ha tests/rt.o

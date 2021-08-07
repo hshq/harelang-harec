@@ -115,7 +115,8 @@ gen_store(struct gen_context *ctx,
 	struct gen_value object,
 	struct gen_value value)
 {
-	switch (type_dealias(object.type)->storage) {
+	const struct type *ty = type_dealias(object.type);
+	switch (ty->storage) {
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
@@ -128,7 +129,9 @@ gen_store(struct gen_context *ctx,
 		gen_copy_memcpy(ctx, object, value);
 		return;
 	case STORAGE_ENUM:
-		assert(0); // TODO
+		object.type = builtin_type_for_storage(ty->_enum.storage,
+			(ty->flags & TYPE_CONST) != 0);
+		break;
 	default:
 		break; // no-op
 	}
@@ -142,7 +145,8 @@ gen_store(struct gen_context *ctx,
 static struct gen_value
 gen_load(struct gen_context *ctx, struct gen_value object)
 {
-	switch (type_dealias(object.type)->storage) {
+	const struct type *ty = type_dealias(object.type);
+	switch (ty->storage) {
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
 	case STORAGE_SLICE:
@@ -153,7 +157,9 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 	case STORAGE_UNION:
 		return object;
 	case STORAGE_ENUM:
-		assert(0); // TODO
+		object.type = builtin_type_for_storage(ty->_enum.storage,
+			(ty->flags & TYPE_CONST) != 0);
+		break;
 	default:
 		break; // no-op
 	}
