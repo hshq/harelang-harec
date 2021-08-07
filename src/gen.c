@@ -170,6 +170,25 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 	return value;
 }
 
+static void
+gen_fixed_abort(struct gen_context *ctx,
+	struct location loc, enum fixed_aborts reason)
+{
+	int n = snprintf(NULL, 0, "%s:%d:%d", loc.path, loc.lineno, loc.colno);
+	char *s = xcalloc(1, n + 1);
+	snprintf(s, n, "%s:%d:%d", loc.path, loc.lineno, loc.colno);
+	struct expression eloc = {0};
+	eloc.type = EXPR_CONSTANT;
+	eloc.result = &builtin_type_const_str;
+	eloc.constant.string.value = s;
+	eloc.constant.string.len = n - 1;
+	struct gen_value msg = gen_expr(ctx, &eloc);
+	struct qbe_value qmsg = mkqval(ctx, &msg);
+	struct qbe_value rtabort = mkrtfunc(ctx, "rt.abort_fixed");
+	struct qbe_value tmp = constl(reason);
+	pushi(ctx->current, NULL, Q_CALL, &rtabort, &qmsg, &tmp, NULL);
+}
+
 static struct gen_value
 gen_autoderef(struct gen_context *ctx, struct gen_value val)
 {
@@ -532,6 +551,33 @@ gen_expr_type_test(struct gen_context *ctx, const struct expression *expr)
 	return result;
 }
 
+static void
+gen_type_assertion(struct gen_context *ctx,
+		const struct expression *expr,
+		struct qbe_value base)
+{
+	const struct type *want = expr->result;
+	struct qbe_value tag = mkqtmp(ctx,
+		qtype_lookup(ctx, &builtin_type_uint, false),
+		".%d");
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+	pushi(ctx->current, &tag, load, &base, NULL);
+	struct qbe_value expected = constl(want->id);
+	struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
+	struct qbe_value qr = mkqval(ctx, &result);
+	pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
+
+	struct qbe_statement failedl, passedl;
+	struct qbe_value bfailed = mklabel(ctx, &failedl, "failed.%d");
+	struct qbe_value bpassed = mklabel(ctx, &passedl, "passed.%d");
+	pushi(ctx->current, NULL, Q_JNZ, &qr, &bpassed, &bfailed, NULL);
+	push(&ctx->current->body, &failedl);
+
+	gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
+
+	push(&ctx->current->body, &passedl);
+}
+
 static struct gen_value
 gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 {
@@ -540,12 +586,14 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case C_TEST:
 		return gen_expr_type_test(ctx, expr);
 	case C_ASSERTION:
-		assert(0); // TODO
+		assert(type_dealias(from)->storage == STORAGE_TAGGED);
+		assert(type_dealias(to)->storage != STORAGE_TAGGED);
+		// Fallthrough
 	case C_CAST:
 		break;
 	}
 
-	// Casting to tagged union prefers _at form
+	// Casting to tagged union uses _at form
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		struct gen_value out = mktemp(ctx, expr->result, "object.%d");
 		struct qbe_value base = mkqval(ctx, &out);
@@ -556,18 +604,14 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		return out;
 	}
 
-	if (type_dealias(to)->storage == type_dealias(from)->storage
-			&& to->size == from->size) {
-		struct gen_value value = gen_expr(ctx, expr->cast.value);
-		value.type = to;
-		return value;
-	}
-
-	// Special cases
+	// Casting from tagged union to non-tagged union
 	if (type_dealias(from)->storage == STORAGE_TAGGED) {
-		// Cast from tagged union
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value base = mkcopy(ctx, &value, ".%d");
+		if (expr->cast.kind == C_ASSERTION) {
+			gen_type_assertion(ctx, expr, base);
+		}
+
 		struct qbe_value align = constl(from->align);
 		pushi(ctx->current, &base, Q_ADD, &base, &align, NULL);
 		struct gen_value storage = (struct gen_value){
@@ -577,6 +621,16 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		};
 		return gen_load(ctx, storage);
 	}
+
+	// No conversion required
+	if (type_dealias(to)->storage == type_dealias(from)->storage
+			&& to->size == from->size) {
+		struct gen_value value = gen_expr(ctx, expr->cast.value);
+		value.type = to;
+		return value;
+	}
+
+	// Special cases
 	switch (type_dealias(to)->storage) {
 	case STORAGE_POINTER:
 		if (type_dealias(from)->storage == STORAGE_SLICE) {
@@ -585,7 +639,6 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		}
 		break;
 	case STORAGE_VOID:
-		// Cast to void
 		gen_expr(ctx, expr->cast.value); // Side-effects
 		return gv_void;
 	default: break;

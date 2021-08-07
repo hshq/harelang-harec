@@ -93,7 +93,7 @@ fn casts() void = {
 fn assertions() void = {
 	let a: (u8 | u16) = 42u16;
 	assert(a is u16);
-	// TODO: as
+	assert(a as u16 == 42u16);
 };
 
 export fn main() void = {
