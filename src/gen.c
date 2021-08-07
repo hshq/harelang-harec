@@ -454,23 +454,84 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value gen_expr_cast(struct gen_context *ctx,
 		const struct expression *expr);
 
+static struct gen_value
+gen_expr_type_test(struct gen_context *ctx, const struct expression *expr)
+{
+	const struct type *secondary = expr->cast.secondary,
+	      *from = expr->cast.value->result;
+	assert(type_dealias(from)->storage == STORAGE_TAGGED);
+	const struct type *subtype = tagged_select_subtype(from, secondary);
+	assert(subtype && subtype == secondary); // Lowered by check
+
+	struct gen_value val = gen_expr(ctx, expr->cast.value);
+	struct qbe_value qval = mkqval(ctx, &val);
+	struct qbe_value tag = mkqtmp(ctx,
+			qtype_lookup(ctx, &builtin_type_uint, false),
+			".%d");
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+	pushi(ctx->current, &tag, load, &qval, NULL);
+	struct qbe_value expected = constl(secondary->id);
+	struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
+	struct qbe_value qr = mkqval(ctx, &result);
+	pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
+	return result;
+}
+
 static void
-gen_expr_cast_at(struct gen_context *ctx,
+gen_type_assertion(struct gen_context *ctx,
+		const struct expression *expr,
+		struct qbe_value base)
+{
+	const struct type *want = expr->result;
+	struct qbe_value tag = mkqtmp(ctx,
+		qtype_lookup(ctx, &builtin_type_uint, false),
+		".%d");
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+	pushi(ctx->current, &tag, load, &base, NULL);
+	struct qbe_value expected = constl(want->id);
+	struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
+	struct qbe_value qr = mkqval(ctx, &result);
+	pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
+
+	struct qbe_statement failedl, passedl;
+	struct qbe_value bfailed = mklabel(ctx, &failedl, "failed.%d");
+	struct qbe_value bpassed = mklabel(ctx, &passedl, "passed.%d");
+	pushi(ctx->current, NULL, Q_JNZ, &qr, &bpassed, &bfailed, NULL);
+	push(&ctx->current->body, &failedl);
+
+	gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
+
+	push(&ctx->current->body, &passedl);
+}
+
+static void
+gen_expr_cast_slice_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	// This function is only concerned with casting to tagged unions, which
-	// is more efficient with the _at usage. For all other cases, it falls
-	// back to gen_expr_cast.
 	const struct type *to = expr->result, *from = expr->cast.value->result;
-	if (type_dealias(to)->storage != STORAGE_TAGGED
-			|| expr->cast.kind == C_TEST) {
-		struct gen_value result = gen_expr_cast(ctx, expr);
-		if (!expr->terminates) {
-			gen_store(ctx, out, result);
-		}
-		return;
-	}
+	assert(from->storage == STORAGE_ARRAY);
+	assert(from->array.length != SIZE_UNDEFINED);
 
+	struct gen_value value = gen_expr(ctx, expr->cast.value);
+	struct qbe_value qvalue = mkqval(ctx, &value);
+	struct qbe_value base = mklval(ctx, &out);
+	struct qbe_value sz = constl(to->size);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
+	pushi(ctx->current, NULL, store, &qvalue, &base, NULL);
+	struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	sz = constl(builtin_type_size.size);
+	struct qbe_value ln = constl(from->array.length);
+	pushi(ctx->current, &qptr, Q_ADD, &base, &sz, NULL);
+	pushi(ctx->current, NULL, store, &ln, &qptr, NULL);
+	pushi(ctx->current, &qptr, Q_ADD, &qptr, &sz, NULL);
+	pushi(ctx->current, NULL, store, &ln, &qptr, NULL);
+}
+
+static void
+gen_expr_cast_tagged_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
+{
+	const struct type *to = expr->result, *from = expr->cast.value->result;
 	const struct type *subtype = tagged_select_subtype(to, from);
 	assert(subtype || tagged_subset_compat(to, from));
 	if (!subtype && to->align == from->align) {
@@ -528,54 +589,47 @@ gen_expr_cast_at(struct gen_context *ctx,
 	}
 }
 
-static struct gen_value
-gen_expr_type_test(struct gen_context *ctx, const struct expression *expr)
+static bool
+cast_prefers_at(const struct expression *expr)
 {
-	const struct type *secondary = expr->cast.secondary,
-	      *from = expr->cast.value->result;
-	assert(type_dealias(from)->storage == STORAGE_TAGGED);
-	const struct type *subtype = tagged_select_subtype(from, secondary);
-	assert(subtype && subtype == secondary); // Lowered by check
-
-	struct gen_value val = gen_expr(ctx, expr->cast.value);
-	struct qbe_value qval = mkqval(ctx, &val);
-	struct qbe_value tag = mkqtmp(ctx,
-			qtype_lookup(ctx, &builtin_type_uint, false),
-			".%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
-	pushi(ctx->current, &tag, load, &qval, NULL);
-	struct qbe_value expected = constl(secondary->id);
-	struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
-	struct qbe_value qr = mkqval(ctx, &result);
-	pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
-	return result;
+	const struct type *to = expr->result, *from = expr->cast.value->result;
+	if (expr->cast.kind == C_TEST) {
+		return false;
+	}
+	// * => tagged
+	if (type_dealias(to)->storage == STORAGE_TAGGED) {
+		return true;
+	}
+	// array => slice
+	if (type_dealias(from)->storage == STORAGE_ARRAY &&
+		type_dealias(to)->storage == STORAGE_SLICE) {
+		return true;
+	}
+	return false;
 }
 
 static void
-gen_type_assertion(struct gen_context *ctx,
-		const struct expression *expr,
-		struct qbe_value base)
+gen_expr_cast_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
 {
-	const struct type *want = expr->result;
-	struct qbe_value tag = mkqtmp(ctx,
-		qtype_lookup(ctx, &builtin_type_uint, false),
-		".%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
-	pushi(ctx->current, &tag, load, &base, NULL);
-	struct qbe_value expected = constl(want->id);
-	struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
-	struct qbe_value qr = mkqval(ctx, &result);
-	pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
+	if (!cast_prefers_at(expr)) {
+		struct gen_value result = gen_expr_cast(ctx, expr);
+		if (!expr->terminates) {
+			gen_store(ctx, out, result);
+		}
+		return;
+	}
 
-	struct qbe_statement failedl, passedl;
-	struct qbe_value bfailed = mklabel(ctx, &failedl, "failed.%d");
-	struct qbe_value bpassed = mklabel(ctx, &passedl, "passed.%d");
-	pushi(ctx->current, NULL, Q_JNZ, &qr, &bpassed, &bfailed, NULL);
-	push(&ctx->current->body, &failedl);
-
-	gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
-
-	push(&ctx->current->body, &passedl);
+	const struct type *to = expr->result;
+	switch (type_dealias(to)->storage) {
+	case STORAGE_SLICE:
+		gen_expr_cast_slice_at(ctx, expr, out);
+		break;
+	case STORAGE_TAGGED:
+		gen_expr_cast_tagged_at(ctx, expr, out);
+		break;
+	default: abort(); // Invariant
+	}
 }
 
 static struct gen_value
@@ -593,8 +647,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		break;
 	}
 
-	// Casting to tagged union uses _at form
-	if (type_dealias(to)->storage == STORAGE_TAGGED) {
+	if (cast_prefers_at(expr)) {
 		struct gen_value out = mktemp(ctx, expr->result, "object.%d");
 		struct qbe_value base = mkqval(ctx, &out);
 		struct qbe_value sz = constl(expr->result->size);
@@ -604,7 +657,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		return out;
 	}
 
-	// Casting from tagged union to non-tagged union
+	// Special case: tagged => non-tagged
 	if (type_dealias(from)->storage == STORAGE_TAGGED) {
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value base = mkcopy(ctx, &value, ".%d");
@@ -622,7 +675,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		return gen_load(ctx, storage);
 	}
 
-	// No conversion required
+	// Special case: no conversion required
 	if (type_dealias(to)->storage == type_dealias(from)->storage
 			&& to->size == from->size) {
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
@@ -630,7 +683,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		return value;
 	}
 
-	// Special cases
+	// Other special cases
 	switch (type_dealias(to)->storage) {
 	case STORAGE_POINTER:
 		if (type_dealias(from)->storage == STORAGE_SLICE) {
@@ -727,8 +780,13 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		pushi(ctx->current, &qresult, Q_COPY, &qvalue, NULL);
 		break;
 	case STORAGE_ARRAY:
+		assert(from->storage == STORAGE_ARRAY);
+		pushi(ctx->current, &qresult, Q_COPY, &qvalue, NULL);
+		break;
 	case STORAGE_SLICE:
-		assert(0); // TODO
+		assert(from->storage == STORAGE_SLICE);
+		pushi(ctx->current, &qresult, Q_COPY, &qvalue, NULL);
+		break;
 	case STORAGE_ALIAS:
 	case STORAGE_BOOL:
 	case STORAGE_FCONST:
