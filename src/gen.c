@@ -443,7 +443,8 @@ gen_expr_cast_at(struct gen_context *ctx,
 	// is more efficient with the _at usage. For all other cases, it falls
 	// back to gen_expr_cast.
 	const struct type *to = expr->result, *from = expr->cast.value->result;
-	if (type_dealias(to)->storage != STORAGE_TAGGED) {
+	if (type_dealias(to)->storage != STORAGE_TAGGED
+			|| expr->cast.kind == C_TEST) {
 		struct gen_value result = gen_expr_cast(ctx, expr);
 		if (!expr->terminates) {
 			gen_store(ctx, out, result);
@@ -491,6 +492,7 @@ gen_expr_cast_at(struct gen_context *ctx,
 		gen_copy_aligned(ctx, iout, ival);
 	} else {
 		// Case 3: from is a member of to
+		assert(subtype == from); // Lowered by check
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value id = constw(subtype->id);
 		enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
@@ -508,10 +510,40 @@ gen_expr_cast_at(struct gen_context *ctx,
 }
 
 static struct gen_value
+gen_expr_type_test(struct gen_context *ctx, const struct expression *expr)
+{
+	const struct type *secondary = expr->cast.secondary,
+	      *from = expr->cast.value->result;
+	assert(type_dealias(from)->storage == STORAGE_TAGGED);
+	const struct type *subtype = tagged_select_subtype(from, secondary);
+	assert(subtype && subtype == secondary); // Lowered by check
+
+	struct gen_value val = gen_expr(ctx, expr->cast.value);
+	struct qbe_value qval = mkqval(ctx, &val);
+	struct qbe_value tag = mkqtmp(ctx,
+			qtype_lookup(ctx, &builtin_type_uint, false),
+			".%d");
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+	pushi(ctx->current, &tag, load, &qval, NULL);
+	struct qbe_value expected = constl(secondary->id);
+	struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
+	struct qbe_value qr = mkqval(ctx, &result);
+	pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
+	return result;
+}
+
+static struct gen_value
 gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 {
-	assert(expr->cast.kind == C_CAST); // TODO
 	const struct type *to = expr->result, *from = expr->cast.value->result;
+	switch (expr->cast.kind) {
+	case C_TEST:
+		return gen_expr_type_test(ctx, expr);
+	case C_ASSERTION:
+		assert(0); // TODO
+	case C_CAST:
+		break;
+	}
 
 	// Casting to tagged union prefers _at form
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {

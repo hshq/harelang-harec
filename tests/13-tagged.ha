@@ -90,10 +90,17 @@ fn casts() void = {
 	assert(x == (if (is_little) 0xFEu8 else 0xCAu8));
 };
 
+fn assertions() void = {
+	let a: (u8 | u16) = 42u16;
+	assert(a is u16);
+	// TODO: as
+};
+
 export fn main() void = {
 	measurements();
 	storage();
 	operators();
 	reduction();
 	casts();
+	assertions();
 };
