@@ -204,6 +204,7 @@ const struct qbe_type *qtype_lookup(
 		return ctx->arch.sz;
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
+	case STORAGE_NULL:
 		return ctx->arch.ptr;
 	case STORAGE_F32:
 		return &qbe_single;
@@ -226,7 +227,6 @@ const struct qbe_type *qtype_lookup(
 	case STORAGE_FUNCTION:
 		return ctx->arch.ptr;
 	case STORAGE_VOID:
-	case STORAGE_NULL:
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 		abort(); // Invariant

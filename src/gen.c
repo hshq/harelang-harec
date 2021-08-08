@@ -1150,13 +1150,11 @@ gen_subset_match_tests(struct gen_context *ctx,
 }
 
 static struct gen_value
-gen_expr_match_with(struct gen_context *ctx,
+gen_match_with_tagged(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
 {
 	const struct type *objtype = expr->match.value->result;
-	// TODO: Match on pointer type:
-	assert(type_dealias(objtype)->storage == STORAGE_TAGGED);
 	struct gen_value object = gen_expr(ctx, expr->match.value);
 	struct qbe_value qobject = mkqval(ctx, &object);
 	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
@@ -1201,6 +1199,9 @@ gen_expr_match_with(struct gen_context *ctx,
 			goto next;
 		}
 
+		// TODO: We actually need to allocate a separate binding and
+		// copy this into it, probably. We could avoid that if we knew
+		// the binding were not assigned to, fwiw.
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
 		gb->value.kind = GV_TEMP;
 		gb->value.type = _case->type;
@@ -1234,6 +1235,89 @@ next:
 
 	push(&ctx->current->body, &lout);
 	return gv_void;
+}
+
+static struct gen_value
+gen_match_with_nullable(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value *out)
+{
+	struct qbe_statement lout;
+	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
+	struct gen_value object = gen_expr(ctx, expr->match.value);
+	struct qbe_value qobject = mkqval(ctx, &object);
+
+	struct match_case *_default = NULL;
+	for (struct match_case *_case = expr->match.cases;
+			_case; _case = _case->next) {
+		if (!_case->type) {
+			_default = _case;
+			continue;
+		}
+
+		struct qbe_statement lmatch, lnext;
+		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
+		struct qbe_value bnext = mklabel(ctx, &lnext, "next.%d");
+
+		if (_case->type->storage == STORAGE_NULL) {
+			pushi(ctx->current, NULL, Q_JNZ,
+				&qobject, &bnext, &bmatch, NULL);
+		} else {
+			pushi(ctx->current, NULL, Q_JNZ,
+				&qobject, &bmatch, &bnext, NULL);
+		}
+
+		push(&ctx->current->body, &lmatch);
+
+		if (!_case->object) {
+			goto next;
+		}
+
+		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
+		gb->value = mktemp(ctx, _case->type, "binding.%d");
+		gb->object = _case->object;
+		gb->next = ctx->bindings;
+		ctx->bindings = gb;
+
+		// TODO: We could avoid this allocation if we knew the user
+		// didn't mutate the binding.
+		enum qbe_instr store = store_for_type(ctx, _case->type);
+		enum qbe_instr alloc = alloc_for_align(_case->type->align);
+		struct qbe_value qv = mkqval(ctx, &gb->value);
+		struct qbe_value sz = constl(_case->type->size);
+		pushprei(ctx->current, &qv, alloc, &sz, NULL);
+		pushi(ctx->current, NULL, store, &qobject, &qv, NULL);
+
+next:
+		// TODO: Handle !out case
+		gen_expr_with(ctx, _case->value, out);
+		if (!_case->value->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
+		}
+		push(&ctx->current->body, &lnext);
+	}
+
+	if (_default) {
+		gen_expr_with(ctx, _default->value, out);
+	}
+
+	push(&ctx->current->body, &lout);
+	return gv_void;
+}
+
+static struct gen_value
+gen_expr_match_with(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value *out)
+{
+	const struct type *objtype = expr->match.value->result;
+	switch (type_dealias(objtype)->storage) {
+	case STORAGE_POINTER:
+		return gen_match_with_nullable(ctx, expr, out);
+	case STORAGE_TAGGED:
+		return gen_match_with_tagged(ctx, expr, out);
+	default: abort(); // Invariant
+	}
 }
 
 static struct gen_value
