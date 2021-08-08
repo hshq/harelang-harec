@@ -539,6 +539,16 @@ gen_expr_cast_slice_at(struct gen_context *ctx,
 	pushi(ctx->current, NULL, store, &ln, &qptr, NULL);
 }
 
+// Returns true if object's storage can be interpreted as want.
+static bool
+tagged_align_compat(const struct type *object, const struct type *want)
+{
+	assert(type_dealias(object)->storage == STORAGE_TAGGED);
+	assert(type_dealias(want)->storage == STORAGE_TAGGED);
+	return object->align == want->align
+		|| want->size == builtin_type_uint.size;
+}
+
 static void
 gen_expr_cast_tagged_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
@@ -546,7 +556,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 	const struct type *to = expr->result, *from = expr->cast.value->result;
 	const struct type *subtype = tagged_select_subtype(to, from);
 	assert(subtype || tagged_subset_compat(to, from));
-	if (!subtype && to->align == from->align) {
+	if (!subtype && tagged_align_compat(from, to)) {
 		// Case 1: from is a union whose members are a subset of to, and
 		// the alignment matches, so we can just interpret values of
 		// type 'from' as if it were of type 'to'
@@ -1048,6 +1058,184 @@ gen_expr_list_with(struct gen_context *ctx,
 	abort(); // Unreachable
 }
 
+enum match_compat {
+	// The case type is a member of the match object type and can be used
+	// directly from the match object's tagged union storage area.
+	COMPAT_SUBTYPE,
+	// The case type is a tagged union which is a subset of the object type,
+	// and alignment-compatible. In this case we can use the match object
+	// directly.
+	COMPAT_ALIGNED,
+	// The case type is a tagged union which is a subset of the object type,
+	// but with a different alignment. In this case we must convert the
+	// match object before using it.
+	COMPAT_MISALIGNED,
+};
+
+static void
+gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
+	struct qbe_value bmatch, struct qbe_value bnext,
+	struct qbe_value tag, struct match_case *_case,
+	struct qbe_value *offset)
+{
+	// This function handles the case where we're matching against a type
+	// which is a member of the tagged union, or an inner tagged union.
+	//
+	// type foo = (int | void);
+	// type bar = (size | foo);
+	//
+	// let x: bar = 10i;
+	// match (x) {
+	// 	z: size => ...
+	// 	i: int  => ...
+	// 	void    => ...
+	// };
+	//
+	// In the first case, we can simply test the object's tag. In the second
+	// case, we have to test if the selected tag is 'foo', then check the
+	// tag of the foo object for int.
+	struct qbe_value *subtag = &tag;
+	struct qbe_value subval = mkcopy(ctx, &object, "subval.%d");
+	struct qbe_value match = mkqtmp(ctx, &qbe_word, ".%d");
+	struct qbe_value temp = mkqtmp(ctx, &qbe_word, ".%d");
+	const struct type *subtype = object.type;
+	const struct type *test = _case->type;
+	*offset = constl(subtype->align);
+	do {
+		struct qbe_statement lsubtype;
+		struct qbe_value bsubtype = mklabel(ctx, &lsubtype, "subtype.%d");
+		test = tagged_select_subtype(subtype, _case->type);
+		if (!test) {
+			abort(); // Invariant
+		}
+
+		struct qbe_value id = constw(test->id);
+		pushi(ctx->current, &match, Q_CEQW, subtag, &id, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &match, &bsubtype, &bnext, NULL);
+		push(&ctx->current->body, &lsubtype);
+
+		if (test->id != _case->type->id) {
+			struct qbe_value offs = constl(subtype->align);
+			pushi(ctx->current, &subval, Q_ADD, &subval, &offs, NULL);
+			pushi(ctx->current, &temp, Q_LOADUW, &subval, NULL);
+			offset->lval += test->align;
+			subtag = &temp;
+		}
+
+		subtype = test;
+	} while (test->id != _case->type->id);
+
+	pushi(ctx->current, NULL, Q_JMP, &bmatch, NULL);
+}
+
+static void
+gen_subset_match_tests(struct gen_context *ctx,
+	struct qbe_value bmatch, struct qbe_value bnext,
+	struct qbe_value tag, struct match_case *_case)
+{
+	// In this case, we're testing a case which is itself a tagged union,
+	// and is a subset of the match object.
+	//
+	// type foo = (size | int | void);
+	//
+	// let x: foo = 10i;
+	// match (x) {
+	// 	n: (size | int) => ...
+	// 	void => ...
+	// };
+	//
+	// In this situation, we test the match object's tag against each type
+	// ID of the case type.
+	assert(0); // TODO
+}
+
+static struct gen_value
+gen_expr_match_with(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value *out)
+{
+	const struct type *objtype = expr->match.value->result;
+	// TODO: Match on pointer type:
+	assert(type_dealias(objtype)->storage == STORAGE_TAGGED);
+	struct gen_value object = gen_expr(ctx, expr->match.value);
+	struct qbe_value qobject = mkqval(ctx, &object);
+	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+	pushi(ctx->current, &tag, load, &qobject, NULL);
+
+	struct qbe_statement lout;
+	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
+
+	struct match_case *_default = NULL;
+	for (struct match_case *_case = expr->match.cases;
+			_case; _case = _case->next) {
+		if (!_case->type) {
+			_default = _case;
+			continue;
+		}
+
+		struct qbe_value offset;
+		struct qbe_statement lmatch, lnext;
+		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
+		struct qbe_value bnext = mklabel(ctx, &lnext, "next.%d");
+		const struct type *subtype =
+			tagged_select_subtype(objtype, _case->type);
+		enum match_compat compat = COMPAT_SUBTYPE;
+		if (subtype) {
+			gen_nested_match_tests(ctx, object,
+				bmatch, bnext, tag, _case, &offset);
+		} else {
+			assert(type_dealias(_case->type)->storage == STORAGE_TAGGED);
+			assert(tagged_subset_compat(objtype, _case->type));
+			if (tagged_align_compat(objtype, _case->type)) {
+				compat = COMPAT_ALIGNED;
+			} else {
+				compat = COMPAT_MISALIGNED;
+			}
+			gen_subset_match_tests(ctx, bmatch, bnext, tag, _case);
+		}
+
+		push(&ctx->current->body, &lmatch);
+
+		if (!_case->object) {
+			goto next;
+		}
+
+		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
+		gb->value.kind = GV_TEMP;
+		gb->value.type = _case->type;
+		gb->value.name = gen_name(ctx, "binding.%d");
+		gb->object = _case->object;
+		gb->next = ctx->bindings;
+		ctx->bindings = gb;
+
+		struct qbe_value qv = mklval(ctx, &gb->value);
+		switch (compat) {
+		case COMPAT_SUBTYPE:
+			pushi(ctx->current, &qv, Q_ADD, &qobject, &offset, NULL);
+			break;
+		case COMPAT_ALIGNED:
+		case COMPAT_MISALIGNED:
+			assert(0); // TODO
+		}
+
+next:
+		// TODO: Handle !out case
+		gen_expr_with(ctx, _case->value, out);
+		if (!_case->value->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
+		}
+		push(&ctx->current->body, &lnext);
+	}
+
+	if (_default) {
+		gen_expr_with(ctx, _default->value, out);
+	}
+
+	push(&ctx->current->body, &lout);
+	return gv_void;
+}
+
 static struct gen_value
 gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 {
@@ -1325,7 +1513,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_LIST:
 		return gen_expr_list_with(ctx, expr, NULL);
 	case EXPR_MATCH:
-		assert(0); // TODO
+		return gen_expr_match_with(ctx, expr, NULL);
 	case EXPR_MEASURE:
 		return gen_expr_measure(ctx, expr);
 	case EXPR_PROPAGATE:
@@ -1370,6 +1558,9 @@ gen_expr_at(struct gen_context *ctx,
 		return;
 	case EXPR_LIST:
 		gen_expr_list_with(ctx, expr, &out);
+		return;
+	case EXPR_MATCH:
+		gen_expr_match_with(ctx, expr, &out);
 		return;
 	case EXPR_SLICE:
 		gen_expr_slice_at(ctx, expr, out);

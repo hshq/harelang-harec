@@ -16,7 +16,8 @@ tests() {
 		909-defer \
 		910-tagged \
 		911-slices \
-		912-enums
+		912-enums \
+		913-match
 	do
 		cat <<EOF
 tests/$t: harec tests/$t.ha tests/rt.o
