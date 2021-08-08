@@ -1154,6 +1154,11 @@ gen_match_with_tagged(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
 {
+	struct gen_value gvout = gv_void;
+	if (!out) {
+		gvout = mktemp(ctx, expr->result, ".%d");
+	}
+
 	const struct type *objtype = expr->match.value->result;
 	struct gen_value object = gen_expr(ctx, expr->match.value);
 	struct qbe_value qobject = mkqval(ctx, &object);
@@ -1164,6 +1169,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 	struct qbe_statement lout;
 	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
 
+	struct gen_value bval;
 	struct match_case *_default = NULL;
 	for (struct match_case *_case = expr->match.cases;
 			_case; _case = _case->next) {
@@ -1221,8 +1227,8 @@ gen_match_with_tagged(struct gen_context *ctx,
 		}
 
 next:
-		// TODO: Handle !out case
-		gen_expr_with(ctx, _case->value, out);
+		bval = gen_expr_with(ctx, _case->value, out);
+		branch_copyresult(ctx, bval, gvout, out);
 		if (!_case->value->terminates) {
 			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
 		}
@@ -1234,7 +1240,7 @@ next:
 	}
 
 	push(&ctx->current->body, &lout);
-	return gv_void;
+	return gvout;
 }
 
 static struct gen_value
@@ -1242,11 +1248,17 @@ gen_match_with_nullable(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
 {
+	struct gen_value gvout = gv_void;
+	if (!out) {
+		gvout = mktemp(ctx, expr->result, ".%d");
+	}
+
 	struct qbe_statement lout;
 	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
 	struct gen_value object = gen_expr(ctx, expr->match.value);
 	struct qbe_value qobject = mkqval(ctx, &object);
 
+	struct gen_value bval;
 	struct match_case *_default = NULL;
 	for (struct match_case *_case = expr->match.cases;
 			_case; _case = _case->next) {
@@ -1289,8 +1301,8 @@ gen_match_with_nullable(struct gen_context *ctx,
 		pushi(ctx->current, NULL, store, &qobject, &qv, NULL);
 
 next:
-		// TODO: Handle !out case
-		gen_expr_with(ctx, _case->value, out);
+		bval = gen_expr_with(ctx, _case->value, out);
+		branch_copyresult(ctx, bval, gvout, out);
 		if (!_case->value->terminates) {
 			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
 		}
@@ -1302,7 +1314,7 @@ next:
 	}
 
 	push(&ctx->current->body, &lout);
-	return gv_void;
+	return gvout;
 }
 
 static struct gen_value
