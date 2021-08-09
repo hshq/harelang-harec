@@ -240,11 +240,29 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	glval = gen_autoderef(ctx, glval);
 	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qival = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	if (type_dealias(glval.type)->storage == STORAGE_SLICE) {
+	struct qbe_value length;
+	const struct type *ty = type_dealias(glval.type);
+	switch (ty->storage) {
+	case STORAGE_SLICE: {
 		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
+		struct qbe_value base = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &base, load, &qlval, NULL);
+
 		struct qbe_value temp = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		pushi(ctx->current, &temp, load, &qlval, NULL);
-		qlval = temp;
+		length = mkqtmp(ctx, ctx->arch.sz, "len.%d");
+		struct qbe_value offset = constl(builtin_type_size.size);
+		pushi(ctx->current, &temp, Q_ADD, &qlval, &offset, NULL);
+		pushi(ctx->current, &length, load, &temp, NULL);
+
+		qlval = base;
+		break;
+	}
+	case STORAGE_ARRAY:
+		assert(ty->array.length != SIZE_UNDEFINED);
+		length = constl(ty->array.length);
+		break;
+	default:
+		assert(0); // Unreachable
 	}
 
 	struct gen_value index = gen_expr(ctx, expr->access.index);
@@ -253,7 +271,17 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &qival, Q_MUL, &qindex, &itemsz, NULL);
 	pushi(ctx->current, &qival, Q_ADD, &qlval, &qival, NULL);
 
-	// TODO: Check bounds
+	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+	pushi(ctx->current, &valid, Q_CULTL, &qindex, &length, NULL);
+
+	struct qbe_statement linvalid, lvalid;
+	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+
+	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+	push(&ctx->current->body, &linvalid);
+	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+	push(&ctx->current->body, &lvalid);
 
 	return (struct gen_value){
 		.kind = GV_TEMP,
