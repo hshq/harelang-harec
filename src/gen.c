@@ -1308,7 +1308,8 @@ next:
 	}
 
 	if (_default) {
-		gen_expr_with(ctx, _default->value, out);
+		bval = gen_expr_with(ctx, _default->value, out);
+		branch_copyresult(ctx, bval, gvout, out);
 	}
 
 	push(&ctx->current->body, &lout);
@@ -1382,7 +1383,8 @@ next:
 	}
 
 	if (_default) {
-		gen_expr_with(ctx, _default->value, out);
+		bval = gen_expr_with(ctx, _default->value, out);
+		branch_copyresult(ctx, bval, gvout, out);
 	}
 
 	push(&ctx->current->body, &lout);
