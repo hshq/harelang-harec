@@ -748,8 +748,9 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	switch (type_dealias(to)->storage) {
 	case STORAGE_POINTER:
 		if (type_dealias(from)->storage == STORAGE_SLICE) {
-			// Cast slice to pointer
-			assert(0); // TODO
+			struct gen_value value = gen_expr(ctx, expr->cast.value);
+			value.type = to;
+			return gen_load(ctx, value);
 		}
 		break;
 	case STORAGE_VOID:

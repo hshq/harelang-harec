@@ -30,8 +30,16 @@ fn floats() void = {
 	assert(y == 13);
 };
 
+fn slices() void = {
+	let x: [_]int = [1, 2, 3, 4];
+	let y: []int = x;
+	let z = y: *[*]int;
+	assert(z == &x);
+};
+
 export fn main() int = {
 	integers();
 	floats();
+	slices();
 	return 0;
 };
