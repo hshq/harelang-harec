@@ -426,12 +426,29 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 {
+	const struct type *ltype = type_dealias(expr->binarithm.lvalue->result);
+	const struct type *rtype = type_dealias(expr->binarithm.rvalue->result);
 	struct gen_value lvalue = gen_expr(ctx, expr->binarithm.lvalue);
 	struct gen_value rvalue = gen_expr(ctx, expr->binarithm.rvalue);
 	struct gen_value result = mktemp(ctx, expr->result, ".%d");
 	struct qbe_value qlval = mkqval(ctx, &lvalue);
 	struct qbe_value qrval = mkqval(ctx, &rvalue);
 	struct qbe_value qresult = mkqval(ctx, &result);
+
+	assert((ltype->storage == STORAGE_STRING) == (rtype->storage == STORAGE_STRING));
+	if (ltype->storage == STORAGE_STRING) {
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.strcmp");
+		pushi(ctx->current, &qresult, Q_CALL,
+			&rtfunc, &qlval, &qrval, NULL);
+		if (expr->binarithm.op == BIN_NEQUAL) {
+			struct qbe_value one = constl(1);
+			pushi(ctx->current, &qresult, Q_XOR, &qresult, &one, NULL);
+		} else {
+			assert(expr->binarithm.op == BIN_LEQUAL);
+		}
+		return result;
+	}
+
 	enum qbe_instr instr = binarithm_for_op(ctx, expr->binarithm.op,
 		expr->binarithm.lvalue->result);
 	pushi(ctx->current, &qresult, instr, &qlval, &qrval, NULL);
@@ -1071,7 +1088,9 @@ gen_expr_if_with(struct gen_context *ctx,
 	push(&ctx->current->body, &ltrue);
 	struct gen_value vtrue = gen_expr_with(ctx, expr->_if.true_branch, out);
 	branch_copyresult(ctx, vtrue, gvout, out);
-	pushi(ctx->current, NULL, Q_JMP, &bend, NULL);
+	if (!expr->_if.true_branch->terminates) {
+		pushi(ctx->current, NULL, Q_JMP, &bend, NULL);
+	}
 
 	push(&ctx->current->body, &lfalse);
 	if (expr->_if.false_branch) {
