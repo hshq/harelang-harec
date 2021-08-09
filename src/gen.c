@@ -1522,6 +1522,23 @@ gen_expr_slice_at(struct gen_context *ctx,
 
 	struct qbe_value qstart = mkqval(ctx, &start);
 	struct qbe_value qend = mkqval(ctx, &end);
+
+	struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
+	struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
+	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+	pushi(ctx->current, &start_oob, Q_CULTL, &qstart, &qlength, NULL);
+	pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
+	pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
+
+	struct qbe_statement linvalid, lvalid;
+	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+
+	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+	push(&ctx->current->body, &linvalid);
+	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+	push(&ctx->current->body, &lvalid);
+
 	struct qbe_value isz = constl(srctype->array.members->size);
 
 	struct qbe_value qout = mkqval(ctx, &out);
