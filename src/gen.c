@@ -357,11 +357,101 @@ gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 	return gen_load(ctx, addr);
 }
 
+static void
+gen_alloc_slice_at(struct gen_context *ctx,
+		const struct expression *expr,
+		struct gen_value out)
+{
+	// TODO: We should avoid an extra allocation for some array cases if we
+	// wrote a separate code-path which allocates first (using the array
+	// length, which is known at compile time) and then uses gen_expr_at to
+	// initialize directly into the new storage area.
+	//
+	// This will likely be very important if we start working with
+	// initializers for arrays of a large size, e.g.
+	//
+	//	let x: [4096]int = alloc([0...]);
+	//
+	// The current approach will cause the [4096]int initializer to be
+	// stack-allocated and copied into the new allocated space.
+	struct gen_value init = gen_expr(ctx, expr->alloc.expr);
+	struct qbe_value qinit = mkqval(ctx, &init);
+
+	struct qbe_value length, initdata;
+	const struct type *inittype = type_dealias(expr->alloc.expr->result);
+	switch (inittype->storage) {
+	case STORAGE_ARRAY:
+		assert(inittype->array.length != SIZE_UNDEFINED);
+		length = constl(inittype->array.length);
+		initdata = mkqval(ctx, &init);
+		break;
+	case STORAGE_SLICE:;
+		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
+		initdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &initdata, load, &qinit, NULL);
+		struct qbe_value offset = constl(builtin_type_size.size);
+		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &ptr, Q_ADD, &qinit, &offset, NULL);
+		pushi(ctx->current, &length, load, &ptr, NULL);
+		break;
+	default: abort(); // Invariant
+	}
+
+	struct qbe_value qcap;
+	if (expr->alloc.cap) {
+		struct gen_value cap = gen_expr(ctx, expr->alloc.cap);
+		qcap = mkqval(ctx, &cap);
+	} else {
+		qcap = length;
+	}
+
+	const struct type *sltype = type_dealias(expr->result);
+	struct qbe_value isize = constl(sltype->array.members->size);
+	struct qbe_value size = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	pushi(ctx->current, &size, Q_MUL, &length, &isize, NULL);
+
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
+	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &data, Q_CALL, &rtfunc, &size, NULL);
+
+	struct qbe_statement linvalid, lvalid;
+	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+	pushi(ctx->current, NULL, Q_JNZ, &data, &bvalid, &binvalid, NULL);
+	push(&ctx->current->body, &linvalid);
+	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
+	push(&ctx->current->body, &lvalid);
+
+	struct qbe_value base = mklval(ctx, &out);
+	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value offset = constl(builtin_type_size.size);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
+	pushi(ctx->current, NULL, store, &data, &base, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
+	pushi(ctx->current, NULL, store, &length, &ptr, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
+	pushi(ctx->current, NULL, store, &qcap, &ptr, NULL);
+
+	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
+	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &data, &initdata, &size, NULL);
+}
+
 static struct gen_value
-gen_expr_alloc(struct gen_context *ctx, const struct expression *expr)
+gen_expr_alloc_with(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value *out)
 {
 	if (type_dealias(expr->result)->storage == STORAGE_SLICE) {
-		assert(0); // TODO
+		if (out) {
+			gen_alloc_slice_at(ctx, expr, *out);
+			return gv_void;
+		}
+		struct gen_value temp = mktemp(ctx, expr->result, "object.%d");
+		struct qbe_value base = mkqval(ctx, &temp);
+		struct qbe_value sz = constl(expr->result->size);
+		enum qbe_instr alloc = alloc_for_align(expr->result->align);
+		pushprei(ctx->current, &base, alloc, &sz, NULL);
+		gen_alloc_slice_at(ctx, expr, temp);
+		return temp;
 	}
 	assert(expr->alloc.cap == NULL);
 
@@ -1821,7 +1911,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_ACCESS:
 		return gen_expr_access(ctx, expr);
 	case EXPR_ALLOC:
-		return gen_expr_alloc(ctx, expr);
+		return gen_expr_alloc_with(ctx, expr, NULL);
 	case EXPR_APPEND:
 		assert(0); // TODO
 	case EXPR_ASSERT:
@@ -1894,6 +1984,9 @@ gen_expr_at(struct gen_context *ctx,
 	assert(out.kind != GV_CONST);
 
 	switch (expr->type) {
+	case EXPR_ALLOC:
+		gen_expr_alloc_with(ctx, expr, &out);
+		return;
 	case EXPR_CAST:
 		gen_expr_cast_at(ctx, expr, out);
 		return;
