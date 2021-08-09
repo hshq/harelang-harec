@@ -1115,7 +1115,7 @@ enum match_compat {
 static void
 gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 	struct qbe_value bmatch, struct qbe_value bnext,
-	struct qbe_value tag, struct match_case *_case,
+	struct qbe_value tag, const struct match_case *_case,
 	struct qbe_value *offset)
 {
 	// This function handles the case where we're matching against a type
@@ -1171,7 +1171,7 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 static void
 gen_subset_match_tests(struct gen_context *ctx,
 	struct qbe_value bmatch, struct qbe_value bnext,
-	struct qbe_value tag, struct match_case *_case)
+	struct qbe_value tag, const struct match_case *_case)
 {
 	// In this case, we're testing a case which is itself a tagged union,
 	// and is a subset of the match object.
@@ -1221,8 +1221,8 @@ gen_match_with_tagged(struct gen_context *ctx,
 	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
 
 	struct gen_value bval;
-	struct match_case *_default = NULL;
-	for (struct match_case *_case = expr->match.cases;
+	const struct match_case *_default = NULL;
+	for (const struct match_case *_case = expr->match.cases;
 			_case; _case = _case->next) {
 		if (!_case->type) {
 			_default = _case;
@@ -1332,8 +1332,8 @@ gen_match_with_nullable(struct gen_context *ctx,
 	struct qbe_value qobject = mkqval(ctx, &object);
 
 	struct gen_value bval;
-	struct match_case *_default = NULL;
-	for (struct match_case *_case = expr->match.cases;
+	const struct match_case *_default = NULL;
+	for (const struct match_case *_case = expr->match.cases;
 			_case; _case = _case->next) {
 		if (!_case->type) {
 			_default = _case;
@@ -1495,6 +1495,81 @@ gen_expr_struct_at(struct gen_context *ctx,
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
 		gen_expr_at(ctx, field->value, ftemp);
 	}
+}
+
+static struct gen_value
+gen_expr_switch_with(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value *out)
+{
+	struct gen_value gvout = gv_void;
+	if (!out) {
+		gvout = mktemp(ctx, expr->result, ".%d");
+	}
+
+	struct qbe_statement lout;
+	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
+	struct gen_value value = gen_expr(ctx, expr->_switch.value);
+
+	struct gen_value bval;
+	const struct switch_case *_default = NULL;
+	for (const struct switch_case *_case = expr->_switch.cases;
+			_case; _case = _case->next) {
+		if (!_case->options) {
+			_default = _case;
+			continue;
+		}
+
+		struct qbe_statement lmatch, lnextcase;
+		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
+		struct qbe_value bnextcase = mklabel(ctx, &lnextcase, "next.%d");
+
+		for (struct case_option *opt = _case->options;
+				opt; opt = opt->next) {
+			struct qbe_statement lnextopt;
+			struct qbe_value bnextopt = mklabel(ctx, &lnextopt, ".%d");
+			struct gen_value test = gen_expr_const(ctx, opt->value);
+			struct expression lvalue = {
+				.type = EXPR_GEN_VALUE,
+				.result = value.type,
+				.user = &value,
+			}, rvalue = {
+				.type = EXPR_GEN_VALUE,
+				.result = test.type,
+				.user = &test,
+			}, compare = {
+				.type = EXPR_BINARITHM,
+				.result = &builtin_type_bool,
+				.binarithm = {
+					.op = BIN_LEQUAL,
+					.lvalue = &lvalue,
+					.rvalue = &rvalue,
+				},
+			};
+			struct gen_value match = gen_expr(ctx, &compare);
+			struct qbe_value cond = mkqval(ctx, &match);
+			pushi(ctx->current, NULL, Q_JNZ,
+				&cond, &bmatch, &bnextopt, NULL);
+			push(&ctx->current->body, &lnextopt);
+		}
+
+		pushi(ctx->current, NULL, Q_JMP, &bnextcase, NULL);
+		push(&ctx->current->body, &lmatch);
+		bval = gen_expr_with(ctx, _case->value, out);
+		branch_copyresult(ctx, bval, gvout, out);
+		if (!_case->value->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
+		}
+		push(&ctx->current->body, &lnextcase);
+	}
+
+	if (_default) {
+		bval = gen_expr_with(ctx, _default->value, out);
+		branch_copyresult(ctx, bval, gvout, out);
+	}
+
+	push(&ctx->current->body, &lout);
+	return gvout;
 }
 
 static void
@@ -1710,7 +1785,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_RETURN:
 		return gen_expr_return(ctx, expr);
 	case EXPR_SWITCH:
-		assert(0); // TODO
+		return gen_expr_switch_with(ctx, expr, NULL);
 	case EXPR_UNARITHM:
 		return gen_expr_unarithm(ctx, expr);
 	case EXPR_SLICE:
@@ -1759,6 +1834,9 @@ gen_expr_at(struct gen_context *ctx,
 		return;
 	case EXPR_STRUCT:
 		gen_expr_struct_at(ctx, expr, out);
+		return;
+	case EXPR_SWITCH:
+		gen_expr_switch_with(ctx, expr, &out);
 		return;
 	case EXPR_TUPLE:
 		gen_expr_tuple_at(ctx, expr, out);
