@@ -1879,9 +1879,10 @@ check_expr_measure(struct context *ctx,
 		errors = check_expression(ctx, aexpr->measure.value,
 			expr->measure.value, NULL, errors);
 		enum type_storage vstor =
-			type_dealias(expr->measure.value->result)->storage;
-		if (vstor != STORAGE_ARRAY && vstor != STORAGE_SLICE
-				&& vstor != STORAGE_STRING) {
+			type_dereference(expr->measure.value->result)->storage;
+		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
+				|| vstor == STORAGE_STRING;
+		if (!valid) {
 			return error(aexpr->measure.value->loc, expr, errors,
 				"len argument must be of an array, slice, or str type");
 		}

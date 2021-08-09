@@ -1409,12 +1409,14 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 {
 	size_t len;
 	struct gen_value gv, temp;
+	const struct type *type;
 	const struct expression *value = expr->measure.value;
 	switch (expr->measure.op) {
 	case M_LEN:
-		switch (type_dealias(value->result)->storage) {
+		type = type_dereference(value->result);
+		switch (type->storage) {
 		case STORAGE_ARRAY:
-			len = type_dealias(value->result)->array.length;
+			len = type->array.length;
 			assert(len != SIZE_UNDEFINED);
 			return (struct gen_value){
 				.kind = GV_CONST,
