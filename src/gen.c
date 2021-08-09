@@ -358,6 +358,35 @@ gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_alloc(struct gen_context *ctx, const struct expression *expr)
+{
+	if (type_dealias(expr->result)->storage == STORAGE_SLICE) {
+		assert(0); // TODO
+	}
+	assert(expr->alloc.cap == NULL);
+
+	struct qbe_value sz = constl(type_dereference(expr->result)->size);
+	struct gen_value result = mktemp(ctx, expr->result, ".%d");
+	struct qbe_value qresult = mkqval(ctx, &result);
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
+	pushi(ctx->current, &qresult, Q_CALL, &rtfunc, &sz, NULL);
+
+	if (!(type_dealias(expr->result)->pointer.flags & PTR_NULLABLE)) {
+		struct qbe_statement linvalid, lvalid;
+		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+
+		pushi(ctx->current, NULL, Q_JNZ, &qresult, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &linvalid);
+		gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
+		push(&ctx->current->body, &lvalid);
+	}
+
+	gen_expr_at(ctx, expr->alloc.expr, result);
+	return result;
+}
+
+static struct gen_value
 gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 {
 	assert(expr->assert.message); // Invariant
@@ -1792,6 +1821,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_ACCESS:
 		return gen_expr_access(ctx, expr);
 	case EXPR_ALLOC:
+		return gen_expr_alloc(ctx, expr);
 	case EXPR_APPEND:
 		assert(0); // TODO
 	case EXPR_ASSERT:

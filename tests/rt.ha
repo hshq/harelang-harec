@@ -28,3 +28,19 @@ export @symbol("rt.strcmp") fn strcmp(_a: str, _b: str) bool = {
 	};
 	return true;
 };
+
+export @symbol("malloc") fn c_malloc(n: size) nullable *void;
+export @symbol("free") fn c_free(p: nullable *void) nullable *void;
+export @symbol("realloc") fn c_realloc(p: nullable *void, n: size) nullable *void;
+
+export @symbol("rt.malloc") fn malloc(n: size) nullable *void = {
+	return c_malloc(n);
+};
+
+export @symbol("rt.free") fn free_(p: nullable *void) void = {
+	c_free(p);
+};
+
+export @symbol("rt.realloc") fn realloc(p: nullable *void, n: size) nullable *void = {
+	c_realloc(p, n);
+};
