@@ -374,6 +374,12 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	//
 	// The current approach will cause the [4096]int initializer to be
 	// stack-allocated and copied into the new allocated space.
+	struct qbe_value qcap;
+	if (expr->alloc.cap) {
+		struct gen_value cap = gen_expr(ctx, expr->alloc.cap);
+		qcap = mkqval(ctx, &cap);
+	}
+
 	struct gen_value init = gen_expr(ctx, expr->alloc.expr);
 	struct qbe_value qinit = mkqval(ctx, &init);
 
@@ -397,11 +403,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	default: abort(); // Invariant
 	}
 
-	struct qbe_value qcap;
-	if (expr->alloc.cap) {
-		struct gen_value cap = gen_expr(ctx, expr->alloc.cap);
-		qcap = mkqval(ctx, &cap);
-	} else {
+	if (!expr->alloc.cap) {
 		qcap = length;
 	}
 
