@@ -240,10 +240,11 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	glval = gen_autoderef(ctx, glval);
 	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qival = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	bool checkbounds = true;
 	struct qbe_value length;
 	const struct type *ty = type_dealias(glval.type);
 	switch (ty->storage) {
-	case STORAGE_SLICE: {
+	case STORAGE_SLICE:;
 		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
 		struct qbe_value base = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		pushi(ctx->current, &base, load, &qlval, NULL);
@@ -256,10 +257,12 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 
 		qlval = base;
 		break;
-	}
 	case STORAGE_ARRAY:
-		assert(ty->array.length != SIZE_UNDEFINED);
-		length = constl(ty->array.length);
+		if (ty->array.length != SIZE_UNDEFINED) {
+			length = constl(ty->array.length);
+		} else {
+			checkbounds = false;
+		}
 		break;
 	default:
 		assert(0); // Unreachable
@@ -271,17 +274,19 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &qival, Q_MUL, &qindex, &itemsz, NULL);
 	pushi(ctx->current, &qival, Q_ADD, &qlval, &qival, NULL);
 
-	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-	pushi(ctx->current, &valid, Q_CULTL, &qindex, &length, NULL);
+	if (checkbounds) {
+		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+		pushi(ctx->current, &valid, Q_CULTL, &qindex, &length, NULL);
 
-	struct qbe_statement linvalid, lvalid;
-	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+		struct qbe_statement linvalid, lvalid;
+		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
 
-	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
-	push(&ctx->current->body, &linvalid);
-	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-	push(&ctx->current->body, &lvalid);
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &linvalid);
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+		push(&ctx->current->body, &lvalid);
+	}
 
 	return (struct gen_value){
 		.kind = GV_TEMP,
