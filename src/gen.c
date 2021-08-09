@@ -2046,8 +2046,6 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	if (func->body == NULL) {
 		return; // Prototype
 	}
-	// TODO: Attributes
-	assert(!func->flags);
 
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_FUNC;
@@ -2122,6 +2120,61 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	}
 
 	qbe_append_def(ctx->out, qdef);
+
+	if (func->flags & FN_INIT) {
+		struct qbe_def *init = xcalloc(1, sizeof *init);
+		init->kind = Q_DATA;
+		init->exported = false;
+		init->data.align = 8;
+		init->data.section = ".init_array";
+		init->data.secflags = NULL;
+
+		size_t n = snprintf(NULL, 0, ".init.%s", qdef->name);
+		init->name = xcalloc(n + 1, 1);
+		snprintf(init->name, n + 1, ".init.%s", qdef->name);
+
+		struct qbe_data_item dataitem = {
+			.type = QD_VALUE,
+			.value = {
+				.kind = QV_GLOBAL,
+				.type = &qbe_long,
+				.name = strdup(qdef->name),
+			},
+			.next = NULL,
+		};
+		init->data.items = dataitem;
+
+		qbe_append_def(ctx->out, init);
+	}
+
+	if (func->flags & FN_FINI) {
+		struct qbe_def *fini = xcalloc(1, sizeof *fini);
+		fini->kind = Q_DATA;
+		fini->exported = false;
+		fini->data.align = 8;
+		fini->data.section = ".fini_array";
+		fini->data.secflags = NULL;
+
+		size_t n = snprintf(NULL, 0, ".fini.%s", qdef->name);
+		fini->name = xcalloc(n + 1, 1);
+		snprintf(fini->name, n + 1, ".fini.%s", qdef->name);
+
+		struct qbe_data_item dataitem = {
+			.type = QD_VALUE,
+			.value = {
+				.kind = QV_GLOBAL,
+				.type = &qbe_long,
+				.name = strdup(qdef->name),
+			},
+			.next = NULL,
+		};
+		fini->data.items = dataitem;
+
+		qbe_append_def(ctx->out, fini);
+	}
+
+	if (func->flags & FN_TEST) assert(0); // TODO
+
 	ctx->current = NULL;
 }
 
