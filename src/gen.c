@@ -9,6 +9,8 @@
 #include "types.h"
 #include "util.h"
 
+#define EXPR_GEN_VALUE -1
+
 static const struct gen_value gv_void = {
 	.kind = GV_CONST,
 	.type = &builtin_type_void,
@@ -555,7 +557,16 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 {
 	const struct type *to = expr->result, *from = expr->cast.value->result;
 	const struct type *subtype = tagged_select_subtype(to, from);
-	assert(subtype || tagged_subset_compat(to, from));
+	if ((int)expr->cast.value->type != EXPR_GEN_VALUE) {
+		// EXPR_GEN_VALUE is a special case used by match for
+		// COMPAT_MISALIGNED. Normally, casts are only allowed between
+		// tagged unions if 'to' is a superset of 'from'. However, in
+		// the EXPR_GEN_VALUE case, 'to' is a subset of 'from', but the
+		// match code has already determined that the selected tag is a
+		// member of 'to'.
+		assert(subtype || tagged_subset_compat(to, from));
+	}
+
 	if (!subtype && tagged_align_compat(from, to)) {
 		// Case 1: from is a union whose members are a subset of to, and
 		// the alignment matches, so we can just interpret values of
@@ -1146,7 +1157,18 @@ gen_subset_match_tests(struct gen_context *ctx,
 	//
 	// In this situation, we test the match object's tag against each type
 	// ID of the case type.
-	assert(0); // TODO
+	const struct type *casetype = type_dealias(_case->type);
+	for (const struct type_tagged_union *tu = &casetype->tagged;
+			tu; tu = tu->next) {
+		struct qbe_statement lnexttag;
+		struct qbe_value bnexttag = mklabel(ctx, &lnexttag, ".%d");
+		struct qbe_value id = constl(tu->type->id);
+		struct qbe_value match = mkqtmp(ctx, &qbe_word, ".%d");
+		pushi(ctx->current, &match, Q_CEQW, &tag, &id, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &match, &bmatch, &bnexttag, NULL);
+		push(&ctx->current->body, &lnexttag);
+	}
+	pushi(ctx->current, NULL, Q_JMP, &bnext, NULL);
 }
 
 static struct gen_value
@@ -1222,8 +1244,29 @@ gen_match_with_tagged(struct gen_context *ctx,
 			pushi(ctx->current, &qv, Q_ADD, &qobject, &offset, NULL);
 			break;
 		case COMPAT_ALIGNED:
+			pushi(ctx->current, &qv, Q_COPY, &qobject, NULL);
+			break;
 		case COMPAT_MISALIGNED:
-			assert(0); // TODO
+			;
+			enum qbe_instr alloc = alloc_for_align(_case->type->align);
+			struct qbe_value sz = constl(_case->type->size);
+			pushprei(ctx->current, &qv, alloc, &sz, NULL);
+			struct expression value = {
+				.type = EXPR_GEN_VALUE,
+				.result = objtype,
+				.user = &object,
+			};
+			struct expression cast = {
+				.type = EXPR_CAST,
+				.result = _case->type,
+				.cast = {
+					.kind = C_CAST,
+					.secondary = _case->type,
+					.value = &value,
+				},
+			};
+			gen_expr_at(ctx, &cast, gb->value);
+			break;
 		}
 
 next:
@@ -1570,7 +1613,7 @@ gen_expr_unarithm(struct gen_context *ctx,
 static struct gen_value
 gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
-	switch (expr->type) {
+	switch ((int)expr->type) {
 	case EXPR_ACCESS:
 		return gen_expr_access(ctx, expr);
 	case EXPR_ALLOC:
@@ -1624,6 +1667,9 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_STRUCT:
 	case EXPR_TUPLE:
 		break; // Prefers -at style
+	// gen-specific psuedo-expressions
+	case EXPR_GEN_VALUE:
+		return *(struct gen_value *)expr->user;
 	}
 
 	struct gen_value out = mktemp(ctx, expr->result, "object.%d");

@@ -23,6 +23,22 @@ fn nested_subtype() void = {
 	};
 };
 
+fn subset() void = {
+	// Alignment compatible
+	let x: (int | size | void) = 1337z;
+	match (x) {
+		n: (int | size) => assert(n as size == 1337),
+		void => abort(),
+	};
+
+	// Alignment incompatible
+	let x: (int | size | void) = 1337;
+	match (x) {
+		n: (int | void) => assert(n as int == 1337),
+		size => abort(),
+	};
+};
+
 fn pointer() void = {
 	let x = 42;
 	let y: nullable *int = &x;
@@ -43,6 +59,7 @@ fn pointer() void = {
 export fn main() int = {
 	subtype();
 	nested_subtype();
+	subset();
 	pointer();
 	return 0;
 };

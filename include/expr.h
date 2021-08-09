@@ -358,6 +358,7 @@ struct expression {
 		struct expression_slice slice;
 		struct expression_tuple tuple;
 		struct expression_unarithm unarithm;
+		void *user;
 	};
 };
 
