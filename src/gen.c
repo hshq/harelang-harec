@@ -2038,6 +2038,8 @@ gen_expr_with(struct gen_context *ctx,
 	return gen_expr(ctx, expr);
 }
 
+static struct qbe_data_item *gen_data_item(struct gen_context *,
+	struct expression *, struct qbe_data_item *);
 static void
 gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 {
@@ -2050,9 +2052,14 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_FUNC;
 	qdef->exported = decl->exported;
-	qdef->name = decl->symbol ? strdup(decl->symbol)
-		: ident_to_sym(&decl->ident);
 	ctx->current = &qdef->func;
+
+	if (func->flags & FN_TEST) {
+		qdef->name = gen_name(ctx, "testfunc.%d");
+	} else {
+		qdef->name = decl->symbol ? strdup(decl->symbol)
+			: ident_to_sym(&decl->ident);
+	}
 
 	struct qbe_statement start_label = {0};
 	mklabel(ctx, &start_label, "start.%d");
@@ -2173,7 +2180,44 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		qbe_append_def(ctx->out, fini);
 	}
 
-	if (func->flags & FN_TEST) assert(0); // TODO
+	if (func->flags & FN_TEST) {
+		struct qbe_def *test = xcalloc(1, sizeof *test);
+		test->kind = Q_DATA;
+		test->exported = false;
+		test->data.align = 8;
+		test->data.section = ".test_array";
+		test->data.secflags = "aw";
+
+		size_t n = snprintf(NULL, 0, ".test.%s", qdef->name);
+		test->name = xcalloc(n + 1, 1);
+		snprintf(test->name, n + 1, ".test.%s", qdef->name);
+
+		char *ident = identifier_unparse(&decl->ident);
+
+		struct qbe_data_item *dataitem = &test->data.items;
+		struct expression expr = {
+			.type = EXPR_CONSTANT,
+			.result = &builtin_type_str,
+			.constant = {
+				.object = NULL,
+				.string = {
+					.value = ident,
+					.len = strlen(ident),
+				},
+			},
+		};
+		dataitem = gen_data_item(ctx, &expr, dataitem);
+
+		struct qbe_data_item *next = xcalloc(1, sizeof *next);
+		next->type = QD_VALUE;
+		next->value.kind = QV_GLOBAL;
+		next->value.type = &qbe_long;
+		next->value.name = strdup(qdef->name);
+		next->next = NULL;
+		dataitem->next = next;
+
+		qbe_append_def(ctx->out, test);
+	}
 
 	ctx->current = NULL;
 }
