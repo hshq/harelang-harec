@@ -559,7 +559,7 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &offs, Q_MUL, &len, &membsz, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 
-	struct gen_value item = (struct gen_value){
+	struct gen_value item = {
 		.kind = GV_TEMP,
 		.type = mtype,
 		.name = ptr.name,
