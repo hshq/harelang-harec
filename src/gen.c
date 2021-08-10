@@ -366,42 +366,31 @@ gen_alloc_slice_at(struct gen_context *ctx,
 		const struct expression *expr,
 		struct gen_value out)
 {
-	// TODO: We should avoid an extra allocation for some array cases if we
-	// wrote a separate code-path which allocates first (using the array
-	// length, which is known at compile time) and then uses gen_expr_at to
-	// initialize directly into the new storage area.
-	//
-	// This will likely be very important if we start working with
-	// initializers for arrays of a large size, e.g.
-	//
-	//	let x: [4096]int = alloc([0...]);
-	//
-	// The current approach will cause the [4096]int initializer to be
-	// stack-allocated and copied into the new allocated space.
 	struct qbe_value qcap;
 	if (expr->alloc.cap) {
 		struct gen_value cap = gen_expr(ctx, expr->alloc.cap);
 		qcap = mkqval(ctx, &cap);
 	}
 
-	struct gen_value init = gen_expr(ctx, expr->alloc.expr);
-	struct qbe_value qinit = mkqval(ctx, &init);
-
+	struct gen_value init;
+	struct qbe_value qinit;
 	struct qbe_value length, initdata;
 	const struct type *inittype = type_dealias(expr->alloc.expr->result);
 	switch (inittype->storage) {
 	case STORAGE_ARRAY:
 		assert(inittype->array.length != SIZE_UNDEFINED);
 		length = constl(inittype->array.length);
-		initdata = mkqval(ctx, &init);
 		break;
-	case STORAGE_SLICE:;
+	case STORAGE_SLICE:
+		init = gen_expr(ctx, expr->alloc.expr);
+		qinit = mkqval(ctx, &init);
 		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
 		initdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		pushi(ctx->current, &initdata, load, &qinit, NULL);
 		struct qbe_value offset = constl(builtin_type_size.size);
 		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		pushi(ctx->current, &ptr, Q_ADD, &qinit, &offset, NULL);
+		length = mkqtmp(ctx, ctx->arch.sz, ".%d");
 		pushi(ctx->current, &length, load, &ptr, NULL);
 		break;
 	default: abort(); // Invariant
@@ -446,8 +435,18 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
 	pushi(ctx->current, NULL, store, &qcap, &ptr, NULL);
 
-	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
-	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &data, &initdata, &size, NULL);
+	if (inittype->storage == STORAGE_ARRAY) {
+		struct gen_value storage = (struct gen_value){
+			.kind = GV_TEMP,
+			.type = inittype,
+			.name = data.name,
+		};
+		gen_expr_at(ctx, expr->alloc.expr, storage);
+	} else {
+		struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
+		pushi(ctx->current, NULL, Q_CALL, &rtmemcpy,
+				&data, &initdata, &size, NULL);
+	}
 }
 
 static struct gen_value
@@ -1323,13 +1322,14 @@ static struct gen_value
 gen_expr_free(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct type *type = type_dealias(expr->alloc.expr->result);
-	struct gen_value val = gen_expr(ctx, expr->alloc.expr);
-	if (type->storage == STORAGE_SLICE
-			|| type->storage == STORAGE_STRING) {
-		val = gen_load(ctx, val);
-	}
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.free");
+	struct gen_value val = gen_expr(ctx, expr->alloc.expr);
 	struct qbe_value qval = mkqval(ctx, &val);
+	if (type->storage == STORAGE_SLICE || type->storage == STORAGE_STRING) {
+		struct qbe_value lval = mklval(ctx, &val);
+		qval = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &qval, Q_LOADL, &lval, NULL);
+	}
 	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qval, NULL);
 	return gv_void;
 }
