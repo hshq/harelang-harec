@@ -28,7 +28,9 @@ static struct gen_value gen_expr_with(struct gen_context *ctx,
 static void
 gen_defers(struct gen_context *ctx)
 {
-	assert(ctx->scope);
+	if (!ctx->scope) {
+		return;
+	}
 	if (ctx->scope->defers) {
 		pushc(ctx->current, "gen defers");
 	}
