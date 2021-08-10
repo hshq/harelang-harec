@@ -50,6 +50,7 @@ EOF
 		09-funcs \
 		10-binarithms \
 		11-globals \
+		13-tagged \
 		14-switch \
 		17-alloc \
 		20-if \

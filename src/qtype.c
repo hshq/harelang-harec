@@ -100,7 +100,11 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		assert(type->struct_union.c_compat); // TODO
+		if (!type->struct_union.c_compat) {
+			field->type = NULL;
+			field->count = type->size;
+			break;
+		}
 		size_t n = 0;
 		for (struct struct_field *tfield = type->struct_union.fields;
 				tfield; tfield = tfield->next) {
