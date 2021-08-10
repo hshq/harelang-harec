@@ -56,6 +56,7 @@ EOF
 		17-alloc \
 		20-if \
 		24-imports \
+		25-promotion \
 		26-gen \
 		27-rt \
 		29-unarithm
@@ -64,13 +65,11 @@ EOF
 		#08-slices \
 		#12-loops \
 		#16-defer \
-		#17-alloc \
 		#18-match \
 		#19-append \
 		#21-tuples \
 		#22-delete \
 		#23-errors \
-		#25-promotion \
 		#28-insert \
 	do
 		cat <<EOF
