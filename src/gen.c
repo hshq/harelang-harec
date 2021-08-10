@@ -576,6 +576,26 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 	return gv_void;
 }
 
+static struct qbe_value
+extend(struct gen_context *ctx, struct qbe_value v, const struct type *type)
+{
+	enum qbe_instr op;
+	switch (type->size) {
+	case 1:
+		op = type_is_signed(type) ? Q_EXTSB : Q_EXTUB;
+		break;
+	case 2:
+		op = type_is_signed(type) ? Q_EXTSH : Q_EXTUH;
+		break;
+	default:
+		return v;
+	}
+
+	struct qbe_value temp = mkqtmp(ctx, &qbe_word, "ext.%d");
+	pushi(ctx->current, &temp, op, &v, NULL);
+	return temp;
+}
+
 static struct gen_value
 gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 {
@@ -613,6 +633,20 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value rvalue = gen_expr(ctx, expr->binarithm.rvalue);
 	struct qbe_value qlval = mkqval(ctx, &lvalue);
 	struct qbe_value qrval = mkqval(ctx, &rvalue);
+
+	switch (expr->binarithm.op) {
+	case BIN_GREATER:
+	case BIN_GREATEREQ:
+	case BIN_LEQUAL:
+	case BIN_LESS:
+	case BIN_LESSEQ:
+	case BIN_NEQUAL:
+		qlval = extend(ctx, qlval, ltype);
+		qrval = extend(ctx, qrval, rtype);
+		break;
+	default:
+		break;
+	}
 
 	assert((ltype->storage == STORAGE_STRING) == (rtype->storage == STORAGE_STRING));
 	if (ltype->storage == STORAGE_STRING) {

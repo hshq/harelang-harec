@@ -52,6 +52,7 @@ EOF
 		11-globals \
 		13-tagged \
 		14-switch \
+		15-enums \
 		17-alloc \
 		20-if \
 		24-imports \
@@ -62,8 +63,6 @@ EOF
 	# Disabled tests
 		#08-slices \
 		#12-loops \
-		#13-tagged \
-		#15-enums \
 		#16-defer \
 		#17-alloc \
 		#18-match \
