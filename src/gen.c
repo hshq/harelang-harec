@@ -1686,9 +1686,13 @@ static struct gen_value
 gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value ret = gen_expr(ctx, expr->_return.value);
-	struct qbe_value qret = mkqval(ctx, &ret);
 	gen_defers(ctx);
-	pushi(ctx->current, NULL, Q_RET, &qret, NULL);
+	if (type_dealias(ret.type)->storage == STORAGE_VOID) {
+		pushi(ctx->current, NULL, Q_RET, NULL);
+	} else {
+		struct qbe_value qret = mkqval(ctx, &ret);
+		pushi(ctx->current, NULL, Q_RET, &qret, NULL);
+	}
 	return gv_void;
 }
 
