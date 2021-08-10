@@ -24,6 +24,8 @@ static void gen_expr_at(struct gen_context *ctx,
 static struct gen_value gen_expr_with(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out);
+static void gen_global_decl(struct gen_context *ctx,
+	const struct declaration *decl);
 
 static void
 gen_defers(struct gen_context *ctx)
@@ -636,6 +638,20 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 {
 	for (const struct expression_binding *binding = &expr->binding;
 			binding; binding = binding->next) {
+		if (binding->object->otype == O_DECL) {
+			// static binding
+			struct declaration decl = {
+				.type = DECL_GLOBAL,
+				.ident = binding->object->ident,
+				.global = {
+					.type = binding->object->type,
+					.value = binding->initializer,
+				},
+			};
+			gen_global_decl(ctx, &decl);
+			continue;
+		}
+
 		const struct type *type = binding->initializer->result;
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
 		gb->value.kind = GV_TEMP;

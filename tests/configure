@@ -49,6 +49,7 @@ EOF
 		07-aliases \
 		09-funcs \
 		10-binarithms \
+		11-globals \
 		14-switch \
 		17-alloc \
 		20-if \
@@ -59,7 +60,6 @@ EOF
 
 	# Disabled tests
 		#08-slices \
-		#11-globals \
 		#12-loops \
 		#13-tagged \
 		#15-enums \
