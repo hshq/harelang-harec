@@ -493,6 +493,60 @@ gen_expr_alloc_with(struct gen_context *ctx,
 }
 
 static struct gen_value
+gen_expr_append(struct gen_context *ctx, const struct expression *expr)
+{
+	assert(!expr->append.variadic); // TODO
+	assert(!expr->append.is_static); // TODO
+
+	struct gen_value slice = gen_expr(ctx, expr->append.expr);
+	struct qbe_value qslice = mkqval(ctx, &slice);
+
+	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value offs = constl(builtin_type_size.size);
+	pushi(ctx->current, &ptr, Q_ADD, &qslice, &offs, NULL);
+	struct qbe_value len = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
+	pushi(ctx->current, &len, load, &ptr, NULL);
+
+	size_t args = 0;
+	for (struct append_values *value = expr->append.values; value;
+			value = value->next) {
+		args++;
+	}
+	struct qbe_value qargs = constl(args);
+	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	pushi(ctx->current, &newlen, Q_ADD, &len, &qargs, NULL);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
+	pushi(ctx->current, NULL, store, &newlen, &ptr, NULL);
+
+	const struct type *mtype = type_dealias(slice.type)->array.members;
+	struct qbe_value membsz = constl(mtype->size);
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
+	struct qbe_value lval = mklval(ctx, &slice);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
+
+	offs = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	pushi(ctx->current, &ptr, load, &qslice, NULL);
+	pushi(ctx->current, &offs, Q_MUL, &len, &membsz, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+
+	struct gen_value item = (struct gen_value){
+		.kind = GV_TEMP,
+		.type = mtype,
+		.name = ptr.name,
+	};
+	for (struct append_values *value = expr->append.values; value;
+			value = value->next) {
+		gen_expr_at(ctx, value->expr, item);
+		if (value->next) {
+			pushi(ctx->current, &ptr, Q_ADD, &ptr, &membsz, NULL);
+		}
+	}
+
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 {
 	assert(expr->assert.message); // Invariant
@@ -2040,7 +2094,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_ALLOC:
 		return gen_expr_alloc_with(ctx, expr, NULL);
 	case EXPR_APPEND:
-		assert(0); // TODO
+		return gen_expr_append(ctx, expr);
 	case EXPR_ASSERT:
 		return gen_expr_assert(ctx, expr);
 	case EXPR_ASSIGN:
