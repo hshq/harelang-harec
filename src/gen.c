@@ -865,7 +865,13 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 
 	const struct type *rtype = lvalue.type;
 	assert(rtype->storage == STORAGE_FUNCTION);
-	// TODO: Run deferred expressions if rtype->func.flags & FN_NORETURN
+
+	if (rtype->func.flags & FN_NORETURN) {
+		for (struct gen_scope *scope = ctx->scope; scope;
+				scope = scope->parent) {
+			gen_defers(ctx, scope);
+		}
+	}
 
 	struct qbe_statement call = {
 		.type = Q_INSTR,
