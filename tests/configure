@@ -45,6 +45,7 @@ EOF
 		03-pointers \
 		04-strings \
 		05-implicit-casts \
+		06-structs \
 		07-aliases \
 		10-binarithms \
 		14-switch \
@@ -56,7 +57,6 @@ EOF
 		29-unarithm
 
 	# Disabled tests
-		#06-structs \
 		#08-slices \
 		#09-funcs \
 		#11-globals \

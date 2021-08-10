@@ -1719,6 +1719,7 @@ gen_expr_struct_at(struct gen_context *ctx,
 		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memset");
 		struct qbe_value size =
 			constl(expr->result->size), zero = constl(0);
+		struct qbe_value base = mklval(ctx, &out);
 		pushi(ctx->current, NULL, Q_CALL, &rtfunc,
 			&base, &zero, &size, NULL);
 	}
