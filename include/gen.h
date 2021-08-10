@@ -48,6 +48,9 @@ struct gen_defer {
 };
 
 struct gen_scope {
+	const char *label;
+	struct qbe_value *after;
+	struct qbe_value *end;
 	struct gen_defer *defers;
 	struct gen_scope *parent;
 };

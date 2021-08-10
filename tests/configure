@@ -51,6 +51,7 @@ EOF
 		09-funcs \
 		10-binarithms \
 		11-globals \
+		12-loops \
 		13-tagged \
 		14-switch \
 		15-enums \
@@ -63,7 +64,6 @@ EOF
 		29-unarithm
 
 	# Disabled tests
-		#12-loops \
 		#16-defer \
 		#18-match \
 		#19-append \

@@ -28,15 +28,15 @@ static void gen_global_decl(struct gen_context *ctx,
 	const struct declaration *decl);
 
 static void
-gen_defers(struct gen_context *ctx)
+gen_defers(struct gen_context *ctx, struct gen_scope *scope)
 {
-	if (!ctx->scope) {
+	if (!scope) {
 		return;
 	}
-	if (ctx->scope->defers) {
+	if (scope->defers) {
 		pushc(ctx->current, "gen defers");
 	}
-	for (struct gen_defer *defer = ctx->scope->defers; defer;
+	for (struct gen_defer *defer = scope->defers; defer;
 			defer = defer->next) {
 		gen_expr(ctx, defer->expr);
 	}
@@ -54,7 +54,7 @@ static void
 pop_scope(struct gen_context *ctx, bool gendefers)
 {
 	if (gendefers) {
-		gen_defers(ctx);
+		gen_defers(ctx, ctx->scope);
 	}
 	struct gen_scope *scope = ctx->scope;
 	ctx->scope = scope->parent;
@@ -834,6 +834,30 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_control(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_scope *scope = ctx->scope;
+	while (scope != NULL) {
+		gen_defers(ctx, scope);
+		if (expr->control.label && scope->label) {
+			if (strcmp(expr->control.label, scope->label) == 0) {
+				break;
+			}
+		} else if (!expr->control.label && scope->after) {
+			break;
+		}
+		scope = scope->parent;
+	}
+	assert(scope != NULL);
+	if (expr->type == EXPR_BREAK) {
+		pushi(ctx->current, NULL, Q_JMP, scope->end, NULL);
+	} else {
+		pushi(ctx->current, NULL, Q_JMP, scope->after, NULL);
+	}
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value lvalue = gen_expr(ctx, expr->call.lvalue);
@@ -1428,11 +1452,16 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value bloop = mklabel(ctx, &lloop, "loop.%d");
 	struct qbe_value bbody = mklabel(ctx, &lbody, "body.%d");
 	struct qbe_value bend = mklabel(ctx, &lend, ".%d");
-	mklabel(ctx, &lafter, "after.%d");
+	struct qbe_value bafter = mklabel(ctx, &lafter, "after.%d");
 
 	if (expr->_for.bindings) {
 		gen_expr_binding(ctx, expr->_for.bindings);
 	}
+
+	push_scope(ctx);
+	ctx->scope->label = expr->_for.label;
+	ctx->scope->after = &bafter;
+	ctx->scope->end = &bend;
 
 	push(&ctx->current->body, &lloop);
 	struct gen_value cond = gen_expr(ctx, expr->_for.cond);
@@ -1446,6 +1475,8 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 	if (expr->_for.afterthought) {
 		gen_expr(ctx, expr->_for.afterthought);
 	}
+
+	pop_scope(ctx, true);
 
 	pushi(ctx->current, NULL, Q_JMP, &bloop, NULL);
 
@@ -1884,7 +1915,7 @@ static struct gen_value
 gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value ret = gen_expr(ctx, expr->_return.value);
-	gen_defers(ctx);
+	gen_defers(ctx, ctx->scope);
 	if (type_dealias(ret.type)->storage == STORAGE_VOID) {
 		pushi(ctx->current, NULL, Q_RET, NULL);
 	} else {
@@ -2185,15 +2216,14 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_BINDING:
 		return gen_expr_binding(ctx, expr);
 	case EXPR_BREAK:
-		assert(0); // TODO
+	case EXPR_CONTINUE:
+		return gen_expr_control(ctx, expr);
 	case EXPR_CALL:
 		return gen_expr_call(ctx, expr);
 	case EXPR_CAST:
 		return gen_expr_cast(ctx, expr);
 	case EXPR_CONSTANT:
 		return gen_expr_const(ctx, expr);
-	case EXPR_CONTINUE:
-		assert(0); // TODO
 	case EXPR_DEFER:
 		return gen_expr_defer(ctx, expr);
 	case EXPR_DELETE:
