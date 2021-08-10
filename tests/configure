@@ -48,6 +48,7 @@ EOF
 		07-aliases \
 		10-binarithms \
 		14-switch \
+		17-alloc \
 		20-if \
 		24-imports \
 		26-gen \

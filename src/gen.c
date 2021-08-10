@@ -410,19 +410,26 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	const struct type *sltype = type_dealias(expr->result);
 	struct qbe_value isize = constl(sltype->array.members->size);
 	struct qbe_value size = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &size, Q_MUL, &length, &isize, NULL);
+	pushi(ctx->current, &size, Q_MUL, &qcap, &isize, NULL);
+
+	struct qbe_statement lzero, lnonzero;
+	struct qbe_value bzero = mklabel(ctx, &lzero, ".%d");
+	struct qbe_value bnonzero = mklabel(ctx, &lnonzero, ".%d");
 
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
 	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value zero = constl(0);
+	pushi(ctx->current, &data, Q_COPY, &zero, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &size, &bnonzero, &bzero, NULL);
+	push(&ctx->current->body, &lnonzero);
 	pushi(ctx->current, &data, Q_CALL, &rtfunc, &size, NULL);
 
-	struct qbe_statement linvalid, lvalid;
+	struct qbe_statement linvalid;
 	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-	pushi(ctx->current, NULL, Q_JNZ, &data, &bvalid, &binvalid, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &data, &bzero, &binvalid, NULL);
 	push(&ctx->current->body, &linvalid);
 	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
-	push(&ctx->current->body, &lvalid);
+	push(&ctx->current->body, &lzero);
 
 	struct qbe_value base = mklval(ctx, &out);
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
@@ -431,6 +438,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	pushi(ctx->current, NULL, store, &data, &base, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
 	pushi(ctx->current, NULL, store, &length, &ptr, NULL);
+	offset = constl(builtin_type_size.size * 2);
 	pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
 	pushi(ctx->current, NULL, store, &qcap, &ptr, NULL);
 
@@ -475,6 +483,9 @@ gen_expr_alloc_with(struct gen_context *ctx,
 	}
 
 	gen_expr_at(ctx, expr->alloc.expr, result);
+	if (out) {
+		gen_store(ctx, *out, result);
+	}
 	return result;
 }
 
@@ -1069,7 +1080,7 @@ gen_const_array_at(struct gen_context *ctx,
 		++n;
 	}
 
-	if (!aexpr->expand) {
+	if (!aexpr || !aexpr->expand) {
 		return;
 	}
 
