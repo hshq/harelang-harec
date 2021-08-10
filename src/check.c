@@ -378,8 +378,6 @@ check_expr_append(struct context *ctx,
 			return error(aexpr->append.variadic->loc, expr, errors,
 				"appended slice must be assignable to slice type");
 		}
-		expr->append.variadic =
-			lower_implicit_cast(type, expr->append.variadic);
 	}
 	return errors;
 }

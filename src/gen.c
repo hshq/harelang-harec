@@ -495,7 +495,6 @@ gen_expr_alloc_with(struct gen_context *ctx,
 static struct gen_value
 gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 {
-	assert(!expr->append.variadic); // TODO
 	assert(!expr->append.is_static); // TODO
 
 	struct gen_value slice = gen_expr(ctx, expr->append.expr);
@@ -516,6 +515,36 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value qargs = constl(args);
 	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	pushi(ctx->current, &newlen, Q_ADD, &len, &qargs, NULL);
+
+	const struct type *vtype = NULL;
+	struct qbe_value vdata, vlen;
+	if (expr->append.variadic) {
+		// TODO: If it's an array object we might be able to make this
+		// more efficient by using gen_expr_at to populate the expanded
+		// slice storage area with the variadic data, like
+		// gen_alloc_slice_at does.
+		struct gen_value vobj = gen_expr(ctx, expr->append.variadic);
+		struct qbe_value qvobj = mkqval(ctx, &vobj);
+		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		vdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		vtype = type_dealias(expr->append.variadic->result);
+		switch (vtype->storage) {
+		case STORAGE_ARRAY:
+			pushi(ctx->current, &vdata, Q_COPY, &qvobj, NULL);
+			vlen = constl(vtype->array.length);
+			break;
+		case STORAGE_SLICE:
+			vlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
+			pushi(ctx->current, &vdata, load, &qvobj, NULL);
+			pushi(ctx->current, &ptr, Q_ADD, &qvobj, &offs, NULL);
+			pushi(ctx->current, &vlen, load, &ptr, NULL);
+			break;
+		default: abort(); // Invariant
+		}
+
+		pushi(ctx->current, &newlen, Q_ADD, &newlen, &vlen, NULL);
+	}
+
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	pushi(ctx->current, NULL, store, &newlen, &ptr, NULL);
 
@@ -538,9 +567,14 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	for (struct append_values *value = expr->append.values; value;
 			value = value->next) {
 		gen_expr_at(ctx, value->expr, item);
-		if (value->next) {
-			pushi(ctx->current, &ptr, Q_ADD, &ptr, &membsz, NULL);
-		}
+		pushi(ctx->current, &ptr, Q_ADD, &ptr, &membsz, NULL);
+	}
+
+	if (expr->append.variadic) {
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
+		struct qbe_value sz = mkqtmp(ctx, ctx->arch.sz, ".%d");
+		pushi(ctx->current, &sz, Q_MUL, &vlen, &membsz, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &ptr, &vdata, &sz, NULL);
 	}
 
 	return gv_void;
