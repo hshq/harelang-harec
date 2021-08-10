@@ -1257,6 +1257,21 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_free(struct gen_context *ctx, const struct expression *expr)
+{
+	const struct type *type = type_dealias(expr->alloc.expr->result);
+	struct gen_value val = gen_expr(ctx, expr->alloc.expr);
+	if (type->storage == STORAGE_SLICE
+			|| type->storage == STORAGE_STRING) {
+		val = gen_load(ctx, val);
+	}
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.free");
+	struct qbe_value qval = mkqval(ctx, &val);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qval, NULL);
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_if_with(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
@@ -1983,7 +1998,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_FOR:
 		return gen_expr_for(ctx, expr);
 	case EXPR_FREE:
-		assert(0); // TODO
+		return gen_expr_free(ctx, expr);
 	case EXPR_IF:
 		return gen_expr_if_with(ctx, expr, NULL);
 	case EXPR_INSERT:
