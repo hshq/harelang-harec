@@ -855,12 +855,17 @@ gen_expr_cast_slice_at(struct gen_context *ctx,
 	assert(from->storage == STORAGE_ARRAY);
 	assert(from->array.length != SIZE_UNDEFINED);
 
-	struct gen_value value = gen_expr(ctx, expr->cast.value);
-	struct qbe_value qvalue = mkqval(ctx, &value);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	struct qbe_value base = mklval(ctx, &out);
 	struct qbe_value sz = constl(to->size);
-	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
-	pushi(ctx->current, NULL, store, &qvalue, &base, NULL);
+	if (from->array.length == 0) {
+		struct qbe_value tmp = constl(0);
+		pushi(ctx->current, NULL, store, &tmp, &base, NULL);
+	} else {
+		struct gen_value value = gen_expr(ctx, expr->cast.value);
+		struct qbe_value qvalue = mkqval(ctx, &value);
+		pushi(ctx->current, NULL, store, &qvalue, &base, NULL);
+	}
 	struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	sz = constl(builtin_type_size.size);
 	struct qbe_value ln = constl(from->array.length);
