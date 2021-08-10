@@ -47,6 +47,7 @@ EOF
 		05-implicit-casts \
 		06-structs \
 		07-aliases \
+		08-slices \
 		09-funcs \
 		10-binarithms \
 		11-globals \
@@ -62,7 +63,6 @@ EOF
 		29-unarithm
 
 	# Disabled tests
-		#08-slices \
 		#12-loops \
 		#16-defer \
 		#18-match \

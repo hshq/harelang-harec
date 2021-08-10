@@ -580,12 +580,54 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value obj = gen_expr(ctx, expr->assign.object);
+	struct gen_value val = gen_expr(ctx, expr->assign.value);
+	struct qbe_value qobj = mkqval(ctx, &obj);
+	struct qbe_value qval = mkqval(ctx, &val);
+	struct qbe_value step = constl(ctx->arch.ptr->size);
+
+	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value olen = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value vlen = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+
+	pushi(ctx->current, &ptr, Q_ADD, &qobj, &step, NULL);
+	pushi(ctx->current, &olen, Q_LOADL, &ptr, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &qval, &step, NULL);
+	pushi(ctx->current, &vlen, Q_LOADL, &ptr, NULL);
+
+	struct qbe_statement linvalid, lvalid;
+	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+	struct qbe_value tmp = mkqtmp(ctx, &qbe_long, ".%d");
+	pushi(ctx->current, &tmp, Q_CUGEL, &olen, &vlen, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &tmp, &bvalid, &binvalid, NULL);
+	push(&ctx->current->body, &linvalid);
+	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+	push(&ctx->current->body, &lvalid);
+
+	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
+	struct qbe_value optr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value vptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &optr, Q_LOADL, &qobj, NULL);
+	pushi(ctx->current, &vptr, Q_LOADL, &qval, NULL);
+	tmp = constl(expr->assign.object->result->array.members->size);
+	pushi(ctx->current, &olen, Q_MUL, &olen, &tmp, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &optr, &vptr, &olen, NULL);
+
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 {
 	struct expression *object = expr->assign.object;
 	struct expression *value = expr->assign.value;
+	if (object->type == EXPR_SLICE) {
+		return gen_expr_assign_slice(ctx, expr);
+	}
 	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
-	assert(object->type != EXPR_SLICE); // TODO
 
 	struct gen_value obj;
 	if (expr->assign.indirect) {
