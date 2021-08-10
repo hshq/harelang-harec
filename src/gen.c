@@ -1921,7 +1921,9 @@ static struct gen_value
 gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value ret = gen_expr(ctx, expr->_return.value);
-	gen_defers(ctx, ctx->scope);
+	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
+		gen_defers(ctx, scope);
+	}
 	if (type_dealias(ret.type)->storage == STORAGE_VOID) {
 		pushi(ctx->current, NULL, Q_RET, NULL);
 	} else {

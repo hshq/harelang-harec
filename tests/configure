@@ -55,6 +55,7 @@ EOF
 		13-tagged \
 		14-switch \
 		15-enums \
+		16-defer \
 		17-alloc \
 		20-if \
 		24-imports \
@@ -64,7 +65,6 @@ EOF
 		29-unarithm
 
 	# Disabled tests
-		#16-defer \
 		#18-match \
 		#19-append \
 		#21-tuples \
