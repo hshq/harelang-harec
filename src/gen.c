@@ -529,7 +529,24 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 	if (expr->assign.op == BIN_LEQUAL) {
 		gen_expr_at(ctx, value, obj);
 	} else if (expr->assign.op == BIN_LAND || expr->assign.op == BIN_LOR) {
-		assert(0); // TODO
+		struct qbe_statement lrval, lshort;
+		struct qbe_value brval = mklabel(ctx, &lrval, ".%d");
+		struct qbe_value bshort = mklabel(ctx, &lshort, ".%d");
+		struct gen_value load = gen_load(ctx, obj);
+		struct qbe_value qload = mkqval(ctx, &load);
+		if (expr->binarithm.op == BIN_LAND) {
+			pushi(ctx->current, NULL, Q_JNZ, &qload, &brval,
+				&bshort, NULL);
+		} else {
+			pushi(ctx->current, NULL, Q_JNZ, &qload, &bshort,
+				&brval, NULL);
+		}
+		push(&ctx->current->body, &lrval);
+		gen_expr_at(ctx, value, obj);
+		if (!expr->binarithm.rvalue->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &bshort, NULL);
+		}
+		push(&ctx->current->body, &lshort);
 	} else {
 		struct gen_value lvalue = gen_load(ctx, obj);
 		struct gen_value rvalue = gen_expr(ctx, value);
@@ -549,12 +566,38 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct type *ltype = type_dealias(expr->binarithm.lvalue->result);
 	const struct type *rtype = type_dealias(expr->binarithm.rvalue->result);
+	struct gen_value result = mktemp(ctx, expr->result, ".%d");
+	struct qbe_value qresult = mkqval(ctx, &result);
+
+	if (expr->binarithm.op == BIN_LAND || expr->binarithm.op == BIN_LOR) {
+		struct qbe_statement lrval, lshort;
+		struct qbe_value brval = mklabel(ctx, &lrval, ".%d");
+		struct qbe_value bshort = mklabel(ctx, &lshort, ".%d");
+		struct gen_value lval = gen_expr(ctx, expr->binarithm.lvalue);
+		struct qbe_value qlval = mkqval(ctx, &lval);
+		pushi(ctx->current, &qresult, Q_COPY, &qlval, NULL);
+		if (expr->binarithm.op == BIN_LAND) {
+			pushi(ctx->current, NULL, Q_JNZ, &qresult, &brval,
+				&bshort, NULL);
+		} else {
+			pushi(ctx->current, NULL, Q_JNZ, &qresult, &bshort,
+				&brval, NULL);
+		}
+		push(&ctx->current->body, &lrval);
+		struct gen_value rval = gen_expr(ctx, expr->binarithm.rvalue);
+		struct qbe_value qrval = mkqval(ctx, &rval);
+		pushi(ctx->current, &qresult, Q_COPY, &qrval, NULL);
+		if (!expr->binarithm.rvalue->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &bshort, NULL);
+		}
+		push(&ctx->current->body, &lshort);
+		return result;
+	}
+
 	struct gen_value lvalue = gen_expr(ctx, expr->binarithm.lvalue);
 	struct gen_value rvalue = gen_expr(ctx, expr->binarithm.rvalue);
-	struct gen_value result = mktemp(ctx, expr->result, ".%d");
 	struct qbe_value qlval = mkqval(ctx, &lvalue);
 	struct qbe_value qrval = mkqval(ctx, &rvalue);
-	struct qbe_value qresult = mkqval(ctx, &result);
 
 	assert((ltype->storage == STORAGE_STRING) == (rtype->storage == STORAGE_STRING));
 	if (ltype->storage == STORAGE_STRING) {
@@ -569,7 +612,6 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 		}
 		return result;
 	}
-
 	enum qbe_instr instr = binarithm_for_op(ctx, expr->binarithm.op,
 		expr->binarithm.lvalue->result);
 	pushi(ctx->current, &qresult, instr, &qlval, &qrval, NULL);
