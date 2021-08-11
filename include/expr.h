@@ -61,6 +61,7 @@ struct expression_access {
 		struct {
 			struct expression *tuple;
 			const struct type_tuple *tvalue;
+			size_t tindex;
 		};
 	};
 };

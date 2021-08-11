@@ -237,6 +237,7 @@ check_expr_access(struct context *ctx,
 				"No such tuple value '%zu'",
 				aexpr->access.value->constant.uval);
 		}
+		expr->access.tindex = aexpr->access.value->constant.uval;
 
 		expr->result = expr->access.tvalue->type;
 		break;

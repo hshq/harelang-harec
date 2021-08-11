@@ -60,6 +60,7 @@ EOF
 		18-match \
 		19-append \
 		20-if \
+		21-tuples \
 		24-imports \
 		25-promotion \
 		26-gen \
@@ -67,7 +68,6 @@ EOF
 		29-unarithm
 
 	# Disabled tests
-		#21-tuples \
 		#22-delete \
 		#23-errors \
 		#28-insert \
