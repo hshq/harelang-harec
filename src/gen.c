@@ -532,8 +532,8 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 			vlen = constl(vtype->array.length);
 			break;
 		case STORAGE_SLICE:
-			vlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
-			pushi(ctx->current, &vdata, load, &qvobj, NULL);
+			vlen = mkqtmp(ctx, ctx->arch.sz, "vlen.%d");
+			pushi(ctx->current, &vdata, Q_COPY, &qvobj, NULL);
 			pushi(ctx->current, &ptr, Q_ADD, &qvobj, &offs, NULL);
 			pushi(ctx->current, &vlen, load, &ptr, NULL);
 			break;
@@ -572,6 +572,7 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	offs = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &ptr, load, &qslice, NULL);
 	pushi(ctx->current, &offs, Q_MUL, &len, &membsz, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
@@ -588,9 +589,12 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	if (expr->append.variadic) {
-		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memmove");
 		struct qbe_value sz = mkqtmp(ctx, ctx->arch.sz, ".%d");
 		pushi(ctx->current, &sz, Q_MUL, &vlen, &membsz, NULL);
+		if (vtype->storage == STORAGE_SLICE) {
+			pushi(ctx->current, &vdata, load, &vdata, NULL);
+		}
 		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &ptr, &vdata, &sz, NULL);
 	}
 

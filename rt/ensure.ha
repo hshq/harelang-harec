@@ -6,6 +6,9 @@ export type slice = struct {
 
 export fn ensure(s: *slice, membsz: size) void = {
 	let cap = s.capacity;
+	if (cap >= s.length) {
+		return;
+	};
 	for (cap < s.length) {
 		assert(cap >= s.capacity, "slice out of memory (overflow)");
 		if (cap == 0) {
