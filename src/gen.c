@@ -495,8 +495,6 @@ gen_expr_alloc_with(struct gen_context *ctx,
 static struct gen_value
 gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 {
-	assert(!expr->append.is_static); // TODO
-
 	struct gen_value slice = gen_expr(ctx, expr->append.expr);
 	struct qbe_value qslice = mkqval(ctx, &slice);
 
@@ -550,9 +548,28 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 
 	const struct type *mtype = type_dealias(slice.type)->array.members;
 	struct qbe_value membsz = constl(mtype->size);
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
-	struct qbe_value lval = mklval(ctx, &slice);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
+
+	if (!expr->append.is_static) {
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
+		struct qbe_value lval = mklval(ctx, &slice);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
+	} else {
+		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+		struct qbe_value cap = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &cap, load, &ptr, NULL);
+
+		struct qbe_statement lvalid, linvalid;
+		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+		pushi(ctx->current, &valid, Q_CULEL, &newlen, &cap, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &linvalid);
+
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+
+		push(&ctx->current->body, &lvalid);
+	}
 
 	offs = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	pushi(ctx->current, &ptr, load, &qslice, NULL);
