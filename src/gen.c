@@ -1638,7 +1638,8 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		pushi(ctx->current, NULL, Q_JNZ, &match, &bsubtype, &bnext, NULL);
 		push(&ctx->current->body, &lsubtype);
 
-		if (test->id != _case->type->id) {
+		if (test->id != _case->type->id
+				&& type_dealias(test)-> id != _case->type->id) {
 			struct qbe_value offs = constl(subtype->align);
 			pushi(ctx->current, &subval, Q_ADD, &subval, &offs, NULL);
 			pushi(ctx->current, &temp, Q_LOADUW, &subval, NULL);
@@ -1647,7 +1648,8 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		}
 
 		subtype = test;
-	} while (test->id != _case->type->id);
+	} while (test->id != _case->type->id
+		&& type_dealias(test)->id != _case->type->id);
 
 	pushi(ctx->current, NULL, Q_JMP, &bmatch, NULL);
 }

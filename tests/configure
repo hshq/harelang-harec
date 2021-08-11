@@ -57,6 +57,7 @@ EOF
 		15-enums \
 		16-defer \
 		17-alloc \
+		18-match \
 		19-append \
 		20-if \
 		24-imports \
@@ -66,7 +67,6 @@ EOF
 		29-unarithm
 
 	# Disabled tests
-		#18-match \
 		#21-tuples \
 		#22-delete \
 		#23-errors \
