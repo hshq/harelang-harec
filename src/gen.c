@@ -914,6 +914,10 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		struct gen_value arg = gen_expr(ctx, carg->value);
 		args->value = mkqval(ctx, &arg);
+		if (args->value.type->stype == Q_BYTE
+				|| args->value.type->stype == Q_WORD) {
+			args->value.type = &qbe_word;
+		}
 		next = &args->next;
 	}
 	push(&ctx->current->body, &call);
