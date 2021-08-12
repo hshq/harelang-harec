@@ -1983,7 +1983,6 @@ gen_expr_struct_at(struct gen_context *ctx,
 			field; field = field->next) {
 		if (!field->value) {
 			assert(expr->_struct.autofill);
-			field = field->next;
 			continue;
 		}
 
