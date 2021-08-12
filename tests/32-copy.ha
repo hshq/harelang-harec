@@ -1,7 +1,7 @@
 type coords = struct { x: i8, y: int, z: size };
 type anyint = struct { _8: i8, _16: i16, _32: i32, _64: i64 };
 
-export fn main() int = {
+export fn main() void = {
 	// Simple case
 	let x = 10;
 	let y = x;
@@ -60,6 +60,4 @@ export fn main() int = {
 	assert(px.data == py.data);
 
 	// TODO: Slices
-
-	return 0;
 };

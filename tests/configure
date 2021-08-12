@@ -2,42 +2,7 @@
 all="$all tests"
 
 tests() {
-	# Temporary test suite
-	for t in \
-		900-basics \
-		901-primitives \
-		902-arithm \
-		903-postfix \
-		904-copy \
-		905-assign \
-		906-if \
-		907-casts \
-		908-loops \
-		909-defer \
-		910-tagged \
-		911-slices \
-		912-enums \
-		913-match \
-		914-switch
-	do
-		cat <<EOF
-tests/$t: harec tests/$t.ha tests/rt.o
-	@printf 'HARECC\t%s\t$@\n' "tests/$t"
-	@HARECACHE=\$(HARECACHE) ./harec -o tests/$t.ssa tests/$t.ha
-	@\$(QBE) -o tests/$t.s tests/$t.ssa
-	@\$(CC) -g -o tests/$t tests/$t.s tests/rt.c tests/rt.o
-
-check: tests/$t
-
-clean-test-$t:
-	@rm -f tests/$t
-.PHONY: clean-test-$t
-
-clean-tests: clean-test-$t
-EOF
-	done
-
-	# Hare tests
+	# harec tests
 	for t in \
 		00-constants \
 		01-arrays \
@@ -66,7 +31,9 @@ EOF
 		25-promotion \
 		26-gen \
 		27-rt \
-		29-unarithm
+		29-unarithm \
+		31-postfix \
+		32-copy
 
 	# Disabled tests
 		#22-delete \

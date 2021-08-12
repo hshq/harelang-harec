@@ -82,15 +82,12 @@ fn calls() void = {
 	// Aggregate params and return
 	let x = coords { x = 1234, y = 4321 };
 	let x = aggregate(x);
-	// TODO: Use &&
-	assert(x.x == 1234);
-	assert(x.y == 4321);
+	assert(x.x == 1234 && x.y == 4321);
 };
 
-export fn main() int = {
+export fn main() void = {
 	nested();
 	nonaccess();
 	deref();
 	calls();
-	return 0;
 };
