@@ -1151,6 +1151,22 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		return out;
 	}
 
+	// Special cases
+	switch (type_dealias(to)->storage) {
+	case STORAGE_POINTER:
+		if (type_dealias(from)->storage == STORAGE_SLICE) {
+			struct gen_value value = gen_expr(ctx, expr->cast.value);
+			value.type = to;
+			return gen_load(ctx, value);
+		}
+		break;
+	case STORAGE_VOID:
+		gen_expr(ctx, expr->cast.value); // Side-effects
+		return gv_void;
+	default: break;
+	}
+
+
 	// Special case: tagged => non-tagged
 	if (type_dealias(from)->storage == STORAGE_TAGGED) {
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
@@ -1175,21 +1191,6 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		value.type = to;
 		return value;
-	}
-
-	// Other special cases
-	switch (type_dealias(to)->storage) {
-	case STORAGE_POINTER:
-		if (type_dealias(from)->storage == STORAGE_SLICE) {
-			struct gen_value value = gen_expr(ctx, expr->cast.value);
-			value.type = to;
-			return gen_load(ctx, value);
-		}
-		break;
-	case STORAGE_VOID:
-		gen_expr(ctx, expr->cast.value); // Side-effects
-		return gv_void;
-	default: break;
 	}
 
 	struct gen_value value = gen_expr(ctx, expr->cast.value);
