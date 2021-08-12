@@ -884,7 +884,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value lvalue = gen_expr(ctx, expr->call.lvalue);
 	lvalue = gen_autoderef(ctx, lvalue);
 
-	const struct type *rtype = lvalue.type;
+	const struct type *rtype = type_dealias(lvalue.type);
 	assert(rtype->storage == STORAGE_FUNCTION);
 
 	if (rtype->func.flags & FN_NORETURN) {
