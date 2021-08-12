@@ -1995,23 +1995,33 @@ check_expr_propagate(struct context *ctx,
 	ok_name.name = xcalloc(n + 1, 1);
 	snprintf(ok_name.name, n + 1, "ok.%d", ctx->id);
 	++ctx->id;
-	const struct scope_object *ok_obj = scope_insert(scope, O_BIND,
-			&ok_name, &ok_name, result_type, NULL);
+	const struct scope_object *ok_obj = NULL;
+	if (result_type->size != 0 && result_type->size != SIZE_UNDEFINED) {
+		ok_obj = scope_insert(scope, O_BIND, &ok_name,
+			&ok_name, result_type, NULL);
+	}
 
 	n = snprintf(NULL, 0, "err.%d", ctx->id);
 	err_name.name = xcalloc(n + 1, 1);
 	snprintf(err_name.name, n + 1, "err.%d", ctx->id);
 	++ctx->id;
-	const struct scope_object *err_obj = scope_insert(scope, O_BIND,
-			&err_name, &err_name, return_type, NULL);
+	const struct scope_object *err_obj = NULL;
+	if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
+		err_obj = scope_insert(scope, O_BIND, &err_name,
+			&err_name, return_type, NULL);
+	}
 
 	case_ok->type = result_type;
 	case_ok->object = ok_obj;
 	case_ok->value = xcalloc(1, sizeof(struct expression));
-	case_ok->value->type = EXPR_ACCESS;
-	case_ok->value->access.type = ACCESS_IDENTIFIER;
-	case_ok->value->access.object = ok_obj;
 	case_ok->value->result = result_type;
+	if (ok_obj) {
+		case_ok->value->type = EXPR_ACCESS;
+		case_ok->value->access.type = ACCESS_IDENTIFIER;
+		case_ok->value->access.object = ok_obj;
+	} else {
+		case_ok->value->type = EXPR_CONSTANT;
+	}
 
 	case_err->type = return_type;
 	case_err->object = err_obj;
@@ -2043,10 +2053,14 @@ check_expr_propagate(struct context *ctx,
 
 		struct expression *rval =
 			xcalloc(1, sizeof(struct expression));
-		rval->type = EXPR_ACCESS;
-		rval->access.type = ACCESS_IDENTIFIER;
-		rval->access.object = err_obj;
 		rval->result = return_type;
+		if (err_obj != NULL) {
+			rval->type = EXPR_ACCESS;
+			rval->access.type = ACCESS_IDENTIFIER;
+			rval->access.object = err_obj;
+		} else {
+			rval->type = EXPR_CONSTANT;
+		}
 		case_err->value->_return.value = lower_implicit_cast(
 				ctx->fntype->func.result, rval);
 	}

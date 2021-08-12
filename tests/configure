@@ -61,6 +61,7 @@ EOF
 		19-append \
 		20-if \
 		21-tuples \
+		23-errors \
 		24-imports \
 		25-promotion \
 		26-gen \
@@ -69,7 +70,6 @@ EOF
 
 	# Disabled tests
 		#22-delete \
-		#23-errors \
 		#28-insert \
 	do
 		cat <<EOF
