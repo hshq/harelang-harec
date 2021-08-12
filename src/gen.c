@@ -2079,6 +2079,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	object = gen_autoderef(ctx, object);
 	const struct type *srctype = type_dealias(object.type);
 
+	bool check_bounds = true;
 	struct gen_value length;
 	struct qbe_value qlength;
 	struct qbe_value qbase;
@@ -2087,13 +2088,17 @@ gen_expr_slice_at(struct gen_context *ctx,
 	struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	switch (srctype->storage) {
 	case STORAGE_ARRAY:
-		assert(srctype->array.length != SIZE_UNDEFINED);
-		length = (struct gen_value){
-			.kind = GV_CONST,
-			.type = &builtin_type_size,
-			.lval = srctype->array.length,
-		};
-		qlength = mkqval(ctx, &length);
+		if (srctype->array.length != SIZE_UNDEFINED) {
+			length = (struct gen_value){
+				.kind = GV_CONST,
+				.type = &builtin_type_size,
+				.lval = srctype->array.length,
+			};
+			qlength = mkqval(ctx, &length);
+		} else {
+			assert(expr->slice.end);
+			check_bounds = false;
+		}
 		qbase = mkqval(ctx, &object);
 		break;
 	case STORAGE_SLICE:
@@ -2129,21 +2134,23 @@ gen_expr_slice_at(struct gen_context *ctx,
 	struct qbe_value qstart = mkqval(ctx, &start);
 	struct qbe_value qend = mkqval(ctx, &end);
 
-	struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
-	struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
-	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-	pushi(ctx->current, &start_oob, Q_CULTL, &qstart, &qlength, NULL);
-	pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
-	pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
+	if (check_bounds) {
+		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+		pushi(ctx->current, &start_oob, Q_CULTL, &qstart, &qlength, NULL);
+		pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
+		pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
 
-	struct qbe_statement linvalid, lvalid;
-	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+		struct qbe_statement linvalid, lvalid;
+		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
 
-	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
-	push(&ctx->current->body, &linvalid);
-	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-	push(&ctx->current->body, &lvalid);
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &linvalid);
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+		push(&ctx->current->body, &lvalid);
+	}
 
 	struct qbe_value isz = constl(srctype->array.members->size);
 
@@ -2155,7 +2162,11 @@ gen_expr_slice_at(struct gen_context *ctx,
 	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, "newlen.%d");
 	pushi(ctx->current, &newlen, Q_SUB, &qend, &qstart, NULL);
 	struct qbe_value newcap = mkqtmp(ctx, ctx->arch.sz, "newcap.%d");
-	pushi(ctx->current, &newcap, Q_SUB, &qlength, &qstart, NULL);
+	if (check_bounds) {
+		pushi(ctx->current, &newcap, Q_SUB, &qlength, &qstart, NULL);
+	} else {
+		pushi(ctx->current, &newcap, Q_COPY, &newlen, NULL);
+	}
 
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	pushi(ctx->current, NULL, store, &data, &qout, NULL);
