@@ -1983,18 +1983,30 @@ gen_match_with_tagged(struct gen_context *ctx,
 		ctx->bindings = gb;
 
 		struct qbe_value qv = mklval(ctx, &gb->value);
+		enum qbe_instr alloc = alloc_for_align(_case->type->align);
+		struct qbe_value sz = constl(_case->type->size);
+		pushprei(ctx->current, &qv, alloc, &sz, NULL);
+
+		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		struct gen_value src = {
+			.kind = GV_TEMP,
+			.type = _case->type,
+			.name = ptr.name,
+		};
+		struct gen_value load;
 		switch (compat) {
 		case COMPAT_SUBTYPE:
-			pushi(ctx->current, &qv, Q_ADD, &qobject, &offset, NULL);
+			pushi(ctx->current, &ptr, Q_ADD, &qobject, &offset, NULL);
+			load = gen_load(ctx, src);
+			gen_store(ctx, gb->value, load);
 			break;
 		case COMPAT_ALIGNED:
-			pushi(ctx->current, &qv, Q_COPY, &qobject, NULL);
+			pushi(ctx->current, &ptr, Q_COPY, &qobject, NULL);
+			load = gen_load(ctx, src);
+			gen_store(ctx, gb->value, load);
 			break;
 		case COMPAT_MISALIGNED:
 			;
-			enum qbe_instr alloc = alloc_for_align(_case->type->align);
-			struct qbe_value sz = constl(_case->type->size);
-			pushprei(ctx->current, &qv, alloc, &sz, NULL);
 			struct expression value = {
 				.type = EXPR_GEN_VALUE,
 				.result = objtype,
@@ -2079,8 +2091,6 @@ gen_match_with_nullable(struct gen_context *ctx,
 		gb->next = ctx->bindings;
 		ctx->bindings = gb;
 
-		// TODO: We could avoid this allocation if we knew the user
-		// didn't mutate the binding.
 		enum qbe_instr store = store_for_type(ctx, _case->type);
 		enum qbe_instr alloc = alloc_for_align(_case->type->align);
 		struct qbe_value qv = mkqval(ctx, &gb->value);
