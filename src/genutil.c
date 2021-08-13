@@ -102,7 +102,9 @@ branch_copyresult(struct gen_context *ctx,
 	// Branching expressions written in the _with style may need to
 	// consolodate each branch's result into a single temporary to return to
 	// the caller. This function facilitates that.
-	if (out || type_dealias(result.type)->storage == STORAGE_VOID) {
+	if (out
+		|| type_dealias(merged.type)->storage == STORAGE_VOID
+		|| type_dealias(result.type)->storage == STORAGE_VOID) {
 		return;
 	}
 	struct qbe_value qmerged = mkqval(ctx, &merged);
