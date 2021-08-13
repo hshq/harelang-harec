@@ -2107,7 +2107,15 @@ next:
 	if (_default) {
 		bval = gen_expr_with(ctx, _default->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
+		if (!_default->value->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
+		}
 	}
+
+	struct qbe_statement labort;
+	mklabel(ctx, &labort, ".%d");
+	push(&ctx->current->body, &labort);
+	gen_fixed_abort(ctx, expr->loc, ABORT_UNREACHABLE);
 
 	push(&ctx->current->body, &lout);
 	return gvout;
@@ -2294,7 +2302,15 @@ gen_expr_switch_with(struct gen_context *ctx,
 	if (_default) {
 		bval = gen_expr_with(ctx, _default->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
+		if (!_default->value->terminates) {
+			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
+		}
 	}
+
+	struct qbe_statement labort;
+	mklabel(ctx, &labort, ".%d");
+	push(&ctx->current->body, &labort);
+	gen_fixed_abort(ctx, expr->loc, ABORT_UNREACHABLE);
 
 	push(&ctx->current->body, &lout);
 	return gvout;

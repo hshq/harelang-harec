@@ -11,6 +11,7 @@ enum fixed_aborts {
 	ABORT_TYPE_ASSERTION = 1,
 	ABORT_ALLOC_FAILURE = 2,
 	ABORT_STATIC_EXCEEDED = 3,
+	ABORT_UNREACHABLE = 4,
 };
 
 struct gen_arch {
