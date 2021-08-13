@@ -1618,7 +1618,7 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 
 	struct qbe_value src = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &src, Q_MUL, &qindex, &membsz, NULL);
-	pushi(ctx->current, &src, Q_ADD, &base, &membsz, NULL);
+	pushi(ctx->current, &src, Q_ADD, &base, &src, NULL);
 	struct qbe_value nbyte = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	struct qbe_value dest = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &nbyte, Q_MUL, &nadd, &membsz, NULL);
