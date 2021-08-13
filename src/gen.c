@@ -981,7 +981,8 @@ static void
 gen_expr_cast_slice_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	const struct type *to = expr->result, *from = expr->cast.value->result;
+	const struct type *to = expr->result,
+	      *from = type_dealias(expr->cast.value->result);
 	assert(from->storage == STORAGE_ARRAY);
 	assert(from->array.length != SIZE_UNDEFINED);
 
