@@ -26,6 +26,7 @@ tests() {
 		19-append \
 		20-if \
 		21-tuples \
+		22-delete \
 		23-errors \
 		24-imports \
 		25-promotion \
@@ -35,9 +36,6 @@ tests() {
 		29-unarithm \
 		31-postfix \
 		32-copy
-
-	# Disabled tests
-		#22-delete \
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha

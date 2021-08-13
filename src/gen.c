@@ -1477,6 +1477,100 @@ gen_expr_defer(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value object, start;
+	const struct expression *dexpr = expr->delete.expr;
+	if (dexpr->type == EXPR_SLICE) {
+		object = gen_expr(ctx, dexpr->slice.object);
+		if (dexpr->slice.start) {
+			start = gen_expr(ctx, dexpr->slice.start);
+		} else {
+			start.kind = GV_CONST;
+			start.type = &builtin_type_size;
+			start.lval = 0;
+		}
+	} else {
+		assert(dexpr->type == EXPR_ACCESS
+			&& dexpr->access.type == ACCESS_INDEX);
+		object = gen_expr(ctx, dexpr->access.array);
+		start = gen_expr(ctx, dexpr->access.index);
+	}
+	object = gen_autoderef(ctx, object);
+	assert(type_dealias(object.type)->storage == STORAGE_SLICE);
+
+	struct qbe_value qobj = mkqval(ctx, &object);
+	struct qbe_value qlenptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value qlen = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value offset = constl(builtin_type_size.size);
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
+	pushi(ctx->current, &qlenptr, Q_ADD, &qobj, &offset, NULL);
+	pushi(ctx->current, &qlen, load, &qlenptr, NULL);
+
+	struct qbe_value qstart = mkqval(ctx, &start);
+	struct qbe_value qend = {0};
+	if (dexpr->type == EXPR_SLICE) {
+		if (dexpr->slice.end) {
+			struct gen_value end = gen_expr(ctx, dexpr->slice.end);
+			qend = mkqval(ctx, &end);
+		} else {
+			qend = qlen;
+		}
+	} else {
+		struct qbe_value tmp = constl(1);
+		qend = mkqtmp(ctx, qstart.type, ".%d");
+		pushi(ctx->current, &qend, Q_ADD, &qstart, &tmp, NULL);
+	}
+
+	struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
+	struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
+	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+	pushi(ctx->current, &start_oob, Q_CULTL, &qstart, &qlen, NULL);
+	pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlen, NULL);
+	pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
+
+	struct qbe_statement linvalid, lvalid;
+	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+
+	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+	push(&ctx->current->body, &linvalid);
+	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+	push(&ctx->current->body, &lvalid);
+
+	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value startptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value endptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value mlen = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &data, load, &qobj, NULL);
+	struct qbe_value membsz =
+		constl(type_dealias(object.type)->array.members->size);
+	pushi(ctx->current, &startptr, Q_MUL, &qstart, &membsz, NULL);
+	pushi(ctx->current, &startptr, Q_ADD, &startptr, &data, NULL);
+	pushi(ctx->current, &endptr, Q_MUL, &qend, &membsz, NULL);
+	pushi(ctx->current, &endptr, Q_ADD, &endptr, &data, NULL);
+	pushi(ctx->current, &qlen, Q_SUB, &qlen, &qend, NULL);
+	pushi(ctx->current, &mlen, Q_MUL, &qlen, &membsz, NULL);
+
+	struct qbe_value rtmemmove = mkrtfunc(ctx, "rt.memmove");
+	pushi(ctx->current, NULL, Q_CALL, &rtmemmove, &startptr, &endptr, &mlen,
+		NULL);
+
+	pushi(ctx->current, &qlen, Q_ADD, &qlen, &qstart, NULL);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
+	pushi(ctx->current, NULL, store, &qlen, &qlenptr, NULL);
+
+	if (!expr->delete.is_static) {
+		struct qbe_value rtunensure = mkrtfunc(ctx, "rt.unensure");
+		qobj = mklval(ctx, &object);
+		pushi(ctx->current, NULL, Q_CALL, &rtunensure, &qobj, &membsz,
+			NULL);
+	}
+
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 {
 	struct qbe_statement lloop, lbody, lafter, lend;
@@ -2395,7 +2489,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_DEFER:
 		return gen_expr_defer(ctx, expr);
 	case EXPR_DELETE:
-		assert(0); // TODO
+		return gen_expr_delete(ctx, expr);
 	case EXPR_FOR:
 		return gen_expr_for(ctx, expr);
 	case EXPR_FREE:
