@@ -2175,8 +2175,10 @@ check_expr_slice(struct context *ctx,
 		}
 		expr->slice.end = lower_implicit_cast(
 			&builtin_type_size, expr->slice.end);
-	} else {
-		// TODO: Assert that array type has a well-defined length
+	} else if (atype->storage == STORAGE_ARRAY
+			&& atype->array.length == SIZE_UNDEFINED) {
+		return error(aexpr->loc, expr, errors,
+			"Must have end index on array of undefined length");
 	}
 
 	expr->result = type_store_lookup_slice(ctx->store, atype->array.members);
