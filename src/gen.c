@@ -1531,7 +1531,7 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-	pushi(ctx->current, &start_oob, Q_CULTL, &qstart, &qlen, NULL);
+	pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlen, NULL);
 	pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlen, NULL);
 	pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
 
@@ -2360,7 +2360,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-		pushi(ctx->current, &start_oob, Q_CULTL, &qstart, &qlength, NULL);
+		pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlength, NULL);
 		pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
 		pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
 

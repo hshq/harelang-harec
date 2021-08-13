@@ -25,6 +25,8 @@ fn slice() void = {
 	assert(len(x) == 2);
 	assert(x[0] == 4 && x[1] == 5);
 
+	delete(x[len(x)..]);
+
 	static delete(y[..]);
 	assert(len(x) == 0);
 	assert(s.capacity < 5);
