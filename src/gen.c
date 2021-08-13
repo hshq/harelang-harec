@@ -1076,6 +1076,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
 		pushi(ctx->current, NULL, store, &id, &qout, NULL);
 		if (subtype->size == 0) {
+			gen_expr(ctx, expr->cast.value); // side-effects
 			return;
 		}
 
