@@ -904,6 +904,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		rval = mktemp(ctx, rtype->func.result, "returns.%d");
 		call.out = xcalloc(1, sizeof(struct qbe_value));
 		*call.out = mkqval(ctx, &rval);
+		call.out->type = qtype_lookup(ctx, rtype->func.result, false);
 	}
 
 	struct qbe_arguments *args, **next = &call.args;
@@ -915,10 +916,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		struct gen_value arg = gen_expr(ctx, carg->value);
 		args->value = mkqval(ctx, &arg);
-		if (args->value.type->stype == Q_BYTE
-				|| args->value.type->stype == Q_WORD) {
-			args->value.type = &qbe_word;
-		}
+		args->value.type = qtype_lookup(ctx, carg->value->result, false);
 		next = &args->next;
 	}
 	push(&ctx->current->body, &call);
