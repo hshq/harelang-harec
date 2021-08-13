@@ -496,8 +496,8 @@ static struct gen_value
 gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value slice = gen_expr(ctx, expr->append.expr);
+	slice = gen_autoderef(ctx, slice);
 	struct qbe_value qslice = mkqval(ctx, &slice);
-	// TODO: Automatic dereference here
 
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value offs = constl(builtin_type_size.size);

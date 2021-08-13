@@ -338,11 +338,16 @@ check_expr_append(struct context *ctx,
 	expr->append.expr = xcalloc(sizeof(struct expression), 1);
 	errors = check_expression(ctx, aexpr->append.expr, expr->append.expr,
 		NULL, errors);
-	if (type_dealias(expr->append.expr->result)->storage != STORAGE_SLICE) {
+	const struct type *stype = type_dereference(expr->append.expr->result);
+	if (!stype) {
+		return error(aexpr->access.array->loc, expr, errors,
+			"Cannot dereference nullable pointer for append");
+	}
+	if (stype->storage != STORAGE_SLICE) {
 		return error(aexpr->append.expr->loc, expr, errors,
 			"append must operate on a slice");
 	}
-	if (type_dealias(expr->append.expr->result)->flags & TYPE_CONST) {
+	if (stype->flags & TYPE_CONST) {
 		return error(aexpr->append.expr->loc, expr, errors,
 			"append must operate on a mutable slice");
 	}
@@ -352,8 +357,7 @@ check_expr_append(struct context *ctx,
 		return error(aexpr->append.expr->loc, expr, errors,
 			"append must operate on a slice object");
 	}
-	const struct type *memb =
-		type_dealias(expr->append.expr->result)->array.members;
+	const struct type *memb = stype->array.members;
 	struct append_values **next = &expr->append.values;
 	for (struct ast_append_values *avalue = aexpr->append.values; avalue;
 			avalue = avalue->next) {
@@ -371,11 +375,10 @@ check_expr_append(struct context *ctx,
 		next = &value->next;
 	}
 	if (aexpr->append.variadic != NULL) {
-		const struct type *type = expr->append.expr->result;
 		expr->append.variadic = xcalloc(sizeof(struct expression), 1);
 		errors = check_expression(ctx, aexpr->append.variadic,
-			expr->append.variadic, type, errors);
-		if (!type_is_assignable(type, expr->append.variadic->result)) {
+			expr->append.variadic, stype, errors);
+		if (!type_is_assignable(stype, expr->append.variadic->result)) {
 			return error(aexpr->append.variadic->loc, expr, errors,
 				"appended slice must be assignable to slice type");
 		}

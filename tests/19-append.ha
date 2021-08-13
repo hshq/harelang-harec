@@ -6,7 +6,10 @@ fn simple() void = {
 	assert(len(x) == 6);
 	assert(x[0] == 1 && x[1] == 2 && x[2] == 3 && x[3] == 4 && x[4] == 5);
 	assert(x[5] == 6);
-	append(x, 7, 8, 9);
+	let y = &x;
+	append(y, 7, 8);
+	let z = &y;
+	append(y, 9);
 	assert(x[0] == 1 && x[1] == 2 && x[2] == 3 && x[3] == 4 && x[4] == 5);
 	assert(x[5] == 6 && x[6] == 7 && x[7] == 8 && x[8] == 9);
 
@@ -33,7 +36,8 @@ fn variadic() void = {
 	let y: []int = alloc([1, 2, 3], 3);
 	let z = [128, 256];
 	append(y, x...);
-	append(y, z...);
+	let w = &y;
+	append(w, z...);
 	assert(len(y) == 12);
 	assert(y[0] == 1 && y[1] == 2 && y[2] == 3 && y[3] == 1 && y[4] == 2);
 	assert(y[5] == 4 && y[6] == 8 && y[7] == 16 && y[8] == 32);
@@ -46,7 +50,8 @@ fn static_append() void = {
 	let buf: [4]int = [0...];
 	let x = buf[..0];
 	static append(x, 1, 2);
-	static append(x, [3, 4]...);
+	let y = &x;
+	static append(y, [3, 4]...);
 	assert(x[0] == 1 && x[1] == 2 && x[2] == 3 && x[3] == 4);
 	assert(buf[0] == 1 && buf[1] == 2 && buf[2] == 3 && buf[3] == 4);
 
