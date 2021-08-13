@@ -31,13 +31,13 @@ tests() {
 		25-promotion \
 		26-gen \
 		27-rt \
+		28-insert \
 		29-unarithm \
 		31-postfix \
 		32-copy
 
 	# Disabled tests
 		#22-delete \
-		#28-insert \
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha

@@ -1630,13 +1630,30 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	pushi(ctx->current, NULL, store, &newlen, &lenptr, NULL);
-
-	assert(!expr->append.is_static); // TODO
-
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
-	struct qbe_value lval = mklval(ctx, &slice);
 	struct qbe_value membsz = constl(mtype->size);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
+
+	if (!expr->insert.is_static) {
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
+		struct qbe_value lval = mklval(ctx, &slice);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
+	} else {
+		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &ptr, Q_ADD, &lenptr, &offs, NULL);
+		struct qbe_value cap = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &cap, load, &ptr, NULL);
+
+		struct qbe_statement lvalid, linvalid;
+		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+		pushi(ctx->current, &valid, Q_CULEL, &newlen, &cap, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &linvalid);
+
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+
+		push(&ctx->current->body, &lvalid);
+	}
 
 	struct qbe_value base = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &base, load, &qslice, NULL);
@@ -1647,11 +1664,14 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value nbyte = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	struct qbe_value dest = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &nbyte, Q_ADD, &nadd, &vlen, NULL);
+	struct qbe_value ncopy = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	pushi(ctx->current, &ncopy, Q_SUB, &len, &qindex, NULL);
 	pushi(ctx->current, &nbyte, Q_MUL, &nbyte, &membsz, NULL);
+	pushi(ctx->current, &ncopy, Q_MUL, &ncopy, &membsz, NULL);
 	pushi(ctx->current, &dest, Q_ADD, &src, &nbyte, NULL);
 
-	rtfunc = mkrtfunc(ctx, "rt.memmove");
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dest, &src, &nbyte, NULL);
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memmove");
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dest, &src, &ncopy, NULL);
 
 	struct gen_value gv = {
 		.kind = GV_TEMP,
