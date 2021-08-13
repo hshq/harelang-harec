@@ -1971,9 +1971,6 @@ gen_match_with_tagged(struct gen_context *ctx,
 			goto next;
 		}
 
-		// TODO: We actually need to allocate a separate binding and
-		// copy this into it, probably. We could avoid that if we knew
-		// the binding were not assigned to, fwiw.
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
 		gb->value.kind = GV_TEMP;
 		gb->value.type = _case->type;
