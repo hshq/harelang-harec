@@ -1592,6 +1592,18 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value len = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	pushi(ctx->current, &len, load, &lenptr, NULL);
 
+	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+	pushi(ctx->current, &valid, Q_CULEL, &qindex, &len, NULL);
+
+	struct qbe_statement linvalid, lvalid;
+	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+
+	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+	push(&ctx->current->body, &linvalid);
+	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+	push(&ctx->current->body, &lvalid);
+
 	size_t args = 0;
 	for (struct append_values *value = expr->insert.values;
 			value; value = value->next) {
