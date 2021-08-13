@@ -2516,6 +2516,10 @@ check_expr_tuple(struct context *ctx,
 		atuple = atuple->next;
 		ttuple = ttuple->next;
 	}
+	if (ttuple) {
+		return error(aexpr->loc, expr, errors,
+			"Too few values for tuple type");
+	}
 	return errors;
 }
 
