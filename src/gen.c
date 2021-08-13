@@ -1094,6 +1094,11 @@ cast_prefers_at(const struct expression *expr)
 	if (expr->cast.kind == C_TEST) {
 		return false;
 	}
+	// tagged => *; subtype compatible
+	if (type_dealias(from)->storage == STORAGE_TAGGED
+			&& tagged_select_subtype(from, to)) {
+		return false;
+	}
 	// * => tagged
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		return true;
@@ -1139,7 +1144,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_type_test(ctx, expr);
 	case C_ASSERTION:
 		assert(type_dealias(from)->storage == STORAGE_TAGGED);
-		assert(type_dealias(to)->storage != STORAGE_TAGGED);
+		assert(tagged_select_subtype(from, to));
 		// Fallthrough
 	case C_CAST:
 		break;
