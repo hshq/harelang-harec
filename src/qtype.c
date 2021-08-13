@@ -80,7 +80,7 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	struct qbe_field *field = &def->type.fields;
 	switch (type->storage) {
 	case STORAGE_ARRAY:
-		if (type->array.length != SIZE_UNDEFINED) {
+		if (type->array.length == SIZE_UNDEFINED) {
 			return &qbe_long; // Special case
 		}
 		field->count = type->array.length;
@@ -184,8 +184,8 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	return &def->type;
 }
 
-const struct qbe_type *qtype_lookup(
-		struct gen_context *ctx,
+const struct qbe_type *
+qtype_lookup(struct gen_context *ctx,
 		const struct type *type,
 		bool xtype) {
 	switch (type->storage) {
