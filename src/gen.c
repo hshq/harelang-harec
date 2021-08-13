@@ -1613,7 +1613,20 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	pushi(ctx->current, &newlen, Q_ADD, &len, &nadd, NULL);
 
-	assert(!expr->insert.variadic); // TODO
+	struct gen_value vobj;
+	struct qbe_value vlen = constl(0), vdata;
+	if (expr->insert.variadic) {
+		vobj = gen_expr(ctx, expr->insert.variadic);
+		struct qbe_value lval = mklval(ctx, &vobj);
+		vdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &vdata, load, &lval, NULL);
+
+		struct qbe_value vptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		vlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
+		pushi(ctx->current, &vptr, Q_ADD, &lval, &offs, NULL);
+		pushi(ctx->current, &vlen, load, &vptr, NULL);
+		pushi(ctx->current, &newlen, Q_ADD, &newlen, &vlen, NULL);
+	}
 
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	pushi(ctx->current, NULL, store, &newlen, &lenptr, NULL);
@@ -1633,7 +1646,8 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &src, Q_ADD, &base, &src, NULL);
 	struct qbe_value nbyte = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	struct qbe_value dest = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &nbyte, Q_MUL, &nadd, &membsz, NULL);
+	pushi(ctx->current, &nbyte, Q_ADD, &nadd, &vlen, NULL);
+	pushi(ctx->current, &nbyte, Q_MUL, &nbyte, &membsz, NULL);
 	pushi(ctx->current, &dest, Q_ADD, &src, &nbyte, NULL);
 
 	rtfunc = mkrtfunc(ctx, "rt.memmove");
@@ -1648,6 +1662,11 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 			value; value = value->next) {
 		gen_expr_at(ctx, value->expr, gv);
 		pushi(ctx->current, &src, Q_ADD, &src, &membsz, NULL);
+	}
+	if (expr->insert.variadic) {
+		rtfunc = mkrtfunc(ctx, "rt.memcpy");
+		pushi(ctx->current, &nbyte, Q_MUL, &vlen, &membsz, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &src, &vdata, &nbyte, NULL);
 	}
 
 	return gv_void;
