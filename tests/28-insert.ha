@@ -20,7 +20,8 @@ fn basics() void = {
 	let x: []int = alloc([], 9);
 	defer free(x);
 	append(x, 1, 2, 3, 4, 5, 6);
-	insert(x[2], 7, 8, 9);
+	let y = &x;
+	insert(y[2], 7, 8, 9);
 	assert(sleq(x, [1, 2, 7, 8, 9, 3, 4, 5, 6]));
 };
 
@@ -33,8 +34,10 @@ fn variadic() void = {
 
 	let x: []int = [];
 	defer free(x);
-	append(x, 1, 2, 3, 4, 5, 6);
-	insert(x[2], 7, 8, 9, [10, 11, 12]...);
+	let y = &x;
+	let z = &y;
+	append(y, 1, 2, 3, 4, 5, 6);
+	insert(z[2], 7, 8, 9, [10, 11, 12]...);
 	assert(sleq(x, [1, 2, 7, 8, 9, 10, 11, 12, 3, 4, 5, 6]));
 };
 

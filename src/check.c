@@ -1651,12 +1651,17 @@ check_expr_insert(struct context *ctx,
 	assert(expr->insert.expr->type == EXPR_ACCESS
 			&& expr->insert.expr->access.type == ACCESS_INDEX);
 	const struct type *sltype = expr->insert.expr->access.array->result;
-	if (type_dealias(sltype)->storage != STORAGE_SLICE) {
+	sltype = type_dereference(sltype);
+	if (!sltype) {
+		return error(aexpr->access.array->loc, expr, errors,
+			"Cannot dereference nullable pointer for insert");
+	}
+	if (sltype->storage != STORAGE_SLICE) {
 		return error(aexpr->insert.expr->loc, expr, errors,
 			"cannot insert into non-slice type %s",
 			type_storage_unparse(type_dealias(sltype)->storage));
 	}
-	if (type_dealias(sltype)->flags & TYPE_CONST) {
+	if (sltype->flags & TYPE_CONST) {
 		return error(aexpr->insert.expr->loc, expr, errors,
 			"insert must operate on a mutable slice");
 	}

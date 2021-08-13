@@ -1669,11 +1669,12 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 			&& objexpr->access.type == ACCESS_INDEX);
 
 	const struct expression *arrayexpr = objexpr->access.array;
-	struct gen_value slice = gen_expr_access_addr(ctx, arrayexpr);
+	struct gen_value slice = gen_expr(ctx, arrayexpr);
+	slice = gen_autoderef(ctx, slice);
 	struct gen_value index = gen_expr(ctx, objexpr->access.index);
 	struct qbe_value qindex = mkqval(ctx, &index);
 
-	const struct type *sltype = type_dealias(arrayexpr->result);
+	const struct type *sltype = type_dereference(arrayexpr->result);
 	const struct type *mtype = type_dealias(sltype)->array.members;
 
 	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
