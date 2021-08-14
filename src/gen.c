@@ -485,7 +485,12 @@ gen_expr_alloc_with(struct gen_context *ctx,
 		push(&ctx->current->body, &lvalid);
 	}
 
-	gen_expr_at(ctx, expr->alloc.expr, result);
+	struct gen_value object = {
+		.kind = GV_TEMP,
+		.type = type_dereference(expr->result),
+		.name = result.name,
+	};
+	gen_expr_at(ctx, expr->alloc.expr, object);
 	if (out) {
 		gen_store(ctx, *out, result);
 	}
