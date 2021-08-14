@@ -706,6 +706,11 @@ _type_store_lookup_type(
 	bucket = *next = xcalloc(1, sizeof(struct type_bucket));
 	bucket->type = *type;
 	bucket->type.id = hash;
+	if (type->size != SIZE_UNDEFINED
+			&& type->size != 0
+			&& type->size % type->align != 0) {
+		bucket->type.size += type->align - (type->size - type->align) % type->align;
+	}
 	return &bucket->type;
 }
 

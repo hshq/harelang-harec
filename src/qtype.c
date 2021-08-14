@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include "gen.h"
 #include "qbe.h"
-#include "types.h"
 #include "type_store.h"
+#include "types.h"
 #include "util.h"
 
 static int
@@ -76,6 +76,10 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	def->type.stype = Q__AGGREGATE;
 	def->type.base = type;
 	def->type.name = name;
+
+	assert(type->size == SIZE_UNDEFINED
+			|| type->size == 0
+			|| type->size % type->align == 0);
 
 	struct qbe_field *field = &def->type.fields;
 	switch (type->storage) {

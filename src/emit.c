@@ -51,7 +51,7 @@ qemit_type(const struct qbe_def *def, FILE *out)
 	const struct type *base = def->type.base;
 	if (base) {
 		char *tn = gen_typename(base);
-		fprintf(out, "# %s [id: %u]\n", tn, base->id);
+		fprintf(out, "# %s [id: %u; size: %zu]\n", tn, base->id, base->size);
 		free(tn);
 		fprintf(out, "type :%s =", def->name);
 		if (base->align != (size_t)-1) {
