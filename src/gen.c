@@ -2486,8 +2486,8 @@ gen_expr_unarithm(struct gen_context *ctx,
 		val = gen_expr(ctx, operand);
 		temp = mktemp(ctx, operand->result, ".%d");
 		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
-		struct qbe_value minusone = constl(-1);
-		pushi(ctx->current, &qtmp, Q_MUL, &qval, &minusone, NULL);
+		struct qbe_value zero = constl(0);
+		pushi(ctx->current, &qtmp, Q_SUB, &zero, &qval, NULL);
 		return temp;
 	case UN_PLUS:
 		return gen_expr(ctx, operand);
