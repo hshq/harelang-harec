@@ -1864,7 +1864,7 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		struct qbe_value bsubtype = mklabel(ctx, &lsubtype, "subtype.%d");
 		test = tagged_select_subtype(subtype, _case->type);
 		if (!test) {
-			abort(); // Invariant
+			break;
 		}
 
 		struct qbe_value id = constw(test->id);
