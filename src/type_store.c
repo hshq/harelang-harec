@@ -11,34 +11,21 @@
 #include "util.h"
 
 static void
-expect(const struct location *loc, bool constraint, char *fmt, ...)
+error(struct context *ctx, const struct location loc, char *fmt, ...)
 {
-	if (!constraint) {
-		va_list ap;
-		va_start(ap, fmt);
+	va_list ap;
+	va_start(ap, fmt);
+	size_t sz = vsnprintf(NULL, 0, fmt, ap);
+	va_end(ap);
+	char *msg = xcalloc(1, sz + 1);
+	va_start(ap, fmt);
+	vsnprintf(msg, sz + 1, fmt, ap);
+	va_end(ap);
 
-		fprintf(stderr, "Error %s:%d:%d: ",
-			loc->path, loc->lineno, loc->colno);
-		vfprintf(stderr, fmt, ap);
-		fprintf(stderr, "\n");
-		exit(EXIT_FAILURE);
-	}
-}
-
-static void
-handle_errors(struct errors *errors)
-{
-	struct errors *error = errors;
-	while (error) {
-		fprintf(stderr, "Error %s:%d:%d: %s\n", error->loc.path,
-			error->loc.lineno, error->loc.colno, error->msg);
-		struct errors *next = error->next;
-		free(error);
-		error = next;
-	}
-	if (errors) {
-		exit(EXIT_FAILURE);
-	}
+	struct errors *next = *ctx->next = xcalloc(1, sizeof(struct errors));
+	next->loc = loc;
+	next->msg = msg;
+	ctx->next = &next->next;
 }
 
 static char *
@@ -61,13 +48,21 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 		return SIZE_UNDEFINED;
 	}
 	check_expression(store->check_context, atype->array.length, &in, NULL);
-	// TODO: Bubble up these errors:
-	handle_errors(store->check_context->errors);
 	enum eval_result r = eval_expr(store->check_context, &in, &out);
-	assert(r == EVAL_OK);
-	assert(type_is_integer(out.result));
-	if (type_is_signed(out.result)) {
-		assert(out.constant.ival > 0);
+	if (r != EVAL_OK) {
+		error(store->check_context, atype->loc,
+			"Cannot evaluate array length at compile time");
+		return SIZE_UNDEFINED;
+	}
+	if (!type_is_integer(out.result)) {
+		error(store->check_context, atype->loc,
+			"Array length must be an integer");
+		return SIZE_UNDEFINED;
+	}
+	if (type_is_signed(out.result) && out.constant.ival <= 0) {
+		error(store->check_context, atype->loc,
+			"Array length must be greater than 0");
+		return SIZE_UNDEFINED;
 	}
 	return (size_t)out.constant.uval;
 }
@@ -167,36 +162,44 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	struct struct_field *field, _temp = {0};
 	if (fields != NULL) {
 		field = *fields;
-		expect(&atype->field.type->loc,
-			field == NULL || strcmp(field->name, atype->field.name) != 0,
-			"Duplicate struct/union member '%s'", atype->field.name);
+		if (field != NULL && strcmp(field->name, atype->field.name) == 0) {
+			error(store->check_context, atype->field.type->loc,
+				"Duplicate struct/union member '%s'", atype->field.name);
+			return;
+		}
 		*fields = xcalloc(1, sizeof(struct struct_field));
 		(*fields)->next = field;
 		field = *fields;
 	} else {
 		field = &_temp;
 	}
-	// TODO: Bubble this error up
 
 	field->name = strdup(atype->field.name);
 	field->type = type_store_lookup_atype(store, atype->field.type);
-	expect(&atype->field.type->loc, field->type->size,
+	if (field->type->size == 0) {
+		error(store->check_context, atype->field.type->loc,
 			"Struct field size cannot be zero");
+		return;
+	}
 
 	if (atype->offset) {
 		*ccompat = false;
 		struct expression in, out;
 		check_expression(store->check_context, atype->offset, &in, NULL);
-		// TODO: Bubble up
-		handle_errors(store->check_context->errors);
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
-		assert(r == EVAL_OK);
-		assert(type_is_integer(out.result));
-		if (type_is_signed(out.result)) {
-			assert(out.constant.ival >= 0);
+		if (r != EVAL_OK) {
+			error(store->check_context, in.loc,
+				"Cannot evaluate field offset at compile time");
+		} else if (!type_is_integer(out.result)) {
+			error(store->check_context, in.loc,
+				"Field offset must be an integer");
+		} else if (type_is_signed(out.result) && out.constant.ival <= 0) {
+			error(store->check_context, in.loc,
+				"Field offset must be greater than 0");
+		} else {
+			size_t offs = (size_t)out.constant.uval;
+			field->offset = offs;
 		}
-		size_t offs = (size_t)out.constant.uval;
-		field->offset = offs;
 	} else {
 		size_t offs = *size;
 		if (offs % field->type->align) {
@@ -356,7 +359,8 @@ tagged_cmp(const void *ptr_a, const void *ptr_b)
 }
 
 static size_t
-tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
+tagged_init(struct type_store *store, struct type *type,
+		struct type_tagged_union **tu, size_t nmemb)
 {
 	// Sort by ID
 	qsort(tu, nmemb, sizeof(tu[0]), tagged_cmp);
@@ -370,6 +374,21 @@ tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 	}
 	nmemb = nmemb_dedup;
 
+	if (tu[0]->type->size == SIZE_UNDEFINED) {
+		fprintf(stderr, "aaa %zu\n", tu[0]->type->size);
+		char *type = gen_typename(tu[0]->type);
+		// TODO
+		struct location loc = {
+			.path = "<unknown>",
+			.lineno = 0,
+			.colno = 0,
+		};
+		error(store->check_context, loc,
+			"Cannot create tagged union from type %s, which has undefined size\n",
+			type);
+		free(type);
+	}
+
 	// First one free
 	type->tagged = *tu[0];
 	free(tu[0]);
@@ -381,8 +400,14 @@ tagged_init(struct type *type, struct type_tagged_union **tu, size_t nmemb)
 	for (size_t i = 1; i < nmemb; ++i) {
 		if (tu[i]->type->size == SIZE_UNDEFINED) {
 			char *type = gen_typename(tu[i]->type);
-			fprintf(stderr,
-				"Cannot create tagged union from type of undefined size %s\n",
+			// TODO
+			struct location loc = {
+				.path = "<unknown>",
+				.lineno = 0,
+				.colno = 0,
+			};
+			error(store->check_context, loc,
+				"Cannot create tagged union from type %s, which has undefined size\n",
 				type);
 			free(type);
 		}
@@ -416,10 +441,12 @@ tagged_init_from_atype(struct type_store *store,
 		xcalloc(nmemb, sizeof(struct type_tagged_union *));
 	size_t i = 0;
 	collect_atagged_memb(store, tu, &atype->tagged_union, &i);
-	nmemb = tagged_init(type, tu, nmemb);
+	nmemb = tagged_init(store, type, tu, nmemb);
 
-	expect(&atype->loc, nmemb > 1,
+	if (nmemb <= 1) {
+		error(store->check_context, atype->loc,
 			"Cannot create tagged union with a single member");
+	}
 }
 
 static void
@@ -431,8 +458,11 @@ tuple_init_from_atype(struct type_store *store,
 	struct type_tuple *cur = &type->tuple;
 	while (atuple) {
 		cur->type = type_store_lookup_atype(store, atuple->type);
-		expect(&atuple->type->loc, cur->type->size,
+		if (cur->type->size == 0) {
+			error(store->check_context, atuple->type->loc,
 				"Type of size zero cannot be a tuple member");
+			continue;
+		}
 		cur->offset = type->size % cur->type->align + type->size;
 		type->size += type->size % cur->type->align + cur->type->size;
 		if (type->align < cur->type->align) {
@@ -503,9 +533,11 @@ type_init_from_atype(struct type_store *store,
 				&atype->alias);
 		}
 		if (!obj) {
-			expect(&atype->loc, !atype->unwrap,
+			if (atype->unwrap) {
+				error(store->check_context, atype->loc,
 					"Cannot unwrap unknown type alias %s",
 					identifier_unparse(ident));
+			}
 			identifier_dup(&type->alias.ident, ident);
 			type->alias.type = NULL;
 			type->size = SIZE_UNDEFINED;
@@ -513,9 +545,15 @@ type_init_from_atype(struct type_store *store,
 			return;
 		}
 
-		expect(&atype->loc, obj->otype == O_TYPE,
+		if (obj->otype != O_TYPE) {
+			error(store->check_context, atype->loc,
 				"Object '%s' is not a type",
 				identifier_unparse(&obj->ident));
+			type->alias.type = NULL;
+			type->size = SIZE_UNDEFINED;
+			type->align = SIZE_UNDEFINED;
+			return;
+		}
 
 		if (atype->unwrap) {
 			*type = *type_dealias(obj->type);
@@ -531,8 +569,13 @@ type_init_from_atype(struct type_store *store,
 		type->array.length = ast_array_len(store, atype);
 		type->array.members = type_store_lookup_atype(
 				store, atype->array.members);
-		// TODO: Bubble this up:
-		assert(type->array.members->size != SIZE_UNDEFINED);
+		if (type->array.members->size == SIZE_UNDEFINED) {
+			type->align = SIZE_UNDEFINED;
+			type->size = SIZE_UNDEFINED;
+			error(store->check_context, atype->loc,
+				"Array member must have defined size");
+			return;
+		}
 
 		type->align = type->array.members->align;
 		if (type->array.length == SIZE_UNDEFINED) {
@@ -545,8 +588,13 @@ type_init_from_atype(struct type_store *store,
 		type->_enum.storage = atype->_enum.storage;
 		const struct type *storage =
 			builtin_type_for_storage(type->_enum.storage, true);
- 		// TODO: Bubble this up
-		assert(type_is_integer(storage));
+		if (!type_is_integer(storage)) {
+			error(store->check_context, atype->loc,
+				"Enum storage must be an integer");
+			// TODO: Use a dedicated error type
+			*type = builtin_type_void;
+			return;
+		}
 		type->size = storage->size;
 		type->align = storage->size;
 
@@ -564,11 +612,18 @@ type_init_from_atype(struct type_store *store,
 				struct expression in, out;
 				check_expression(store->check_context,
 					avalue->value, &in, storage);
-				// TODO: Bubble this up
-				handle_errors(store->check_context->errors);
 				enum eval_result r =
 					eval_expr(store->check_context, &in, &out);
-				assert(r == EVAL_OK && type_is_assignable(storage, out.result));
+				if (r != EVAL_OK) {
+					error(store->check_context, atype->loc,
+						"Cannot evaluate enum value at compile time");
+					continue;
+				}
+				if (!type_is_assignable(storage, out.result)) {
+					error(store->check_context, atype->loc,
+						"Cannotg assign enum value to enum type");
+					continue;
+				}
 				if (type_is_signed(storage)) {
 					iimplicit = out.constant.ival;
 				} else {
@@ -840,7 +895,7 @@ type_store_lookup_tagged(struct type_store *store,
 		xcalloc(nmemb, sizeof(struct type_tagged_union *));
 	size_t i = 0;
 	collect_tagged_memb(store, tu, tags, &i);
-	tagged_init(&type, tu, nmemb);
+	tagged_init(store, &type, tu, nmemb);
 	return type_store_lookup_type(store, &type);
 }
 
