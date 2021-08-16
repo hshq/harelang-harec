@@ -26,6 +26,12 @@ struct define {
 	struct define *next;
 };
 
+struct errors {
+	struct location loc;
+	char *msg;
+	struct errors *next;
+};
+
 struct context {
 	struct modcache **modcache;
 	struct define *defines;
@@ -37,6 +43,8 @@ struct context {
 	struct scope *scope;
 	bool deferring;
 	int id;
+	struct errors *errors;
+	struct errors **next;
 };
 
 struct constant_decl {
@@ -112,17 +120,9 @@ struct scope *check_internal(struct type_store *ts,
 	struct unit *unit,
 	bool scan_only);
 
-struct errors {
-	struct location loc;
-	char *msg;
-	struct errors *next;
-	struct errors *prev;
-};
-
-struct errors *check_expression(struct context *ctx,
+void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors);
+	const struct type *hint);
 
 #endif

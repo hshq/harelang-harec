@@ -29,9 +29,6 @@ static void
 handle_errors(struct errors *errors)
 {
 	struct errors *error = errors;
-	while (error && error->prev) {
-		error = error->prev;
-	}
 	while (error) {
 		fprintf(stderr, "Error %s:%d:%d: %s\n", error->loc.path,
 			error->loc.lineno, error->loc.colno, error->msg);
@@ -63,11 +60,10 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 	if (atype->array.length == NULL) {
 		return SIZE_UNDEFINED;
 	}
-	struct errors *errors = check_expression(store->check_context,
-		atype->array.length, &in, NULL, NULL);
-	handle_errors(errors);
-	enum eval_result r = eval_expr(store->check_context, &in, &out);
+	check_expression(store->check_context, atype->array.length, &in, NULL);
 	// TODO: Bubble up these errors:
+	handle_errors(store->check_context->errors);
+	enum eval_result r = eval_expr(store->check_context, &in, &out);
 	assert(r == EVAL_OK);
 	assert(type_is_integer(out.result));
 	if (type_is_signed(out.result)) {
@@ -190,11 +186,10 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	if (atype->offset) {
 		*ccompat = false;
 		struct expression in, out;
-		struct errors *errors = check_expression(store->check_context,
-			atype->offset, &in, NULL, NULL);
-		handle_errors(errors);
-		enum eval_result r = eval_expr(store->check_context, &in, &out);
+		check_expression(store->check_context, atype->offset, &in, NULL);
 		// TODO: Bubble up
+		handle_errors(store->check_context->errors);
+		enum eval_result r = eval_expr(store->check_context, &in, &out);
 		assert(r == EVAL_OK);
 		assert(type_is_integer(out.result));
 		if (type_is_signed(out.result)) {
@@ -567,13 +562,12 @@ type_init_from_atype(struct type_store *store,
 			value->name = strdup(avalue->name);
 			if (avalue->value != NULL) {
 				struct expression in, out;
-				struct errors *errors = check_expression(
-					store->check_context, avalue->value,
-					&in, storage, NULL);
-				handle_errors(errors);
+				check_expression(store->check_context,
+					avalue->value, &in, storage);
+				// TODO: Bubble this up
+				handle_errors(store->check_context->errors);
 				enum eval_result r =
 					eval_expr(store->check_context, &in, &out);
-				// TODO: Bubble this up
 				assert(r == EVAL_OK && type_is_assignable(storage, out.result));
 				if (type_is_signed(storage)) {
 					iimplicit = out.constant.ival;

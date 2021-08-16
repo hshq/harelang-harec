@@ -42,9 +42,6 @@ static void
 handle_errors(struct errors *errors)
 {
 	struct errors *error = errors;
-	while (error && error->prev) {
-		error = error->prev;
-	}
 	while (error) {
 		fprintf(stderr, "Error %s:%d:%d: %s\n", error->loc.path,
 			error->loc.lineno, error->loc.colno, error->msg);
@@ -57,13 +54,13 @@ handle_errors(struct errors *errors)
 	}
 }
 
-static struct errors *
-error(const struct location loc,
-	struct expression *expr,
-	struct errors *errors,
-	char *fmt, ...)
+static void
+error(struct context *ctx, const struct location loc, struct expression *expr,
+		char *fmt, ...)
 {
 	expr->type = EXPR_CONSTANT;
+	// TODO: We should have a separate type for errors, to avoid spurious
+	// errors
 	expr->result = &builtin_type_void;
 	expr->terminates = false;
 	expr->loc = loc;
@@ -77,15 +74,10 @@ error(const struct location loc,
 	vsnprintf(msg, sz + 1, fmt, ap);
 	va_end(ap);
 
-
-	struct errors *next = xcalloc(1, sizeof(struct errors));
+	struct errors *next = *ctx->next = xcalloc(1, sizeof(struct errors));
 	next->loc = loc;
 	next->msg = msg;
-	next->prev = errors;
-	if (errors) {
-		errors->next = next;
-	}
-	return next;
+	ctx->next = &next->next;
 }
 
 static struct expression *
@@ -112,12 +104,11 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 	return cast;
 }
 
-static struct errors *
+static void
 check_expr_access(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_ACCESS;
 	expr->access.type = aexpr->access.type;
@@ -129,8 +120,9 @@ check_expr_access(struct context *ctx,
 		char buf[1024];
 		identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
 		if (!obj) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Unknown object '%s'", buf);
+			return;
 		}
 		switch (obj->otype) {
 		case O_CONST:
@@ -144,9 +136,10 @@ check_expr_access(struct context *ctx,
 			break;
 		case O_TYPE:
 			if (type_dealias(obj->type)->storage != STORAGE_VOID) {
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"Cannot use non-void type alias '%s' as constant",
 					identifier_unparse(&obj->type->alias.ident));
+				return;
 			}
 			expr->type = EXPR_CONSTANT;
 			expr->result = obj->type;
@@ -156,28 +149,29 @@ check_expr_access(struct context *ctx,
 	case ACCESS_INDEX:
 		expr->access.array = xcalloc(1, sizeof(struct expression));
 		expr->access.index = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->access.array,
-			expr->access.array, NULL, errors);
-		errors = check_expression(ctx, aexpr->access.index,
-			expr->access.index, &builtin_type_size, errors);
+		check_expression(ctx, aexpr->access.array, expr->access.array, NULL);
+		check_expression(ctx, aexpr->access.index, expr->access.index, &builtin_type_size);
 		const struct type *atype =
 			type_dereference(expr->access.array->result);
 		if (!atype) {
-			return error(aexpr->access.array->loc, expr, errors,
+			error(ctx, aexpr->access.array->loc, expr,
 				"Cannot dereference nullable pointer for indexing");
+			return;
 		}
 		const struct type *itype =
 			type_dealias(expr->access.index->result);
 		if (atype->storage != STORAGE_ARRAY
 				&& atype->storage != STORAGE_SLICE) {
-			return error(aexpr->access.array->loc, expr, errors,
+			error(ctx, aexpr->access.array->loc, expr,
 				"Cannot index non-array, non-slice %s object",
 				type_storage_unparse(atype->storage));
+			return;
 		}
 		if (!type_is_integer(itype)) {
-			return error(aexpr->access.index->loc, expr, errors,
+			error(ctx, aexpr->access.index->loc, expr,
 				"Cannot use non-integer %s type as slice/array index",
 				type_storage_unparse(itype->storage));
+			return;
 		}
 		expr->access.index = lower_implicit_cast(
 			&builtin_type_size, expr->access.index);
@@ -186,71 +180,73 @@ check_expr_access(struct context *ctx,
 		break;
 	case ACCESS_FIELD:
 		expr->access._struct = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->access._struct,
-			expr->access._struct, NULL, errors);
+		check_expression(ctx, aexpr->access._struct, expr->access._struct, NULL);
 		const struct type *stype =
 			type_dereference(expr->access._struct->result);
 		if (!stype) {
-			return error(aexpr->access._struct->loc, expr, errors,
+			error(ctx, aexpr->access._struct->loc, expr,
 				"Cannot dereference nullable pointer for field selection");
+			return;
 		}
 		if (stype->storage != STORAGE_STRUCT
 				&& stype->storage != STORAGE_UNION) {
-			return error(aexpr->access._struct->loc, expr, errors,
+			error(ctx, aexpr->access._struct->loc, expr,
 				"Cannot select field from non-struct, non-union object");
+			return;
 		}
 		expr->access.field = type_get_field(stype, aexpr->access.field);
 		if (!expr->access.field) {
-			return error(aexpr->access._struct->loc, expr, errors,
+			error(ctx, aexpr->access._struct->loc, expr,
 				"No such struct field '%s'", aexpr->access.field);
+			return;
 		}
 		expr->result = expr->access.field->type;
 		break;
 	case ACCESS_TUPLE:
 		expr->access.tuple = xcalloc(1, sizeof(struct expression));
 		struct expression *value = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->access.tuple,
-			expr->access.tuple, NULL, errors);
-		errors = check_expression(ctx, aexpr->access.value,
-			value, NULL, errors);
+		check_expression(ctx, aexpr->access.tuple, expr->access.tuple, NULL);
+		check_expression(ctx, aexpr->access.value, value, NULL);
 		assert(value->type == EXPR_CONSTANT);
 
 		const struct type *ttype =
 			type_dereference(expr->access.tuple->result);
 		if (!ttype) {
-			return error(aexpr->access.tuple->loc, expr, errors,
+			error(ctx, aexpr->access.tuple->loc, expr,
 				"Cannot dereference nullable pointer for value selection");
+			return;
 		}
 		if (ttype->storage != STORAGE_TUPLE) {
-			return error(aexpr->access.tuple->loc, expr, errors,
+			error(ctx, aexpr->access.tuple->loc, expr,
 				"Cannot select value from non-tuple object");
+			return;
 		}
 		if (!type_is_integer(value->result)) {
-			return error(aexpr->access.tuple->loc, expr, errors,
+			error(ctx, aexpr->access.tuple->loc, expr,
 				"Cannot use non-integer constant to select tuple value");
+			return;
 		}
 
 		expr->access.tvalue = type_get_value(ttype,
 			aexpr->access.value->constant.uval);
 		if (!expr->access.tvalue) {
-			return error(aexpr->access.tuple->loc, expr, errors,
+			error(ctx, aexpr->access.tuple->loc, expr,
 				"No such tuple value '%zu'",
 				aexpr->access.value->constant.uval);
+			return;
 		}
 		expr->access.tindex = aexpr->access.value->constant.uval;
 
 		expr->result = expr->access.tvalue->type;
 		break;
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_alloc(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	assert(aexpr->type == EXPR_ALLOC);
 	expr->type = EXPR_ALLOC;
@@ -261,8 +257,7 @@ check_expr_alloc(struct context *ctx,
 	} else if (hint && type_dealias(hint)->storage == STORAGE_SLICE) {
 		inittype = hint;
 	}
-	errors = check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr,
-		inittype, errors);
+	check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr, inittype);
 	inittype = expr->alloc.expr->result;
 
 	int flags = 0;
@@ -298,37 +293,37 @@ check_expr_alloc(struct context *ctx,
 	switch (storage) {
 	case STORAGE_POINTER:
 		if (aexpr->alloc.cap != NULL) {
-			return error(aexpr->alloc.cap->loc, expr, errors,
+			error(ctx, aexpr->alloc.cap->loc, expr,
 					"Allocation with capacity must be of slice type, not %s",
 					type_storage_unparse(storage));
+			return;
 		}
 		break;
 	case STORAGE_SLICE:
 		if (aexpr->alloc.cap != NULL) {
 			expr->alloc.cap = xcalloc(sizeof(struct expression), 1);
-			errors = check_expression(ctx, aexpr->alloc.cap,
-				expr->alloc.cap, &builtin_type_size, errors);
+			check_expression(ctx, aexpr->alloc.cap, expr->alloc.cap, &builtin_type_size);
 			if (!type_is_assignable(&builtin_type_size,
 					expr->alloc.cap->result)) {
-				return error(aexpr->alloc.cap->loc, expr, errors,
+				error(ctx, aexpr->alloc.cap->loc, expr,
 					"Allocation capacity must be assignable to size");
+				return;
 			}
 		}
 		break;
 	default:
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Allocation type must be pointer or slice, not %s",
 			type_storage_unparse(storage));
+		return;
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_append(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	assert(aexpr->type == EXPR_APPEND);
 	expr->type = EXPR_APPEND;
@@ -336,26 +331,29 @@ check_expr_append(struct context *ctx,
 	expr->append.is_static = aexpr->append.is_static;
 	expr->insert.loc = aexpr->loc;
 	expr->append.expr = xcalloc(sizeof(struct expression), 1);
-	errors = check_expression(ctx, aexpr->append.expr, expr->append.expr,
-		NULL, errors);
+	check_expression(ctx, aexpr->append.expr, expr->append.expr, NULL);
 	const struct type *stype = type_dereference(expr->append.expr->result);
 	if (!stype) {
-		return error(aexpr->access.array->loc, expr, errors,
+		error(ctx, aexpr->access.array->loc, expr,
 			"Cannot dereference nullable pointer for append");
+		return;
 	}
 	if (stype->storage != STORAGE_SLICE) {
-		return error(aexpr->append.expr->loc, expr, errors,
+		error(ctx, aexpr->append.expr->loc, expr,
 			"append must operate on a slice");
+		return;
 	}
 	if (stype->flags & TYPE_CONST) {
-		return error(aexpr->append.expr->loc, expr, errors,
+		error(ctx, aexpr->append.expr->loc, expr,
 			"append must operate on a mutable slice");
+		return;
 	}
 	if (expr->append.expr->type != EXPR_ACCESS
 			&& (expr->append.expr->type != EXPR_UNARITHM
 				|| expr->append.expr->unarithm.op != UN_DEREF)) {
-		return error(aexpr->append.expr->loc, expr, errors,
+		error(ctx, aexpr->append.expr->loc, expr,
 			"append must operate on a slice object");
+		return;
 	}
 	const struct type *memb = stype->array.members;
 	struct append_values **next = &expr->append.values;
@@ -365,33 +363,31 @@ check_expr_append(struct context *ctx,
 			xcalloc(sizeof(struct append_values), 1);
 		value->expr = 
 			xcalloc(sizeof(struct expression), 1);
-		errors = check_expression(ctx, avalue->expr, value->expr, memb,
-			errors);
+		check_expression(ctx, avalue->expr, value->expr, memb);
 		if (!type_is_assignable(memb, value->expr->result)) {
-			return error(avalue->expr->loc, expr, errors,
+			error(ctx, avalue->expr->loc, expr,
 				"appended value must be assignable to member type");
+			return;
 		}
 		value->expr = lower_implicit_cast(memb, value->expr);
 		next = &value->next;
 	}
 	if (aexpr->append.variadic != NULL) {
 		expr->append.variadic = xcalloc(sizeof(struct expression), 1);
-		errors = check_expression(ctx, aexpr->append.variadic,
-			expr->append.variadic, stype, errors);
+		check_expression(ctx, aexpr->append.variadic, expr->append.variadic, stype);
 		if (!type_is_assignable(stype, expr->append.variadic->result)) {
-			return error(aexpr->append.variadic->loc, expr, errors,
+			error(ctx, aexpr->append.variadic->loc, expr,
 				"appended slice must be assignable to slice type");
+			return;
 		}
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_assert(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_ASSERT;
 	expr->result = &builtin_type_void;
@@ -399,11 +395,11 @@ check_expr_assert(struct context *ctx,
 
 	if (aexpr->assert.cond != NULL) {
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->assert.cond,
-			expr->assert.cond, &builtin_type_bool, errors);
+		check_expression(ctx, aexpr->assert.cond, expr->assert.cond, &builtin_type_bool);
 		if (type_dealias(expr->assert.cond->result)->storage != STORAGE_BOOL) {
-			return error(aexpr->assert.cond->loc, expr, errors,
+			error(ctx, aexpr->assert.cond->loc, expr,
 				"Assertion condition must be boolean");
+			return;
 		}
 	} else {
 		expr->terminates = true;
@@ -411,11 +407,11 @@ check_expr_assert(struct context *ctx,
 
 	expr->assert.message = xcalloc(1, sizeof(struct expression));
 	if (aexpr->assert.message != NULL) {
-		errors = check_expression(ctx, aexpr->assert.message,
-			expr->assert.message, &builtin_type_str, errors);
+		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
 		if (expr->assert.message->result->storage != STORAGE_STRING) {
-			return error(aexpr->assert.message->loc, expr, errors,
+			error(ctx, aexpr->assert.message->loc, expr,
 				"Assertion message must be string");
+			return;
 		}
 
 		assert(expr->assert.message->type == EXPR_CONSTANT);
@@ -449,8 +445,9 @@ check_expr_assert(struct context *ctx,
 			enum eval_result r =
 				eval_expr(ctx, expr->assert.cond, &out);
 			if (r != EVAL_OK) {
-				return error(aexpr->assert.cond->loc, expr, errors,
+				error(ctx, aexpr->assert.cond->loc, expr,
 					"Unable to evaluate static assertion at compile time");
+				return;
 			}
 			assert(out.result->storage == STORAGE_BOOL);
 			cond = out.constant.bval;
@@ -464,31 +461,29 @@ check_expr_assert(struct context *ctx,
 				snprintf(format, 40, "Static assertion failed %%%lds",
 					expr->assert.message->constant.string.len);
 				if (aexpr->assert.cond == NULL) {
-					return error(aexpr->loc,
-						expr,
-						errors, format,
+					error(ctx, aexpr->loc, expr, format,
 						expr->assert.message->constant.string.value);
+					return;
 				} else {
-					return error(aexpr->assert.cond->loc,
-						expr,
-						errors, format,
+					error(ctx, aexpr->assert.cond->loc,
+						expr, format,
 						expr->assert.message->constant.string.value);
+					return;
 				};
 			} else {
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"Static assertion failed");
+				return;
 			}
 		}
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_assign(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_ASSIGN;
 	expr->result = &builtin_type_void;
@@ -496,55 +491,57 @@ check_expr_assign(struct context *ctx,
 	struct expression *object = xcalloc(1, sizeof(struct expression));
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 
-	errors = check_expression(ctx, aexpr->assign.object,
-			object, NULL, errors);
+	check_expression(ctx, aexpr->assign.object, object, NULL);
 
 	expr->assign.op = aexpr->assign.op;
 
 	if (aexpr->assign.indirect) {
 		const struct type *otype = type_dealias(object->result);
 		if (otype->storage != STORAGE_POINTER) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot dereference non-pointer type for assignment");
+			return;
 		}
 		if (otype->pointer.flags & PTR_NULLABLE) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot dereference nullable pointer type");
+			return;
 		}
-		errors = check_expression(ctx, aexpr->assign.value, value,
-			otype->pointer.referent, errors);
+		check_expression(ctx, aexpr->assign.value, value, otype->pointer.referent);
 		if (!type_is_assignable(otype->pointer.referent,
 				value->result)) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Value type is not assignable to pointer type");
+			return;
 		}
 		value = lower_implicit_cast(otype->pointer.referent, value);
 	} else {
-		errors = check_expression(ctx, aexpr->assign.value, value,
-			object->result, errors);
+		check_expression(ctx, aexpr->assign.value, value, object->result);
 		assert(object->type == EXPR_CONSTANT // If error
 				|| object->type == EXPR_ACCESS
 				|| object->type == EXPR_SLICE); // Invariant
 		if (object->type == EXPR_SLICE) {
 			if (expr->assign.op != BIN_LEQUAL) {
-				return error(aexpr->assign.object->loc, expr, errors,
+				error(ctx, aexpr->assign.object->loc, expr,
 					"Slice assignments may not have a binop");
+				return;
 			}
 		}
 		if (object->result->flags & TYPE_CONST) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 					"Cannot assign to const object");
+			return;
 		}
 		if (!type_is_assignable(object->result, value->result)) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"rvalue type is not assignable to lvalue");
+			return;
 		}
 		value = lower_implicit_cast(object->result, value);
 	}
 
 	expr->assign.object = object;
 	expr->assign.value = value;
-	return errors;
 }
 
 static const struct type *
@@ -672,12 +669,11 @@ aexpr_is_flexible(const struct ast_expression *expr)
 		&& storage_is_flexible(expr->constant.storage);
 }
 
-static struct errors *
+static void
 check_expr_binarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_BINARITHM;
 	expr->binarithm.op = aexpr->binarithm.op;
@@ -718,10 +714,8 @@ check_expr_binarithm(struct context *ctx,
 		*rvalue = xcalloc(1, sizeof(struct expression));
 
 	if (hint && lflex && rflex) {
-		errors = check_expression(ctx, aexpr->binarithm.lvalue, lvalue,
-			hint, errors);
-		errors = check_expression(ctx, aexpr->binarithm.rvalue, rvalue,
-			hint, errors);
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
 	} else if (lflex && rflex) {
 		intmax_t l = aexpr->binarithm.lvalue->constant.ival,
 			r = aexpr->binarithm.rvalue->constant.ival,
@@ -752,32 +746,25 @@ check_expr_binarithm(struct context *ctx,
 			}
 		}
 		assert(storage != STORAGE_ICONST);
-		errors = check_expression(ctx, aexpr->binarithm.lvalue, lvalue,
-			builtin_type_for_storage(storage, false), errors);
-		errors = check_expression(ctx, aexpr->binarithm.rvalue, rvalue,
-			builtin_type_for_storage(storage, false), errors);
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, builtin_type_for_storage(storage, false));
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, builtin_type_for_storage(storage, false));
 	} else if (!lflex && rflex) {
-		errors = check_expression(ctx, aexpr->binarithm.lvalue, lvalue,
-			hint, errors);
-		errors = check_expression(ctx, aexpr->binarithm.rvalue, rvalue,
-			lvalue->result, errors);
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, lvalue->result);
 	} else if (lflex && !rflex) {
-		errors = check_expression(ctx, aexpr->binarithm.rvalue, rvalue,
-			hint, errors);
-		errors = check_expression(ctx, aexpr->binarithm.lvalue, lvalue,
-			rvalue->result, errors);
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, rvalue->result);
 	} else {
-		errors = check_expression(ctx, aexpr->binarithm.lvalue, lvalue,
-			hint, errors);
-		errors = check_expression(ctx, aexpr->binarithm.rvalue, rvalue,
-			hint, errors);
+		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
+		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
 	}
 
 	const struct type *p =
 		type_promote(ctx->store, lvalue->result, rvalue->result);
 	if (p == NULL) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Cannot promote lvalue and rvalue");
+		return;
 	}
 	lvalue = lower_implicit_cast(p, lvalue);
 	rvalue = lower_implicit_cast(p, rvalue);
@@ -790,15 +777,13 @@ check_expr_binarithm(struct context *ctx,
 	} else {
 		expr->result = &builtin_type_bool;
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_binding(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_BINDING;
 	expr->result = &builtin_type_void;
@@ -847,18 +832,19 @@ check_expr_binding(struct context *ctx,
 			}
 		}
 
-		errors = check_expression(ctx, abinding->initializer,
-			initializer, type, errors);
+		check_expression(ctx, abinding->initializer, initializer, type);
 
 		if (context) {
 			if (initializer->result->storage != STORAGE_ARRAY) {
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"Cannot infer array length from non-array type");
+				return;
 			}
 			if (initializer->result->array.members
 					!= type->array.members) {
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"Initializer is not assignable to binding type");
+				return;
 			}
 			type = initializer->result;
 		}
@@ -879,12 +865,14 @@ check_expr_binding(struct context *ctx,
 		}
 
 		if (type->size == 0 || type->size == SIZE_UNDEFINED) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot create binding for type of zero or undefined size");
+			return;
 		}
 		if (!type_is_assignable(type, initializer->result)) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Initializer is not assignable to binding type");
+			return;
 		}
 		binding->initializer = lower_implicit_cast(type, initializer);
 
@@ -894,8 +882,9 @@ check_expr_binding(struct context *ctx,
 			enum eval_result r = eval_expr(
 				ctx, binding->initializer, value);
 			if (r != EVAL_OK) {
-				return error(abinding->initializer->loc, expr, errors,
+				error(ctx, abinding->initializer->loc, expr,
 					"Unable to evaluate static initializer at compile time");
+				return;
 			}
 			// TODO: Free initializer
 			binding->initializer = value;
@@ -909,16 +898,14 @@ check_expr_binding(struct context *ctx,
 
 		abinding = abinding->next;
 	}
-	return errors;
 }
 
 // Lower Hare-style variadic arguments into an array literal
-static struct errors *
+static void
 lower_vaargs(struct context *ctx,
 	const struct ast_call_argument *aarg,
 	struct expression *vaargs,
-	const struct type *type,
-	struct errors *errors)
+	const struct type *type)
 {
 	struct ast_expression val = {
 		.type = EXPR_CONSTANT,
@@ -942,11 +929,12 @@ lower_vaargs(struct context *ctx,
 	// XXX: This error handling is minimum-effort and bad
 	const struct type *hint = type_store_lookup_array(
 		ctx->store, type, SIZE_UNDEFINED);
-	errors = check_expression(ctx, &val, vaargs, hint, errors);
+	check_expression(ctx, &val, vaargs, hint);
 	if (vaargs->result->storage != STORAGE_ARRAY
 			|| vaargs->result->array.members != type) {
-		return error(val.loc, vaargs, errors,
+		error(ctx, val.loc, vaargs,
 			"Argument is not assignable to variadic parameter type");
+		return;
 	}
 
 	struct ast_array_constant *item = val.constant.array;
@@ -955,31 +943,30 @@ lower_vaargs(struct context *ctx,
 		free(item);
 		item = next;
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_call(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_CALL;
 
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->call.lvalue, lvalue, NULL,
-		errors);
+	check_expression(ctx, aexpr->call.lvalue, lvalue, NULL);
 	expr->call.lvalue = lvalue;
 
 	const struct type *fntype = type_dereference(lvalue->result);
 	if (!fntype) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Cannot dereference nullable pointer type for function call");
+		return;
 	}
 	if (fntype->storage != STORAGE_FUNCTION) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Cannot call non-function type");
+		return;
 	}
 	expr->result = fntype->func.result;
 	if (fntype->func.flags & FN_NORETURN) {
@@ -995,20 +982,20 @@ check_expr_call(struct context *ctx,
 
 		if (!param->next && fntype->func.variadism == VARIADISM_HARE
 				&& !aarg->variadic) {
-			errors = lower_vaargs(ctx, aarg, arg->value,
-				param->type->array.members, errors);
+			lower_vaargs(ctx, aarg, arg->value,
+				param->type->array.members);
 			arg->value = lower_implicit_cast(param->type, arg->value);
 			param = NULL;
 			aarg = NULL;
 			break;
 		}
 
-		errors = check_expression(ctx, aarg->value, arg->value,
-			param->type, errors);
+		check_expression(ctx, aarg->value, arg->value, param->type);
 
 		if (!type_is_assignable(param->type, arg->value->result)) {
-			return error(aarg->value->loc, expr, errors,
+			error(ctx, aarg->value->loc, expr,
 				"Argument is not assignable to parameter type");
+			return;
 		}
 		arg->value = lower_implicit_cast(param->type, arg->value);
 
@@ -1021,30 +1008,30 @@ check_expr_call(struct context *ctx,
 		// No variadic arguments, lower to empty slice
 		arg = *next = xcalloc(1, sizeof(struct call_argument));
 		arg->value = xcalloc(1, sizeof(struct expression));
-		errors = lower_vaargs(ctx, NULL, arg->value,
-			param->type->array.members, errors);
+		lower_vaargs(ctx, NULL, arg->value,
+			param->type->array.members);
 		arg->value = lower_implicit_cast(param->type, arg->value);
 		param = param->next;
 	}
 
 	if (aarg) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Too many parameters for function call");
+		return;
 	}
 	if (param) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Not enough parameters for function call");
+		return;
 	}
 
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_cast(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_CAST;
 	expr->cast.kind = aexpr->cast.kind;
@@ -1054,18 +1041,19 @@ check_expr_cast(struct context *ctx,
 		type_store_lookup_atype(ctx->store, aexpr->cast.type);
 	// TODO: Instead of allowing errors on casts to void, we should use a
 	// different nonterminal
-	errors = check_expression(ctx, aexpr->cast.value, value,
-		secondary == &builtin_type_void ? NULL : secondary, errors);
+	check_expression(ctx, aexpr->cast.value, value, secondary == &builtin_type_void ? NULL : secondary);
 
 	if (aexpr->cast.kind == C_ASSERTION || aexpr->cast.kind == C_TEST) {
 		const struct type *primary = type_dealias(expr->cast.value->result);
 		if (primary->storage != STORAGE_TAGGED) {
-			return error(aexpr->cast.value->loc, expr, errors,
+			error(ctx, aexpr->cast.value->loc, expr,
 				"Expected a tagged union type");
+			return;
 		}
 		if (!type_is_castable(value->result, secondary)) {
-			return error(aexpr->cast.type->loc, expr, errors,
+			error(ctx, aexpr->cast.type->loc, expr,
 				"Invalid cast");
+			return;
 		}
 		bool found = false;
 		for (const struct type_tagged_union *t = &primary->tagged;
@@ -1076,16 +1064,18 @@ check_expr_cast(struct context *ctx,
 			}
 		}
 		if (!found) {
-			return error(aexpr->cast.type->loc, expr, errors,
+			error(ctx, aexpr->cast.type->loc, expr,
 				"Type is not a valid member of the tagged union type");
+			return;
 		}
 	}
 
 	switch (aexpr->cast.kind) {
 	case C_CAST:
 		if (!type_is_castable(secondary, value->result)) {
-			return error(aexpr->cast.type->loc, expr, errors,
+			error(ctx, aexpr->cast.type->loc, expr,
 				"Invalid cast");
+			return;
 		}
 		// Fallthrough
 	case C_ASSERTION:
@@ -1095,15 +1085,13 @@ check_expr_cast(struct context *ctx,
 		expr->result = &builtin_type_bool;
 		break;
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_array(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	size_t len = 0;
 	bool expandable = false;
@@ -1137,8 +1125,7 @@ check_expr_array(struct context *ctx,
 
 	while (item) {
 		struct expression *value = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, item->value, value, type,
-			errors);
+		check_expression(ctx, item->value, value, type);
 		cur = *next = xcalloc(1, sizeof(struct array_constant));
 		cur->value = value;
 
@@ -1146,8 +1133,9 @@ check_expr_array(struct context *ctx,
 			type = value->result;
 		} else {
 			if (!type_is_assignable(type, value->result)) {
-				return error(item->value->loc, expr, errors,
+				error(ctx, item->value->loc, expr,
 					"Array members must be of a uniform type");
+				return;
 			}
 			cur->value = lower_implicit_cast(type, cur->value);
 		}
@@ -1165,25 +1153,27 @@ check_expr_array(struct context *ctx,
 
 	if (expandable) {
 		if (hint == NULL) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot expand array for inferred type");
+			return;
 		}
 		if (hint->storage != STORAGE_ARRAY
 				|| hint->array.length == SIZE_UNDEFINED
 				|| hint->array.length < len) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot expand array into destination type");
+			return;
 		}
 		expr->result = type_store_lookup_array(ctx->store,
 				type, hint->array.length);
 	} else {
 		if (type == NULL) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot infer array type from context, try casting it to the desired type");
+			return;
 		}
 		expr->result = type_store_lookup_array(ctx->store, type, len);
 	}
-	return errors;
 }
 
 static const struct type *
@@ -1271,12 +1261,11 @@ lower_constant(const struct type *type, struct expression *expr)
 	return NULL;
 }
 
-static struct errors *
+static void
 check_expr_constant(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_CONSTANT;
 	expr->result = builtin_type_for_storage(aexpr->constant.storage, false);
@@ -1289,8 +1278,9 @@ check_expr_constant(struct context *ctx,
 		const struct type *type = lower_constant(hint, expr);
 		if (!type) {
 			// TODO: This error message is awful
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Integer constant out of range");
+			return;
 		}
 		expr->result = type;
 	}
@@ -1303,8 +1293,9 @@ check_expr_constant(struct context *ctx,
 		const struct type *type = lower_constant(hint, expr);
 		if (!type) {
 			// TODO: This error message is awful
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Floating constant out of range");
+			return;
 		}
 		expr->result = type;
 	}
@@ -1317,8 +1308,9 @@ check_expr_constant(struct context *ctx,
 		const struct type *type = lower_constant(hint, expr);
 		if (!type) {
 			// TODO: This error message is awful
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Rune constant out of range");
+			return;
 		}
 		expr->result = type;
 	}
@@ -1351,7 +1343,7 @@ check_expr_constant(struct context *ctx,
 		// No storage
 		break;
 	case STORAGE_ARRAY:
-		errors = check_expr_array(ctx, aexpr, expr, hint, errors);
+		check_expr_array(ctx, aexpr, expr, hint);
 		break;
 	case STORAGE_STRING:
 		expr->constant.string.len = aexpr->constant.string.len;
@@ -1377,44 +1369,39 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_UNION:
 		assert(0); // Invariant
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_defer(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	if (ctx->deferring) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Cannot defer within another defer expression.");
+		return;
 	}
 	expr->type = EXPR_DEFER;
 	expr->result = &builtin_type_void;
 	expr->defer.deferred = xcalloc(1, sizeof(struct expression));
 	ctx->deferring = true;
-	errors = check_expression(ctx, aexpr->defer.deferred,
-		expr->defer.deferred, &builtin_type_void, errors);
+	check_expression(ctx, aexpr->defer.deferred, expr->defer.deferred, &builtin_type_void);
 	ctx->deferring = false;
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_delete(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_DELETE;
 	expr->delete.is_static = aexpr->delete.is_static;
 	expr->result = &builtin_type_void;
 	struct expression *dexpr = expr->delete.expr =
 		xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->delete.expr, expr->delete.expr,
-		NULL, errors);
+	check_expression(ctx, aexpr->delete.expr, expr->delete.expr, NULL);
 	const struct type *otype = NULL;
 	switch (dexpr->type) {
 	case EXPR_SLICE:
@@ -1422,36 +1409,38 @@ check_expr_delete(struct context *ctx,
 		break;
 	case EXPR_ACCESS:
 		if (dexpr->access.type != ACCESS_INDEX) {
-			return error(aexpr->delete.expr->loc, expr, errors,
+			error(ctx, aexpr->delete.expr->loc, expr,
 				"Deleted expression must be slicing or indexing expression");
+			return;
 		}
 		otype = dexpr->access.array->result;
 		break;
 	default:
-		return error(aexpr->delete.expr->loc, expr, errors,
+		error(ctx, aexpr->delete.expr->loc, expr,
 			"Deleted expression must be slicing or indexing expression");
+		return;
 	}
 	otype = type_dealias(otype);
 	while (otype->storage == STORAGE_POINTER) {
 		otype = type_dealias(otype->pointer.referent);
 	}
 	if (otype->storage != STORAGE_SLICE) {
-		return error(aexpr->delete.expr->loc, expr, errors,
+		error(ctx, aexpr->delete.expr->loc, expr,
 			"delete must operate on a slice");
+		return;
 	}
 	if (otype->flags & TYPE_CONST) {
-		return error(aexpr->delete.expr->loc, expr, errors,
+		error(ctx, aexpr->delete.expr->loc, expr,
 			"delete must operate on a mutable slice");
+		return;
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_control(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = aexpr->type;
 	expr->result = &builtin_type_void;
@@ -1471,18 +1460,17 @@ check_expr_control(struct context *ctx,
 		}
 	}
 	if (scope == NULL) {
-		return error(aexpr->loc, expr, errors, "Unknown label %s",
+		error(ctx, aexpr->loc, expr, "Unknown label %s",
 			expr->control.label);
+		return;
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_for(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_FOR;
 	expr->result = &builtin_type_void;
@@ -1501,8 +1489,9 @@ check_expr_for(struct context *ctx,
 				continue;
 			}
 			if (strcmp(scope->label, expr->_for.label) == 0){
-				return error(aexpr->_for.label_loc, expr, errors,
+				error(ctx, aexpr->_for.label_loc, expr,
 					"for loop label must be unique among its ancestors");
+				return;
 			}
 		}
 	}
@@ -1512,81 +1501,71 @@ check_expr_for(struct context *ctx,
 
 	if (aexpr->_for.bindings) {
 		bindings = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->_for.bindings, bindings,
-			NULL, errors);
+		check_expression(ctx, aexpr->_for.bindings, bindings, NULL);
 		expr->_for.bindings = bindings;
 	}
 
 	cond = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->_for.cond, cond,
-		&builtin_type_bool, errors);
+	check_expression(ctx, aexpr->_for.cond, cond, &builtin_type_bool);
 	expr->_for.cond = cond;
 	if (type_dealias(cond->result)->storage != STORAGE_BOOL) {
-		return error(aexpr->_for.cond->loc, expr, errors,
+		error(ctx, aexpr->_for.cond->loc, expr,
 			"Expected for condition to be boolean");
+		return;
 	}
 
 	if (aexpr->_for.afterthought) {
 		afterthought = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->_for.afterthought,
-			afterthought, &builtin_type_void, errors);
+		check_expression(ctx, aexpr->_for.afterthought, afterthought, &builtin_type_void);
 		expr->_for.afterthought = afterthought;
 	}
 
 	body = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->_for.body, body,
-		&builtin_type_void, errors);
+	check_expression(ctx, aexpr->_for.body, body, &builtin_type_void);
 	expr->_for.body = body;
 
 	scope_pop(&ctx->scope);
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_free(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	assert(aexpr->type == EXPR_FREE);
 	expr->type = EXPR_FREE;
 	expr->free.expr = xcalloc(sizeof(struct expression), 1);
-	errors = check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL,
-		errors);
+	check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL);
 	enum type_storage storage = type_dealias(expr->free.expr->result)->storage;
 	if (storage != STORAGE_SLICE && storage != STORAGE_STRING
 			&& storage != STORAGE_POINTER) {
-		return error(aexpr->free.expr->loc, expr, errors,
+		error(ctx, aexpr->free.expr->loc, expr,
 			"free must operate on slice, string, or pointer");
+		return;
 	}
 	expr->result = &builtin_type_void;
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_if(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_IF;
 
 	struct expression *cond, *true_branch, *false_branch = NULL;
 
 	cond = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->_if.cond, cond,
-		&builtin_type_bool, errors);
+	check_expression(ctx, aexpr->_if.cond, cond, &builtin_type_bool);
 
 	true_branch = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->_if.true_branch, true_branch,
-		hint, errors);
+	check_expression(ctx, aexpr->_if.true_branch, true_branch, hint);
 
 	if (aexpr->_if.false_branch) {
 		false_branch = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->_if.false_branch,
-			false_branch, hint, errors);
+		check_expression(ctx, aexpr->_if.false_branch, false_branch, hint);
 
 		bool tt = true_branch->terminates, ft = false_branch->terminates;
 		if (tt && ft) {
@@ -1610,8 +1589,9 @@ check_expr_if(struct context *ctx,
 			expr->result =
 				type_store_reduce_result(ctx->store, &tags);
 			if (expr->result == NULL) {
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
+				return;
 			}
 		}
 		true_branch = lower_implicit_cast(expr->result, true_branch);
@@ -1622,22 +1602,21 @@ check_expr_if(struct context *ctx,
 	}
 
 	if (type_dealias(cond->result)->storage != STORAGE_BOOL) {
-		return error(aexpr->_if.cond->loc, expr, errors,
+		error(ctx, aexpr->_if.cond->loc, expr,
 			"Expected if condition to be boolean");
+		return;
 	}
 
 	expr->_if.cond = cond;
 	expr->_if.true_branch = true_branch;
 	expr->_if.false_branch = false_branch;
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_insert(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	assert(aexpr->type == EXPR_INSERT);
 	expr->type = EXPR_INSERT;
@@ -1645,25 +1624,27 @@ check_expr_insert(struct context *ctx,
 	expr->insert.is_static = aexpr->insert.is_static;
 	expr->insert.loc = aexpr->loc;
 	expr->insert.expr = xcalloc(sizeof(struct expression), 1);
-	errors = check_expression(ctx, aexpr->insert.expr,
-			expr->insert.expr, NULL, errors);
+	check_expression(ctx, aexpr->insert.expr, expr->insert.expr, NULL);
 	// TODO: Handle dereferences
 	assert(expr->insert.expr->type == EXPR_ACCESS
 			&& expr->insert.expr->access.type == ACCESS_INDEX);
 	const struct type *sltype = expr->insert.expr->access.array->result;
 	sltype = type_dereference(sltype);
 	if (!sltype) {
-		return error(aexpr->access.array->loc, expr, errors,
+		error(ctx, aexpr->access.array->loc, expr,
 			"Cannot dereference nullable pointer for insert");
+		return;
 	}
 	if (sltype->storage != STORAGE_SLICE) {
-		return error(aexpr->insert.expr->loc, expr, errors,
+		error(ctx, aexpr->insert.expr->loc, expr,
 			"cannot insert into non-slice type %s",
 			type_storage_unparse(type_dealias(sltype)->storage));
+		return;
 	}
 	if (sltype->flags & TYPE_CONST) {
-		return error(aexpr->insert.expr->loc, expr, errors,
+		error(ctx, aexpr->insert.expr->loc, expr,
 			"insert must operate on a mutable slice");
+		return;
 	}
 	const struct type *memb = type_dealias(sltype)->array.members;
 	struct append_values **next = &expr->insert.values;
@@ -1673,36 +1654,34 @@ check_expr_insert(struct context *ctx,
 			xcalloc(sizeof(struct append_values), 1);
 		value->expr = 
 			xcalloc(sizeof(struct expression), 1);
-		errors = check_expression(ctx, avalue->expr,
-				value->expr, memb, errors);
+		check_expression(ctx, avalue->expr, value->expr, memb);
 		if (!type_is_assignable(memb, value->expr->result)) {
-			return error(avalue->expr->loc, expr, errors,
+			error(ctx, avalue->expr->loc, expr,
 				"inserted value must be assignable to member type");
+			return;
 		}
 		value->expr = lower_implicit_cast(memb, value->expr);
 		next = &value->next;
 	}
 	if (aexpr->insert.variadic != NULL) {
 		expr->insert.variadic = xcalloc(sizeof(struct expression), 1);
-		errors = check_expression(ctx, aexpr->insert.variadic,
-			expr->insert.variadic, sltype, errors);
+		check_expression(ctx, aexpr->insert.variadic, expr->insert.variadic, sltype);
 		if (!type_is_assignable(sltype, expr->insert.variadic->result)) {
-			return error(aexpr->insert.variadic->loc, expr, errors,
+			error(ctx, aexpr->insert.variadic->loc, expr,
 				"inserted slice type %s must be assignable to slice type",
 				type_storage_unparse(expr->insert.variadic->result->storage));
+			return;
 		}
 		expr->insert.variadic = lower_implicit_cast(
 				sltype, expr->insert.variadic);
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_list(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_LIST;
 
@@ -1716,8 +1695,7 @@ check_expr_list(struct context *ctx,
 	const struct ast_expression_list *alist = &aexpr->list;
 	while (alist) {
 		struct expression *lexpr = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, alist->expr, lexpr,
-			alist->next ? &builtin_type_void : hint, errors);
+		check_expression(ctx, alist->expr, lexpr, alist->next ? &builtin_type_void : hint);
 		list->expr = lexpr;
 
 		alist = alist->next;
@@ -1732,28 +1710,26 @@ check_expr_list(struct context *ctx,
 	}
 
 	scope_pop(&ctx->scope);
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_match(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_MATCH;
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->match.value, value, NULL, errors);
-	expr->match.value = value;
+	check_expression(ctx, aexpr->match.value, value, NULL); expr->match.value = value;
 
 	const struct type *type = type_dealias(value->result);
 	bool is_ptr = type->storage == STORAGE_POINTER
 		&& type->pointer.flags & PTR_NULLABLE;
 	if (type->storage != STORAGE_TAGGED && !is_ptr) {
-		return error(aexpr->match.value->loc, expr, errors,
+		error(ctx, aexpr->match.value->loc, expr,
 			"match value must be tagged union or nullable pointer type");
+		return;
 	}
 
 	struct type_tagged_union result_type = {0};
@@ -1775,20 +1751,23 @@ check_expr_match(struct context *ctx,
 					break;
 				case STORAGE_POINTER:
 					if (type->pointer.referent != ctype->pointer.referent) {
-						return error(acase->type->loc, expr, errors,
+						error(ctx, acase->type->loc, expr,
 							"Match case on incompatible pointer type");
+						return;
 					}
 					break;
 				default:
-					return error(acase->type->loc, expr, errors,
+					error(ctx, acase->type->loc, expr,
 						"Invalid type for match case (expected null or pointer type)");
+					return;
 				}
 			} else {
 				// TODO: Assign a score to tagged compatibility
 				// and choose the branch with the highest score.
 				if (!type_is_assignable(type, ctype)) {
-					return error(acase->type->loc, expr, errors,
+					error(ctx, acase->type->loc, expr,
 						"Invalid type for match case (match is not assignable to this type)");
+					return;
 				}
 			}
 		}
@@ -1806,8 +1785,7 @@ check_expr_match(struct context *ctx,
 
 		_case->value = xcalloc(1, sizeof(struct expression));
 		_case->type = ctype;
-		errors = check_expression(ctx, acase->value, _case->value,
-			hint, errors);
+		check_expression(ctx, acase->value, _case->value, hint);
 
 		if (acase->name) {
 			scope_pop(&ctx->scope);
@@ -1840,8 +1818,9 @@ check_expr_match(struct context *ctx,
 			expr->result = type_store_reduce_result(
 				ctx->store, &result_type);
 			if (expr->result == NULL) {
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
+				return;
 			}
 		}
 
@@ -1850,8 +1829,9 @@ check_expr_match(struct context *ctx,
 		while (_case) {
 			if (!_case->value->terminates && !type_is_assignable(
 					expr->result, _case->value->result)) {
-				return error(acase->value->loc, expr, errors,
+				error(ctx, acase->value->loc, expr,
 					"Match case is not assignable to result type");
+				return;
 			}
 			_case->value = lower_implicit_cast(
 				expr->result, _case->value);
@@ -1866,15 +1846,13 @@ check_expr_match(struct context *ctx,
 			tu = next;
 		}
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_measure(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_MEASURE;
 	expr->result = &builtin_type_size;
@@ -1883,19 +1861,20 @@ check_expr_measure(struct context *ctx,
 	switch (expr->measure.op) {
 	case M_LEN:
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->measure.value,
-			expr->measure.value, NULL, errors);
+		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
 		enum type_storage vstor =
 			type_dereference(expr->measure.value->result)->storage;
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
 				|| vstor == STORAGE_STRING;
 		if (!valid) {
-			return error(aexpr->measure.value->loc, expr, errors,
+			error(ctx, aexpr->measure.value->loc, expr,
 				"len argument must be of an array, slice, or str type");
+			return;
 		}
 		if (expr->measure.value->result->size == SIZE_UNDEFINED) {
-			return error(aexpr->measure.value->loc, expr, errors,
+			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot take length of array type with undefined length");
+			return;
 		}
 		break;
 	case M_SIZE:
@@ -1905,33 +1884,33 @@ check_expr_measure(struct context *ctx,
 	case M_OFFSET:
 		assert(0); // TODO
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_propagate(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->propagate.value, lvalue,
-		hint == &builtin_type_void ? NULL : hint, errors);
+	check_expression(ctx, aexpr->propagate.value, lvalue, hint == &builtin_type_void ? NULL : hint);
 
 	const struct type *intype = lvalue->result;
 	if (type_dealias(intype)->storage != STORAGE_TAGGED) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Cannot use error propagation with non-tagged type");
+		return;
 	}
 	if (!aexpr->propagate.abort) {
 		if (ctx->deferring) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot use error propagation in a defer expression");
+			return;
 		}
 		if (ctx->fntype->func.flags & FN_NORETURN) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot use error propagation inside @noreturn function");
+			return;
 		}
 	}
 
@@ -1967,8 +1946,9 @@ check_expr_propagate(struct context *ctx,
 	}
 
 	if (!return_tagged.type) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"No error can occur here, cannot propagate");
+		return;
 	}
 
 	const struct type *return_type;
@@ -2053,8 +2033,9 @@ check_expr_propagate(struct context *ctx,
 		case_err->value->assert.message->constant.string.len = n - 1;
 	} else {
 		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Error type is not assignable to function result type");
+			return;
 		}
 
 		case_err->value->type = EXPR_RETURN;
@@ -2080,23 +2061,23 @@ check_expr_propagate(struct context *ctx,
 
 	scope_pop(&ctx->scope);
 	expr->result = result_type;
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_return(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	if (ctx->deferring) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Cannot return inside a defer expression");
+		return;
 	}
 	if (ctx->fntype->func.flags & FN_NORETURN) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Cannot return inside @noreturn function");
+		return;
 	}
 
 	expr->type = EXPR_RETURN;
@@ -2105,59 +2086,58 @@ check_expr_return(struct context *ctx,
 
 	struct expression *rval = xcalloc(1, sizeof(struct expression));
 	if (aexpr->_return.value) {
-		errors = check_expression(ctx, aexpr->_return.value,
-			rval, ctx->fntype->func.result, errors);
+		check_expression(ctx, aexpr->_return.value, rval, ctx->fntype->func.result);
 	} else {
 		rval->type = EXPR_CONSTANT;
 		rval->result = &builtin_type_void;
 	}
 
 	if (!type_is_assignable(ctx->fntype->func.result, rval->result)) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Return value is not assignable to function result type");
+		return;
 	}
 	if (ctx->fntype->func.result != rval->result) {
 		rval = lower_implicit_cast(
 			ctx->fntype->func.result, rval);
 	}
 	expr->_return.value = rval;
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_slice(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_SLICE;
 
 	expr->slice.object = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->slice.object, expr->slice.object,
-		NULL, errors);
+	check_expression(ctx, aexpr->slice.object, expr->slice.object, NULL);
 	const struct type *atype =
 		type_dereference(expr->slice.object->result);
 	if (!atype) {
-		return error(aexpr->slice.object->loc, expr, errors,
+		error(ctx, aexpr->slice.object->loc, expr,
 			"Cannot dereference nullable pointer for slicing");
+		return;
 	}
 	if (atype->storage != STORAGE_SLICE
 			&& atype->storage != STORAGE_ARRAY) {
-		return error(aexpr->slice.object->loc, expr, errors,
+		error(ctx, aexpr->slice.object->loc, expr,
 			"Cannot slice non-array, non-slice object");
+		return;
 	}
 
 	const struct type *itype;
 	if (aexpr->slice.start) {
 		expr->slice.start = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->slice.start,
-			expr->slice.start, &builtin_type_size, errors);
+		check_expression(ctx, aexpr->slice.start, expr->slice.start, &builtin_type_size);
 		itype = type_dealias(expr->slice.start->result);
 		if (!type_is_integer(itype)) {
-			return error(aexpr->slice.start->loc, expr, errors,
+			error(ctx, aexpr->slice.start->loc, expr,
 				"Cannot use non-integer %s type as slicing operand",
 				type_storage_unparse(itype->storage));
+			return;
 		}
 		expr->slice.start = lower_implicit_cast(
 			&builtin_type_size, expr->slice.start);
@@ -2165,32 +2145,31 @@ check_expr_slice(struct context *ctx,
 
 	if (aexpr->slice.end) {
 		expr->slice.end = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, aexpr->slice.end,
-			expr->slice.end, &builtin_type_size, errors);
+		check_expression(ctx, aexpr->slice.end, expr->slice.end, &builtin_type_size);
 		itype = type_dealias(expr->slice.end->result);
 		if (!type_is_integer(itype)) {
-			return error(aexpr->slice.end->loc, expr, errors,
+			error(ctx, aexpr->slice.end->loc, expr,
 				"Cannot use non-integer %s type as slicing operand",
 				type_storage_unparse(itype->storage));
+			return;
 		}
 		expr->slice.end = lower_implicit_cast(
 			&builtin_type_size, expr->slice.end);
 	} else if (atype->storage == STORAGE_ARRAY
 			&& atype->array.length == SIZE_UNDEFINED) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Must have end index on array of undefined length");
+		return;
 	}
 
 	expr->result = type_store_lookup_slice(ctx->store, atype->array.members);
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_struct(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_STRUCT;
 
@@ -2199,17 +2178,20 @@ check_expr_struct(struct context *ctx,
 		const struct scope_object *obj = scope_lookup(ctx->scope,
 				&aexpr->_struct.type);
 		if (!obj) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Unknown type alias");
+			return;
 		}
 		if (obj->otype != O_TYPE) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 					"Name does not refer to a type");
+			return;
 		}
 		stype = obj->type;
 		if (type_dealias(stype)->storage != STORAGE_STRUCT) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Object named is not a struct type");
+			return;
 		}
 	}
 
@@ -2223,8 +2205,9 @@ check_expr_struct(struct context *ctx,
 	struct expr_struct_field **snext = &sexpr->next;
 	expr->_struct.autofill = aexpr->_struct.autofill;
 	if (stype == NULL && expr->_struct.autofill) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 				"Autofill is only permitted for named struct initializers");
+		return;
 	}
 
 	struct ast_field_value *afield = aexpr->_struct.fields;
@@ -2240,30 +2223,32 @@ check_expr_struct(struct context *ctx,
 				ctx->store, tfield->field.type);
 		} else {
 			if (!afield->field.name) {
-				return error(afield->field.initializer->loc,
-					expr, errors,
+				error(ctx, afield->field.initializer->loc,
+					expr,
 					"Anonymous fields are not permitted for named struct type");
+				return;
 				// XXX: ^ Is that correct?
 			}
 			sexpr->field = type_get_field(type_dealias(stype),
 					afield->field.name);
 			if (!sexpr->field) {
-				return error(afield->field.initializer->loc,
-					expr, errors,
+				error(ctx, afield->field.initializer->loc,
+					expr,
 					"No field by this name exists for this type");
+				return;
 			}
 			ftype = sexpr->field->type;
 		}
 
 		sexpr->value = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, afield->field.initializer,
-				sexpr->value, ftype, errors);
+		check_expression(ctx, afield->field.initializer, sexpr->value, ftype);
 
 		if (stype) {
 			if (!type_is_assignable(sexpr->field->type, sexpr->value->result)) {
-				return error(afield->field.initializer->loc,
-					expr, errors,
+				error(ctx, afield->field.initializer->loc,
+					expr,
 					"Initializer is not assignable to struct field");
+				return;
 			}
 			sexpr->value = lower_implicit_cast(
 				sexpr->field->type, sexpr->value);
@@ -2295,13 +2280,15 @@ check_expr_struct(struct context *ctx,
 				expr->result, tfield->field.name);
 			if (!field) {
 				// TODO: Use more specific error location
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"No field by this name exists for this type");
+				return;
 			}
 			if (!type_is_assignable(field->type, sexpr->value->result)) {
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"Cannot initialize struct field '%s' from value of this type",
 					field->name);
+				return;
 			}
 			sexpr->field = field;
 			sexpr->value = lower_implicit_cast(field->type, sexpr->value);
@@ -2314,21 +2301,18 @@ check_expr_struct(struct context *ctx,
 			sexpr = sexpr->next;
 		}
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_switch(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_SWITCH;
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->_switch.value, value, NULL,
-		errors);
+	check_expression(ctx, aexpr->_switch.value, value, NULL);
 	const struct type *type = type_dealias(value->result);
 	expr->_switch.value = value;
 
@@ -2352,18 +2336,19 @@ check_expr_switch(struct context *ctx,
 			struct expression *evaled =
 				xcalloc(1, sizeof(struct expression));
 
-			errors = check_expression(ctx, aopt->value, value, type,
-				errors);
+			check_expression(ctx, aopt->value, value, type);
 			if (!type_is_assignable(type_dealias(type),
 					type_dealias(value->result))) {
-				return error(aopt->value->loc, expr, errors,
+				error(ctx, aopt->value->loc, expr,
 					"Invalid type for switch case");
+				return;
 			}
 
 			enum eval_result r = eval_expr(ctx, value, evaled);
 			if (r != EVAL_OK) {
-				return error(aopt->value->loc, expr, errors,
+				error(ctx, aopt->value->loc, expr,
 					"Unable to evaluate case at compile time");
+				return;
 			}
 
 			opt->value = evaled;
@@ -2371,8 +2356,7 @@ check_expr_switch(struct context *ctx,
 		}
 
 		_case->value = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, acase->value, _case->value, hint,
-			errors);
+		check_expression(ctx, acase->value, _case->value, hint);
 		if (_case->value->terminates) {
 			continue;
 		}
@@ -2400,8 +2384,9 @@ check_expr_switch(struct context *ctx,
 			expr->result = type_store_reduce_result(
 				ctx->store, &result_type);
 			if (expr->result == NULL) {
-				return error(aexpr->loc, expr, errors,
+				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
+				return;
 			}
 		}
 
@@ -2410,8 +2395,9 @@ check_expr_switch(struct context *ctx,
 		while (_case) {
 			if (!_case->value->terminates && !type_is_assignable(
 					expr->result, _case->value->result)) {
-				return error(acase->value->loc, expr, errors,
+				error(ctx, acase->value->loc, expr,
 					"Switch case is not assignable to result type");
+				return;
 			}
 			_case->value = lower_implicit_cast(
 				expr->result, _case->value);
@@ -2426,15 +2412,13 @@ check_expr_switch(struct context *ctx,
 			tu = next;
 		}
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_tuple(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_TUPLE;
 
@@ -2450,8 +2434,7 @@ check_expr_tuple(struct context *ctx,
 	for (const struct ast_expression_tuple *atuple = &aexpr->tuple;
 			atuple; atuple = atuple->next) {
 		tuple->value = xcalloc(1, sizeof(struct expression));
-		errors = check_expression(ctx, atuple->expr, tuple->value,
-				ttuple ? ttuple->type : NULL, errors);
+		check_expression(ctx, atuple->expr, tuple->value, ttuple ? ttuple->type : NULL);
 		rtype->type = tuple->value->result;
 
 		if (atuple->next) {
@@ -2494,8 +2477,9 @@ check_expr_tuple(struct context *ctx,
 			}
 		}
 		if (!expr->result) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Tuple value is not assignable to tagged union hint");
+			return;
 		}
 	} else {
 		expr->result = type_store_lookup_tuple(ctx->store, &result);
@@ -2506,12 +2490,14 @@ check_expr_tuple(struct context *ctx,
 	const struct ast_expression_tuple *atuple = &aexpr->tuple;
 	while (etuple) {
 		if (!ttuple) {
-			return error(atuple->expr->loc, expr, errors,
+			error(ctx, atuple->expr->loc, expr,
 				"Too many values for tuple type");
+			return;
 		}
 		if (!type_is_assignable(ttuple->type, etuple->value->result)) {
-			return error(atuple->expr->loc, expr, errors,
+			error(ctx, atuple->expr->loc, expr,
 				"Value is not assignable to tuple value type");
+			return;
 		}
 		etuple->value = lower_implicit_cast(ttuple->type, etuple->value);
 		etuple = etuple->next;
@@ -2519,55 +2505,58 @@ check_expr_tuple(struct context *ctx,
 		ttuple = ttuple->next;
 	}
 	if (ttuple) {
-		return error(aexpr->loc, expr, errors,
+		error(ctx, aexpr->loc, expr,
 			"Too few values for tuple type");
+		return;
 	}
-	return errors;
 }
 
-static struct errors *
+static void
 check_expr_unarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->type = EXPR_UNARITHM;
 
 	struct expression *operand = xcalloc(1, sizeof(struct expression));
-	errors = check_expression(ctx, aexpr->unarithm.operand, operand, NULL,
-		errors);
+	check_expression(ctx, aexpr->unarithm.operand, operand, NULL);
 	expr->unarithm.operand = operand;
 	expr->unarithm.op = aexpr->unarithm.op;
 
 	switch (expr->unarithm.op) {
 	case UN_LNOT:
 		if (type_dealias(operand->result)->storage != STORAGE_BOOL) {
-			return error(aexpr->unarithm.operand->loc, expr, errors,
+			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform logical NOT (!) on non-boolean type");
+			return;
 		}
 		expr->result = &builtin_type_bool;
 		break;
 	case UN_BNOT:
 		if (!type_is_integer(operand->result)) {
-			return error(aexpr->unarithm.operand->loc, expr, errors,
+			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform binary NOT (~) on non-integer type");
+			return;
 		}
 		if (type_is_signed(operand->result)) {
-			return error(aexpr->unarithm.operand->loc, expr, errors,
+			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform binary NOT (~) on signed type");
+			return;
 		}
 		expr->result = operand->result;
 		break;
 	case UN_MINUS:
 	case UN_PLUS:
 		if (!type_is_numeric(operand->result)) {
-			return error(aexpr->unarithm.operand->loc, expr, errors,
+			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform operation on non-numeric type");
+			return;
 		}
 		if (!type_is_signed(operand->result)) {
-			return error(aexpr->unarithm.operand->loc, expr, errors,
+			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform operation on unsigned type");
+			return;
 		}
 		expr->result = operand->result;
 		break;
@@ -2577,121 +2566,122 @@ check_expr_unarithm(struct context *ctx,
 		break;
 	case UN_DEREF:
 		if (type_dealias(operand->result)->storage != STORAGE_POINTER) {
-			return error(aexpr->unarithm.operand->loc, expr, errors,
+			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot de-reference non-pointer type");
+			return;
 		}
 		if (type_dealias(operand->result)->pointer.flags
 				& PTR_NULLABLE) {
-			return error(aexpr->unarithm.operand->loc, expr, errors,
+			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot dereference nullable pointer type");
+			return;
 		}
 		expr->result = type_dealias(operand->result)->pointer.referent;
 		break;
 	}
-	return errors;
 }
 
-struct errors *
+void
 check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
-	const struct type *hint,
-	struct errors *errors)
+	const struct type *hint)
 {
 	expr->loc = aexpr->loc;
 
 	switch (aexpr->type) {
 	case EXPR_ACCESS:
-		errors = check_expr_access(ctx, aexpr, expr, hint, errors);
+		check_expr_access(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_ALLOC:
-		errors = check_expr_alloc(ctx, aexpr, expr, hint, errors);
+		check_expr_alloc(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_APPEND:
-		errors = check_expr_append(ctx, aexpr, expr, hint, errors);
+		check_expr_append(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_ASSERT:
-		errors = check_expr_assert(ctx, aexpr, expr, hint, errors);
+		check_expr_assert(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_ASSIGN:
-		errors = check_expr_assign(ctx, aexpr, expr, hint, errors);
+		check_expr_assign(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BINARITHM:
-		errors = check_expr_binarithm(ctx, aexpr, expr, hint, errors);
+		check_expr_binarithm(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BINDING:
-		errors = check_expr_binding(ctx, aexpr, expr, hint, errors);
+		check_expr_binding(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BREAK:
 	case EXPR_CONTINUE:
-		errors = check_expr_control(ctx, aexpr, expr, hint, errors);
+		check_expr_control(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_CALL:
-		errors = check_expr_call(ctx, aexpr, expr, hint, errors);
+		check_expr_call(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_CAST:
-		errors = check_expr_cast(ctx, aexpr, expr, hint, errors);
+		check_expr_cast(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_CONSTANT:
-		errors = check_expr_constant(ctx, aexpr, expr, hint, errors);
+		check_expr_constant(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_DEFER:
-		errors = check_expr_defer(ctx, aexpr, expr, hint, errors);
+		check_expr_defer(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_DELETE:
-		errors = check_expr_delete(ctx, aexpr, expr, hint, errors);
+		check_expr_delete(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_FOR:
-		errors = check_expr_for(ctx, aexpr, expr, hint, errors);
+		check_expr_for(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_FREE:
-		errors = check_expr_free(ctx, aexpr, expr, hint, errors);
+		check_expr_free(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_IF:
-		errors = check_expr_if(ctx, aexpr, expr, hint, errors);
+		check_expr_if(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_INSERT:
-		errors = check_expr_insert(ctx, aexpr, expr, hint, errors);
+		check_expr_insert(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_LIST:
-		errors = check_expr_list(ctx, aexpr, expr, hint, errors);
+		check_expr_list(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_MATCH:
-		errors = check_expr_match(ctx, aexpr, expr, hint, errors);
+		check_expr_match(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_MEASURE:
-		errors = check_expr_measure(ctx, aexpr, expr, hint, errors);
+		check_expr_measure(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_PROPAGATE:
-		errors = check_expr_propagate(ctx, aexpr, expr, hint, errors);
+		check_expr_propagate(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_RETURN:
-		errors = check_expr_return(ctx, aexpr, expr, hint, errors);
+		check_expr_return(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_SLICE:
-		errors = check_expr_slice(ctx, aexpr, expr, hint, errors);
+		check_expr_slice(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_STRUCT:
-		errors = check_expr_struct(ctx, aexpr, expr, hint, errors);
+		check_expr_struct(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_SWITCH:
-		errors = check_expr_switch(ctx, aexpr, expr, hint, errors);
+		check_expr_switch(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_TUPLE:
-		errors = check_expr_tuple(ctx, aexpr, expr, hint, errors);
+		check_expr_tuple(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_UNARITHM:
-		errors = check_expr_unarithm(ctx, aexpr, expr, hint, errors);
+		check_expr_unarithm(ctx, aexpr, expr, hint);
 		break;
 	}
 	assert(expr->result);
 	if (hint && hint->storage == STORAGE_VOID) {
 		if ((expr->result->flags & TYPE_ERROR) != 0) {
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot ignore error here");
+			return;
 		}
 		if (type_dealias(expr->result)->storage != STORAGE_TAGGED) {
-			return errors;
+			return;
 		}
 		const struct type_tagged_union *tu =
 			&type_dealias(expr->result)->tagged;
@@ -2699,11 +2689,11 @@ check_expression(struct context *ctx,
 			if ((tu->type->flags & TYPE_ERROR) == 0) {
 				continue;
 			}
-			return error(aexpr->loc, expr, errors,
+			error(ctx, aexpr->loc, expr,
 				"Cannot ignore error here");
+			return;
 		}
 	}
-	return errors;
 }
 
 static struct declaration *
@@ -2780,10 +2770,9 @@ check_function(struct context *ctx,
 	}
 
 	struct expression *body = xcalloc(1, sizeof(struct expression));
-	struct errors *errors = check_expression(ctx, afndecl->body, body,
-		fntype->func.result, NULL);
+	check_expression(ctx, afndecl->body, body, fntype->func.result);
 	// TODO: Pass errors up and deal with them at the end of check
-	handle_errors(errors);
+	handle_errors(ctx->errors);
 
 	expect(&afndecl->body->loc,
 		body->terminates || type_is_assignable(fntype->func.result, body->result),
@@ -2823,10 +2812,9 @@ check_global(struct context *ctx,
 	// TODO: Free initialier
 	struct expression *initializer =
 		xcalloc(1, sizeof(struct expression));
-	struct errors *errors = check_expression(ctx, adecl->init, initializer,
-		type, NULL);
+	check_expression(ctx, adecl->init, initializer, type);
 	// TODO: Pass errors up and deal with them at the end of check
-	handle_errors(errors);
+	handle_errors(ctx->errors);
 
 	expect(&adecl->init->loc,
 		type_is_assignable(type, initializer->result),
@@ -3237,15 +3225,8 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	// TODO: Free the initializer
 	struct expression *initializer =
 		xcalloc(1, sizeof(struct expression));
-	struct errors *errors = check_expression(ctx, decl->init, initializer,
-		type, NULL);
-	if (errors != NULL) {
-		struct errors *next = errors;
-		while (next) {
-			struct errors *tmp = next->next;
-			free(next);
-			next = tmp;
-		}
+	check_expression(ctx, decl->init, initializer, type);
+	if (ctx->errors != NULL) {
 		return false;
 	}
 
@@ -3320,9 +3301,8 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 		// TODO: Free initialier
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
-		struct errors *errors = check_expression(ctx, decl->init,
-			initializer, type, NULL);
-		if (errors != NULL) {
+		check_expression(ctx, decl->init, initializer, type);
+		if (ctx->errors != NULL) {
 			return false;
 		}
 		expect(&decl->init->loc,
@@ -3568,6 +3548,7 @@ check_internal(struct type_store *ts,
 	ctx.store->check_context = &ctx;
 	ctx.modcache = cache;
 	ctx.defines = defines;
+	ctx.next = &ctx.errors;
 
 	// Top-level scope management involves:
 	//
@@ -3590,10 +3571,9 @@ check_internal(struct type_store *ts,
 		expect(&loc, type != NULL, "Unable to resolve type");
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
-		struct errors *errors = check_expression(&ctx,
-			def->initializer, initializer, type, NULL);
+		check_expression(&ctx, def->initializer, initializer, type);
 		// TODO: This could be more detailed
-		expect(&loc, errors == NULL, "Invalid initializer");
+		expect(&loc, ctx.errors == NULL, "Invalid initializer");
 		expect(&loc, type_is_assignable(type, initializer->result),
 			"Constant type is not assignable from initializer type");
 		initializer = lower_implicit_cast(type, initializer);
@@ -3651,8 +3631,6 @@ check_internal(struct type_store *ts,
 		*next = xcalloc(1, sizeof(struct scopes));
 		new->scope = (*next)->scope = scope_pop(&ctx.scope);
 		next = &(*next)->next;
-
-
 	}
 
 	// Second pass populates the type graph
@@ -3660,18 +3638,20 @@ check_internal(struct type_store *ts,
 	while (cur || unresolved) {
 		if (!cur) {
 			if (!found) {
-				const struct ast_decls *d =
-					unresolved->unresolved;
-				while (d->next) {
-					d = d->next;
-				}
-				expect(&d->decl.loc, false,
-					"Unresolvable identifier");
+				handle_errors(ctx.errors);
 			}
 			cur = unresolved;
 			unresolved = NULL;
 			found = false;
 		}
+		struct errors *error = ctx.errors;
+		while (error) {
+			struct errors *next = error->next;
+			free(error);
+			error = next;
+		}
+		ctx.errors = NULL;
+		ctx.next = &ctx.errors;
 		ctx.scope = cur->scope;
 		ctx.store->check_context = &ctx;
 		struct ast_decls *left =
@@ -3701,11 +3681,21 @@ check_internal(struct type_store *ts,
 		struct unresolveds *tmp = cur;
 		cur = tmp->next;
 		free(tmp);
+
 	}
 
 	if (scan_only) {
 		return ctx.unit;
 	}
+
+	struct errors *error = ctx.errors;
+	while (error) {
+		struct errors *next = error->next;
+		free(error);
+		error = next;
+	}
+	ctx.errors = NULL;
+	ctx.next = &ctx.errors;
 
 	// Third pass populates the expression graph
 	struct scopes *scope = subunit_scopes;

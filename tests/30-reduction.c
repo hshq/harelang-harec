@@ -14,6 +14,8 @@
 
 void test(struct context *ctx, char *expected, char *input) {
 	builtin_types_init();
+	ctx->errors = NULL;
+	ctx->next = &ctx->errors;
 
 	const struct type *etype = NULL;
 	if (strlen(expected) != 0) {
@@ -29,18 +31,14 @@ void test(struct context *ctx, char *expected, char *input) {
 	lex_init(&ilex, ibuf, "<input>");
 	struct ast_expression *iaexpr = parse_expression(&ilex);
 	struct expression iexpr = {0};
-	struct errors *errors = check_expression(ctx, iaexpr, &iexpr, NULL,
-		NULL);
+	check_expression(ctx, iaexpr, &iexpr, NULL);
 
 	if (etype == NULL) {
-		assert(errors != NULL);
+		assert(ctx->errors != NULL);
 		return;
 	}
 
-	struct errors *error = errors;
-	while (error && error->prev) {
-		error = error->prev;
-	}
+	struct errors *error = ctx->errors;
 	while (error) {
 		fprintf(stderr, "Error %s:%d:%d: %s\n", error->loc.path,
 			error->loc.lineno, error->loc.colno, error->msg);
@@ -48,7 +46,7 @@ void test(struct context *ctx, char *expected, char *input) {
 		free(error);
 		error = next;
 	}
-	if (errors) {
+	if (ctx->errors) {
 		exit(EXIT_FAILURE);
 	}
 
