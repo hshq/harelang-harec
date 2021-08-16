@@ -831,8 +831,7 @@ type_store_lookup_alias(struct type_store *store,
 	}
 	alias.flags = secondary->flags;
 	alias.alias.type = secondary;
-	struct type *type = (struct type *)type_store_lookup_type(store, &alias);
-	return type;
+	return type_store_lookup_type(store, &alias);
 }
 
 const struct type *
