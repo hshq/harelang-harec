@@ -1625,7 +1625,6 @@ check_expr_insert(struct context *ctx,
 	expr->insert.loc = aexpr->loc;
 	expr->insert.expr = xcalloc(sizeof(struct expression), 1);
 	check_expression(ctx, aexpr->insert.expr, expr->insert.expr, NULL);
-	// TODO: Handle dereferences
 	assert(expr->insert.expr->type == EXPR_ACCESS
 			&& expr->insert.expr->access.type == ACCESS_INDEX);
 	const struct type *sltype = expr->insert.expr->access.array->result;
