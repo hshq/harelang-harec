@@ -16,13 +16,9 @@ eval_access(struct context *ctx, struct expression *in, struct expression *out)
 	out->type = EXPR_CONSTANT;
 	out->result = in->result;
 
-	// TODO: Probably have not considered all of the edge cases here
 	switch (in->access.type) {
 	case ACCESS_IDENTIFIER:
-		out->constant.object = in->access.object;
-		out->constant.ival = 0;
-		assert(in->access.object->otype == O_DECL); // TODO: Bubble this up
-		break;
+		return EVAL_INVALID; // &ident handled in eval_unarithm
 	case ACCESS_INDEX:
 		assert(0); // TODO
 	case ACCESS_FIELD:
@@ -638,22 +634,32 @@ eval_tuple(struct context *ctx, struct expression *in, struct expression *out)
 static enum eval_result
 eval_unarithm(struct context *ctx, struct expression *in, struct expression *out)
 {
+	out->type = EXPR_CONSTANT;
+
+	if (in->unarithm.op == UN_ADDRESS) {
+		assert(in->unarithm.operand->type == EXPR_ACCESS);
+		// TODO other access types
+		assert(in->unarithm.operand->access.type == ACCESS_IDENTIFIER);
+		if (in->unarithm.operand->access.object->otype != O_DECL) {
+			return EVAL_INVALID;
+		}
+		out->result = type_store_lookup_pointer(
+			ctx->store, in->unarithm.operand->result, 0);
+		out->constant.object = in->unarithm.operand->access.object;
+		out->constant.ival = 0;
+		return EVAL_OK;
+	}
+
 	struct expression lvalue = {0};
 	enum eval_result r = eval_expr(ctx, in->unarithm.operand, &lvalue);
 	if (r != EVAL_OK) {
 		return r;
 	}
 
-	out->type = EXPR_CONSTANT;
 	out->result = lvalue.result;
 	switch (in->unarithm.op) {
 	case UN_ADDRESS:
-		assert(lvalue.type == EXPR_CONSTANT);
-		assert(lvalue.constant.object);
-		out->result = type_store_lookup_pointer(
-			ctx->store, lvalue.result, 0);
-		out->constant = lvalue.constant;
-		break;
+		assert(0); // handled above
 	case UN_BNOT:
 		out->constant.uval = ~lvalue.constant.uval;
 		break;

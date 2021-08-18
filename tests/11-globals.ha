@@ -43,6 +43,7 @@ fn storage() void = {
 
 fn invariants() void = {
 	assert(rt::compile("fn test() int; let x: int = test();") != 0);
+	assert(rt::compile("const a: u8 = 2; const b: u8 = a + 5;") != 0);
 };
 
 fn counter() int = {
@@ -57,6 +58,16 @@ fn static_binding() void = {
 	assert(counter() == 3);
 };
 
+const val: u32 = 42;
+const tup: (u8, str) = (2, "asdf");
+const ptr: *u32 = &val;
+const ptr_tup: *(u8, str) = &tup;
+// TODO const ptr_memb: *str = &tup.1;
+
+fn pointers() void = {
+	assert(ptr == &val && *ptr == val);
+};
+
 export fn main() void = {
 	// TODO: Expand this test:
 	// - Declare & validate globals of more types
@@ -65,4 +76,5 @@ export fn main() void = {
 	storage();
 	invariants();
 	static_binding();
+	pointers();
 };
