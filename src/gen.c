@@ -3038,6 +3038,12 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	case STORAGE_TAGGED:
 		item->type = QD_VALUE;
 		item->value = constw((uint32_t)constant->tagged.tag->id);
+		if (type->align != builtin_type_uint.align) {
+			item->next = xcalloc(1, sizeof(struct qbe_data_item));
+			item = item->next;
+			item->type = QD_ZEROED;
+			item->zeroed = type->align - builtin_type_uint.align;
+		}
 		if (constant->tagged.tag->size != 0) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
