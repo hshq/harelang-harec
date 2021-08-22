@@ -380,6 +380,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	out->type = EXPR_CONSTANT;
 	out->result = to;
 
+	const struct type *subtype;
 	switch (to->storage) {
 	case STORAGE_POINTER:
 		if (from->storage == STORAGE_NULL) {
@@ -431,11 +432,21 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 				ftrunc(to, (double)val.constant.uval);
 		}
 		return EVAL_OK;
+	case STORAGE_TAGGED:
+		subtype = tagged_select_subtype(to, from);
+		out->constant.tagged.value =
+			xcalloc(1, sizeof(struct expression));
+		if (subtype) {
+			out->constant.tagged.tag = subtype;
+			*out->constant.tagged.value = val;
+		} else {
+			out->constant.tagged.tag = from;
+			*out->constant.tagged.value = val;
+		}
+		return EVAL_OK;
 	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_NULL:
-	case STORAGE_TAGGED:
-		assert(0); // TODO
 	case STORAGE_ALIAS:
 		assert(0); // Handled above
 	case STORAGE_BOOL:

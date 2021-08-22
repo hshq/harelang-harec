@@ -2628,6 +2628,7 @@ gen_expr_with(struct gen_context *ctx,
 
 static struct qbe_data_item *gen_data_item(struct gen_context *,
 	struct expression *, struct qbe_data_item *);
+
 static void
 gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 {
@@ -3035,6 +3036,12 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		}
 		break;
 	case STORAGE_TAGGED:
+		item->type = QD_VALUE;
+		item->value = constw((uint32_t)constant->tagged.tag->id);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		gen_data_item(ctx, constant->tagged.value, item);
+		break;
 	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_ALIAS:

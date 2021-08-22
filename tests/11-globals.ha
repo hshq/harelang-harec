@@ -68,6 +68,15 @@ fn pointers() void = {
 	assert(ptr == &val && *ptr == val);
 };
 
+type foo = (int | uint);
+
+let subtype: foo = 10u;
+
+fn tagged() void = {
+	assert(subtype is uint);
+	// TODO: subset-compat
+};
+
 export fn main() void = {
 	// TODO: Expand this test:
 	// - Declare & validate globals of more types

@@ -171,6 +171,11 @@ struct tuple_constant {
 	struct tuple_constant *next;
 };
 
+struct tagged_constant {
+	const struct type *tag;
+	struct expression *value;
+};
+
 struct expression_constant {
 	// If non-null, ival is an offset from this object's address
 	const struct scope_object *object;
@@ -187,6 +192,7 @@ struct expression_constant {
 		struct array_constant *array;
 		struct struct_constant *_struct;
 		struct tuple_constant *tuple;
+		struct tagged_constant tagged;
 	};
 };
 
