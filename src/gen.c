@@ -3049,6 +3049,12 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			item = item->next;
 			gen_data_item(ctx, constant->tagged.value, item);
 		}
+		if (constant->tagged.tag->size < type->size - type->align) {
+			item->next = xcalloc(1, sizeof(struct qbe_data_item));
+			item = item->next;
+			item->type = QD_ZEROED;
+			item->zeroed = type->size - type->align - constant->tagged.tag->size;
+		}
 		break;
 	case STORAGE_UNION:
 		assert(0); // TODO
