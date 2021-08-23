@@ -418,14 +418,14 @@ check_expr_assert(struct context *ctx,
 		size_t n = snprintf(NULL, 0, "%s:%d:%d: ",
 			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
 		size_t s_len = expr->assert.message->constant.string.len;
-		char *s = xcalloc(1, s_len + n + 1);
+		char *s = xcalloc(1, n + s_len + 1);
 		snprintf(s, n + 1, "%s:%d:%d: ",
 			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
 		memcpy(s+n, expr->assert.message->constant.string.value, s_len);
 		s[n + s_len] = '\0';
 
 		expr->assert.message->constant.string.value = s;
-		expr->assert.message->constant.string.len = n;
+		expr->assert.message->constant.string.len = n + s_len;
 	} else {
 		int n = snprintf(NULL, 0, "Assertion failed: %s:%d:%d",
 			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
