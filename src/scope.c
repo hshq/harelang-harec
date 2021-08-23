@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include "expr.h"
 #include "identifier.h"
 #include "scope.h"
@@ -12,9 +13,10 @@ name_hash(uint32_t init, const struct identifier *ident)
 }
 
 struct scope *
-scope_push(struct scope **stack)
+scope_push(struct scope **stack, enum scope_class class)
 {
 	struct scope *new = xcalloc(1, sizeof(struct scope));
+	new->class = class;
 	new->next = &new->objects;
 	if (*stack) {
 		new->parent = *stack;
@@ -30,6 +32,29 @@ scope_pop(struct scope **stack)
 	assert(prev);
 	*stack = prev->parent;
 	return prev;
+}
+
+struct scope *
+scope_lookup_ancestor(struct scope *scope,
+	enum scope_class class, const char *label)
+{
+	// Implements the algorithm described by "Control statements" item 2, or
+	// 6.6.48.2 at the time of writing
+	while (scope) {
+		if (label && scope->label && strcmp(scope->label, label) == 0) {
+			break;
+		} else if (!label && scope->class == class) {
+			break;
+		}
+		scope = scope->parent;
+	}
+
+	if (scope && class != scope->class) {
+		assert(scope->class == SCOPE_COMPOUND);
+		scope = scope->parent;
+	}
+
+	return scope;
 }
 
 void

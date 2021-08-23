@@ -73,8 +73,8 @@ fn _continue() void = {
 
 fn label() void = {
 	let i = 0;
-	:outer for (i < 10) {
-		:inner for (let j = 0; j < 7; j += 1) {
+	for (i < 10) :outer {
+		for (let j = 0; j < 7; j += 1) :inner {
 			i += 1;
 			if (j == 6) {
 				for (let k = 0; k < 5; k += 1) {

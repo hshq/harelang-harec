@@ -1692,18 +1692,7 @@ parse_for_expression(struct lexer *lexer)
 	exp->type = EXPR_FOR;
 
 	struct token tok = {0};
-	switch (lex(lexer, &tok)) {
-	case T_FOR:
-		break;
-	case T_LABEL:
-		exp->_for.label_loc = tok.loc;
-		exp->_for.label = tok.name;
-		want(lexer, T_FOR, NULL);
-		break;
-	default:
-		assert(0);
-	}
-
+	want(lexer, T_FOR, &tok);
 	want(lexer, T_LPAREN, &tok);
 	switch (lex(lexer, &tok)) {
 	case T_LET:
@@ -2048,18 +2037,31 @@ parse_control_statement(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_expression_list(struct lexer *lexer)
+parse_compound_expression(struct lexer *lexer)
 {
 	struct ast_expression *exp = mkexpr(&lexer->loc);
-	struct ast_expression_list *cur = &exp->list;
+	exp->type = EXPR_COMPOUND;
+
+	struct ast_expression_list *cur = &exp->compound.list;
 	struct ast_expression_list **next = &cur->next;
-	exp->type = EXPR_LIST;
+
+	struct token tok = {0};
+	switch (lex(lexer, &tok)) {
+	case T_LABEL:
+		exp->compound.label = tok.name;
+		want(lexer, T_LBRACE, &tok);
+		break;
+	case T_LBRACE:
+		break; // no-op
+	default:
+		synassert(false, &tok, T_LBRACE, T_LABEL, T_EOF);
+		break;
+	};
 
 	bool more = true;
 	while (more) {
 		cur->expr = parse_expression(lexer);
 
-		struct token tok = {0};
 		want(lexer, T_SEMICOLON, &tok);
 
 		if (more) {
@@ -2140,7 +2142,6 @@ parse_expression(struct lexer *lexer)
 			value = parse_deferred_expression(lexer);
 			break;
 		case T_FOR:
-		case T_LABEL:
 			unlex(lexer, &tok);
 			value = parse_for_expression(lexer);
 			break;
@@ -2148,7 +2149,9 @@ parse_expression(struct lexer *lexer)
 			value = parse_if_expression(lexer);
 			break;
 		case T_LBRACE:
-			value = parse_expression_list(lexer);
+		case T_LABEL:
+			unlex(lexer, &tok);
+			value = parse_compound_expression(lexer);
 			break;
 		case T_MATCH:
 			value = parse_match_expression(lexer);

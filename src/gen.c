@@ -42,12 +42,25 @@ gen_defers(struct gen_context *ctx, struct gen_scope *scope)
 	}
 }
 
-static void
-push_scope(struct gen_context *ctx)
+static struct gen_scope *
+gen_scope_lookup(struct gen_context *ctx, const struct scope *which)
 {
-	struct gen_scope *scope = xcalloc(1, sizeof(struct gen_scope));
-	scope->parent = ctx->scope;
-	ctx->scope = scope;
+	for (struct gen_scope *scope = ctx->scope;
+			scope; scope = scope->parent) {
+		if (scope->scope == which) {
+			return scope;
+		}
+	}
+	abort();
+}
+
+static void
+push_scope(struct gen_context *ctx, const struct scope *scope)
+{
+	struct gen_scope *new = xcalloc(1, sizeof(struct gen_scope));
+	new->parent = ctx->scope;
+	new->scope = scope;
+	ctx->scope = new;
 }
 
 static void
@@ -65,7 +78,6 @@ pop_scope(struct gen_context *ctx, bool gendefers)
 	}
 	free(scope);
 }
-
 
 static void
 gen_copy_memcpy(struct gen_context *ctx,
@@ -863,19 +875,16 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_control(struct gen_context *ctx, const struct expression *expr)
 {
-	struct gen_scope *scope = ctx->scope;
-	while (scope != NULL) {
-		gen_defers(ctx, scope);
-		if (expr->control.label && scope->label) {
-			if (strcmp(expr->control.label, scope->label) == 0) {
-				break;
-			}
-		} else if (!expr->control.label && scope->after) {
+	struct gen_scope *scope = gen_scope_lookup(ctx, expr->control.scope);
+	assert(scope->scope->class == SCOPE_LOOP);
+	struct gen_scope *deferred = ctx->scope;
+	while (deferred != NULL) {
+		gen_defers(ctx, deferred);
+		if (deferred == scope) {
 			break;
 		}
-		scope = scope->parent;
+		deferred = deferred->parent;
 	}
-	assert(scope != NULL);
 	if (expr->type == EXPR_BREAK) {
 		pushi(ctx->current, NULL, Q_JMP, scope->end, NULL);
 	} else {
@@ -1315,6 +1324,25 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	return result;
 }
 
+static struct gen_value
+gen_expr_compound_with(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value *out)
+{
+	push_scope(ctx, expr->compound.scope);
+	for (const struct expressions *exprs = &expr->compound.exprs;
+			exprs; exprs = exprs->next) {
+		if (!exprs->next) {
+			struct gen_value gv = gen_expr_with(
+				ctx, exprs->expr, out);
+			pop_scope(ctx, !exprs->expr->terminates);
+			return gv;
+		}
+		gen_expr(ctx, exprs->expr);
+	}
+	abort(); // Unreachable
+}
+
 static void
 gen_const_array_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
@@ -1595,8 +1623,7 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 		gen_expr_binding(ctx, expr->_for.bindings);
 	}
 
-	push_scope(ctx);
-	ctx->scope->label = expr->_for.label;
+	push_scope(ctx, expr->_for.scope);
 	ctx->scope->after = &bafter;
 	ctx->scope->end = &bend;
 
@@ -1795,25 +1822,6 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	return gv_void;
-}
-
-static struct gen_value
-gen_expr_list_with(struct gen_context *ctx,
-	const struct expression *expr,
-	struct gen_value *out)
-{
-	push_scope(ctx);
-	for (const struct expressions *exprs = &expr->list.exprs;
-			exprs; exprs = exprs->next) {
-		if (!exprs->next) {
-			struct gen_value gv = gen_expr_with(
-				ctx, exprs->expr, out);
-			pop_scope(ctx, !exprs->expr->terminates);
-			return gv;
-		}
-		gen_expr(ctx, exprs->expr);
-	}
-	abort(); // Unreachable
 }
 
 enum match_compat {
@@ -2520,6 +2528,8 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_call(ctx, expr);
 	case EXPR_CAST:
 		return gen_expr_cast(ctx, expr);
+	case EXPR_COMPOUND:
+		return gen_expr_compound_with(ctx, expr, NULL);
 	case EXPR_CONSTANT:
 		return gen_expr_const(ctx, expr);
 	case EXPR_DEFER:
@@ -2534,8 +2544,6 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_if_with(ctx, expr, NULL);
 	case EXPR_INSERT:
 		return gen_expr_insert(ctx, expr);
-	case EXPR_LIST:
-		return gen_expr_list_with(ctx, expr, NULL);
 	case EXPR_MATCH:
 		return gen_expr_match_with(ctx, expr, NULL);
 	case EXPR_MEASURE:
@@ -2580,14 +2588,14 @@ gen_expr_at(struct gen_context *ctx,
 	case EXPR_CAST:
 		gen_expr_cast_at(ctx, expr, out);
 		return;
+	case EXPR_COMPOUND:
+		gen_expr_compound_with(ctx, expr, &out);
+		return;
 	case EXPR_CONSTANT:
 		gen_expr_const_at(ctx, expr, out);
 		return;
 	case EXPR_IF:
 		gen_expr_if_with(ctx, expr, &out);
-		return;
-	case EXPR_LIST:
-		gen_expr_list_with(ctx, expr, &out);
 		return;
 	case EXPR_MATCH:
 		gen_expr_match_with(ctx, expr, &out);

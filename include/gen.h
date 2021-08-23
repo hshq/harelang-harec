@@ -5,6 +5,7 @@
 #include "qbe.h"
 #include "type_store.h"
 #include "types.h"
+#include "scope.h"
 
 enum fixed_aborts {
 	ABORT_OOB = 0,
@@ -50,6 +51,7 @@ struct gen_defer {
 
 struct gen_scope {
 	const char *label;
+	const struct scope *scope;
 	struct qbe_value *after;
 	struct qbe_value *end;
 	struct gen_defer *defers;

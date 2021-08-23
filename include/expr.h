@@ -19,6 +19,7 @@ enum expr_type {
 	EXPR_BREAK,
 	EXPR_CALL,
 	EXPR_CAST,
+	EXPR_COMPOUND,
 	EXPR_CONSTANT,
 	EXPR_CONTINUE,
 	EXPR_DEFER,
@@ -27,7 +28,6 @@ enum expr_type {
 	EXPR_FREE,
 	EXPR_IF,
 	EXPR_INSERT,
-	EXPR_LIST,
 	EXPR_MATCH,
 	EXPR_MEASURE,
 	EXPR_PROPAGATE,
@@ -152,6 +152,17 @@ struct expression_call {
 	struct call_argument *args;
 };
 
+struct expressions {
+	struct expression *expr;
+	struct expressions *next;
+};
+
+struct expression_compound {
+	char *label;
+	struct scope *scope;
+	struct expressions exprs;
+};
+
 struct array_constant {
 	struct expression *value;
 	struct array_constant *next;
@@ -198,6 +209,7 @@ struct expression_constant {
 
 struct expression_control {
 	char *label;
+	const struct scope *scope;
 };
 
 struct expression_defer {
@@ -210,7 +222,6 @@ struct expression_delete {
 };
 
 struct expression_for {
-	char *label;
 	struct scope *scope;
 	struct expression *bindings;
 	struct expression *cond;
@@ -233,16 +244,6 @@ struct expression_insert {
 	struct append_values *values;
 	struct location loc;
 	bool is_static;
-};
-
-struct expressions {
-	struct expression *expr;
-	struct expressions *next;
-};
-
-struct expression_list {
-	struct scope *scope;
-	struct expressions exprs;
 };
 
 struct match_case {
@@ -347,6 +348,7 @@ struct expression {
 		struct expression_binding binding;
 		struct expression_call call;
 		struct expression_cast cast;
+		struct expression_compound compound;
 		struct expression_constant constant;
 		struct expression_defer defer;
 		struct expression_delete delete;
@@ -355,7 +357,6 @@ struct expression {
 		struct expression_free free;
 		struct expression_if _if;
 		struct expression_insert insert;
-		struct expression_list list;
 		struct expression_match match;
 		struct expression_measure measure;
 		struct expression_propagate propagate;

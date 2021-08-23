@@ -69,7 +69,7 @@ int main(void) {
 	ctx.store = &ts;
 	ctx.store->check_context = &ctx;
 	ctx.modcache = modcache;
-	ctx.unit = scope_push(&ctx.scope);
+	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 
 	test(&ctx, "(int | void)", "if (true) 0: int else void: void");
 	test(&ctx, "(nullable *int | void)",

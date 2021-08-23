@@ -225,8 +225,6 @@ struct ast_expression_delete {
 };
 
 struct ast_expression_for {
-	char *label;
-	struct location label_loc;
 	struct ast_expression *bindings;
 	struct ast_expression *cond;
 	struct ast_expression *afterthought;
@@ -252,6 +250,12 @@ struct ast_expression_insert {
 struct ast_expression_list {
 	struct ast_expression *expr;
 	struct ast_expression_list *next;
+};
+
+struct ast_expression_compound {
+	char *label;
+	struct location label_loc;
+	struct ast_expression_list list;
 };
 
 struct ast_match_case {
@@ -349,6 +353,7 @@ struct ast_expression {
 		struct ast_expression_binding binding;
 		struct ast_expression_call call;
 		struct ast_expression_cast cast;
+		struct ast_expression_compound compound;
 		struct ast_expression_constant constant;
 		struct ast_expression_control control;
 		struct ast_expression_defer defer;
@@ -357,7 +362,6 @@ struct ast_expression {
 		struct ast_expression_free free;
 		struct ast_expression_if _if;
 		struct ast_expression_insert insert;
-		struct ast_expression_list list;
 		struct ast_expression_match match;
 		struct ast_expression_measure measure;
 		struct ast_expression_propagate propagate;

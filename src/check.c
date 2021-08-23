@@ -1263,6 +1263,45 @@ lower_constant(const struct type *type, struct expression *expr)
 }
 
 static void
+check_expr_compound(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	expr->type = EXPR_COMPOUND;
+
+	struct scope *scope = scope_push(&ctx->scope, SCOPE_COMPOUND);
+	expr->compound.scope = scope;
+
+	if (aexpr->compound.label) {
+		expr->compound.label = strdup(aexpr->compound.label);
+		scope->label = strdup(aexpr->compound.label);
+	}
+
+	struct expressions *list = &expr->compound.exprs;
+	struct expressions **next = &list->next;
+
+	const struct ast_expression_list *alist = &aexpr->compound.list;
+	while (alist) {
+		struct expression *lexpr = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, alist->expr, lexpr, alist->next ? &builtin_type_void : hint);
+		list->expr = lexpr;
+
+		alist = alist->next;
+		if (alist) {
+			*next = xcalloc(1, sizeof(struct expressions));
+			list = *next;
+			next = &list->next;
+		} else {
+			expr->result = lexpr->result;
+			expr->terminates = lexpr->terminates;
+		}
+	}
+
+	scope_pop(&ctx->scope);
+}
+
+static void
 check_expr_constant(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -1446,23 +1485,12 @@ check_expr_control(struct context *ctx,
 	expr->type = aexpr->type;
 	expr->result = &builtin_type_void;
 	expr->terminates = true;
-	char *label = expr->control.label = aexpr->control.label;
-
-	struct scope *scope = ctx->scope;
-	for (; scope != NULL; scope = scope->parent) {
-		if (scope->type != EXPR_FOR) {
-			continue;
-		}
-		if (label == NULL) {
-			break;
-		}
-		if (scope->label != NULL && strcmp(label, scope->label) == 0) {
-			break;
-		}
-	}
-	if (scope == NULL) {
-		error(ctx, aexpr->loc, expr, "Unknown label %s",
-			expr->control.label);
+	expr->control.label = aexpr->control.label;
+	expr->control.scope = scope_lookup_ancestor(ctx->scope,
+			SCOPE_LOOP, aexpr->control.label);
+	if (!expr->control.scope) {
+		// XXX: This error message is bad
+		error(ctx, aexpr->loc, expr, "No eligible loop for operation");
 		return;
 	}
 }
@@ -1476,26 +1504,8 @@ check_expr_for(struct context *ctx,
 	expr->type = EXPR_FOR;
 	expr->result = &builtin_type_void;
 
-	if (aexpr->_for.label) {
-		expr->_for.label = strdup(aexpr->_for.label);
-	}
-
-	struct scope *scope = scope_push(&ctx->scope);
+	struct scope *scope = scope_push(&ctx->scope, SCOPE_LOOP);
 	expr->_for.scope = scope;
-	scope->type = expr->type;
-	scope->label = expr->_for.label;
-	if (expr->_for.label) {
-		for (scope = scope->parent; scope; scope = scope->parent) {
-			if (scope->label == NULL) {
-				continue;
-			}
-			if (strcmp(scope->label, expr->_for.label) == 0){
-				error(ctx, aexpr->_for.label_loc, expr,
-					"for loop label must be unique among its ancestors");
-				return;
-			}
-		}
-	}
 
 	struct expression *bindings = NULL,
 		*cond = NULL, *afterthought = NULL, *body = NULL;
@@ -1678,41 +1688,6 @@ check_expr_insert(struct context *ctx,
 }
 
 static void
-check_expr_list(struct context *ctx,
-	const struct ast_expression *aexpr,
-	struct expression *expr,
-	const struct type *hint)
-{
-	expr->type = EXPR_LIST;
-
-	struct scope *scope = scope_push(&ctx->scope);
-	expr->list.scope = scope;
-	scope->type = expr->type;
-
-	struct expressions *list = &expr->list.exprs;
-	struct expressions **next = &list->next;
-
-	const struct ast_expression_list *alist = &aexpr->list;
-	while (alist) {
-		struct expression *lexpr = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, alist->expr, lexpr, alist->next ? &builtin_type_void : hint);
-		list->expr = lexpr;
-
-		alist = alist->next;
-		if (alist) {
-			*next = xcalloc(1, sizeof(struct expressions));
-			list = *next;
-			next = &list->next;
-		} else {
-			expr->result = lexpr->result;
-			expr->terminates = lexpr->terminates;
-		}
-	}
-
-	scope_pop(&ctx->scope);
-}
-
-static void
 check_expr_match(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -1777,8 +1752,8 @@ check_expr_match(struct context *ctx,
 			struct identifier ident = {
 				.name = acase->name,
 			};
-			struct scope *scope = scope_push(&ctx->scope);
-			scope->type = EXPR_MATCH;
+			struct scope *scope = scope_push(
+				&ctx->scope, SCOPE_MATCH);
 			_case->object = scope_insert(scope, O_BIND,
 				&ident, &ident, ctype, NULL);
 		}
@@ -1973,8 +1948,7 @@ check_expr_propagate(struct context *ctx,
 	expr->type = EXPR_MATCH;
 	expr->match.value = lvalue;
 
-	struct scope *scope = scope_push(&ctx->scope);
-	scope->type = EXPR_MATCH;
+	struct scope *scope = scope_push(&ctx->scope, SCOPE_MATCH);
 	struct match_case *case_ok = xcalloc(1, sizeof(struct match_case));
 	struct match_case *case_err = xcalloc(1, sizeof(struct match_case));
 	struct identifier ok_name = {0}, err_name = {0};
@@ -2621,6 +2595,9 @@ check_expression(struct context *ctx,
 	case EXPR_CAST:
 		check_expr_cast(ctx, aexpr, expr, hint);
 		break;
+	case EXPR_COMPOUND:
+		check_expr_compound(ctx, aexpr, expr, hint);
+		break;
 	case EXPR_CONSTANT:
 		check_expr_constant(ctx, aexpr, expr, hint);
 		break;
@@ -2641,9 +2618,6 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_INSERT:
 		check_expr_insert(ctx, aexpr, expr, hint);
-		break;
-	case EXPR_LIST:
-		check_expr_list(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_MATCH:
 		check_expr_match(ctx, aexpr, expr, hint);
@@ -2750,7 +2724,7 @@ check_function(struct context *ctx,
 		return decl; // Prototype
 	}
 
-	decl->func.scope = scope_push(&ctx->scope);
+	decl->func.scope = scope_push(&ctx->scope, SCOPE_FUNC);
 	struct ast_function_parameters *params = afndecl->prototype.params;
 	while (params) {
 		expect(&params->loc, params->name,
@@ -3077,6 +3051,14 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 			}
 		}
 		return true;
+	case EXPR_COMPOUND:
+		for (const struct ast_expression_list *list = &aexpr->compound.list;
+				list; list = list->next) {
+			if (!expr_is_specified(ctx, list->expr)) {
+				return false;
+			}
+		}
+		return true;
 	case EXPR_BREAK:
 	case EXPR_CONTINUE:
 		return true;
@@ -3119,14 +3101,6 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 			&& expr_is_specified(ctx, aexpr->_if.false_branch);
 	case EXPR_INSERT:
 		assert(0); // TODO
-	case EXPR_LIST:
-		for (const struct ast_expression_list *list = &aexpr->list;
-				list; list = list->next) {
-			if (!expr_is_specified(ctx, list->expr)) {
-				return false;
-			}
-		}
-		return true;
 	case EXPR_MATCH:
 		for (struct ast_match_case *mcase = aexpr->match.cases; mcase;
 				mcase = mcase->next) {
@@ -3558,7 +3532,7 @@ check_internal(struct type_store *ts,
 	// 
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
-	ctx.unit = scope_push(&ctx.scope);
+	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 
 	// Install defines (-D on the command line)
 	// XXX: This duplicates a lot of code with scan_const
@@ -3600,7 +3574,7 @@ check_internal(struct type_store *ts,
 	// First pass populates the imports
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
-		scope_push(&ctx.scope);
+		scope_push(&ctx.scope, SCOPE_SUBUNIT);
 
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {

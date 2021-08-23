@@ -598,7 +598,8 @@ type_init_from_atype(struct type_store *store,
 		type->size = storage->size;
 		type->align = storage->size;
 
-		struct scope *scope = scope_push(&store->check_context->scope);
+		struct scope *scope = scope_push(
+			&store->check_context->scope, SCOPE_ENUM);
 		// TODO: Check for duplicates
 		struct ast_enum_field *avalue = atype->_enum.values;
 		struct type_enum_value **values = &type->_enum.values;

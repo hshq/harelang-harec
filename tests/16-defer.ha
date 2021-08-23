@@ -45,6 +45,7 @@ fn control() void = {
 		if (true) {
 			break;
 		};
+		abort();
 	};
 	assert(x == 1);
 };
