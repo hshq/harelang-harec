@@ -1332,7 +1332,7 @@ gen_expr_compound_with(struct gen_context *ctx,
 	push_scope(ctx, expr->compound.scope);
 	for (const struct expressions *exprs = &expr->compound.exprs;
 			exprs; exprs = exprs->next) {
-		if (!exprs->next) {
+		if (!exprs->next || exprs->expr->terminates) {
 			struct gen_value gv = gen_expr_with(
 				ctx, exprs->expr, out);
 			pop_scope(ctx, !exprs->expr->terminates);
