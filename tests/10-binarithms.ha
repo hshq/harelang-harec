@@ -1,6 +1,5 @@
 fn error() bool = {
 	abort();
-	return false;
 };
 
 fn set(x: *int) bool = {

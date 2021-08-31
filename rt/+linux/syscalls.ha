@@ -96,7 +96,7 @@ export fn mmap(
 		flags: u64, fd: u64, offs: u64): u64;
 	return if (r: int == -EPERM && addr == null
 			&& flags & MAP_ANON > 0 && flags & MAP_FIXED == 0) {
-		-ENOMEM: uintptr: *void; // Fix up incorrect EPERM from kernel
+		yield -ENOMEM: uintptr: *void; // Fix up incorrect EPERM from kernel
 	} else r: uintptr: *void;
 };
 

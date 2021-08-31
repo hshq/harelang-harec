@@ -101,6 +101,7 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 	cast->terminates = false;
 	cast->cast.kind = C_CAST;
 	cast->cast.value = expr;
+	cast->cast.lowered = true;
 	return cast;
 }
 
@@ -1286,7 +1287,8 @@ check_expr_compound(struct context *ctx,
 	struct expression *lexpr;
 	while (alist) {
 		lexpr = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, alist->expr, lexpr, alist->next ? &builtin_type_void : hint);
+		check_expression(ctx, alist->expr, lexpr,
+				alist->next ? &builtin_type_void : hint);
 		list->expr = lexpr;
 
 		alist = alist->next;
@@ -1295,19 +1297,27 @@ check_expr_compound(struct context *ctx,
 			list = *next;
 			next = &list->next;
 		}
+		if (alist && lexpr->terminates) {
+			error(ctx, alist->expr->loc, expr,
+				"A terminating expression may not be followed by additional expressions");
+		}
 	}
 
-	if (!lexpr->terminates) {
-		struct type_tagged_union *result =
-			xcalloc(1, sizeof(struct type_tagged_union));
-		result->type = lexpr->result;
-		result->next = scope->results;
-		scope->results = result;
-	}
-
-	expr->terminates = lexpr->terminates;
+	expr->terminates = lexpr->terminates && lexpr->type != EXPR_YIELD;
 	expr->result = type_store_reduce_result(ctx->store, scope->results);
-	// TODO: Cast all yields to this type
+
+	for (struct yield *yield = scope->yields; yield;) {
+		struct expression *lowered = lower_implicit_cast(
+				expr->result, *yield->expression);
+		if (*yield->expression != lowered) {
+			*yield->expression = lowered;
+		}
+
+		struct yield *next = yield->next;
+		free(yield);
+		yield = next;
+	}
+
 	assert(expr->result);
 	scope_pop(&ctx->scope);
 }
@@ -1495,8 +1505,8 @@ check_expr_control(struct context *ctx,
 {
 	expr->type = aexpr->type;
 	expr->result = &builtin_type_void;
-	expr->terminates = true;
 	expr->control.label = aexpr->control.label;
+	expr->terminates = true;
 
 	enum scope_class want;
 	switch (expr->type) {
@@ -1524,11 +1534,17 @@ check_expr_control(struct context *ctx,
 		expr->control.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->control.value,
 			expr->control.value, scope->hint);
+
 		struct type_tagged_union *result =
 			xcalloc(1, sizeof(struct type_tagged_union));
 		result->type = expr->control.value->result;
 		result->next = scope->results;
 		scope->results = result;
+
+		struct yield *yield = xcalloc(1, sizeof(struct yield));
+		yield->expression = &expr->control.value;
+		yield->next = scope->yields;
+		scope->yields = yield;
 	}
 }
 

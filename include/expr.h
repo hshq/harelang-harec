@@ -140,6 +140,7 @@ struct expression_cast {
 	enum cast_kind kind;
 	const struct type *secondary;
 	struct expression *value;
+	bool lowered;
 };
 
 struct call_argument {

@@ -11,7 +11,8 @@ const reasons: [_]str = [
 	"slice or array access out of bounds",	// 0
 	"type assertion failed",		// 1
 	"out of memory",			// 2
-	"unreachable code",			// 3
+	"static append exceeds slice capacity",	// 3
+	"unreachable code",			// 4
 ];
 
 export @noreturn fn abort_fixed(loc: str, i: int) void = {

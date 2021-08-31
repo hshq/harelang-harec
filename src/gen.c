@@ -1155,6 +1155,10 @@ gen_expr_cast_at(struct gen_context *ctx,
 		return;
 	}
 
+	if (expr->cast.lowered) {
+		pushc(ctx->current, "gen lowered cast");
+	}
+
 	const struct type *to = expr->result;
 	switch (type_dealias(to)->storage) {
 	case STORAGE_SLICE:
@@ -1190,6 +1194,10 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		pushprei(ctx->current, &base, alloc, &sz, NULL);
 		gen_expr_cast_at(ctx, expr, out);
 		return out;
+	}
+
+	if (expr->cast.lowered) {
+		pushc(ctx->current, "gen lowered cast");
 	}
 
 	// Special cases

@@ -35,7 +35,8 @@ tests() {
 		28-insert \
 		29-unarithm \
 		31-postfix \
-		32-copy
+		32-copy \
+		33-yield
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
