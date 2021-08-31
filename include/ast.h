@@ -213,6 +213,7 @@ struct ast_expression_constant {
 
 struct ast_expression_control {
 	char *label;
+	struct ast_expression *value; // Only set for yield
 };
 
 struct ast_expression_defer {

@@ -731,6 +731,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_PROPAGATE:
 	case EXPR_RETURN:
 	case EXPR_SWITCH:
+	case EXPR_YIELD:
 		// Excluded from translation-compatible subset
 		return EVAL_INVALID;
 	}

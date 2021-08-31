@@ -2556,6 +2556,8 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_switch_with(ctx, expr, NULL);
 	case EXPR_UNARITHM:
 		return gen_expr_unarithm(ctx, expr);
+	case EXPR_YIELD:
+		assert(0); // TODO
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_TUPLE:

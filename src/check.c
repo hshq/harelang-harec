@@ -2646,6 +2646,8 @@ check_expression(struct context *ctx,
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr, hint);
 		break;
+	case EXPR_YIELD:
+		assert(0); // TODO
 	}
 	assert(expr->result);
 	if (hint && hint->storage == STORAGE_VOID) {
@@ -3178,6 +3180,8 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 		return true;
 	case EXPR_UNARITHM:
 		return expr_is_specified(ctx, aexpr->unarithm.operand);
+	case EXPR_YIELD:
+		return expr_is_specified(ctx, aexpr->control.value);
 	}
 	assert(0); // Unreachable
 }

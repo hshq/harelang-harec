@@ -37,6 +37,7 @@ enum expr_type {
 	EXPR_SWITCH,
 	EXPR_TUPLE,
 	EXPR_UNARITHM,
+	EXPR_YIELD,
 };
 
 enum access_type {
@@ -210,6 +211,7 @@ struct expression_constant {
 struct expression_control {
 	char *label;
 	const struct scope *scope;
+	struct expression *value; // Only set for yield
 };
 
 struct expression_defer {

@@ -2018,7 +2018,6 @@ parse_control_statement(struct lexer *lexer)
 	case T_RETURN:
 		exp->type = EXPR_RETURN;
 		exp->_return.value = NULL;
-		struct token tok;
 		switch (lex(lexer, &tok)) {
 		case T_SEMICOLON:
 		case T_COMMA:
@@ -2030,8 +2029,33 @@ parse_control_statement(struct lexer *lexer)
 			break;
 		}
 		break;
+	case T_YIELD:
+		exp->type = EXPR_YIELD;
+		exp->control.value = NULL;
+		switch (lex(lexer, &tok)) {
+		case T_SEMICOLON:
+			unlex(lexer, &tok);
+			break;
+		case T_LABEL:
+			exp->control.label = tok.name;
+			switch (lex(lexer, &tok)) {
+			case T_COMMA:
+				exp->control.value = parse_expression(lexer);
+				break;
+			default:
+				unlex(lexer, &tok);
+				break;
+			}
+			break;
+		default:
+			unlex(lexer, &tok);
+			exp->control.value = parse_expression(lexer);
+			break;
+		}
+		break;
 	default:
-		synassert(false, &tok, T_BREAK, T_CONTINUE, T_RETURN, T_EOF);
+		synassert(false, &tok,
+			T_BREAK, T_CONTINUE, T_RETURN, T_YIELD, T_EOF);
 	}
 	return exp;
 }
@@ -2124,6 +2148,7 @@ parse_expression(struct lexer *lexer)
 	case T_BREAK:
 	case T_CONTINUE:
 	case T_RETURN:
+	case T_YIELD:
 	case T_DEFER:
 	case T_FOR:
 	case T_LABEL:
@@ -2135,6 +2160,7 @@ parse_expression(struct lexer *lexer)
 		case T_BREAK:
 		case T_CONTINUE:
 		case T_RETURN:
+		case T_YIELD:
 			unlex(lexer, &tok);
 			value = parse_control_statement(lexer);
 			break;

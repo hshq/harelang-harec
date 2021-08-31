@@ -75,6 +75,7 @@ static const char *tokens[] = {
 	[T_UNION] = "union",
 	[T_USE] = "use",
 	[T_VOID] = "void",
+	[T_YIELD] = "yield",
 
 	// Operators
 	[T_BANDEQ] = "&=",
