@@ -965,6 +965,8 @@ type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 {
 	if (!in) {
 		return &builtin_type_void;
+	} else if (!in->next) {
+		return in->type;
 	}
 
 	const struct type *type = type_store_lookup_tagged(store, in);
