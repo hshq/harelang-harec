@@ -876,7 +876,7 @@ static struct gen_value
 gen_expr_control(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_scope *scope = gen_scope_lookup(ctx, expr->control.scope);
-	assert(scope->scope->class == SCOPE_LOOP);
+
 	struct gen_scope *deferred = ctx->scope;
 	while (deferred != NULL) {
 		gen_defers(ctx, deferred);
@@ -885,10 +885,19 @@ gen_expr_control(struct gen_context *ctx, const struct expression *expr)
 		}
 		deferred = deferred->parent;
 	}
-	if (expr->type == EXPR_BREAK) {
+	switch (expr->type) {
+	case EXPR_BREAK:
+		assert(scope->scope->class == SCOPE_LOOP);
 		pushi(ctx->current, NULL, Q_JMP, scope->end, NULL);
-	} else {
+		break;
+	case EXPR_CONTINUE:
+		assert(scope->scope->class == SCOPE_LOOP);
 		pushi(ctx->current, NULL, Q_JMP, scope->after, NULL);
+		break;
+	case EXPR_YIELD:
+		assert(scope->scope->class == SCOPE_COMPOUND);
+		assert(0); // TODO
+	default: abort(); // Invariant
 	}
 	return gv_void;
 }
@@ -2523,6 +2532,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_binding(ctx, expr);
 	case EXPR_BREAK:
 	case EXPR_CONTINUE:
+	case EXPR_YIELD:
 		return gen_expr_control(ctx, expr);
 	case EXPR_CALL:
 		return gen_expr_call(ctx, expr);
@@ -2556,8 +2566,6 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_switch_with(ctx, expr, NULL);
 	case EXPR_UNARITHM:
 		return gen_expr_unarithm(ctx, expr);
-	case EXPR_YIELD:
-		assert(0); // TODO
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_TUPLE:

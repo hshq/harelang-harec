@@ -39,6 +39,8 @@ struct scope {
 	enum scope_class class;
 	const char *label;
 	struct scope *parent;
+	const struct type *hint;
+	struct type_tagged_union *results;
 
 	// Linked list in insertion order
 	// Used for function parameters, where order matters

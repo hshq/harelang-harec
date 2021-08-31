@@ -1271,6 +1271,7 @@ check_expr_compound(struct context *ctx,
 	expr->type = EXPR_COMPOUND;
 
 	struct scope *scope = scope_push(&ctx->scope, SCOPE_COMPOUND);
+	scope->hint = hint;
 	expr->compound.scope = scope;
 
 	if (aexpr->compound.label) {
@@ -1282,8 +1283,9 @@ check_expr_compound(struct context *ctx,
 	struct expressions **next = &list->next;
 
 	const struct ast_expression_list *alist = &aexpr->compound.list;
+	struct expression *lexpr;
 	while (alist) {
-		struct expression *lexpr = xcalloc(1, sizeof(struct expression));
+		lexpr = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, alist->expr, lexpr, alist->next ? &builtin_type_void : hint);
 		list->expr = lexpr;
 
@@ -1292,12 +1294,20 @@ check_expr_compound(struct context *ctx,
 			*next = xcalloc(1, sizeof(struct expressions));
 			list = *next;
 			next = &list->next;
-		} else {
-			expr->result = lexpr->result;
-			expr->terminates = lexpr->terminates;
 		}
 	}
 
+	if (!lexpr->terminates) {
+		struct type_tagged_union *result =
+			xcalloc(1, sizeof(struct type_tagged_union));
+		result->type = lexpr->result;
+		result->next = scope->results;
+		scope->results = result;
+	}
+
+	expr->terminates = lexpr->terminates;
+	expr->result = type_store_reduce_result(ctx->store, scope->results);
+	assert(expr->result);
 	scope_pop(&ctx->scope);
 }
 
@@ -1486,12 +1496,38 @@ check_expr_control(struct context *ctx,
 	expr->result = &builtin_type_void;
 	expr->terminates = true;
 	expr->control.label = aexpr->control.label;
-	expr->control.scope = scope_lookup_ancestor(ctx->scope,
-			SCOPE_LOOP, aexpr->control.label);
-	if (!expr->control.scope) {
+
+	enum scope_class want;
+	switch (expr->type) {
+	case EXPR_BREAK:
+	case EXPR_CONTINUE:
+		want = SCOPE_LOOP;
+		break;
+	case EXPR_YIELD:
+		want = SCOPE_COMPOUND;
+		break;
+	default:
+		abort(); // Invariant
+	}
+
+	struct scope *scope = scope_lookup_ancestor(
+		ctx->scope, want, aexpr->control.label);
+	if (!scope) {
 		// XXX: This error message is bad
 		error(ctx, aexpr->loc, expr, "No eligible loop for operation");
 		return;
+	}
+	expr->control.scope = scope;
+
+	if (aexpr->control.value) {
+		expr->control.value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->control.value,
+			expr->control.value, scope->hint);
+		struct type_tagged_union *result =
+			xcalloc(1, sizeof(struct type_tagged_union));
+		result->type = expr->control.value->result;
+		result->next = scope->results;
+		scope->results = result;
 	}
 }
 
@@ -2587,6 +2623,7 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_BREAK:
 	case EXPR_CONTINUE:
+	case EXPR_YIELD:
 		check_expr_control(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_CALL:
@@ -2646,8 +2683,6 @@ check_expression(struct context *ctx,
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr, hint);
 		break;
-	case EXPR_YIELD:
-		assert(0); // TODO
 	}
 	assert(expr->result);
 	if (hint && hint->storage == STORAGE_VOID) {
