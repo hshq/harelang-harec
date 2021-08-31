@@ -52,6 +52,8 @@ struct gen_defer {
 struct gen_scope {
 	const char *label;
 	const struct scope *scope;
+	struct gen_value result;
+	struct gen_value *out;
 	struct qbe_value *after;
 	struct qbe_value *end;
 	struct gen_defer *defers;

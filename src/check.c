@@ -1307,6 +1307,7 @@ check_expr_compound(struct context *ctx,
 
 	expr->terminates = lexpr->terminates;
 	expr->result = type_store_reduce_result(ctx->store, scope->results);
+	// TODO: Cast all yields to this type
 	assert(expr->result);
 	scope_pop(&ctx->scope);
 }

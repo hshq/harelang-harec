@@ -54,13 +54,14 @@ gen_scope_lookup(struct gen_context *ctx, const struct scope *which)
 	abort();
 }
 
-static void
+static struct gen_scope *
 push_scope(struct gen_context *ctx, const struct scope *scope)
 {
 	struct gen_scope *new = xcalloc(1, sizeof(struct gen_scope));
 	new->parent = ctx->scope;
 	new->scope = scope;
 	ctx->scope = new;
+	return new;
 }
 
 static void
@@ -896,7 +897,14 @@ gen_expr_control(struct gen_context *ctx, const struct expression *expr)
 		break;
 	case EXPR_YIELD:
 		assert(scope->scope->class == SCOPE_COMPOUND);
-		assert(0); // TODO
+		if (expr->control.value) {
+			struct gen_value result = gen_expr_with(ctx,
+				expr->control.value, scope->out);
+			branch_copyresult(ctx, result,
+				scope->result, scope->out);
+		}
+		pushi(ctx->current, NULL, Q_JMP, scope->end, NULL);
+		break;
 	default: abort(); // Invariant
 	}
 	return gv_void;
@@ -1338,18 +1346,28 @@ gen_expr_compound_with(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
 {
-	push_scope(ctx, expr->compound.scope);
-	for (const struct expressions *exprs = &expr->compound.exprs;
-			exprs; exprs = exprs->next) {
-		if (!exprs->next) {
-			struct gen_value gv = gen_expr_with(
-				ctx, exprs->expr, out);
-			pop_scope(ctx, !exprs->expr->terminates);
-			return gv;
-		}
+	struct qbe_statement lend;
+	struct qbe_value bend = mklabel(ctx, &lend, ".%d");
+	struct gen_scope *scope = push_scope(ctx, expr->compound.scope);
+	scope->end = &bend;
+
+	struct gen_value gvout = gv_void;
+	if (!out) {
+		gvout = mktemp(ctx, expr->result, ".%d");
+	}
+	scope->out = out;
+	scope->result = gvout;
+
+	const struct expressions *exprs;
+	for (exprs = &expr->compound.exprs; exprs->next; exprs = exprs->next) {
 		gen_expr(ctx, exprs->expr);
 	}
-	abort(); // Unreachable
+
+	struct gen_value last = gen_expr_with(ctx, exprs->expr, out);
+	branch_copyresult(ctx, last, gvout, out);
+	pop_scope(ctx, !exprs->expr->terminates);
+	push(&ctx->current->body, &lend);
+	return gvout;
 }
 
 static void
