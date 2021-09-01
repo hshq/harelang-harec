@@ -878,6 +878,13 @@ gen_expr_control(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_scope *scope = gen_scope_lookup(ctx, expr->control.scope);
 
+	if (expr->control.value) {
+		struct gen_value result = gen_expr_with(ctx,
+			expr->control.value, scope->out);
+		branch_copyresult(ctx, result,
+			scope->result, scope->out);
+	}
+
 	struct gen_scope *deferred = ctx->scope;
 	while (deferred != NULL) {
 		gen_defers(ctx, deferred);
@@ -886,6 +893,7 @@ gen_expr_control(struct gen_context *ctx, const struct expression *expr)
 		}
 		deferred = deferred->parent;
 	}
+
 	switch (expr->type) {
 	case EXPR_BREAK:
 		assert(scope->scope->class == SCOPE_LOOP);
@@ -897,12 +905,6 @@ gen_expr_control(struct gen_context *ctx, const struct expression *expr)
 		break;
 	case EXPR_YIELD:
 		assert(scope->scope->class == SCOPE_COMPOUND);
-		if (expr->control.value) {
-			struct gen_value result = gen_expr_with(ctx,
-				expr->control.value, scope->out);
-			branch_copyresult(ctx, result,
-				scope->result, scope->out);
-		}
 		pushi(ctx->current, NULL, Q_JMP, scope->end, NULL);
 		break;
 	default: abort(); // Invariant
