@@ -12,6 +12,15 @@ fn basics() void = {
 	assert(y == 20);
 };
 
+fn termination() void = {
+	:outer {
+		if (true) {
+			yield :outer;
+		} else void;
+		abort();
+	};
+};
+
 fn cast_lowering() void = {
 	let x: (int | void) = {
 		yield 10;
@@ -21,5 +30,6 @@ fn cast_lowering() void = {
 
 export fn main() void = {
 	basics();
+	termination();
 	cast_lowering();
 };
