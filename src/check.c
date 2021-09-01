@@ -1302,6 +1302,10 @@ check_expr_compound(struct context *ctx,
 				"A terminating expression may not be followed by additional expressions");
 		}
 	}
+	if (lexpr->result != &builtin_type_void && hint && hint != &builtin_type_void) {
+		fprintf(stderr, "Warning: non-void result ignored at %s:%d\n",
+				lexpr->loc.path, lexpr->loc.lineno);
+	}
 
 	expr->terminates = lexpr->terminates && lexpr->type != EXPR_YIELD;
 	expr->result = type_store_reduce_result(ctx->store, scope->results);
