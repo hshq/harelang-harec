@@ -1486,11 +1486,7 @@ parse_unary_expression(struct lexer *lexer)
 		exp = mkexpr(&lexer->loc);
 		exp->type = EXPR_UNARITHM;
 		exp->unarithm.op = unop_for_token(tok.token);
-		if (tok.token == T_BAND) {
-			exp->unarithm.operand = parse_object_selector(lexer);
-		} else {
-			exp->unarithm.operand = parse_unary_expression(lexer);
-		}
+		exp->unarithm.operand = parse_unary_expression(lexer);
 		return exp;
 	default:
 		unlex(lexer, &tok);

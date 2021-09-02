@@ -2504,8 +2504,17 @@ gen_expr_unarithm(struct gen_context *ctx,
 	const struct expression *operand = expr->unarithm.operand;
 	switch (expr->unarithm.op) {
 	case UN_ADDRESS:
-		assert(operand->type == EXPR_ACCESS);
-		val = gen_expr_access_addr(ctx, operand);
+		if (operand->type == EXPR_ACCESS) {
+			val = gen_expr_access_addr(ctx, operand);
+			val.type = expr->result;
+			return val;
+		}
+		struct gen_value val = mktemp(ctx, operand->result, ".%d");
+		struct qbe_value qv = mklval(ctx, &val);
+		struct qbe_value sz = constl(val.type->size);
+		enum qbe_instr alloc = alloc_for_align(val.type->align);
+		pushprei(ctx->current, &qv, alloc, &sz, NULL);
+		gen_expr_at(ctx, operand, val);
 		val.type = expr->result;
 		return val;
 	case UN_DEREF:
