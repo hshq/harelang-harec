@@ -389,6 +389,7 @@ parse_primitive_type(struct lexer *lexer)
 
 static struct ast_expression *parse_binding_list(
 		struct lexer *lexer, bool is_static);
+static struct ast_expression *parse_object_selector(struct lexer *lexer);
 
 static struct ast_type *
 parse_enum_type(struct lexer *lexer)
@@ -1275,16 +1276,14 @@ parse_slice_mutation(struct lexer *lexer, bool is_static)
 		want(lexer, T_LPAREN, NULL);
 
 		struct ast_append_values **next;
-		// Easier to parse an expression and let check limit it to
-		// object-selector/*unary-expression
 		switch (exp->type) {
 		case EXPR_APPEND:
-			exp->append.expr = parse_expression(lexer);
+			exp->append.expr = parse_object_selector(lexer);
 			exp->append.is_static = is_static;
 			next = &exp->append.values;
 			break;
 		case EXPR_INSERT:
-			exp->insert.expr = parse_expression(lexer);
+			exp->insert.expr = parse_object_selector(lexer);
 			exp->insert.is_static = is_static;
 			next = &exp->insert.values;
 			break;

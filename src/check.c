@@ -349,13 +349,7 @@ check_expr_append(struct context *ctx,
 			"append must operate on a mutable slice");
 		return;
 	}
-	if (expr->append.expr->type != EXPR_ACCESS
-			&& (expr->append.expr->type != EXPR_UNARITHM
-				|| expr->append.expr->unarithm.op != UN_DEREF)) {
-		error(ctx, aexpr->append.expr->loc, expr,
-			"append must operate on a slice object");
-		return;
-	}
+	assert(expr->append.expr->type == EXPR_ACCESS);
 	const struct type *memb = stype->array.members;
 	struct append_values **next = &expr->append.values;
 	for (struct ast_append_values *avalue = aexpr->append.values; avalue;
