@@ -3709,7 +3709,6 @@ check_internal(struct type_store *ts,
 		struct unresolveds *tmp = cur;
 		cur = tmp->next;
 		free(tmp);
-
 	}
 
 	if (scan_only) {
