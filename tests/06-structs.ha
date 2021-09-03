@@ -45,7 +45,40 @@ fn deref() void = {
 	assert(coords.x == 42 && coords.y == 96);
 };
 
+type embedded = struct {
+	foo: u8,
+};
+
+type embed1 = struct {
+	embedded,
+	struct {
+		bar: u8,
+		baz: u64,
+	},
+};
+
+type embed2 = struct {
+	struct {
+		bar: u8,
+		baz: u64,
+	},
+	embedded,
+};
+
 fn nested() void = {
+	let s = embed1 {
+		foo = 42,
+		bar = 69,
+		baz = 1337,
+	};
+	assert(s.foo == 42 && s.bar == 69 && s.baz == 1337);
+	let s = embed2 {
+		foo = 42,
+		bar = 69,
+		baz = 1337,
+	};
+	assert(s.foo == 42 && s.bar == 69 && s.baz == 1337);
+
 	let s = struct {
 		x: int = 10,
 		y: struct {
