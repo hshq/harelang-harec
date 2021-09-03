@@ -3452,7 +3452,11 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl, bool exported)
 		type_store_lookup_atype(ctx->store, decl->type);
 
 	struct identifier ident = {0};
-	mkident(ctx, &ident, &decl->ident);
+	if (!decl->ident.ns) {
+		mkident(ctx, &ident, &decl->ident);
+	} else {
+		ident = decl->ident;
+	}
 
 	const struct type *alias =
 		type_store_lookup_alias(ctx->store, &ident, type, exported);

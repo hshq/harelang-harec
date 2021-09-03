@@ -2504,6 +2504,58 @@ gen_expr_tuple_at(struct gen_context *ctx,
 }
 
 static struct gen_value
+gen_expr_type(struct gen_context *ctx,
+	const struct expression *expr)
+{
+	const struct type *type = expr->_type.type;
+	switch (type->storage) {
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_ENUM:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_INT:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_TYPE: // TODO: Add me to builtins & audit
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
+		// Built-ins
+		return (struct gen_value){
+			.kind = GV_GLOBAL,
+			.type = expr->result,
+			.name = mkrttype(type->storage),
+		};
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+		abort(); // Invariant
+	case STORAGE_ALIAS:
+		assert(0); // TODO: Emit typeinfo (in gen_decl_type)
+	case STORAGE_ARRAY:
+	case STORAGE_FUNCTION:
+	case STORAGE_POINTER:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_STRUCT:
+	case STORAGE_TAGGED:
+	case STORAGE_TUPLE:
+	case STORAGE_UNION:
+		assert(0); // TODO: Emit typeinfo (here)
+	}
+	abort(); // Unreachable
+}
+
+static struct gen_value
 gen_expr_unarithm(struct gen_context *ctx,
 	const struct expression *expr)
 {
@@ -2610,7 +2662,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_SWITCH:
 		return gen_expr_switch_with(ctx, expr, NULL);
 	case EXPR_TYPE:
-		assert(0); // TODO
+		return gen_expr_type(ctx, expr);
 	case EXPR_UNARITHM:
 		return gen_expr_unarithm(ctx, expr);
 	case EXPR_SLICE:

@@ -723,8 +723,6 @@ type_is_castable(const struct type *to, const struct type *from)
 	switch (from->storage) {
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
-	case STORAGE_TYPE:
-		assert(0); // TODO
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -771,6 +769,8 @@ type_is_castable(const struct type *to, const struct type *from)
 			|| (to->storage == STORAGE_POINTER
 					&& to->pointer.referent->storage == STORAGE_ARRAY
 					&& from->storage == STORAGE_SLICE);
+	case STORAGE_TYPE:
+		return to->storage == STORAGE_POINTER;
 	// Cannot be cast:
 	case STORAGE_STRING:
 	case STORAGE_BOOL:
