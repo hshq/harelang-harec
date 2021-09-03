@@ -13,7 +13,8 @@ rt() {
 				rt/+linux/errno.ha \
 				rt/+linux/segmalloc.ha \
 				rt/+linux/syscallno+$arch.ha \
-				rt/+linux/syscalls.ha
+				rt/+linux/syscalls.ha \
+				rt/types_arch+$arch.ha
 
 			libhart_objs=\
 				rt/+linux/syscall+$arch.o

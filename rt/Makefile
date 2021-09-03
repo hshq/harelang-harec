@@ -8,7 +8,8 @@ libhart_srcs+=\
 	rt/memmove.ha \
 	rt/memset.ha \
 	rt/rtmain.ha \
-	rt/strcmp.ha
+	rt/strcmp.ha \
+	rt/types.ha
 
 libhart.a: harec $(libhart_srcs) $(libhart_objs) $(rtstart)
 	@printf 'HAREC\t$@\n'
