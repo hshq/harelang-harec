@@ -300,15 +300,9 @@ struct ast_expression_switch {
 struct ast_expression_struct;
 
 struct ast_field_value {
-	bool is_embedded;
-	union {
-		struct {
-			char *name;
-			struct ast_type *type;
-			struct ast_expression *initializer;
-		} field;
-		struct ast_expression *embedded;
-	};
+	char *name;
+	struct ast_type *type;
+	struct ast_expression *initializer;
 	struct ast_field_value *next;
 };
 

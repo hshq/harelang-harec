@@ -876,47 +876,42 @@ parse_field_value(struct lexer *lexer)
 		xcalloc(sizeof(struct ast_field_value), 1);
 	char *name;
 	struct token tok = {0};
+	struct identifier ident = {0};
+	struct identifier *i;
 	switch (lex(lexer, &tok)) {
 	case T_NAME:
 		name = tok.name;
 		switch (lex(lexer, &tok)) {
 		case T_COLON:
-			exp->is_embedded = false;
-			exp->field.name = name;
-			exp->field.type = parse_type(lexer);
+			exp->name = name;
+			exp->type = parse_type(lexer);
 			want(lexer, T_EQUAL, NULL);
-			exp->field.initializer = parse_expression(lexer);
+			exp->initializer = parse_expression(lexer);
 			break;
 		case T_EQUAL:
-			exp->is_embedded = false;
-			exp->field.name = name;
-			exp->field.initializer = parse_expression(lexer);
+			exp->name = name;
+			exp->initializer = parse_expression(lexer);
 			break;
 		case T_DOUBLE_COLON:
-			exp->is_embedded = true;
-			struct identifier ident = {0};
-			struct identifier *i = &ident;
+			i = &ident;
 			parse_identifier(lexer, i, false);
 			while (i->ns != NULL) {
 				i = i->ns;
 			}
 			i->ns = xcalloc(sizeof(struct identifier), 1);
 			i->ns->name = name;
-			exp->embedded = parse_struct_literal(lexer, ident);
+			exp->initializer = parse_struct_literal(lexer, ident);
 			break;
 		default:
 			unlex(lexer, &tok);
-			exp->is_embedded = true;
 			ident.name = name;
 			ident.ns = NULL;
-			exp->embedded = parse_struct_literal(lexer, ident);
+			exp->initializer = parse_struct_literal(lexer, ident);
 			break;
 		}
 		break;
 	case T_STRUCT:
-		exp->is_embedded = true;
-		struct identifier id = {0};
-		exp->embedded = parse_struct_literal(lexer, id);
+		exp->initializer = parse_struct_literal(lexer, ident);
 		break;
 	default:
 		assert(0);

@@ -2249,27 +2249,23 @@ check_expr_struct(struct context *ctx,
 
 	struct ast_field_value *afield = aexpr->_struct.fields;
 	while (afield) {
-		assert(!afield->is_embedded); // TODO
-
 		const struct type *ftype;
 		if (!stype) {
-			tfield->name = afield->field.name;
-			tfield->type = afield->field.type;
+			assert(afield->name); // TODO
+			if (!afield->type) {
+				error(ctx, aexpr->loc, expr,
+					"Unnamed struct must specify field type");
+				return;
+			}
+			tfield->name = afield->name;
+			tfield->type = afield->type;
 			ftype = type_store_lookup_atype(
 				ctx->store, tfield->type);
 		} else {
-			if (!afield->field.name) {
-				error(ctx, afield->field.initializer->loc,
-					expr,
-					"Anonymous fields are not permitted for named struct type");
-				return;
-				// XXX: ^ Is that correct?
-			}
 			sexpr->field = type_get_field(type_dealias(stype),
-					afield->field.name);
+					afield->name);
 			if (!sexpr->field) {
-				error(ctx, afield->field.initializer->loc,
-					expr,
+				error(ctx, afield->initializer->loc, expr,
 					"No field by this name exists for this type");
 				return;
 			}
@@ -2277,12 +2273,11 @@ check_expr_struct(struct context *ctx,
 		}
 
 		sexpr->value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, afield->field.initializer, sexpr->value, ftype);
+		check_expression(ctx, afield->initializer, sexpr->value, ftype);
 
 		if (stype) {
 			if (!type_is_assignable(sexpr->field->type, sexpr->value->result)) {
-				error(ctx, afield->field.initializer->loc,
-					expr,
+				error(ctx, afield->initializer->loc, expr,
 					"Initializer is not assignable to struct field");
 				return;
 			}
@@ -3182,19 +3177,11 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 	case EXPR_STRUCT:
 		for (struct ast_field_value *field = aexpr->_struct.fields;
 				field; field = field->next) {
-			if (field->is_embedded) {
-				if (!expr_is_specified(ctx, field->embedded)) {
-					return false;
-				}
-			} else {
-				if (!type_is_specified(ctx,
-						field->field.type)) {
-					return false;
-				}
-				if (!expr_is_specified(ctx,
-						field->field.initializer)) {
-					return false;
-				}
+			if (field->type && !type_is_specified(ctx, field->type)) {
+				return false;
+			}
+			if (!expr_is_specified(ctx, field->initializer)) {
+				return false;
 			}
 		}
 		if (aexpr->_struct.type.name) {
