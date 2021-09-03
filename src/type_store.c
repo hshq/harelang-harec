@@ -375,7 +375,6 @@ tagged_init(struct type_store *store, struct type *type,
 	nmemb = nmemb_dedup;
 
 	if (tu[0]->type->size == SIZE_UNDEFINED) {
-		fprintf(stderr, "aaa %zu\n", tu[0]->type->size);
 		char *type = gen_typename(tu[0]->type);
 		// TODO
 		struct location loc = {
