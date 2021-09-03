@@ -150,36 +150,32 @@ builtin_for_type(const struct type *type)
 	return builtin_type_for_storage(type->storage, is_const);
 }
 
-static void
+static struct struct_field *
 struct_insert_field(struct type_store *store, struct struct_field **fields,
 	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
 	const struct ast_struct_union_type *atype, bool *ccompat)
 {
-	assert(atype->member_type == MEMBER_TYPE_FIELD);
-	while (fields && *fields && strcmp((*fields)->name, atype->field.name) < 0) {
+	while (*fields && (!atype->name || !(*fields)->name || strcmp((*fields)->name, atype->name) < 0)) {
 		fields = &(*fields)->next;
 	}
-	struct struct_field *field, _temp = {0};
-	if (fields != NULL) {
-		field = *fields;
-		if (field != NULL && strcmp(field->name, atype->field.name) == 0) {
-			error(store->check_context, atype->field.type->loc,
-				"Duplicate struct/union member '%s'", atype->field.name);
-			return;
-		}
-		*fields = xcalloc(1, sizeof(struct struct_field));
-		(*fields)->next = field;
-		field = *fields;
-	} else {
-		field = &_temp;
+	struct struct_field *field = *fields;
+	if (field != NULL && atype->name && field->name && strcmp(field->name, atype->name) == 0) {
+		error(store->check_context, atype->type->loc,
+			"Duplicate struct/union member '%s'", atype->name);
+		return NULL;
 	}
+	*fields = xcalloc(1, sizeof(struct struct_field));
+	(*fields)->next = field;
+	field = *fields;
 
-	field->name = strdup(atype->field.name);
-	field->type = type_store_lookup_atype(store, atype->field.type);
+	if (atype->name) {
+		field->name = strdup(atype->name);
+	}
+	field->type = type_store_lookup_atype(store, atype->type);
 	if (field->type->size == 0) {
-		error(store->check_context, atype->field.type->loc,
+		error(store->check_context, atype->type->loc,
 			"Struct field size cannot be zero");
-		return;
+		return NULL;
 	}
 
 	if (atype->offset) {
@@ -217,6 +213,57 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		*usize = field->type->size > *usize ? field->type->size : *usize;
 	}
 	*align = field->type->align > *align ? field->type->align : *align;
+	return field;
+}
+
+static const struct type *type_store_lookup_type(struct type_store *store, const struct type *type);
+
+static const struct type *
+shift_fields(struct type_store *store, const struct type *type, size_t offset)
+{
+	if (type->storage == STORAGE_ALIAS
+			&& type_dealias(type)->storage != STORAGE_STRUCT
+			&& type_dealias(type)->storage != STORAGE_UNION) {
+		// TODO
+		struct location loc = {
+			.path = "<unknown>",
+			.lineno = 0,
+			.colno = 0,
+		};
+		error(store->check_context, loc,
+			"Cannot embed non-struct non-union alias");
+		return &builtin_type_void;
+	}
+	if (offset == 0) {
+		// We need to return early here in order to avoid dealiasing an
+		// embedded alias. This is acceptable at nonzero offsets, but we
+		// need to keep the alias if it's at offset 0 because of
+		// subtyping.
+		return type;
+	}
+	type = type_dealias(type);
+	assert(type->storage == STORAGE_STRUCT
+		|| type->storage == STORAGE_UNION);
+	struct type new = {
+		.storage = type->storage,
+		.flags = type->flags,
+		.size = type->size,
+		.align = type->align,
+		.struct_union.c_compat = type->struct_union.c_compat,
+	};
+	struct struct_field **next = &new.struct_union.fields;
+	for (struct struct_field *field = type->struct_union.fields; field;
+			field = field->next) {
+		struct struct_field *new = *next =
+			xcalloc(1, sizeof(struct struct_field));
+		next = &new->next;
+		if (field->name) {
+			new->name = strdup(field->name);
+		}
+		new->type = field->type;
+		new->offset = field->offset + offset;
+	}
+	return type_store_lookup_type(store, &new);
 }
 
 static void
@@ -228,44 +275,17 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	size_t usize = 0;
 	assert(storage == STORAGE_STRUCT || storage == STORAGE_UNION);
 	while (atype) {
-		size_t sub = *size;
-		switch (atype->member_type) {
-		case MEMBER_TYPE_FIELD:
-			struct_insert_field(store, fields, storage,
-				size, &usize, align, atype, ccompat);
-			break;
-		case MEMBER_TYPE_EMBEDDED:
-			if (atype->embedded->storage == STORAGE_UNION) {
-				*ccompat = false;
-				// We need to set the offset of all union
-				// members to the maximum alignment of the union
-				// members, so first we do a dry run to compute
-				// it:
-				size_t offs = 0, align_1 = 0;
-				struct_init_from_atype(store, STORAGE_UNION,
-					&offs, &align_1, NULL,
-					&atype->embedded->struct_union, ccompat);
-				// Insert padding per the results:
-				*size += *size % align_1;
-				// Then insert the fields for real:
-				sub = *size;
-				struct_init_from_atype(store, STORAGE_UNION,
-					&sub, align, fields,
-					&atype->embedded->struct_union, ccompat);
-			} else {
-				struct_init_from_atype(store, STORAGE_STRUCT,
-					&sub, align, fields,
-					&atype->embedded->struct_union, ccompat);
-			}
-
-			if (storage == STORAGE_UNION) {
-				usize = sub > usize ? sub : usize;
-			} else {
-				*size += sub;
-			}
-			break;
-		case MEMBER_TYPE_ALIAS:
-			assert(0); // TODO
+		struct struct_field *field = struct_insert_field(store, fields,
+			storage, size, &usize, align, atype, ccompat);
+		if (!field->name) {
+			// We need to shift the embedded struct/union's fields
+			// so that their offsets are from the start of the
+			// parent type. This is a bit of a hack, but it makes
+			// type_get_field far easier to implement and doesn't
+			// cause any trouble in gen since offsets are only used
+			// there for sorting fields.
+			field->type = shift_fields(store, field->type,
+				*size - field->type->size);
 		}
 		atype = atype->next;
 	}
@@ -475,8 +495,6 @@ tuple_init_from_atype(struct type_store *store,
 		}
 	}
 }
-
-static const struct type *type_store_lookup_type(struct type_store *store, const struct type *type);
 
 static void
 type_init_from_atype(struct type_store *store,

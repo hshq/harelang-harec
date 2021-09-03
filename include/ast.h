@@ -70,24 +70,11 @@ struct ast_tuple_type {
 	struct ast_tuple_type *next;
 };
 
-enum struct_union_member_type {
-	MEMBER_TYPE_FIELD,
-	MEMBER_TYPE_EMBEDDED,
-	MEMBER_TYPE_ALIAS,
-};
-
 struct ast_struct_union_type {
-	enum struct_union_member_type member_type;
 	struct ast_struct_union_type *next;
 	struct ast_expression *offset;
-	union {
-		struct {
-			char *name;
-			struct ast_type *type;
-		} field;
-		struct ast_type *embedded;
-		struct identifier alias;
-	};
+	char *name;
+	struct ast_type *type;
 };
 
 struct ast_type {

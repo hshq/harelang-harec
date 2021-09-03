@@ -10,6 +10,7 @@
 #include "mod.h"
 #include "scope.h"
 #include "type_store.h"
+#include "typedef.h"
 #include "types.h"
 #include "util.h"
 
@@ -36,6 +37,17 @@ expect(const struct location *loc, bool constraint, char *fmt, ...)
 		fprintf(stderr, "\n");
 		exit(EXIT_FAILURE);
 	}
+}
+
+static char *
+gen_typename(const struct type *type)
+{
+	size_t sz = 0;
+	char *ptr = NULL;
+	FILE *f = open_memstream(&ptr, &sz);
+	emit_type(type, f);
+	fclose(f);
+	return ptr;
 }
 
 static void
@@ -990,7 +1002,7 @@ check_expr_call(struct context *ctx,
 
 		if (!type_is_assignable(param->type, arg->value->result)) {
 			error(ctx, aarg->value->loc, expr,
-				"Argument is not assignable to parameter type");
+				"Argument type %s is not assignable to parameter type %s", gen_typename(arg->value->result), gen_typename(param->type));
 			return;
 		}
 		arg->value = lower_implicit_cast(param->type, arg->value);
@@ -2241,11 +2253,10 @@ check_expr_struct(struct context *ctx,
 
 		const struct type *ftype;
 		if (!stype) {
-			tfield->member_type = MEMBER_TYPE_FIELD;
-			tfield->field.name = afield->field.name;
-			tfield->field.type = afield->field.type;
+			tfield->name = afield->field.name;
+			tfield->type = afield->field.type;
 			ftype = type_store_lookup_atype(
-				ctx->store, tfield->field.type);
+				ctx->store, tfield->type);
 		} else {
 			if (!afield->field.name) {
 				error(ctx, afield->field.initializer->loc,
@@ -2302,7 +2313,7 @@ check_expr_struct(struct context *ctx,
 		sexpr = &expr->_struct.fields;
 		while (tfield) {
 			const struct struct_field *field = type_get_field(
-				expr->result, tfield->field.name);
+				expr->result, tfield->name);
 			if (!field) {
 				// TODO: Use more specific error location
 				error(ctx, aexpr->loc, expr,
@@ -3005,22 +3016,8 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 			if (!expr_is_specified(ctx, stype->offset)) {
 				return false;
 			}
-			switch (stype->member_type) {
-			case MEMBER_TYPE_FIELD:
-				if (!type_is_specified(ctx, stype->field.type)) {
-					return false;
-				}
-				break;
-			case MEMBER_TYPE_EMBEDDED:
-				if (!type_is_specified(ctx, stype->embedded)) {
-					return false;
-				}
-				break;
-			case MEMBER_TYPE_ALIAS:
-				if (!scope_lookup(ctx->scope, &stype->alias)) {
-					return false;
-				}
-				break;
+			if (!type_is_specified(ctx, stype->type)) {
+				return false;
 			}
 		}
 		return true;

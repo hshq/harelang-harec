@@ -465,17 +465,18 @@ parse_struct_union_type(struct lexer *lexer)
 		switch (lex(lexer, &tok)) {
 		case T_NAME:
 			name = tok.name;
-			struct identifier *i;
+			struct location loc = tok.loc;
 			switch (lex(lexer, &tok)) {
 			case T_COLON:
-				next->member_type = MEMBER_TYPE_FIELD;
-				next->field.name = name;
-				next->field.type = parse_type(lexer);
+				next->name = name;
+				next->type = parse_type(lexer);
 				break;
 			case T_DOUBLE_COLON:
-				next->member_type = MEMBER_TYPE_ALIAS;
-				i = &next->alias;
-				parse_identifier(lexer, i, false);
+				next->type = mktype(&loc);
+				next->type->storage = STORAGE_ALIAS;
+				next->type->unwrap = false;
+				parse_identifier(lexer, &next->type->alias, false);
+				struct identifier *i = &next->type->alias;
 				while (i->ns != NULL) {
 					i = i->ns;
 				}
@@ -484,16 +485,18 @@ parse_struct_union_type(struct lexer *lexer)
 				break;
 			default:
 				unlex(lexer, &tok);
-				next->member_type = MEMBER_TYPE_ALIAS;
-				next->alias.name = name;
+				next->type = mktype(&loc);
+				next->type->storage = STORAGE_ALIAS;
+				next->type->alias.name = name;
+				next->type->unwrap = false;
 				break;
 			}
 			break;
 		case T_STRUCT:
 		case T_UNION:
-			next->member_type = MEMBER_TYPE_EMBEDDED;
 			unlex(lexer, &tok);
-			next->embedded = parse_struct_union_type(lexer);
+			next->name = NULL;
+			next->type = parse_type(lexer);
 			break;
 		default:
 			synassert(false, &tok, T_NAME, T_STRUCT, T_UNION, T_EOF);

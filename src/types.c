@@ -44,8 +44,16 @@ type_get_field(const struct type *type, const char *name)
 			|| type->storage == STORAGE_UNION);
 	struct struct_field *field = type->struct_union.fields;
 	while (field) {
-		if (strcmp(field->name, name) == 0) {
-			return field;
+		if (field->name) {
+			if (strcmp(field->name, name) == 0) {
+				return field;
+			}
+		} else {
+			const struct struct_field *f =
+				type_get_field(field->type, name);
+			if (f != NULL) {
+				return f;
+			}
 		}
 		field = field->next;
 	}
@@ -415,7 +423,9 @@ type_hash(const struct type *type)
 	case STORAGE_UNION:
 		for (const struct struct_field *field = type->struct_union.fields;
 				field; field = field->next) {
-			hash = fnv1a_s(hash, field->name);
+			if (field->name) {
+				hash = fnv1a_s(hash, field->name);
+			}
 			hash = fnv1a_u32(hash, type_hash(field->type));
 			hash = fnv1a_size(hash, field->offset);
 		}

@@ -176,8 +176,9 @@ emit_struct(const struct type *type, FILE *out)
 	for (size_t i = 0; i < n; ++i) {
 		const struct struct_field *f = fields[i]; 
 		if (!type->struct_union.c_compat) {
-			fprintf(out, "@offset(%zd) %s: ", f->offset, f->name);
-		} else {
+			fprintf(out, "@offset(%zd) ", f->offset);
+		}
+		if (f->name) {
 			fprintf(out, "%s: ", f->name);
 		}
 		emit_type(f->type, out);
