@@ -1,5 +1,24 @@
 use rt;
 
+type subtype = struct {
+	foo: int,
+};
+
+type super1 = struct {
+	foo: subtype,
+	bar: int,
+};
+
+type super2 = struct {
+	subtype,
+	bar: int,
+};
+
+type super3 = struct {
+	struct { foo: int },
+	bar: int,
+};
+
 fn rules() void = {
 	// Fixed precision ints
 	let _i64: i64 = 0i64;
@@ -61,6 +80,11 @@ fn rules() void = {
 	let nptr: nullable *int = null;
 	nptr = &i;
 	let vptr: nullable *void = nptr;
+
+	// Struct subtyping
+	let sptr: *subtype = &super1 { ... };
+	let sptr: *subtype = &super2 { ... };
+	let sptr: *struct { foo: int } = &super3 { ... };
 
 	// Invalid pointer conversions
 	assert(rt::compile(

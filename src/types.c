@@ -527,6 +527,19 @@ tagged_subset_compat(const struct type *to, const struct type *from)
 	return !from_tu;
 }
 
+static bool
+struct_subtype(const struct type *to, const struct type *from) {
+	if (from->storage != STORAGE_STRUCT) {
+		return false;
+	}
+	for (struct struct_field *f = from->struct_union.fields; f;
+			f = f->next) {
+		if (f->offset == 0) {
+			return f->type == to;
+		}
+	}
+	return false;
+}
 bool
 type_is_assignable(const struct type *to, const struct type *from)
 {
@@ -580,6 +593,9 @@ type_is_assignable(const struct type *to, const struct type *from)
 		case STORAGE_POINTER:
 			from_secondary = type_dealias(from->pointer.referent);
 			from_secondary = strip_flags(from_secondary, &_from_secondary);
+			if (struct_subtype(to->pointer.referent, from_secondary)) {
+				return true;
+			}
 			switch (to_secondary->storage) {
 			case STORAGE_VOID:
 				break;
