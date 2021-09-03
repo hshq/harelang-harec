@@ -123,6 +123,7 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+	case STORAGE_TYPE:
 	case STORAGE_UNION:
 	case STORAGE_ENUM:
 		return NULL;
@@ -701,6 +702,10 @@ type_init_from_atype(struct type_store *store,
 		type->pointer.flags = atype->pointer.flags;
 		type->pointer.referent = type_store_lookup_atype(
 			store, atype->pointer.referent);
+		break;
+	case STORAGE_TYPE:
+		type->size = 8; // XXX: ARCH
+		type->align = 8;
 		break;
 	case STORAGE_SLICE:
 		type->size = 24; // XXX: ARCH

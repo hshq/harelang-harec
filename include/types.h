@@ -39,6 +39,7 @@ enum type_storage {
 	STORAGE_TAGGED,
 	STORAGE_TUPLE,
 	STORAGE_UNION,
+	STORAGE_TYPE,
 };
 
 struct type;

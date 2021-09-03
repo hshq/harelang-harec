@@ -317,6 +317,10 @@ struct ast_expression_tuple {
 	struct ast_expression_tuple *next;
 };
 
+struct ast_expression_type {
+	struct ast_type *type;
+};
+
 struct ast_expression_unarithm {
 	enum unarithm_operator op;
 	struct ast_expression *operand;
@@ -324,7 +328,7 @@ struct ast_expression_unarithm {
 
 struct ast_expression {
 	struct location loc;
-	enum expr_type type;
+	enum expr_type type; // TODO: Rename me to "kind", and "_type" to "type"
 	union {
 		struct ast_expression_access access;
 		struct ast_expression_alloc alloc;
@@ -352,6 +356,7 @@ struct ast_expression {
 		struct ast_expression_struct _struct;
 		struct ast_expression_switch _switch;
 		struct ast_expression_tuple tuple;
+		struct ast_expression_type _type;
 		struct ast_expression_unarithm unarithm;
 	};
 };

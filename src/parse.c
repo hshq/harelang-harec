@@ -369,6 +369,9 @@ parse_primitive_type(struct lexer *lexer)
 	case T_STR:
 		type->storage = STORAGE_STRING;
 		break;
+	case T_TYPE:
+		type->storage = STORAGE_TYPE;
+		break;
 	case T_F32:
 		type->storage = STORAGE_F32;
 		break;
@@ -613,24 +616,25 @@ parse_type(struct lexer *lexer)
 	struct ast_type *type = NULL;
 	bool noreturn = false, nullable = false, unwrap = false;
 	switch (lex(lexer, &tok)) {
-	case T_I8:
+	case T_BOOL:
+	case T_CHAR:
+	case T_F32:
+	case T_F64:
 	case T_I16:
 	case T_I32:
 	case T_I64:
-	case T_U8:
+	case T_I8:
+	case T_INT:
+	case T_RUNE:
+	case T_SIZE:
+	case T_STR:
+	case T_TYPE:
 	case T_U16:
 	case T_U32:
 	case T_U64:
-	case T_INT:
+	case T_U8:
 	case T_UINT:
-	case T_SIZE:
 	case T_UINTPTR:
-	case T_CHAR:
-	case T_RUNE:
-	case T_STR:
-	case T_F32:
-	case T_F64:
-	case T_BOOL:
 	case T_VOID:
 		unlex(lexer, &tok);
 		type = parse_primitive_type(lexer);
@@ -816,6 +820,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
+	case STORAGE_TYPE:
 		assert(0); // Handled in a different nonterminal
 	}
 	return exp;
@@ -1124,6 +1129,20 @@ parse_measurement_expression(struct lexer *lexer)
 		synassert(false, &tok, T_SIZE, T_LEN, T_OFFSET, T_EOF);
 	}
 
+	want(lexer, T_RPAREN, NULL);
+	return exp;
+}
+
+static struct ast_expression *
+parse_type_expression(struct lexer *lexer)
+{
+	struct ast_expression *exp = mkexpr(&lexer->loc);
+	exp->type = EXPR_TYPE;
+	struct token tok;
+	lex(lexer, &tok);
+
+	want(lexer, T_LPAREN, NULL);
+	exp->_type.type = parse_type(lexer);
 	want(lexer, T_RPAREN, NULL);
 	return exp;
 }
@@ -1462,6 +1481,9 @@ parse_builtin_expression(struct lexer *lexer)
 	case T_OFFSET:
 		unlex(lexer, &tok);
 		return parse_measurement_expression(lexer);
+	case T_TYPE:
+		unlex(lexer, &tok);
+		return parse_type_expression(lexer);
 	default:
 		unlex(lexer, &tok);
 		break;

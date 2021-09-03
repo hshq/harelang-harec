@@ -150,6 +150,8 @@ type_storage_unparse(enum type_storage storage)
 		return "tagged union";
 	case STORAGE_TUPLE:
 		return "tuple";
+	case STORAGE_TYPE:
+		return "type";
 	case STORAGE_U16:
 		return "u16";
 	case STORAGE_U32:
@@ -183,6 +185,7 @@ type_is_integer(const struct type *type)
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+	case STORAGE_TYPE:
 	case STORAGE_UNION:
 	case STORAGE_BOOL:
 	case STORAGE_NULL:
@@ -226,6 +229,7 @@ type_is_numeric(const struct type *type)
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+	case STORAGE_TYPE:
 	case STORAGE_UNION:
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
@@ -278,6 +282,7 @@ type_storage_is_signed(enum type_storage storage)
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+	case STORAGE_TYPE:
 	case STORAGE_UNION:
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
@@ -340,6 +345,7 @@ bool storage_is_flexible(enum type_storage storage)
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+	case STORAGE_TYPE:
 	case STORAGE_U16:
 	case STORAGE_U32:
 	case STORAGE_U64:
@@ -446,6 +452,9 @@ type_hash(const struct type *type)
 				tuple; tuple = tuple->next) {
 			hash = fnv1a_u32(hash, type_hash(tuple->type));
 		}
+		break;
+	case STORAGE_TYPE:
+		// Does not require any additional information
 		break;
 	}
 	return hash;
@@ -566,6 +575,8 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_ICONST:
 	case STORAGE_FCONST:
 		assert(0); // Invariant
+	case STORAGE_TYPE:
+		assert(0); // TODO
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -712,6 +723,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	switch (from->storage) {
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
+	case STORAGE_TYPE:
 		assert(0); // TODO
 	case STORAGE_I8:
 	case STORAGE_I16:

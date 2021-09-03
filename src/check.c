@@ -661,6 +661,7 @@ type_promote(struct type_store *store,
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+	case STORAGE_TYPE:
 	case STORAGE_UINTPTR:
 	case STORAGE_UNION:
 	case STORAGE_VOID:
@@ -1482,6 +1483,7 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_SLICE:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+	case STORAGE_TYPE:
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
 		assert(0); // Invariant
@@ -2779,6 +2781,8 @@ check_expression(struct context *ctx,
 	case EXPR_TUPLE:
 		check_expr_tuple(ctx, aexpr, expr, hint);
 		break;
+	case EXPR_TYPE:
+		assert(0); // TODO
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr, hint);
 		break;
@@ -3111,6 +3115,8 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 			}
 		}
 		return true;
+	case STORAGE_TYPE:
+		assert(0); // TODO
 	}
 	assert(0); // Unreachable
 }
@@ -3296,6 +3302,8 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 			}
 		}
 		return true;
+	case EXPR_TYPE:
+		return type_is_specified(ctx, aexpr->_type.type);
 	case EXPR_UNARITHM:
 		return expr_is_specified(ctx, aexpr->unarithm.operand);
 	case EXPR_YIELD:

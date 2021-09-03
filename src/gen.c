@@ -1335,6 +1335,8 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		assert(from->storage == STORAGE_SLICE);
 		pushi(ctx->current, &qresult, Q_COPY, &qvalue, NULL);
 		break;
+	case STORAGE_TYPE:
+		assert(0); // TODO
 	case STORAGE_ALIAS:
 	case STORAGE_BOOL:
 	case STORAGE_FCONST:
@@ -2607,6 +2609,8 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_return(ctx, expr);
 	case EXPR_SWITCH:
 		return gen_expr_switch_with(ctx, expr, NULL);
+	case EXPR_TYPE:
+		assert(0); // TODO
 	case EXPR_UNARITHM:
 		return gen_expr_unarithm(ctx, expr);
 	case EXPR_SLICE:
@@ -3129,6 +3133,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		}
 		break;
 	case STORAGE_UNION:
+	case STORAGE_TYPE:
 		assert(0); // TODO
 	case STORAGE_ALIAS:
 	case STORAGE_FCONST:

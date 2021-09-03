@@ -141,6 +141,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
 	case STORAGE_TAGGED:
+	case STORAGE_TYPE:
 		assert(0); // Invariant
 	}
 }
@@ -315,6 +316,8 @@ emit_type(const struct type *type, FILE *out)
 		}
 		fprintf(out, ")");
 		break;
+	case STORAGE_TYPE:
+		assert(0); // TODO
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 		assert(0); // Invariant
