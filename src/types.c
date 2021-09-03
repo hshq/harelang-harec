@@ -50,7 +50,7 @@ type_get_field(const struct type *type, const char *name)
 			}
 		} else {
 			const struct struct_field *f =
-				type_get_field(field->type, name);
+				type_get_field(type_dealias(field->type), name);
 			if (f != NULL) {
 				return f;
 			}
