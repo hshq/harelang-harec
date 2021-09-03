@@ -81,7 +81,7 @@ struct declaration {
 	enum declaration_type type;
 	struct identifier ident;
 	char *symbol;
-	bool exported;
+	bool exported, hidden;
 	union {
 		struct constant_decl constant;
 		struct function_decl func;

@@ -7,6 +7,7 @@
 // Keep sorted
 enum lexical_token {
 	T_ATTR_FINI,
+	T_ATTR_HIDDEN,
 	T_ATTR_INIT,
 	T_ATTR_NORETURN,
 	T_ATTR_OFFSET,

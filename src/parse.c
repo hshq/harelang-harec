@@ -2321,6 +2321,9 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 			case T_ATTR_SYMBOL:
 				i->symbol = parse_attr_symbol(lexer);
 				break;
+			case T_ATTR_HIDDEN:
+				i->hidden = true;
+				break;
 			default:
 				unlex(lexer, &tok);
 				break;
@@ -2342,7 +2345,9 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			lex(lexer, &tok);
-			if (tok.token == T_NAME || tok.token == T_ATTR_SYMBOL) {
+			if (tok.token == T_NAME
+					|| tok.token == T_ATTR_SYMBOL
+					|| tok.token == T_ATTR_HIDDEN) {
 				i->next = xcalloc(1, sizeof(struct ast_global_decl));
 				i = i->next;
 				unlex(lexer, &tok);
@@ -2394,6 +2399,9 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 		switch (lex(lexer, &tok)) {
 		case T_ATTR_FINI:
 			decl->flags |= FN_FINI;
+			break;
+		case T_ATTR_HIDDEN:
+			decl->hidden = true;
 			break;
 		case T_ATTR_INIT:
 			decl->flags |= FN_INIT;
