@@ -2623,6 +2623,18 @@ check_expr_tuple(struct context *ctx,
 }
 
 static void
+check_expr_type(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	expr->type = EXPR_TYPE;
+	expr->_type.type = type_store_lookup_atype(
+		ctx->store, aexpr->_type.type);
+	expr->result = type_store_type(ctx->store);
+}
+
+static void
 check_expr_unarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -2782,7 +2794,8 @@ check_expression(struct context *ctx,
 		check_expr_tuple(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_TYPE:
-		assert(0); // TODO
+		check_expr_type(ctx, aexpr, expr, hint);
+		break;
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr, hint);
 		break;

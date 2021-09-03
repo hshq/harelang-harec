@@ -55,4 +55,7 @@ const struct type *type_store_tagged_to_union(
 const struct type *type_store_lookup_tuple(struct type_store *store,
 	struct type_tuple *values);
 
+// Returns the 'type' type.
+const struct type *type_store_type(struct type_store *store);
+
 #endif

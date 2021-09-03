@@ -115,6 +115,7 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return &builtin_type_null; // const null and null are the same type
 	case STORAGE_STRING:
 		return is_const ? &builtin_type_const_str : &builtin_type_str;
+	case STORAGE_TYPE:
 	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
@@ -123,7 +124,6 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
-	case STORAGE_TYPE:
 	case STORAGE_UNION:
 	case STORAGE_ENUM:
 		return NULL;
@@ -983,6 +983,24 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 	return type_store_lookup_type(store, &type);
 }
 
+const struct type *
+type_store_type(struct type_store *store)
+{
+	struct type type = {
+		.storage = STORAGE_TYPE,
+	};
+	return type_store_lookup_type(store, &type);
+}
+
+// Algorithm:
+// - Deduplicate and collect nested unions
+// - Merge *type with nullable *type
+// - If one of the types is null:
+// 	- If there's more than one pointer type, error out
+// 	- If there's one pointer type, make it nullable and drop the null
+// 	- If there are no pointer types, keep the null
+// - If the resulting union only has one type, return that type
+// - Otherwise, return a tagged union of all the selected types
 const struct type *
 type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 {
