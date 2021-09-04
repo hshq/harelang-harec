@@ -10,6 +10,9 @@ type_dereference(const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_ALIAS:
+		if (type_dealias(type)->storage != STORAGE_POINTER) {
+			return type;
+		}
 		return type_dereference(type_dealias(type));
 	case STORAGE_POINTER:
 		if (type->pointer.flags & PTR_NULLABLE) {

@@ -2200,7 +2200,7 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 	const struct expression *value = expr->measure.value;
 	switch (expr->measure.op) {
 	case M_LEN:
-		type = type_dereference(value->result);
+		type = type_dealias(type_dereference(value->result));
 		switch (type->storage) {
 		case STORAGE_ARRAY:
 			len = type->array.length;

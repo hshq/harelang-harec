@@ -171,6 +171,7 @@ check_expr_access(struct context *ctx,
 				"Cannot dereference nullable pointer for indexing");
 			return;
 		}
+		atype = type_dealias(atype);
 		const struct type *itype =
 			type_dealias(expr->access.index->result);
 		if (atype->storage != STORAGE_ARRAY
@@ -201,6 +202,7 @@ check_expr_access(struct context *ctx,
 				"Cannot dereference nullable pointer for field selection");
 			return;
 		}
+		stype = type_dealias(stype);
 		if (stype->storage != STORAGE_STRUCT
 				&& stype->storage != STORAGE_UNION) {
 			error(ctx, aexpr->access._struct->loc, expr,
@@ -229,6 +231,7 @@ check_expr_access(struct context *ctx,
 				"Cannot dereference nullable pointer for value selection");
 			return;
 		}
+		ttype = type_dealias(ttype);
 		if (ttype->storage != STORAGE_TUPLE) {
 			error(ctx, aexpr->access.tuple->loc, expr,
 				"Cannot select value from non-tuple object");
@@ -351,6 +354,7 @@ check_expr_append(struct context *ctx,
 			"Cannot dereference nullable pointer for append");
 		return;
 	}
+	stype = type_dealias(stype);
 	if (stype->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->append.expr->loc, expr,
 			"append must operate on a slice");
@@ -971,6 +975,7 @@ check_expr_call(struct context *ctx,
 			"Cannot dereference nullable pointer type for function call");
 		return;
 	}
+	fntype = type_dealias(fntype);
 	if (fntype->storage != STORAGE_FUNCTION) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot call non-function type");
@@ -1708,6 +1713,7 @@ check_expr_insert(struct context *ctx,
 			"Cannot dereference nullable pointer for insert");
 		return;
 	}
+	sltype = type_dealias(sltype);
 	if (sltype->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->insert.expr->loc, expr,
 			"cannot insert into non-slice type %s",
@@ -1900,8 +1906,14 @@ check_expr_measure(struct context *ctx,
 	case M_LEN:
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
-		enum type_storage vstor =
-			type_dereference(expr->measure.value->result)->storage;
+		const struct type *atype =
+			type_dereference(expr->measure.value->result);
+		if (!atype) {
+			error(ctx, aexpr->access.array->loc, expr,
+				"Cannot dereference nullable pointer for len");
+			return;
+		}
+		enum type_storage vstor = type_dealias(atype)->storage;
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
 				|| vstor == STORAGE_STRING;
 		if (!valid) {
@@ -2158,8 +2170,9 @@ check_expr_slice(struct context *ctx,
 			"Cannot dereference nullable pointer for slicing");
 		return;
 	}
-	if (atype->storage != STORAGE_SLICE
-			&& atype->storage != STORAGE_ARRAY) {
+	const struct type *dtype = type_dealias(atype);
+	if (dtype->storage != STORAGE_SLICE
+			&& dtype->storage != STORAGE_ARRAY) {
 		error(ctx, aexpr->slice.object->loc, expr,
 			"Cannot slice non-array, non-slice object");
 		return;
@@ -2192,14 +2205,19 @@ check_expr_slice(struct context *ctx,
 		}
 		expr->slice.end = lower_implicit_cast(
 			&builtin_type_size, expr->slice.end);
-	} else if (atype->storage == STORAGE_ARRAY
-			&& atype->array.length == SIZE_UNDEFINED) {
+	} else if (dtype->storage == STORAGE_ARRAY
+			&& dtype->array.length == SIZE_UNDEFINED) {
 		error(ctx, aexpr->loc, expr,
 			"Must have end index on array of undefined length");
 		return;
 	}
 
-	expr->result = type_store_lookup_slice(ctx->store, atype->array.members);
+	if (dtype->storage == STORAGE_SLICE) {
+		expr->result = atype;
+	} else {
+		expr->result = type_store_lookup_slice(ctx->store,
+			dtype->array.members);
+	}
 }
 
 static void
