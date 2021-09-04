@@ -3337,7 +3337,7 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 }
 
 static bool
-scan_type(struct context *ctx, const struct ast_type_decl *decl)
+scan_type(struct context *ctx, const struct ast_type_decl *decl, bool exported)
 {
 	// TODO: Get rid of this once the type store bubbles up errors
 	if (!type_is_specified(ctx, decl->type)) {
@@ -3350,7 +3350,7 @@ scan_type(struct context *ctx, const struct ast_type_decl *decl)
 	mkident(ctx, &ident, &decl->ident);
 
 	const struct type *alias =
-		type_store_lookup_alias(ctx->store, &ident, type);
+		type_store_lookup_alias(ctx->store, &ident, type, exported);
 	scope_insert(ctx->unit, O_TYPE, &ident, &decl->ident, alias, NULL);
 
 	if (type->storage == STORAGE_ENUM) {
@@ -3417,7 +3417,7 @@ scan_declaration(struct context *ctx, const struct ast_decl *decl)
 		}
 		return true;
 	case AST_DECL_TYPE:
-		return scan_type(ctx, &decl->type);
+		return scan_type(ctx, &decl->type, decl->exported);
 	}
 	assert(0); // Unreachable
 }

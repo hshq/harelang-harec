@@ -861,13 +861,15 @@ type_store_lookup_slice(struct type_store *store, const struct type *members)
 
 const struct type *
 type_store_lookup_alias(struct type_store *store,
-	const struct identifier *ident, const struct type *secondary)
+	const struct identifier *ident, const struct type *secondary,
+	bool exported)
 {
 	struct type alias = {
 		.storage = STORAGE_ALIAS,
 		.alias = {
 			.ident = *ident,
 			.type = secondary,
+			.exported = exported,
 		},
 		.size = secondary->size,
 		.align = secondary->align,
@@ -891,6 +893,7 @@ type_store_lookup_alias(struct type_store *store,
 			// Finish filling in forward referenced type
 			falias->alias.type = type_store_lookup_with_flags(store,
 				secondary, secondary->flags | flags[i]);
+			falias->alias.exported = exported;
 			falias->size = secondary->size;
 			falias->align = secondary->align;
 			falias->flags = secondary->flags | flags[i];
@@ -898,6 +901,7 @@ type_store_lookup_alias(struct type_store *store,
 	}
 	alias.flags = secondary->flags;
 	alias.alias.type = secondary;
+	alias.alias.exported = exported;
 	return type_store_lookup_type(store, &alias);
 }
 

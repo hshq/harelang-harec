@@ -42,7 +42,8 @@ const struct type *type_store_lookup_slice(struct type_store *store,
 	const struct type *members);
 
 const struct type *type_store_lookup_alias(struct type_store *store,
-	const struct identifier *ident, const struct type *secondary);
+	const struct identifier *ident, const struct type *secondary,
+	bool exported);
 
 const struct type *type_store_lookup_tagged(struct type_store *store,
 	struct type_tagged_union *tags);

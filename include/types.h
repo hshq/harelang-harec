@@ -49,6 +49,7 @@ struct type;
 struct type_alias {
 	struct identifier ident;
 	const struct type *type;
+	bool exported; // Used to make sure unexported aliases aren't emitted
 };
 
 struct type_array {
