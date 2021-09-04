@@ -972,16 +972,6 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 	return type_store_lookup_type(store, &type);
 }
 
-// Algorithm:
-// - Deduplicate and collect nested unions
-// - Merge *type with nullable *type
-// - Merge type with const type
-// - If one of the types is null:
-// 	- If there's more than one pointer type, error out
-// 	- If there's one pointer type, make it nullable and drop the null
-// 	- If there are no pointer types, keep the null
-// - If the resulting union only has one type, return that type
-// - Otherwise, return a tagged union of all the selected types
 const struct type *
 type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 {
