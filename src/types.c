@@ -535,7 +535,8 @@ struct_subtype(const struct type *to, const struct type *from) {
 	for (struct struct_field *f = from->struct_union.fields; f;
 			f = f->next) {
 		if (f->offset == 0) {
-			return f->type == to;
+			return f->type == to
+				|| struct_subtype(to, type_dealias(f->type));
 		}
 	}
 	return false;
