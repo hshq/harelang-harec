@@ -975,6 +975,7 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 // Algorithm:
 // - Deduplicate and collect nested unions
 // - Merge *type with nullable *type
+// - Merge type with const type
 // - If one of the types is null:
 // 	- If there's more than one pointer type, error out
 // 	- If there's one pointer type, make it nullable and drop the null
@@ -1002,6 +1003,22 @@ type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 		struct type_tagged_union *i = *tu;
 		bool dropped = false;
 		const struct type *it = i->type;
+
+		if (it->flags && TYPE_CONST) {
+			for (struct type_tagged_union **j = &in; *j;
+					j = &(*j)->next) {
+				const struct type *jt = (*j)->type;
+				if (jt == it) {
+					continue;
+				}
+				jt = type_store_lookup_with_flags(store, jt,
+					jt->flags | TYPE_CONST);
+				if (jt == it) {
+					*j = (*j)->next;
+				}
+			}
+		}
+
 		for (struct type_tagged_union *j = in; j != i; j = j->next) {
 			const struct type *jt = j->type;
 			assert(it->id != jt->id);
