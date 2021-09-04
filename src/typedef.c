@@ -260,7 +260,7 @@ emit_type(const struct type *type, FILE *out)
 		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		emit_struct(type, out);
+		ret &= emit_struct(type, out);
 		break;
 	case STORAGE_FUNCTION:
 		if (type->func.flags & FN_NORETURN) {
