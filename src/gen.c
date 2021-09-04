@@ -2084,6 +2084,11 @@ next:
 	if (_default) {
 		bval = gen_expr_with(ctx, _default->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
+	} else {
+		struct qbe_statement labort;
+		mklabel(ctx, &labort, ".%d");
+		push(&ctx->current->body, &labort);
+		gen_fixed_abort(ctx, expr->loc, ABORT_UNREACHABLE);
 	}
 
 	push(&ctx->current->body, &lout);
