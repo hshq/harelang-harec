@@ -231,8 +231,8 @@ type_is_numeric(const struct type *type)
 	case STORAGE_CHAR:
 	case STORAGE_RUNE:
 	case STORAGE_NULL:
-	case STORAGE_ENUM:
 		return false;
+	case STORAGE_ENUM:
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
