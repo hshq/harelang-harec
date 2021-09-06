@@ -690,7 +690,12 @@ check_expr_binarithm(struct context *ctx,
 	expr->type = EXPR_BINARITHM;
 	expr->binarithm.op = aexpr->binarithm.op;
 
-	bool numeric;
+	enum {
+		BT_NUMERIC,
+		BT_LOGICAL,
+		BT_COMPARISON,
+		BT_EQUALITY,
+	} btype;
 	switch (expr->binarithm.op) {
 	// Numeric arithmetic
 	case BIN_BAND:
@@ -703,19 +708,25 @@ check_expr_binarithm(struct context *ctx,
 	case BIN_RSHIFT:
 	case BIN_TIMES:
 	case BIN_BXOR:
-		numeric = true;
+		btype = BT_NUMERIC;
 		break;
 	// Logical arithmetic
-	case BIN_GREATER:
-	case BIN_GREATEREQ:
 	case BIN_LAND:
-	case BIN_LEQUAL:
-	case BIN_LESS:
-	case BIN_LESSEQ:
 	case BIN_LOR:
 	case BIN_LXOR:
+		btype = BT_LOGICAL;
+		hint = NULL;
+		break;
+	case BIN_GREATER:
+	case BIN_GREATEREQ:
+	case BIN_LESS:
+	case BIN_LESSEQ:
+		btype = BT_COMPARISON;
+		hint = NULL;
+		break;
+	case BIN_LEQUAL:
 	case BIN_NEQUAL:
-		numeric = false;
+		btype = BT_EQUALITY;
 		hint = NULL;
 		break;
 	}
@@ -778,17 +789,46 @@ check_expr_binarithm(struct context *ctx,
 			"Cannot promote lvalue and rvalue");
 		return;
 	}
+	expr->result = &builtin_type_bool;
+	switch (btype) {
+	case BT_NUMERIC:
+		if (!type_is_numeric(p)) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot perform arithmetic on non-numeric %s type",
+				type_storage_unparse(type_dealias(p)->storage));
+		}
+		expr->result = p;
+		break;
+	case BT_LOGICAL:
+		if (type_dealias(p)->storage != STORAGE_BOOL) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot perform logical arithmetic on non-bool %s type",
+				type_storage_unparse(type_dealias(p)->storage));
+		}
+		break;
+	case BT_COMPARISON:
+		if (!type_is_numeric(p)) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot perform comparison on non-numeric %s type",
+				type_storage_unparse(type_dealias(p)->storage));
+		}
+		break;
+	case BT_EQUALITY:
+		if (!type_is_numeric(p) && type_dealias(p)->storage != STORAGE_POINTER
+				&& type_dealias(p)->storage != STORAGE_STRING
+				&& type_dealias(p)->storage != STORAGE_BOOL
+				&& type_dealias(p)->storage != STORAGE_RUNE) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot perform equality test on %s type",
+				type_storage_unparse(type_dealias(p)->storage));
+		}
+		break;
+	}
 	lvalue = lower_implicit_cast(p, lvalue);
 	rvalue = lower_implicit_cast(p, rvalue);
 
 	expr->binarithm.lvalue = lvalue;
 	expr->binarithm.rvalue = rvalue;
-
-	if (numeric) {
-		expr->result = p;
-	} else {
-		expr->result = &builtin_type_bool;
-	}
 }
 
 static void
