@@ -70,12 +70,14 @@ static void
 error(struct context *ctx, const struct location loc, struct expression *expr,
 		char *fmt, ...)
 {
-	expr->type = EXPR_CONSTANT;
-	// TODO: We should have a separate type for errors, to avoid spurious
-	// errors
-	expr->result = &builtin_type_void;
-	expr->terminates = false;
-	expr->loc = loc;
+	if (expr) {
+		expr->type = EXPR_CONSTANT;
+		// TODO: We should have a separate type for errors, to avoid
+		// spurious errors
+		expr->result = &builtin_type_void;
+		expr->terminates = false;
+		expr->loc = loc;
+	}
 
 	va_list ap;
 	va_start(ap, fmt);
@@ -3708,6 +3710,9 @@ check_internal(struct type_store *ts,
 	while (cur || unresolved) {
 		if (!cur) {
 			if (!found) {
+				handle_errors(ctx.errors);
+				error(&ctx, unresolved->unresolved->decl.loc, NULL,
+					"Undefined identifier used in declaration");
 				handle_errors(ctx.errors);
 			}
 			cur = unresolved;
