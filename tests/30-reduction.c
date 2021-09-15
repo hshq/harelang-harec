@@ -78,17 +78,25 @@ int main(void) {
 		"else if (true) null");
 	test(&ctx, "(nullable *int | void)",
 		"match (0u8: (u8 | u16 | u32 | u64)) { "
-			"u8 => null: *int, "
-			"u16 => null: nullable *int, "
-			"u32 => null, "
-			"u64 => void, "
+		"case u8 => "
+		"	yield null: *int; "
+		"case u16 => "
+		"	yield null: nullable *int; "
+		"case u32 => "
+		"	yield null; "
+		"case u64 => "
+		"	yield;"
 		"}");
 	test(&ctx, "(nullable *int | void)",
 		"switch (0) { "
-			"42 => null: *int, "
-			"69 => null: nullable *int, "
-			"1337 => null, "
-			"* => void, "
+		"case 42 => "
+		"	yield null: *int;"
+		"case 69 => "
+		"	yield null: nullable *int;"
+		"case 1337 => "
+		"	yield null;"
+		"case => "
+		"	yield;"
 		"};");
 
 	// if, match, and switch all use the same code for reduction, so we

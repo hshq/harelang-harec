@@ -1721,9 +1721,8 @@ parse_case_options(struct lexer *lexer)
 {
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
-	case T_TIMES:
-		want(lexer, T_CASE, &tok);
-		return NULL;
+	case T_ARROW:
+		return NULL; // Default case
 	default:
 		unlex(lexer, &tok);
 		break;
@@ -1738,7 +1737,7 @@ parse_case_options(struct lexer *lexer)
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			switch (lex(lexer, &tok)) {
-			case T_CASE:
+			case T_ARROW:
 				more = false;
 				break;
 			default:
@@ -1749,11 +1748,11 @@ parse_case_options(struct lexer *lexer)
 				break;
 			}
 			break;
-		case T_CASE:
+		case T_ARROW:
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_CASE, T_COMMA, T_EOF);
+			synassert(false, &tok, T_COMMA, T_ARROW, T_EOF);
 			break;
 		}
 	}
@@ -1771,7 +1770,6 @@ parse_switch_expression(struct lexer *lexer)
 	want(lexer, T_LPAREN, &tok);
 	exp->_switch.value = parse_expression(lexer);
 	want(lexer, T_RPAREN, &tok);
-
 	want(lexer, T_LBRACE, &tok);
 
 	bool more = true;
@@ -1779,25 +1777,42 @@ parse_switch_expression(struct lexer *lexer)
 	while (more) {
 		struct ast_switch_case *_case =
 			*next_case = xcalloc(1, sizeof(struct ast_switch_case));
+		want(lexer, T_CASE, &tok);
 		_case->options = parse_case_options(lexer);
-		_case->value = parse_expression(lexer);
 
-		switch (lex(lexer, &tok)) {
-		case T_COMMA:
+		bool exprs = true;
+		struct ast_expression_list *cur = &_case->exprs;
+		struct ast_expression_list **next = &cur->next;
+		while (exprs) {
+			cur->expr = parse_expression(lexer);
+			want(lexer, T_SEMICOLON, &tok);
+
 			switch (lex(lexer, &tok)) {
+			case T_CASE:
 			case T_RBRACE:
-				more = false;
+				exprs = false;
 				break;
 			default:
-				unlex(lexer, &tok);
 				break;
 			}
+			unlex(lexer, &tok);
+
+			if (exprs) {
+				*next = xcalloc(1, sizeof(struct ast_expression_list));
+				cur = *next;
+				next = &cur->next;
+			}
+		}
+
+		switch (lex(lexer, &tok)) {
+		case T_CASE:
+			unlex(lexer, &tok);
 			break;
 		case T_RBRACE:
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+			synassert(false, &tok, T_CASE, T_RBRACE, T_EOF);
 		}
 
 		next_case = &_case->next;
@@ -1823,6 +1838,7 @@ parse_match_expression(struct lexer *lexer)
 	while (more) {
 		struct ast_match_case *_case =
 			*next_case = xcalloc(1, sizeof(struct ast_match_case));
+		want(lexer, T_CASE, &tok);
 
 		struct token tok2 = {0};
 		struct identifier ident = {0};
@@ -1842,7 +1858,7 @@ parse_match_expression(struct lexer *lexer)
 				_case->type->storage = STORAGE_ALIAS;
 				_case->type->alias = ident;
 				break;
-			case T_CASE:
+			case T_ARROW:
 				unlex(lexer, &tok2);
 				_case->type = mktype(&tok.loc);
 				_case->type->storage = STORAGE_ALIAS;
@@ -1850,24 +1866,13 @@ parse_match_expression(struct lexer *lexer)
 				break;
 			default:
 				synassert(false, &tok, T_COLON,
-					T_DOUBLE_COLON, T_CASE, T_EOF);
+					T_DOUBLE_COLON, T_ARROW, T_EOF);
 				break;
 			}
 			break;
-		case T_TIMES:
-			switch (lex(lexer, &tok2)) {
-			case T_CASE: // Default case
-				unlex(lexer, &tok2);
-				break;
-			default:
-				unlex(lexer, &tok2);
-				_case->type = parse_type(lexer);
-				struct ast_type *ptr = mktype(&tok.loc);
-				ptr->storage = STORAGE_POINTER;
-				ptr->pointer.referent = _case->type;
-				_case->type = ptr;
-				break;
-			}
+		case T_ARROW:
+			// Default case
+			unlex(lexer, &tok);
 			break;
 		case T_NULL:
 			type = mktype(&tok.loc);
@@ -1880,25 +1885,41 @@ parse_match_expression(struct lexer *lexer)
 			break;
 		}
 
-		want(lexer, T_CASE, &tok);
-		_case->value = parse_expression(lexer);
+		want(lexer, T_ARROW, &tok);
 
-		switch (lex(lexer, &tok)) {
-		case T_COMMA:
+		bool exprs = true;
+		struct ast_expression_list *cur = &_case->exprs;
+		struct ast_expression_list **next = &cur->next;
+		while (exprs) {
+			cur->expr = parse_expression(lexer);
+			want(lexer, T_SEMICOLON, &tok);
+
 			switch (lex(lexer, &tok)) {
+			case T_CASE:
 			case T_RBRACE:
-				more = false;
+				exprs = false;
 				break;
 			default:
-				unlex(lexer, &tok);
 				break;
 			}
+			unlex(lexer, &tok);
+
+			if (exprs) {
+				*next = xcalloc(1, sizeof(struct ast_expression_list));
+				cur = *next;
+				next = &cur->next;
+			}
+		}
+
+		switch (lex(lexer, &tok)) {
+		case T_CASE:
+			unlex(lexer, &tok);
 			break;
 		case T_RBRACE:
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+			synassert(false, &tok, T_CASE, T_RBRACE, T_EOF);
 		}
 
 		next_case = &_case->next;

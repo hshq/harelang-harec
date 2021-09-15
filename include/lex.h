@@ -20,6 +20,7 @@ enum lexical_token {
 	T_ASSERT,
 	T_BOOL,
 	T_BREAK,
+	T_CASE,
 	T_CHAR,
 	T_CONST,
 	T_CONTINUE,
@@ -71,11 +72,11 @@ enum lexical_token {
 	T_LAST_KEYWORD = T_YIELD,
 
 	// Operators
+	T_ARROW,
 	T_BANDEQ,
 	T_BAND,
 	T_BNOT,
 	T_BOR,
-	T_CASE,
 	T_COLON,
 	T_COMMA,
 	T_DIV,

@@ -249,7 +249,7 @@ struct ast_expression_compound {
 struct ast_match_case {
 	char *name; // May be null
 	struct ast_type *type;
-	struct ast_expression *value;
+	struct ast_expression_list exprs;
 	struct ast_match_case *next;
 };
 
@@ -288,7 +288,7 @@ struct ast_case_option {
 
 struct ast_switch_case {
 	struct ast_case_option *options; // NULL for *
-	struct ast_expression *value;
+	struct ast_expression_list exprs;
 	struct ast_switch_case *next;
 };
 

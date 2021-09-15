@@ -28,11 +28,12 @@ static const char *tokens[] = {
 	[T_ASSERT] = "assert",
 	[T_BOOL] = "bool",
 	[T_BREAK] = "break",
+	[T_CASE] = "case",
 	[T_CHAR] = "char",
 	[T_CONST] = "const",
 	[T_CONTINUE] = "continue",
-	[T_DEF] = "def",
 	[T_DEFER] = "defer",
+	[T_DEF] = "def",
 	[T_DELETE] = "delete",
 	[T_ELSE] = "else",
 	[T_ENUM] = "enum",
@@ -78,11 +79,11 @@ static const char *tokens[] = {
 	[T_YIELD] = "yield",
 
 	// Operators
+	[T_ARROW] = "=>",
 	[T_BANDEQ] = "&=",
 	[T_BAND] = "&",
 	[T_BNOT] = "~",
 	[T_BOR] = "|",
-	[T_CASE] = "=>",
 	[T_COLON] = ":",
 	[T_COMMA] = ",",
 	[T_DIV] = "/",
@@ -855,7 +856,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			out->token = T_LEQUAL;
 			break;
 		case '>':
-			out->token = T_CASE;
+			out->token = T_ARROW;
 			break;
 		default:
 			push(lexer, c, false);
@@ -945,6 +946,9 @@ _lex(struct lexer *lexer, struct token *out)
 		break;
 	case '?':
 		out->token = T_QUESTION;
+		break;
+	case '`':
+		out->token = T_CASE;
 		break;
 	default:
 		out->token = T_ERROR;

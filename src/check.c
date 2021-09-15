@@ -1871,7 +1871,16 @@ check_expr_match(struct context *ctx,
 
 		_case->value = xcalloc(1, sizeof(struct expression));
 		_case->type = ctype;
-		check_expression(ctx, acase->value, _case->value, hint);
+
+		// Lower to compound
+		// TODO: This should probably be done in a more first-class way
+		struct ast_expression compound = {
+			.type = EXPR_COMPOUND,
+			.compound = {
+				.list = acase->exprs,
+			},
+		};
+		check_expression(ctx, &compound, _case->value, hint);
 
 		if (acase->name) {
 			scope_pop(&ctx->scope);
@@ -1915,7 +1924,7 @@ check_expr_match(struct context *ctx,
 		while (_case) {
 			if (!_case->value->terminates && !type_is_assignable(
 					expr->result, _case->value->result)) {
-				error(ctx, acase->value->loc, expr,
+				error(ctx, acase->exprs.expr->loc, expr,
 					"Match case is not assignable to result type");
 				return;
 			}
@@ -2447,7 +2456,17 @@ check_expr_switch(struct context *ctx,
 		}
 
 		_case->value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, acase->value, _case->value, hint);
+
+		// Lower to compound
+		// TODO: This should probably be done in a more first-class way
+		struct ast_expression compound = {
+			.type = EXPR_COMPOUND,
+			.compound = {
+				.list = acase->exprs,
+			},
+		};
+		check_expression(ctx, &compound, _case->value, hint);
+
 		if (_case->value->terminates) {
 			continue;
 		}
@@ -2486,7 +2505,7 @@ check_expr_switch(struct context *ctx,
 		while (_case) {
 			if (!_case->value->terminates && !type_is_assignable(
 					expr->result, _case->value->result)) {
-				error(ctx, acase->value->loc, expr,
+				error(ctx, acase->exprs.expr->loc, expr,
 					"Switch case is not assignable to result type");
 				return;
 			}
@@ -3211,8 +3230,11 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 			if (!type_is_specified(ctx, mcase->type)) {
 				return false;
 			}
-			if (!expr_is_specified(ctx, mcase->value)) {
-				return false;
+			for (const struct ast_expression_list *list = &mcase->exprs;
+					list; list = list->next) {
+				if (!expr_is_specified(ctx, list->expr)) {
+					return false;
+				}
 			}
 		}
 		return expr_is_specified(ctx, aexpr->match.value);
@@ -3259,8 +3281,11 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 					return false;
 				}
 			}
-			if (!expr_is_specified(ctx, scase->value)) {
-				return false;
+			for (const struct ast_expression_list *list = &scase->exprs;
+					list; list = list->next) {
+				if (!expr_is_specified(ctx, list->expr)) {
+					return false;
+				}
 			}
 		}
 		return expr_is_specified(ctx, aexpr->_switch.value);

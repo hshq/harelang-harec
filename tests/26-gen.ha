@@ -23,23 +23,29 @@ export fn main() void = {
 
 	let x: (void | int) = 10;
 	match (x) {
-		i: int => assert(i == 10),
-		void => abort(),
+	case i: int =>
+		assert(i == 10);
+	case void =>
+		abort();
 	};
 
 	let p = 0;
 	let p = &p: uintptr: u64: (u64 | void);
 	let p = match (p) {
-		void => abort(),
-		p: u64 => p: uintptr: *int,
+	case void =>
+		abort();
+	case p: u64 =>
+		yield p: uintptr: *int;
 	};
 	assert(*p == 0);
 
         let thing: int = 0;
         let thing = &thing: (*int | int);
         let p = match (thing) {
-                int => abort(),
-                p: *int => p,
+	case int =>
+		abort();
+	case p: *int =>
+		yield p;
         };
         *p = 0;
 };

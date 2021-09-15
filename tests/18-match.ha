@@ -3,9 +3,12 @@ fn tagged() void = {
 	let expected: [_]size = [1, 2, 5];
 	for (let i = 0z; i < len(cases); i += 1) {
 		let y: size = match (cases[i]) {
-			int    => 1,
-			uint   => 2,
-			s: str => len(s),
+		case int =>
+			yield 1;
+		case uint =>
+			yield 2;
+		case s: str =>
+			yield len(s);
 		};
 		assert(y == expected[i]);
 	};
@@ -15,20 +18,25 @@ fn termination() void = {
 	let x: (int | uint | str) = 1337i;
 	for (true) {
 		let y: int = match (x) {
-			int  => 42,
-			uint => abort(),
-			str  => break,
+		case int =>
+			yield 42;
+		case uint =>
+			abort();
+		case str =>
+			break;
 		};
 		assert(y == 42);
 		x = "hi";
 	};
 };
 
-fn default() void = {
+fn _default() void = {
 	let x: (int | uint | str) = 1337u;
 	let y: int = match (x) {
-		int => 42,
-		*   => 24,
+	case int =>
+		yield 42;
+	case =>
+		yield 24;
 	};
 	assert(y == 24);
 };
@@ -37,15 +45,19 @@ fn pointer() void = {
 	let x = 42;
 	let y: nullable *int = &x;
 	let z: int = match (y) {
-		y: *int => *y,
-		null    => abort(),
+	case y: *int =>
+		yield *y;
+	case null =>
+		abort();
 	};
 	assert(z == 42);
 	
 	y = null;
 	z = match(y) {
-		*int => abort(),
-		null => 1337,
+	case *int =>
+		abort();
+	case null =>
+		yield 1337;
 	};
 	assert(z == 1337);
 };
@@ -59,8 +71,10 @@ fn alias() void = {
 	let expected = [42, 24];
 	for (let i = 0z; i < len(cases); i += 1) {
 		let y: int = match (cases[i]) {
-			foo => 42,
-			bar => 24,
+		case foo =>
+			yield 42;
+		case bar =>
+			yield 24;
 		};
 		assert(y == expected[i]);
 	};
@@ -69,15 +83,19 @@ fn alias() void = {
 fn tagged_result() void = {
 	let x: (int | uint) = 42i;
 	let y: (int | uint) = match (x) {
-		x: int  => x,
-		x: uint => x,
+	case x: int =>
+		yield x;
+	case x: uint =>
+		yield x;
 	};
 	assert(y is int);
 
 	x = 42u;
 	y = match (x) {
-		x: int  => x,
-		x: uint => x,
+	case x: int =>
+		yield x;
+	case x: uint =>
+		yield x;
 	};
 	assert(y is uint);
 };
@@ -86,8 +104,10 @@ fn implicit_cast() void = {
 	let x: foobar = foo;
 	let y: nullable *int = null;
 	let a: (int | foobar) = match (y) {
-		null => foo,
-		z: *int => *z,
+	case null =>
+		yield foo;
+	case z: *int =>
+		yield *z;
 	};
 	assert(a is foobar);
 };
@@ -101,53 +121,68 @@ type foobarbaz = (foobar | baz);
 fn transitivity() void = {
 	let x: (foobar | int) = 10;
 	match (x) {
-		i: int => assert(i == 10),
-		foo => abort(),
-		bar => abort(),
+	case i: int =>
+		assert(i == 10);
+	case foo =>
+		abort();
+	case bar =>
+		abort();
 	};
 	x = foo;
 	let visit = false;
 	match (x) {
-		int => abort(),
-		foo => visit = true,
-		bar => abort(),
+	case int =>
+		abort();
+	case foo =>
+		visit = true;
+	case bar =>
+		abort();
 	};
 	assert(visit);
 
 	x = bar;
 	visit = false;
 	match (x) {
-		int    => abort(),
-		foo    => abort(),
-		foobar => visit = true,
+	case int =>
+		abort();
+	case foo =>
+		abort();
+	case foobar =>
+		visit = true;
 	};
 	assert(visit);
 
 	visit = false;
 	match (x) {
-		z: (foo | bar) => {
-			visit = true;
-			assert(z is bar);
-		},
-		int => abort(),
+	case z: (foo | bar) =>
+		visit = true;
+		assert(z is bar);
+	case int =>
+		abort();
 	};
 	assert(visit);
 
 	let y: foobarbaz = 10;
 	visit = false;
 	match (y) {
-		baz => visit = true,
-		foo => abort(),
-		bar => abort(),
+	case baz =>
+		visit = true;
+	case foo =>
+		abort();
+	case bar =>
+		abort();
 	};
 	assert(visit);
 
 	y = foo;
 	visit = false;
 	match (y) {
-		baz => abort(),
-		foo => visit = true,
-		bar => abort(),
+	case baz =>
+		abort();
+	case foo =>
+		visit = true;
+	case bar =>
+		abort();
 	};
 	assert(visit);
 };
@@ -161,14 +196,16 @@ export fn numeric() void = {
 	let visit = true;
 	let x: integer = 1337i;
 	match (x) {
-		s: signed => match (s) {
-			i: int => {
-				visit = true;
-				assert(i == 1337);
-			},
-			* => abort(),
-		},
-		u: unsigned => abort(),
+	case s: signed =>
+		match (s) {
+		case i: int =>
+			visit = true;
+			assert(i == 1337);
+		case =>
+			abort();
+		};
+	case u: unsigned =>
+		abort();
 	};
 	assert(visit);
 };
@@ -179,8 +216,10 @@ type align_8 = (void | int | i64);
 export fn alignment_conversion() void = {
 	let x: align_8 = 1234i;
 	match (x) {
-		y: align_4 => assert(y as int == 1234),
-		* => abort(),
+	case y: align_4 =>
+		assert(y as int == 1234);
+	case =>
+		abort();
 	};
 	let y: align_4 = 4321i;
 	x = y: align_8;
@@ -190,7 +229,7 @@ export fn alignment_conversion() void = {
 export fn main() void = {
 	tagged();
 	termination();
-	default();
+	_default();
 	pointer();
 	alias();
 	tagged_result();

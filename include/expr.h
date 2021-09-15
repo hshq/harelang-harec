@@ -296,7 +296,7 @@ struct case_option {
 };
 
 struct switch_case {
-	struct case_option *options; // NULL for *
+	struct case_option *options; // NULL for default case
 	struct expression *value;
 	struct switch_case *next;
 };

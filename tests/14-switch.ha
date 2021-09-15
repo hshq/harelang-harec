@@ -3,12 +3,14 @@ fn basics() void = {
 	for (let i = 0z; i < len(cases); i += 1) {
 		let x = cases[i][0];
 		let y: int = switch (x) {
-			0 => x + 1,
-			1 => x + 2,
-			10, 11, 12 => x + 10,
-			* => {
-				yield x;
-			},
+		case 0 =>
+			yield x + 1;
+		case 1 =>
+			yield x + 2;
+		case 10, 11, 12 =>
+			yield x + 10;
+		case =>
+			yield x;
 		};
 		assert(y == cases[i][1]);
 	};
@@ -17,9 +19,12 @@ fn basics() void = {
 fn termination() void = {
 	let x = 42;
 	let y: int = switch (x) {
-		42 => 1337,
-		24 => abort(),
-		*  => abort(),
+	case 42 =>
+		yield 1337;
+	case 24 =>
+		abort();
+	case =>
+		abort();
 	};
 	assert(y == 1337);
 };
@@ -27,23 +32,31 @@ fn termination() void = {
 fn tagged_result() void = {
 	let x = 42;
 	let y: (int | uint) = switch (x) {
-		42 => 1337i,
-		* => 1337u,
+	case 42 =>
+		yield 1337i;
+	case =>
+		yield 1337u;
 	};
 	assert(y is int);
 
 	x = 24;
 	y = switch (x) {
-		42 => 1337i,
-		* => 1337u,
+	case 42 =>
+		yield 1337i;
+	case =>
+		yield 1337u;
 	};
 	assert(y is uint);
 };
 
 fn str_switching() void = {
 	let result = switch ("hare") {
-		"world" => abort(),
-		"hare" => true,
+	case "world" =>
+		abort();
+	case "hare" =>
+		yield true;
+	case =>
+		abort();
 	};
 	assert(result == true);
 };
