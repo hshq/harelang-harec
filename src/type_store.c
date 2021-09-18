@@ -189,9 +189,9 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		} else if (!type_is_integer(out.result)) {
 			error(store->check_context, in.loc,
 				"Field offset must be an integer");
-		} else if (type_is_signed(out.result) && out.constant.ival <= 0) {
+		} else if (type_is_signed(out.result) && out.constant.ival < 0) {
 			error(store->check_context, in.loc,
-				"Field offset must be greater than 0");
+				"Field offset must not be less than 0");
 		} else {
 			size_t offs = (size_t)out.constant.uval;
 			field->offset = offs;
