@@ -1340,8 +1340,7 @@ check_expr_compound(struct context *ctx,
 	struct expression *lexpr;
 	while (alist) {
 		lexpr = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, alist->expr, lexpr,
-				alist->next ? &builtin_type_void : hint);
+		check_expression(ctx, alist->expr, lexpr, &builtin_type_void);
 		list->expr = lexpr;
 
 		alist = alist->next;
