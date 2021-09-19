@@ -149,6 +149,48 @@ fn invariants() void = {
 	};
 };
 
+fn fields() void = {
+	let n: u32 = 0;
+
+	let up: *union {
+		struct {
+			a: u8,
+			b: u8,
+		},
+		c: u32,
+	} = &n: uintptr: *union {
+		struct {
+			a: u8,
+			b: u8,
+		},
+		c: u32,
+	};
+	assert(&up.a: uintptr == &n: uintptr);
+	assert(&up.b: uintptr == &n: uintptr + 1);
+	assert(&up.c: uintptr == &n: uintptr);
+
+	let sp: *struct {
+		a: u8,
+		struct {
+			b: u8,
+			struct {
+				c: u8,
+			},
+		},
+	} = &n: uintptr: *struct {
+		a: u8,
+		struct {
+			b: u8,
+			struct {
+				c: u8,
+			},
+		},
+	};
+	assert(&sp.a: uintptr == &n: uintptr);
+	assert(&sp.b: uintptr == &n: uintptr + 1);
+	assert(&sp.c: uintptr == &n: uintptr + 2);
+};
+
 export fn main() void = {
 	padding();
 	storage();
@@ -158,6 +200,7 @@ export fn main() void = {
 	named();
 	autofill();
 	invariants();
+	fields();
 	// TODO:
 	// - Union tests
 	// - Embedded structs

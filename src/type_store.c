@@ -218,12 +218,12 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 
 static const struct type *type_store_lookup_type(struct type_store *store, const struct type *type);
 
-static const struct type *
-shift_fields(struct type_store *store, const struct type *type, size_t offset)
+void
+shift_fields(struct type_store *store, struct struct_field *parent)
 {
-	if (type->storage == STORAGE_ALIAS
-			&& type_dealias(type)->storage != STORAGE_STRUCT
-			&& type_dealias(type)->storage != STORAGE_UNION) {
+	if (parent->type->storage == STORAGE_ALIAS
+			&& type_dealias(parent->type)->storage != STORAGE_STRUCT
+			&& type_dealias(parent->type)->storage != STORAGE_UNION) {
 		// TODO
 		struct location loc = {
 			.path = "<unknown>",
@@ -232,16 +232,16 @@ shift_fields(struct type_store *store, const struct type *type, size_t offset)
 		};
 		error(store->check_context, loc,
 			"Cannot embed non-struct non-union alias");
-		return &builtin_type_void;
+		return;
 	}
-	if (offset == 0) {
+	if (parent->offset == 0) {
 		// We need to return early here in order to avoid dealiasing an
 		// embedded alias. This is acceptable at nonzero offsets, but we
 		// need to keep the alias if it's at offset 0 because of
 		// subtyping.
-		return type;
+		return;
 	}
-	type = type_dealias(type);
+	const struct type *type = type_dealias(parent->type);
 	assert(type->storage == STORAGE_STRUCT
 		|| type->storage == STORAGE_UNION);
 	struct type new = {
@@ -257,13 +257,17 @@ shift_fields(struct type_store *store, const struct type *type, size_t offset)
 		struct struct_field *new = *next =
 			xcalloc(1, sizeof(struct struct_field));
 		next = &new->next;
+		new->type = field->type;
+		new->offset = field->offset;
 		if (field->name) {
 			new->name = strdup(field->name);
+			new->offset += parent->offset;
+		} else {
+			shift_fields(store, new);
 		}
-		new->type = field->type;
-		new->offset = field->offset + offset;
 	}
-	return type_store_lookup_type(store, &new);
+
+	parent->type = type_store_lookup_type(store, &new);
 }
 
 static void
@@ -284,8 +288,7 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 			// type_get_field far easier to implement and doesn't
 			// cause any trouble in gen since offsets are only used
 			// there for sorting fields.
-			field->type = shift_fields(store, field->type,
-				*size - field->type->size);
+			shift_fields(store, field);
 		}
 		atype = atype->next;
 	}
