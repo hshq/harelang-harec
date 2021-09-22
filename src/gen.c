@@ -1090,8 +1090,9 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 			return;
 		}
 
+		subtype = tagged_subset_compat(to, from) ? from : to;
 		const struct type *innertype = type_store_tagged_to_union(
-				ctx->store, type_dealias(from));
+				ctx->store, type_dealias(subtype));
 		struct gen_value iout = mktemp(ctx, innertype, ".%d");
 		struct gen_value ival = mktemp(ctx, innertype, ".%d");
 		struct qbe_value qiout = mkqval(ctx, &iout);
