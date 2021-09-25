@@ -28,6 +28,7 @@ enum type_storage {
 	STORAGE_UINT,
 	STORAGE_UINTPTR,
 	STORAGE_VOID,
+	STORAGE_TYPE, // Handled separately
 	// Other types
 	STORAGE_ALIAS,
 	STORAGE_ARRAY,
@@ -38,7 +39,6 @@ enum type_storage {
 	STORAGE_TAGGED,
 	STORAGE_TUPLE,
 	STORAGE_UNION,
-	STORAGE_TYPE,
 	STORAGE_FCONST,
 	STORAGE_ICONST,
 };

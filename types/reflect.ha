@@ -14,6 +14,18 @@ export type typeinfo = struct {
 // Returns [[typeinfo]] for the provided type.
 export fn reflect(in: type) *typeinfo = in: *typeinfo;
 
+// Returns [[typeinfo]] for the provided type, unwrapping any aliases along the
+// way.
+export fn unwrap(in: type) *typeinfo = {
+	let info = reflect(in);
+	match (info.repr) {
+	case a: alias =>
+		return unwrap(a.secondary);
+	case =>
+		return info;
+	};
+};
+
 // Type flags.
 export type flags = enum u8 {
 	NONE = 0,
@@ -23,7 +35,7 @@ export type flags = enum u8 {
 
 // Details of the type representation.
 export type repr = (alias | array | builtin
-	| enum_ | func | pointer | slice_repr
+	| enumerated | func | pointer | slice_repr
 	| struct_union | tagged | tuple);
 
 // A type alias.
@@ -40,12 +52,12 @@ export type array = struct {
 
 // A built-in type.
 export type builtin = enum u8 {
-	BOOL, CHAR, F32, F64, I16, I32, I64, I8, INT, NULL, RUNE, SIZE, STR,
-	TYPE, U16, U32, U64, U8, UINT, UINTPTR, VOID,
+	BOOL, CHAR, ENUM, F32, F64, I16, I32, I64, I8, INT, NULL, RUNE, SIZE,
+	STR, U16, U32, U64, U8, UINT, UINTPTR, VOID, TYPE,
 };
 
 // An enum type.
-export type enum_ = struct {
+export type enumerated = struct {
 	storage: builtin,
 	values: [](str, u64),
 };

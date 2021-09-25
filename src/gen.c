@@ -2562,7 +2562,7 @@ mktyperef(struct gen_context *ctx, const struct type *type)
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
 		qdef = xcalloc(1, sizeof(struct qbe_def));
-		qdef->name = gen_name(ctx, ".typeinfo.%d");
+		qdef->name = gen_name(ctx, "typeinfo.%d");
 		qdef->kind = Q_DATA;
 
 		struct qbe_data_item *subitem = &qdef->data.items;
@@ -3330,6 +3330,9 @@ gen_type_info(struct gen_context *ctx,
 	char **repr_name = &repr.alias.ident.name;
 	item->type = QD_VALUE;
 
+	size_t len = 0;
+	struct qbe_def *def;
+	struct qbe_data_item *subitem;
 	switch (type->storage) {
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
@@ -3364,12 +3367,11 @@ gen_type_info(struct gen_context *ctx,
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 
-		struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
+		def = xcalloc(1, sizeof(struct qbe_def));
 		def->name = gen_name(ctx, "sldata.%d");
 		def->kind = Q_DATA;
 
-		size_t len = 0;
-		struct qbe_data_item *subitem = &def->data.items;
+		subitem = &def->data.items;
 		gen_ident_data(ctx, &type->alias.ident, subitem, &len);
 		qbe_append_def(ctx->out, def);
 
@@ -3396,6 +3398,81 @@ gen_type_info(struct gen_context *ctx,
 		item->value.name = ref.name;
 		break;
 	case STORAGE_ENUM:
+		*repr_name = "enumerated";
+		item->value = constw(type_hash(&repr));
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+
+		item->type = QD_ZEROED;
+		item->zeroed = 4;
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+
+		item->type = QD_VALUE;
+		item->value = constw(type->_enum.storage);
+		item->value.type = &qbe_byte;
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+
+		item->type = QD_ZEROED;
+		item->zeroed = 7;
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+
+		def = xcalloc(1, sizeof(struct qbe_def));
+		def->name = gen_name(ctx, "sldata.%d");
+		def->kind = Q_DATA;
+		subitem = &def->data.items;
+		for (struct type_enum_value *ev = type->_enum.values;
+				ev; ev = ev->next) {
+			size_t l = strlen(ev->name);
+			struct qbe_def *sdef = xcalloc(1, sizeof(struct qbe_def));
+			sdef->name = gen_name(ctx, "strdata.%d");
+			sdef->kind = Q_DATA;
+			sdef->data.items.type = QD_STRING;
+			sdef->data.items.str = xcalloc(1, l);
+			sdef->data.items.sz = l;
+			memcpy(sdef->data.items.str, ev->name, l);
+			qbe_append_def(ctx->out, sdef);
+
+			subitem->value.kind = QV_GLOBAL;
+			subitem->value.type = &qbe_long;
+			subitem->value.name = strdup(sdef->name);
+			subitem->next = xcalloc(1, sizeof(struct qbe_data_item));
+			subitem = subitem->next;
+			subitem->type = QD_VALUE;
+			subitem->value = constl(l);
+			subitem->next = xcalloc(1, sizeof(struct qbe_data_item));
+			subitem = subitem->next;
+			subitem->type = QD_VALUE;
+			subitem->value = constl(l);
+			subitem->next = xcalloc(1, sizeof(struct qbe_data_item));
+			subitem = subitem->next;
+
+			subitem->type = QD_VALUE;
+			subitem->value = constl(ev->uval);
+			if (ev->next) {
+				subitem->next = xcalloc(1, sizeof(struct qbe_data_item));
+				subitem = subitem->next;
+			}
+			++len;
+		}
+
+		qbe_append_def(ctx->out, def);
+
+		item->type = QD_VALUE;
+		item->value.kind = QV_GLOBAL;
+		item->value.type = &qbe_long;
+		item->value.name = strdup(def->name);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		item->value = constl(len);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		item->value = constl(len);
+		break;
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:

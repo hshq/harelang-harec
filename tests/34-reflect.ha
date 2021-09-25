@@ -46,7 +46,35 @@ fn aliases() void = {
 	assert(a.ident[0] == "alias");
 };
 
+type watchmen = enum {
+	VIMES,
+	CARROT,
+	ANGUA,
+	COLON,
+	NOBBY = -1,
+};
+
+fn enums() void = {
+	let ty = types::unwrap(type(watchmen));
+	let em = ty.repr as types::enumerated;
+	assert(em.storage == builtin::INT);
+
+	const cases: [_](str, u64) = [
+		("VIMES", 0),
+		("CARROT", 1),
+		("ANGUA", 2),
+		("COLON", 3),
+		("NOBBY", -1: u64),
+	];
+	for (let i = 0z; i < len(em.values); i += 1) {
+		const val = em.values[i];
+		const expect = cases[i];
+		assert(val.0 == expect.0 && val.1 == expect.1);
+	};
+};
+
 export fn main() void = {
 	builtins();
 	aliases();
+	enums();
 };
