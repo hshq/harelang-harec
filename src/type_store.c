@@ -988,6 +988,8 @@ type_store_type(struct type_store *store)
 {
 	struct type type = {
 		.storage = STORAGE_TYPE,
+		.size = 8, // XXX: ARCH
+		.align = 8,
 	};
 	return type_store_lookup_type(store, &type);
 }

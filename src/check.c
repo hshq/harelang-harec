@@ -820,7 +820,8 @@ check_expr_binarithm(struct context *ctx,
 		if (!type_is_numeric(p) && type_dealias(p)->storage != STORAGE_POINTER
 				&& type_dealias(p)->storage != STORAGE_STRING
 				&& type_dealias(p)->storage != STORAGE_BOOL
-				&& type_dealias(p)->storage != STORAGE_RUNE) {
+				&& type_dealias(p)->storage != STORAGE_RUNE
+				&& type_dealias(p)->storage != STORAGE_TYPE) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform equality test on %s type",
 				type_storage_unparse(type_dealias(p)->storage));
@@ -2975,12 +2976,14 @@ static struct declaration *
 check_type(struct context *ctx,
 	const struct ast_decl *adecl)
 {
+	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
+	mkident(ctx, &decl->ident, &adecl->type.ident);
+	decl->type = DECL_TYPE;
 	const struct type *type =
 		type_store_lookup_atype(ctx->store, adecl->type.type);
-	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	decl->type = DECL_TYPE;
-	decl->_type = type;
-	mkident(ctx, &decl->ident, &adecl->type.ident);
+	const struct type *alias =
+		type_store_lookup_alias(ctx->store, &decl->ident, type, decl->exported);
+	decl->_type = alias;
 	return decl;
 }
 
@@ -3131,7 +3134,7 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 		}
 		return true;
 	case STORAGE_TYPE:
-		assert(0); // TODO
+		return true;
 	}
 	assert(0); // Unreachable
 }

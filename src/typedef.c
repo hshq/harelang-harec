@@ -215,6 +215,8 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_NULL:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
+	case STORAGE_STRING:
+	case STORAGE_TYPE:
 	case STORAGE_U16:
 	case STORAGE_U32:
 	case STORAGE_U64:
@@ -222,7 +224,6 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
-	case STORAGE_STRING:
 		fprintf(out, "%s", type_storage_unparse(type->storage));
 		break;
 	case STORAGE_POINTER:
@@ -316,8 +317,6 @@ emit_type(const struct type *type, FILE *out)
 		}
 		fprintf(out, ")");
 		break;
-	case STORAGE_TYPE:
-		assert(0); // TODO
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 		assert(0); // Invariant
@@ -405,7 +404,8 @@ emit_decl_type(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	fprintf(out, "export type %s = ", ident);
-	emit_exported_type(decl->_type, out);
+	assert(decl->_type->storage == STORAGE_ALIAS);
+	emit_exported_type(decl->_type->alias.type, out);
 	fprintf(out, "; // size: %zd, align: %zd, id: %u\n",
 		decl->_type->size, decl->_type->align, decl->_type->id);
 }
