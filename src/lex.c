@@ -947,9 +947,6 @@ _lex(struct lexer *lexer, struct token *out)
 	case '?':
 		out->token = T_QUESTION;
 		break;
-	case '`':
-		out->token = T_CASE;
-		break;
 	default:
 		out->token = T_ERROR;
 		break;
