@@ -2511,7 +2511,11 @@ mktyperef(struct gen_context *ctx, const struct type *type)
 {
 	size_t n;
 	char *name;
+	struct qbe_def *qdef;
 	switch (type->storage) {
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+		abort(); // Invariant
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
 	case STORAGE_F32:
@@ -2539,9 +2543,6 @@ mktyperef(struct gen_context *ctx, const struct type *type)
 			.type = type_store_type(ctx->store),
 			.name = mkrttype(type->storage),
 		};
-	case STORAGE_FCONST:
-	case STORAGE_ICONST:
-		abort(); // Invariant
 	case STORAGE_ALIAS:
 		n = snprintf(NULL, 0, "type.%u", type->id);
 		name = xcalloc(1, n + 1);
@@ -2560,11 +2561,18 @@ mktyperef(struct gen_context *ctx, const struct type *type)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
-		// TODO: Emit typeinfo (here)
+		qdef = xcalloc(1, sizeof(struct qbe_def));
+		qdef->name = gen_name(ctx, ".typeinfo.%d");
+		qdef->kind = Q_DATA;
+
+		struct qbe_data_item *subitem = &qdef->data.items;
+		gen_type_info(ctx, type, subitem);
+		qbe_append_def(ctx->out, qdef);
+
 		return (struct gen_value){
 			.kind = GV_GLOBAL,
 			.type = type_store_type(ctx->store),
-			.name = "TODO",
+			.name = strdup(qdef->name),
 		};
 	}
 	abort(); // Unreachable
