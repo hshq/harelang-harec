@@ -221,6 +221,7 @@ run_configure() {
 	printf "Populating build dir... "
 	populate "$srcdir/doc"
 	populate "$srcdir/include"
+	populate "$srcdir/types"
 	populate "$srcdir/rt"
 	populate "$srcdir/src"
 	populate "$srcdir/tests"

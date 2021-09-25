@@ -575,8 +575,6 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_ICONST:
 	case STORAGE_FCONST:
 		assert(0); // Invariant
-	case STORAGE_TYPE:
-		assert(0); // TODO
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -677,8 +675,9 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_RUNE:
 	case STORAGE_STRUCT:
 	case STORAGE_TUPLE:
-	case STORAGE_UNION:
+	case STORAGE_TYPE:
 	case STORAGE_UINTPTR:
+	case STORAGE_UNION:
 		return false;
 	}
 

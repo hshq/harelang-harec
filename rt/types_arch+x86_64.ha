@@ -26,4 +26,9 @@ export const @hidden builtin_int: types::typeinfo = types::typeinfo {
 	id = 2843771249,
 	sz = 8, al = 8, flags = 0,
 	repr = types::builtin::NULL,
+}, @hidden builtin_type: types::typeinfo = types::typeinfo {
+	// TODO: This type ID is wrong
+	id = 3181589295,
+	sz = 8, al = 8, flags = 0,
+	repr = types::builtin::TYPE,
 };

@@ -14,11 +14,82 @@ type types::flags = enum u8 {
 	ERROR = 1 << 1,
 };
 
-type types::repr = (types::builtin | void);
+type types::repr = (types::alias | types::array | types::builtin
+	| types::enum_ | types::func | types::pointer | types::slice_repr
+	| types::struct_union | types::tagged | types::tuple);
+
+type types::alias = struct {
+	ident: []str,
+	secondary: type,
+};
+
+type types::array = struct {
+	length: size,
+	members: type,
+};
 
 type types::builtin = enum u8 {
 	BOOL, CHAR, F32, F64, I16, I32, I64, I8, INT, NULL, RUNE, SIZE, STR,
-	U16, U32, U64, U8, UINT, UINTPTR, VOID,
+	TYPE, U16, U32, U64, U8, UINT, UINTPTR, VOID,
+};
+
+type types::enum_ = struct {
+	storage: types::builtin,
+	values: [](str, u64),
+};
+
+type types::variadism = enum {
+	NONE,
+	C,
+	HARE,
+};
+
+type types::func_flags = enum uint {
+	NORETURN = 1 << 0,
+};
+
+type types::func = struct {
+	result: type,
+	variadism: types::variadism,
+	flags: types::func_flags,
+	params: []type,
+};
+
+type types::pointer_flags = enum u8 {
+	NONE = 0,
+	NULLABLE = 1 << 0,
+};
+
+type types::pointer = struct {
+	referent: type,
+	flags: types::pointer_flags,
+};
+
+type types::slice_repr = type;
+
+type types::struct_kind = enum {
+	STRUCT,
+	UNION,
+};
+
+type types::struct_union = struct {
+	kind: types::struct_kind,
+	fields: []types::struct_field,
+};
+
+type types::struct_field = struct {
+	name: str,
+	offs: size,
+	type_: type,
+};
+
+type types::tagged = []type;
+
+type types::tuple = []types::tuple_value;
+
+type types::tuple_value = struct {
+	offs: size,
+	type_: type,
 };
 
 export const @hidden builtin_char: types::typeinfo = types::typeinfo {

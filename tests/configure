@@ -36,7 +36,8 @@ tests() {
 		29-unarithm \
 		31-postfix \
 		32-copy \
-		33-yield
+		33-yield \
+		34-reflect
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha

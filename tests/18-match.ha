@@ -1,3 +1,14 @@
+type foo = void;
+type bar = void;
+type foobar = (foo | bar);
+type baz = int;
+type foobarbaz = (foobar | baz);
+type signed = (i8 | i16 | i32 | i64 | int);
+type unsigned = (u8 | u16 | u32 | u64 | uint | size);
+type integer = (...signed | ...unsigned);
+type align_4 = (void | int);
+type align_8 = (void | int | i64);
+
 fn tagged() void = {
 	let cases: [3](int | uint | str) = [10i, 10u, "hello"];
 	let expected: [_]size = [1, 2, 5];
@@ -62,10 +73,6 @@ fn pointer() void = {
 	assert(z == 1337);
 };
 
-type foo = void;
-type bar = void;
-type foobar = (foo | bar);
-
 fn alias() void = {
 	let cases: []foobar = [foo, bar];
 	let expected = [42, 24];
@@ -111,12 +118,6 @@ fn implicit_cast() void = {
 	};
 	assert(a is foobar);
 };
-
-type foo = void;
-type bar = void;
-type foobar = (foo | bar);
-type baz = int;
-type foobarbaz = (foobar | baz);
 
 fn transitivity() void = {
 	let x: (foobar | int) = 10;
@@ -187,11 +188,7 @@ fn transitivity() void = {
 	assert(visit);
 };
 
-type signed = (i8 | i16 | i32 | i64 | int);
-type unsigned = (u8 | u16 | u32 | u64 | uint | size);
-type integer = (...signed | ...unsigned);
-
-export fn numeric() void = {
+fn numeric() void = {
 	// Real-world test
 	let visit = true;
 	let x: integer = 1337i;
@@ -210,10 +207,7 @@ export fn numeric() void = {
 	assert(visit);
 };
 
-type align_4 = (void | int);
-type align_8 = (void | int | i64);
-
-export fn alignment_conversion() void = {
+fn alignment_conversion() void = {
 	let x: align_8 = 1234i;
 	match (x) {
 	case y: align_4 =>

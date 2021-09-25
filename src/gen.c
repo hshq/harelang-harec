@@ -2514,7 +2514,6 @@ mktyperef(struct gen_context *ctx, const struct type *type)
 	switch (type->storage) {
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
-	case STORAGE_ENUM:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_I16:
@@ -2525,7 +2524,8 @@ mktyperef(struct gen_context *ctx, const struct type *type)
 	case STORAGE_NULL:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
-	case STORAGE_TYPE: // TODO: Add me to builtins & audit
+	case STORAGE_STRING:
+	case STORAGE_TYPE:
 	case STORAGE_U16:
 	case STORAGE_U32:
 	case STORAGE_U64:
@@ -2552,10 +2552,10 @@ mktyperef(struct gen_context *ctx, const struct type *type)
 			.name = name,
 		};
 	case STORAGE_ARRAY:
+	case STORAGE_ENUM:
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
-	case STORAGE_STRING:
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
