@@ -73,8 +73,63 @@ fn enums() void = {
 	};
 };
 
+fn arrays() void = {
+	let ty = types::reflect(type([42]int));
+	assert(ty.sz == 42 * size(int));
+	assert(ty.al == size(int));
+	let ar = ty.repr as types::array;
+	assert(ar.length == 42);
+	assert(ar.members == type(int));
+};
+
+fn slices() void = {
+	let ty = types::reflect(type([]int));
+	assert(ty.sz == size(*int) + size(size) + size(size));
+	assert(ty.al == size(*int));
+	let sl = ty.repr as types::slice_repr;
+	assert(sl == type(int));
+};
+
+fn pointers() void = {
+	let ty = types::reflect(type(*int));
+	assert(ty.sz == size(*int));
+	assert(ty.al == size(*int));
+	let pt = ty.repr as types::pointer;
+	assert(pt.secondary == type(int));
+	assert(pt.flags == 0);
+
+	let ty = types::reflect(type(nullable *int));
+	assert(ty.sz == size(*int));
+	assert(ty.al == size(*int));
+	let pt = ty.repr as types::pointer;
+	assert(pt.secondary == type(int));
+	assert(pt.flags == types::pointer_flags::NULLABLE);
+};
+
+fn functions() void = {
+	let ty = types::reflect(type(fn(x: int, y: int) int));
+	assert(ty.sz == types::SIZE_UNDEFINED);
+	assert(ty.al == types::SIZE_UNDEFINED);
+	let func = ty.repr as types::func;
+	assert(func.result == type(int));
+	assert(func.variadism == types::variadism::NONE);
+	assert(func.flags == 0);
+	assert(len(func.params) == 2);
+	assert(func.params[0] == type(int));
+	assert(func.params[1] == type(int));
+
+	let ty = types::reflect(type(@noreturn fn(x: int, y: int, z: int...) int));
+	let func = ty.repr as types::func;
+	assert(func.variadism == types::variadism::HARE);
+	assert(func.flags == types::func_flags::NORETURN);
+};
+
 export fn main() void = {
 	builtins();
 	aliases();
 	enums();
+	arrays();
+	slices();
+	pointers();
+	functions();
 };

@@ -63,7 +63,7 @@ export type enumerated = struct {
 };
 
 // Indicates the variadism of a [[func]].
-export type variadism = enum {
+export type variadism = enum uint {
 	NONE,
 	C,
 	HARE,
@@ -90,7 +90,7 @@ export type pointer_flags = enum u8 {
 
 // *int
 export type pointer = struct {
-	referent: type,
+	secondary: type,
 	flags: pointer_flags,
 };
 

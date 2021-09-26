@@ -18,7 +18,7 @@ libhart.a: harec $(libhart_srcs) $(libhart_objs) $(rtstart) types/types.o
 	@$(QBE) -o $@.s $@.ssa
 	@$(AS) -g -o $@.o $@.s
 	@$(AR) -csr $@ $@.o $(libhart_objs) types/types.o
-	#@rm $@.o $@.s $@.ssa
+	@rm $@.o $@.s $@.ssa
 
 clean-rt:
 	@rm -f libhart.a $(libhart_objs) $(rtstart)
