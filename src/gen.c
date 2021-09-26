@@ -3572,29 +3572,34 @@ gen_type_info(struct gen_context *ctx,
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 
-		def = xcalloc(1, sizeof(struct qbe_def));
-		def->name = gen_name(ctx, "sldata.%d");
-		def->kind = Q_DATA;
-		subitem = &def->data.items;
-		for (struct type_func_param *param = type->func.params;
-				param; param = param->next) {
-			ref = mktyperef(ctx, param->type);
-			subitem->type = QD_VALUE;
-			subitem->value.kind = QV_GLOBAL;
-			subitem->value.type = &qbe_long;
-			subitem->value.name = ref.name;
-			if (param->next) {
-				subitem->next = xcalloc(1, sizeof(struct qbe_data_item));
-				subitem = subitem->next;
+		if (type->func.params) {
+			def = xcalloc(1, sizeof(struct qbe_def));
+			def->name = gen_name(ctx, "sldata.%d");
+			def->kind = Q_DATA;
+			subitem = &def->data.items;
+			for (struct type_func_param *param = type->func.params;
+					param; param = param->next) {
+				ref = mktyperef(ctx, param->type);
+				subitem->type = QD_VALUE;
+				subitem->value.kind = QV_GLOBAL;
+				subitem->value.type = &qbe_long;
+				subitem->value.name = ref.name;
+				if (param->next) {
+					subitem->next = xcalloc(1, sizeof(struct qbe_data_item));
+					subitem = subitem->next;
+				}
+				++len;
 			}
-			++len;
+			qbe_append_def(ctx->out, def);
+			item->type = QD_VALUE;
+			item->value.kind = QV_GLOBAL;
+			item->value.type = &qbe_long;
+			item->value.name = strdup(def->name);
+		} else {
+			item->type = QD_VALUE;
+			item->value = constl(0);
 		}
-		qbe_append_def(ctx->out, def);
 
-		item->type = QD_VALUE;
-		item->value.kind = QV_GLOBAL;
-		item->value.type = &qbe_long;
-		item->value.name = strdup(def->name);
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 		item->type = QD_VALUE;
@@ -3644,6 +3649,7 @@ gen_type_info(struct gen_context *ctx,
 				memcpy(sdef->data.items.str, field->name, l);
 				qbe_append_def(ctx->out, sdef);
 
+				subitem->type = QD_VALUE;
 				subitem->value.kind = QV_GLOBAL;
 				subitem->value.type = &qbe_long;
 				subitem->value.name = strdup(sdef->name);
@@ -3656,6 +3662,7 @@ gen_type_info(struct gen_context *ctx,
 				subitem->type = QD_VALUE;
 				subitem->value = constl(l);
 			} else {
+				subitem->type = QD_VALUE;
 				subitem->value = constl(0);
 				subitem->next = xcalloc(1, sizeof(struct qbe_data_item));
 				subitem = subitem->next;
