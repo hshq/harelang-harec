@@ -192,6 +192,20 @@ fn tagged() void = {
 	assert(_i && _u && _v);
 };
 
+fn tuples() void = {
+	let ty = types::reflect(type((int, int, int)));
+	assert(ty.sz == size(int) * 3);
+	assert(ty.al == size(int));
+	let tu = ty.repr as types::tuple;
+	assert(len(tu) == 3);
+	assert(tu[0].offs == 0);
+	assert(tu[0].type_ == type(int));
+	assert(tu[1].offs == 4);
+	assert(tu[1].type_ == type(int));
+	assert(tu[2].offs == 8);
+	assert(tu[2].type_ == type(int));
+};
+
 export fn main() void = {
 	builtins();
 	aliases();
@@ -202,4 +216,5 @@ export fn main() void = {
 	functions();
 	struct_union();
 	tagged();
+	tuples();
 };
