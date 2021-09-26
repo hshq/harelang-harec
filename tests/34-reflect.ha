@@ -124,6 +124,48 @@ fn functions() void = {
 	assert(func.flags == types::func_flags::NORETURN);
 };
 
+fn struct_union() void = {
+	let ty = types::reflect(type(struct {
+		x: int,
+		y: int,
+	}));
+	assert(ty.sz == size(int) * 2);
+	assert(ty.al == size(int));
+	let su = ty.repr as types::struct_union;
+	assert(su.kind == types::struct_kind::STRUCT);
+	assert(len(su.fields) == 2);
+	assert(su.fields[0].name == "x");
+	assert(su.fields[0].offs == 0);
+	assert(su.fields[0].type_ == type(int));
+	assert(su.fields[1].name == "y");
+	assert(su.fields[1].offs == 4);
+	assert(su.fields[1].type_ == type(int));
+
+	let ty = types::reflect(type(union {
+		x: int,
+		y: int,
+	}));
+	let su = ty.repr as types::struct_union;
+	assert(su.kind == types::struct_kind::UNION);
+	assert(len(su.fields) == 2);
+	assert(su.fields[0].name == "x");
+	assert(su.fields[0].offs == 0);
+	assert(su.fields[1].name == "y");
+	assert(su.fields[1].offs == 0);
+
+	let ty = types::reflect(type(struct {
+		x: int,
+		y: int,
+		struct {
+			z: int,
+		},
+	}));
+	let su = ty.repr as types::struct_union;
+	assert(len(su.fields) == 3);
+	assert(su.fields[2].name == "");
+	assert(su.fields[2].offs == 8);
+};
+
 export fn main() void = {
 	builtins();
 	aliases();
@@ -132,4 +174,5 @@ export fn main() void = {
 	slices();
 	pointers();
 	functions();
+	struct_union();
 };

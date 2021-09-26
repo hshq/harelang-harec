@@ -99,7 +99,7 @@ export type pointer = struct {
 export type slice_repr = type;
 
 // Indicates if a [[_struct]] was declared as a struct or union type.
-export type struct_kind = enum {
+export type struct_kind = enum uint {
 	STRUCT,
 	UNION,
 };
