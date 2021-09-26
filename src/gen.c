@@ -3702,6 +3702,48 @@ gen_type_info(struct gen_context *ctx,
 		item->value = constl(len);
 		break;
 	case STORAGE_TAGGED:
+		*repr_name = "tagged";
+		item->value = constw(type_hash(&repr));
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+
+		item->type = QD_ZEROED;
+		item->zeroed = 4;
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+
+		def = xcalloc(1, sizeof(struct qbe_def));
+		def->name = gen_name(ctx, "sldata.%d");
+		def->kind = Q_DATA;
+		subitem = &def->data.items;
+		for (const struct type_tagged_union *tu = &type->tagged;
+				tu; tu = tu->next) {
+			ref = mktyperef(ctx, tu->type);
+			subitem->type = QD_VALUE;
+			subitem->value.kind = QV_GLOBAL;
+			subitem->value.type = &qbe_long;
+			subitem->value.name = ref.name;
+			if (tu->next) {
+				subitem->next = xcalloc(1, sizeof(struct qbe_data_item));
+				subitem = subitem->next;
+			}
+			++len;
+		}
+		qbe_append_def(ctx->out, def);
+
+		item->type = QD_VALUE;
+		item->value.kind = QV_GLOBAL;
+		item->value.type = &qbe_long;
+		item->value.name = strdup(def->name);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		item->value = constl(len);
+		item->next = xcalloc(1, sizeof(struct qbe_data_item));
+		item = item->next;
+		item->type = QD_VALUE;
+		item->value = constl(len);
+		break;
 	case STORAGE_TUPLE:
 		// XXX: Temporary code to make sure code in the wild builds
 		// while we flesh out these types

@@ -166,6 +166,32 @@ fn struct_union() void = {
 	assert(su.fields[2].offs == 8);
 };
 
+fn tagged() void = {
+	let ty = types::reflect(type((int | uint | void)));
+	assert(ty.sz == size(uint) * 2);
+	assert(ty.al == size(uint));
+	let ta = ty.repr as types::tagged;
+	assert(len(ta) == 3);
+	// The order of fields in a tagged union type is not consistent with
+	// their AST ordering, so we don't expect specific types at specific
+	// indicies. It is consistently ordered (based on type ID), but the type
+	// IDs change whenever the ABI changes and I don't feel like updating
+	// this every time.
+	let _i = false, _u = false, _v = false;
+	for (let i = 0z; i < len(ta); i += 1) {
+		if (ta[i] == type(int)) {
+			_i = true;
+		};
+		if (ta[i] == type(uint)) {
+			_u = true;
+		};
+		if (ta[i] == type(void)) {
+			_v = true;
+		};
+	};
+	assert(_i && _u && _v);
+};
+
 export fn main() void = {
 	builtins();
 	aliases();
@@ -175,4 +201,5 @@ export fn main() void = {
 	pointers();
 	functions();
 	struct_union();
+	tagged();
 };
