@@ -3316,12 +3316,11 @@ gen_type_info(struct gen_context *ctx,
 
 	item->type = QD_VALUE;
 	item->value = constw(type->flags);
-	item->value.type = &qbe_byte;
 	item->next = xcalloc(1, sizeof(struct qbe_data_item));
 	item = item->next;
 
 	item->type = QD_ZEROED;
-	item->zeroed = 7;
+	item->zeroed = 4;
 	item->next = xcalloc(1, sizeof(struct qbe_data_item));
 	item = item->next;
 
@@ -3420,12 +3419,11 @@ gen_type_info(struct gen_context *ctx,
 
 		item->type = QD_VALUE;
 		item->value = constw(type->_enum.storage);
-		item->value.type = &qbe_byte;
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 
 		item->type = QD_ZEROED;
-		item->zeroed = 7;
+		item->zeroed = 4;
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 
@@ -3630,12 +3628,11 @@ gen_type_info(struct gen_context *ctx,
 
 		item->type = QD_VALUE;
 		item->value = constw(type->storage == STORAGE_STRUCT ? 0 : 1);
-		item->value.type = &qbe_byte;
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 
 		item->type = QD_ZEROED;
-		item->zeroed = 7;
+		item->zeroed = 4;
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 

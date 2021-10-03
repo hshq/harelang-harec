@@ -27,7 +27,7 @@ export fn unwrap(in: type) *typeinfo = {
 };
 
 // Type flags.
-export type flags = enum u8 {
+export type flags = enum uint {
 	NONE = 0,
 	CONST = 1 << 0,
 	ERROR = 1 << 1,
@@ -51,7 +51,7 @@ export type array = struct {
 };
 
 // A built-in type.
-export type builtin = enum u8 {
+export type builtin = enum uint {
 	BOOL, CHAR, ENUM, F32, F64, I16, I32, I64, I8, INT, NULL, RUNE, SIZE,
 	STR, U16, U32, U64, U8, UINT, UINTPTR, VOID, TYPE,
 };
@@ -83,7 +83,7 @@ export type func = struct {
 };
 
 // Flags which apply to a pointer type.
-export type pointer_flags = enum u8 {
+export type pointer_flags = enum uint {
 	NONE = 0,
 	NULLABLE = 1 << 0,
 };
