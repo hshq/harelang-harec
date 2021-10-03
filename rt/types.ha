@@ -8,7 +8,7 @@ type types::typeinfo = struct {
 	repr: types::repr,
 };
 
-type types::flags = enum u8 {
+type types::flags = enum uint {
 	NONE = 0,
 	CONST = 1 << 0,
 	ERROR = 1 << 1,
@@ -28,7 +28,7 @@ type types::array = struct {
 	members: type,
 };
 
-type types::builtin = enum u8 {
+type types::builtin = enum uint {
 	BOOL, CHAR, ENUM, F32, F64, I16, I32, I64, I8, INT, NULL, RUNE, SIZE,
 	STR, U16, U32, U64, U8, UINT, UINTPTR, VOID, TYPE,
 };
@@ -55,7 +55,7 @@ type types::func = struct {
 	params: []type,
 };
 
-type types::pointer_flags = enum u8 {
+type types::pointer_flags = enum uint {
 	NONE = 0,
 	NULLABLE = 1 << 0,
 };

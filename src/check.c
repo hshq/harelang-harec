@@ -2977,7 +2977,11 @@ check_type(struct context *ctx,
 	const struct ast_decl *adecl)
 {
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	mkident(ctx, &decl->ident, &adecl->type.ident);
+	if (!adecl->type.ident.ns) {
+		mkident(ctx, &decl->ident, &adecl->type.ident);
+	} else {
+		decl->ident = adecl->type.ident;
+	}
 	decl->type = DECL_TYPE;
 	const struct type *type =
 		type_store_lookup_atype(ctx->store, adecl->type.type);
@@ -3044,16 +3048,102 @@ check_declarations(struct context *ctx,
 	return next;
 }
 
+// Set is_static = true if you intend to evaluate this expression and
+// statically allocate the result right away.
 static bool expr_is_specified(struct context *ctx,
-	const struct ast_expression *aexpr);
+	const struct ast_expression *aexpr, bool is_static);
 
 static bool
-type_is_specified(struct context *ctx, const struct ast_type *atype)
+type_is_specified(const struct type *type, bool is_static) {
+	assert(type);
+	switch (type->storage) {
+	case STORAGE_BOOL:
+	case STORAGE_CHAR:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_FCONST:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_ICONST:
+	case STORAGE_INT:
+	case STORAGE_NULL:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_STRING:
+	case STORAGE_TYPE:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
+		return true;
+	case STORAGE_ALIAS:
+		if (type->alias.type == NULL) {
+			return false;
+		}
+		return type_is_specified(type->alias.type, is_static);
+	case STORAGE_ARRAY:
+		return type_is_specified(type->array.members, is_static);
+	case STORAGE_SLICE:
+		if (!is_static) {
+			return true;
+		}
+		return type_is_specified(type->array.members, is_static);
+	case STORAGE_ENUM:
+		return true;
+	case STORAGE_FUNCTION:
+		for (struct type_func_param *param = type->func.params;
+				param; param = param->next) {
+			if (!type_is_specified(param->type, is_static)) {
+				return false;
+			}
+		}
+		return type_is_specified(type->func.result, is_static);
+	case STORAGE_POINTER:
+		return true;
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
+		for (const struct struct_field *field =
+				type->struct_union.fields;
+				field; field = field->next) {
+			if (!type_is_specified(field->type, is_static)) {
+				return false;
+			}
+		}
+		return true;
+	case STORAGE_TAGGED:
+		for (const struct type_tagged_union *ttype = &type->tagged;
+				ttype; ttype = ttype->next) {
+			if (!type_is_specified(ttype->type, is_static)) {
+				return false;
+			}
+		}
+		return true;
+	case STORAGE_TUPLE:
+		for (const struct type_tuple *ttype = &type->tuple;
+				ttype; ttype = ttype->next) {
+			if (!type_is_specified(ttype->type, is_static)) {
+				return false;
+			}
+		}
+		return true;
+	}
+	abort(); // Unreachable
+}
+
+static bool
+atype_is_specified(struct context *ctx,
+		const struct ast_type *atype, bool is_static)
 {
 	if (!atype) {
 		return true;
 	}
 
+	const struct scope_object *object;
 	switch (atype->storage) {
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
@@ -3070,6 +3160,7 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_STRING:
+	case STORAGE_TYPE:
 	case STORAGE_U16:
 	case STORAGE_U32:
 	case STORAGE_U64:
@@ -3079,16 +3170,26 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 	case STORAGE_VOID:
 		return true;
 	case STORAGE_ALIAS:
-		return scope_lookup(ctx->scope, &atype->alias) != NULL;
+		object = scope_lookup(ctx->scope, &atype->alias);
+		if (object == NULL) {
+			return false;
+		}
+		assert(object->otype == O_TYPE);
+		const struct type *secondary = object->type;
+		assert(secondary->storage == STORAGE_ALIAS);
+		return type_is_specified(secondary->alias.type, is_static);
 	case STORAGE_ARRAY:
-		return type_is_specified(ctx, atype->array.members)
-			&& expr_is_specified(ctx, atype->array.length);
+		return atype_is_specified(ctx, atype->array.members, is_static)
+			&& expr_is_specified(ctx, atype->array.length, is_static);
 	case STORAGE_SLICE:
-		return true;
+		if (!is_static) {
+			return true;
+		}
+		return atype_is_specified(ctx, atype->array.members, is_static);
 	case STORAGE_ENUM:
 		for (struct ast_enum_field *field = atype->_enum.values;
 				field; field = field->next) {
-			if (!expr_is_specified(ctx, field->value)) {
+			if (!expr_is_specified(ctx, field->value, is_static)) {
 				return false;
 			}
 		}
@@ -3096,11 +3197,11 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 	case STORAGE_FUNCTION:
 		for (struct ast_function_parameters *param = atype->func.params;
 				param; param = param->next) {
-			if (!type_is_specified(ctx, param->type)) {
+			if (!atype_is_specified(ctx, param->type, is_static)) {
 				return false;
 			}
 		}
-		return type_is_specified(ctx, atype->func.result);
+		return atype_is_specified(ctx, atype->func.result, is_static);
 	case STORAGE_POINTER:
 		return true;
 	case STORAGE_STRUCT:
@@ -3108,10 +3209,10 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 		for (const struct ast_struct_union_type *stype =
 				&atype->struct_union;
 				stype; stype = stype->next) {
-			if (!expr_is_specified(ctx, stype->offset)) {
+			if (!expr_is_specified(ctx, stype->offset, is_static)) {
 				return false;
 			}
-			if (!type_is_specified(ctx, stype->type)) {
+			if (!atype_is_specified(ctx, stype->type, is_static)) {
 				return false;
 			}
 		}
@@ -3120,7 +3221,7 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 		for (const struct ast_tagged_union_type *ttype =
 				&atype->tagged_union;
 				ttype; ttype = ttype->next) {
-			if (!type_is_specified(ctx, ttype->type)) {
+			if (!atype_is_specified(ctx, ttype->type, is_static)) {
 				return false;
 			}
 		}
@@ -3128,19 +3229,19 @@ type_is_specified(struct context *ctx, const struct ast_type *atype)
 	case STORAGE_TUPLE:
 		for (const struct ast_tuple_type *ttype = &atype->tuple;
 				ttype; ttype = ttype->next) {
-			if (!type_is_specified(ctx, ttype->type)) {
+			if (!atype_is_specified(ctx, ttype->type, is_static)) {
 				return false;
 			}
 		}
 		return true;
-	case STORAGE_TYPE:
-		return true;
 	}
-	assert(0); // Unreachable
+	abort(); // Unreachable
 }
 
 static bool
-expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
+expr_is_specified(struct context *ctx,
+		const struct ast_expression *aexpr,
+		bool is_static)
 {
 	if (!aexpr) {
 		return true;
@@ -3154,45 +3255,45 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 			//return scope_lookup(ctx->scope, &aexpr->access.ident);
 			return true;
 		case ACCESS_INDEX:
-			return expr_is_specified(ctx, aexpr->access.array)
-				&& expr_is_specified(ctx, aexpr->access.index);
+			return expr_is_specified(ctx, aexpr->access.array, is_static)
+				&& expr_is_specified(ctx, aexpr->access.index, is_static);
 		case ACCESS_FIELD:
-			return expr_is_specified(ctx, aexpr->access._struct);
+			return expr_is_specified(ctx, aexpr->access._struct, is_static);
 		case ACCESS_TUPLE:
-			return expr_is_specified(ctx, aexpr->access.tuple)
-				&& expr_is_specified(ctx, aexpr->access.value);
+			return expr_is_specified(ctx, aexpr->access.tuple, is_static)
+				&& expr_is_specified(ctx, aexpr->access.value, is_static);
 		}
 		assert(0);
 	case EXPR_ALLOC:
-		return expr_is_specified(ctx, aexpr->alloc.expr)
-			&& expr_is_specified(ctx, aexpr->alloc.cap);
+		return expr_is_specified(ctx, aexpr->alloc.expr, is_static)
+			&& expr_is_specified(ctx, aexpr->alloc.cap, is_static);
 	case EXPR_APPEND:
 		for (const struct ast_append_values *value =
 				aexpr->append.values;
 				value; value = value->next) {
-			if (!expr_is_specified(ctx, value->expr)) {
+			if (!expr_is_specified(ctx, value->expr, is_static)) {
 				return false;
 			}
 		}
-		return expr_is_specified(ctx, aexpr->append.expr)
-			&& expr_is_specified(ctx, aexpr->append.variadic);
+		return expr_is_specified(ctx, aexpr->append.expr, is_static)
+			&& expr_is_specified(ctx, aexpr->append.variadic, is_static);
 	case EXPR_ASSERT:
-		return expr_is_specified(ctx, aexpr->assert.cond)
-			&& expr_is_specified(ctx, aexpr->assert.message);
+		return expr_is_specified(ctx, aexpr->assert.cond, is_static)
+			&& expr_is_specified(ctx, aexpr->assert.message, is_static);
 	case EXPR_ASSIGN:
-		return expr_is_specified(ctx, aexpr->assign.object)
-			&& expr_is_specified(ctx, aexpr->assign.value);
+		return expr_is_specified(ctx, aexpr->assign.object, is_static)
+			&& expr_is_specified(ctx, aexpr->assign.value, is_static);
 	case EXPR_BINARITHM:
-		return expr_is_specified(ctx, aexpr->binarithm.lvalue)
-			&& expr_is_specified(ctx, aexpr->binarithm.rvalue);
+		return expr_is_specified(ctx, aexpr->binarithm.lvalue, is_static)
+			&& expr_is_specified(ctx, aexpr->binarithm.rvalue, is_static);
 	case EXPR_BINDING:
 		for (const struct ast_expression_binding *binding =
 				&aexpr->binding;
 				binding; binding = binding->next) {
-			if (!expr_is_specified(ctx, binding->initializer)) {
+			if (!expr_is_specified(ctx, binding->initializer, is_static)) {
 				return false;
 			}
-			if (!type_is_specified(ctx, binding->type)) {
+			if (!atype_is_specified(ctx, binding->type, is_static)) {
 				return false;
 			}
 		}
@@ -3200,7 +3301,7 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 	case EXPR_COMPOUND:
 		for (const struct ast_expression_list *list = &aexpr->compound.list;
 				list; list = list->next) {
-			if (!expr_is_specified(ctx, list->expr)) {
+			if (!expr_is_specified(ctx, list->expr, is_static)) {
 				return false;
 			}
 		}
@@ -3211,81 +3312,81 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 	case EXPR_CALL:
 		for (struct ast_call_argument *arg = aexpr->call.args; arg;
 				arg = arg->next) {
-			if (!expr_is_specified(ctx, arg->value)) {
+			if (!expr_is_specified(ctx, arg->value, is_static)) {
 				return false;
 			}
 		}
-		return expr_is_specified(ctx, aexpr->call.lvalue);
+		return expr_is_specified(ctx, aexpr->call.lvalue, is_static);
 	case EXPR_CAST:
-		return expr_is_specified(ctx, aexpr->cast.value)
-			&& type_is_specified(ctx, aexpr->cast.type);
+		return expr_is_specified(ctx, aexpr->cast.value, is_static)
+			&& atype_is_specified(ctx, aexpr->cast.type, is_static);
 	case EXPR_CONSTANT:
 		if (aexpr->constant.storage == STORAGE_ARRAY) {
 			for (struct ast_array_constant *aconst =
 					aexpr->constant.array;
 					aconst; aconst = aconst->next) {
-				if (!expr_is_specified(ctx, aconst->value)) {
+				if (!expr_is_specified(ctx, aconst->value, is_static)) {
 					return false;
 				}
 			}
 		}
 		return true;
 	case EXPR_DEFER:
-		return expr_is_specified(ctx, aexpr->defer.deferred);
+		return expr_is_specified(ctx, aexpr->defer.deferred, is_static);
 	case EXPR_DELETE:
-		return expr_is_specified(ctx, aexpr->delete.expr);
+		return expr_is_specified(ctx, aexpr->delete.expr, is_static);
 	case EXPR_FOR:
-		return expr_is_specified(ctx, aexpr->_for.bindings)
-			&& expr_is_specified(ctx, aexpr->_for.cond)
-			&& expr_is_specified(ctx, aexpr->_for.afterthought)
-			&& expr_is_specified(ctx, aexpr->_for.body);
+		return expr_is_specified(ctx, aexpr->_for.bindings, is_static)
+			&& expr_is_specified(ctx, aexpr->_for.cond, is_static)
+			&& expr_is_specified(ctx, aexpr->_for.afterthought, is_static)
+			&& expr_is_specified(ctx, aexpr->_for.body, is_static);
 	case EXPR_FREE:
-		return expr_is_specified(ctx, aexpr->free.expr);
+		return expr_is_specified(ctx, aexpr->free.expr, is_static);
 	case EXPR_IF:
-		return expr_is_specified(ctx, aexpr->_if.cond)
-			&& expr_is_specified(ctx, aexpr->_if.true_branch)
-			&& expr_is_specified(ctx, aexpr->_if.false_branch);
+		return expr_is_specified(ctx, aexpr->_if.cond, is_static)
+			&& expr_is_specified(ctx, aexpr->_if.true_branch, is_static)
+			&& expr_is_specified(ctx, aexpr->_if.false_branch, is_static);
 	case EXPR_INSERT:
 		assert(0); // TODO
 	case EXPR_MATCH:
 		for (struct ast_match_case *mcase = aexpr->match.cases; mcase;
 				mcase = mcase->next) {
-			if (!type_is_specified(ctx, mcase->type)) {
+			if (!atype_is_specified(ctx, mcase->type, is_static)) {
 				return false;
 			}
 			for (const struct ast_expression_list *list = &mcase->exprs;
 					list; list = list->next) {
-				if (!expr_is_specified(ctx, list->expr)) {
+				if (!expr_is_specified(ctx, list->expr, is_static)) {
 					return false;
 				}
 			}
 		}
-		return expr_is_specified(ctx, aexpr->match.value);
+		return expr_is_specified(ctx, aexpr->match.value, is_static);
 	case EXPR_MEASURE:
 		switch (aexpr->measure.op) {
 		case M_LEN:
-			return expr_is_specified(ctx, aexpr->measure.value);
+			return expr_is_specified(ctx, aexpr->measure.value, is_static);
 		case M_SIZE:
-			return type_is_specified(ctx, aexpr->measure.type);
+			return atype_is_specified(ctx, aexpr->measure.type, is_static);
 		case M_OFFSET:
 			assert(0); // TODO
 		}
 		assert(0);
 	case EXPR_PROPAGATE:
-		return expr_is_specified(ctx, aexpr->propagate.value);
+		return expr_is_specified(ctx, aexpr->propagate.value, is_static);
 	case EXPR_RETURN:
-		return expr_is_specified(ctx, aexpr->_return.value);
+		return expr_is_specified(ctx, aexpr->_return.value, is_static);
 	case EXPR_SLICE:
-		return expr_is_specified(ctx, aexpr->slice.object)
-			&& expr_is_specified(ctx, aexpr->slice.start)
-			&& expr_is_specified(ctx, aexpr->slice.end);
+		return expr_is_specified(ctx, aexpr->slice.object, is_static)
+			&& expr_is_specified(ctx, aexpr->slice.start, is_static)
+			&& expr_is_specified(ctx, aexpr->slice.end, is_static);
 	case EXPR_STRUCT:
 		for (struct ast_field_value *field = aexpr->_struct.fields;
 				field; field = field->next) {
-			if (field->type && !type_is_specified(ctx, field->type)) {
+			if (field->type && !atype_is_specified(ctx, field->type, is_static)) {
 				return false;
 			}
-			if (!expr_is_specified(ctx, field->initializer)) {
+			if (!expr_is_specified(ctx, field->initializer, is_static)) {
 				return false;
 			}
 		}
@@ -3300,32 +3401,32 @@ expr_is_specified(struct context *ctx, const struct ast_expression *aexpr)
 				scase; scase =scase->next) {
 			for (struct ast_case_option *opt = scase->options;
 					opt; opt = opt->next) {
-				if (!expr_is_specified(ctx, opt->value)) {
+				if (!expr_is_specified(ctx, opt->value, is_static)) {
 					return false;
 				}
 			}
 			for (const struct ast_expression_list *list = &scase->exprs;
 					list; list = list->next) {
-				if (!expr_is_specified(ctx, list->expr)) {
+				if (!expr_is_specified(ctx, list->expr, is_static)) {
 					return false;
 				}
 			}
 		}
-		return expr_is_specified(ctx, aexpr->_switch.value);
+		return expr_is_specified(ctx, aexpr->_switch.value, is_static);
 	case EXPR_TUPLE:
 		for (const struct ast_expression_tuple *tuple = &aexpr->tuple;
 				tuple; tuple = tuple->next) {
-			if (!expr_is_specified(ctx, tuple->expr)) {
+			if (!expr_is_specified(ctx, tuple->expr, is_static)) {
 				return false;
 			}
 		}
 		return true;
 	case EXPR_TYPE:
-		return type_is_specified(ctx, aexpr->_type.type);
+		return atype_is_specified(ctx, aexpr->_type.type, is_static);
 	case EXPR_UNARITHM:
-		return expr_is_specified(ctx, aexpr->unarithm.operand);
+		return expr_is_specified(ctx, aexpr->unarithm.operand, is_static);
 	case EXPR_YIELD:
-		return expr_is_specified(ctx, aexpr->control.value);
+		return expr_is_specified(ctx, aexpr->control.value, is_static);
 	}
 	assert(0); // Unreachable
 }
@@ -3335,8 +3436,8 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 {
 	// TODO: Get rid of this once the type store bubbles up errors
 	for (const struct ast_global_decl *d = decl; d; d = d->next) {
-		if (!type_is_specified(ctx, d->type)
-				|| !expr_is_specified(ctx, d->init)) {
+		if (!atype_is_specified(ctx, d->type, true)
+				|| !expr_is_specified(ctx, d->init, true)) {
 			return false;
 		}
 	}
@@ -3381,7 +3482,7 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	};
 	// TODO: Get rid of this once the type store bubbles up errors
 	// TODO: Do we want to do something on !expr_is_specified(ctx, decl->body)?
-	if (!type_is_specified(ctx, &fn_atype)) {
+	if (!atype_is_specified(ctx, &fn_atype, false)) {
 		return false;
 	}
 	const struct type *fntype = type_store_lookup_atype(
@@ -3409,8 +3510,8 @@ static bool
 scan_global(struct context *ctx, const struct ast_global_decl *decl)
 {
 	// TODO: Get rid of this once the type store bubbles up errors
-	if (!type_is_specified(ctx, decl->type)
-			|| !expr_is_specified(ctx, decl->init)) {
+	if (!atype_is_specified(ctx, decl->type, true)
+			|| !expr_is_specified(ctx, decl->init, true)) {
 		return false;
 	}
 
@@ -3450,7 +3551,7 @@ static bool
 scan_type(struct context *ctx, const struct ast_type_decl *decl, bool exported)
 {
 	// TODO: Get rid of this once the type store bubbles up errors
-	if (!type_is_specified(ctx, decl->type)) {
+	if (!atype_is_specified(ctx, decl->type, false)) {
 		return false;
 	}
 	const struct type *type =
