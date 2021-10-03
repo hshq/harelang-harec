@@ -818,6 +818,7 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	assert((ltype->storage == STORAGE_STRING) == (rtype->storage == STORAGE_STRING));
+	assert((ltype->storage == STORAGE_TYPE) == (rtype->storage == STORAGE_TYPE));
 	if (ltype->storage == STORAGE_STRING) {
 		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.strcmp");
 		pushi(ctx->current, &qresult, Q_CALL,
@@ -829,6 +830,12 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 			assert(expr->binarithm.op == BIN_LEQUAL);
 		}
 		return result;
+	} else if (ltype->storage == STORAGE_TYPE) {
+		struct qbe_value qltmp = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		struct qbe_value qrtmp = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &qltmp, Q_LOADL, &qlval, NULL);
+		pushi(ctx->current, &qrtmp, Q_LOADL, &qrval, NULL);
+		qlval = qltmp, qrval = qrtmp;
 	}
 	enum qbe_instr instr = binarithm_for_op(ctx, expr->binarithm.op,
 		expr->binarithm.lvalue->result);

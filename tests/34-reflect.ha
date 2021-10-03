@@ -206,6 +206,12 @@ fn tuples() void = {
 	assert(tu[2].type_ == type(int));
 };
 
+fn comparisons() void = {
+	// Tests that comparisons between non-static typeinfos work (since the
+	// pointer address will differ)
+	assert(type(struct { x: int, y: int}) == type(struct { x: int, y: int}));
+};
+
 export fn main() void = {
 	builtins();
 	aliases();
@@ -217,4 +223,5 @@ export fn main() void = {
 	struct_union();
 	tagged();
 	tuples();
+	comparisons();
 };
