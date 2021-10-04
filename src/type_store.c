@@ -886,6 +886,9 @@ type_store_lookup_alias(struct type_store *store,
 		TYPE_ERROR | TYPE_CONST,
 	};
 	for (size_t i = 0; i < sizeof(flags) / sizeof(flags[0]); i++) {
+		if ((flags[i] & secondary->flags) != secondary->flags) {
+			continue;
+		}
 		const struct type *flagged = type_store_lookup_with_flags(store,
 			secondary, flags[i]);
 		alias.flags = flagged->flags;
