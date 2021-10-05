@@ -1025,17 +1025,20 @@ type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 		bool dropped = false;
 		const struct type *it = i->type;
 
-		if (it->flags && TYPE_CONST) {
-			for (struct type_tagged_union **j = &in; *j;
-					j = &(*j)->next) {
+		if (it->flags & TYPE_CONST) {
+			struct type_tagged_union **j = &in;
+			while (*j) {
 				const struct type *jt = (*j)->type;
 				if (jt == it) {
+					j = &(*j)->next;
 					continue;
 				}
 				jt = type_store_lookup_with_flags(store, jt,
 					jt->flags | TYPE_CONST);
 				if (jt == it) {
 					*j = (*j)->next;
+				} else {
+					j = &(*j)->next;
 				}
 			}
 		}
@@ -1045,13 +1048,13 @@ type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 			assert(it->id != jt->id);
 			if (it->storage != STORAGE_POINTER
 					|| jt->storage != STORAGE_POINTER) {
-				break;
+				continue;
 			}
 			if (it->pointer.referent->id != jt->pointer.referent->id) {
-				break;
+				continue;
 			}
 			if (it->flags != jt->flags) {
-				break;
+				continue;
 			}
 			if ((it->pointer.flags & PTR_NULLABLE)
 					|| (jt->pointer.flags & PTR_NULLABLE)) {
