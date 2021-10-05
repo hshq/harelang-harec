@@ -9,7 +9,6 @@ enum type_storage {
 	// The order of these is important
 	STORAGE_BOOL,
 	STORAGE_CHAR,
-	STORAGE_ENUM,
 	STORAGE_F32,
 	STORAGE_F64,
 	STORAGE_I16,
@@ -32,6 +31,7 @@ enum type_storage {
 	// Other types
 	STORAGE_ALIAS,
 	STORAGE_ARRAY,
+	STORAGE_ENUM,
 	STORAGE_FUNCTION,
 	STORAGE_POINTER,
 	STORAGE_SLICE,

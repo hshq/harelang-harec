@@ -28,7 +28,7 @@ void test(struct context *ctx, char *expected, char *input) {
 
 	FILE *ibuf = fmemopen(input, strlen(input), "r");
 	struct lexer ilex;
-	lex_init(&ilex, ibuf, "<input>");
+	lex_init(&ilex, ibuf, input);
 	struct ast_expression *iaexpr = parse_expression(&ilex);
 	struct expression iexpr = {0};
 	check_expression(ctx, iaexpr, &iexpr, NULL);
