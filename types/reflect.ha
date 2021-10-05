@@ -12,19 +12,7 @@ export type typeinfo = struct {
 };
 
 // Returns [[typeinfo]] for the provided type.
-export fn reflect(in: type) *typeinfo = in: *typeinfo;
-
-// Returns [[typeinfo]] for the provided type, unwrapping any aliases along the
-// way.
-export fn unwrap(in: type) *typeinfo = {
-	let info = reflect(in);
-	match (info.repr) {
-	case a: alias =>
-		return unwrap(a.secondary);
-	case =>
-		return info;
-	};
-};
+export fn reflect(in: type) const *typeinfo = in: *typeinfo;
 
 // Type flags.
 export type flags = enum uint {
@@ -35,7 +23,7 @@ export type flags = enum uint {
 
 // Details of the type representation.
 export type repr = (alias | array | builtin
-	| enumerated | func | pointer | slice_repr
+	| enumerated | func | pointer | slice
 	| struct_union | tagged | tuple);
 
 // A type alias.
@@ -59,7 +47,7 @@ export type builtin = enum uint {
 // An enum type.
 export type enumerated = struct {
 	storage: builtin,
-	values: [](str, u64),
+	values: [](str, union { u: u64, i: i64 }),
 };
 
 // Indicates the variadism of a [[func]].
@@ -71,6 +59,7 @@ export type variadism = enum uint {
 
 // Indicats if a [[func]] has the @noreturn attribute.
 export type func_flags = enum uint {
+	NONE = 0,
 	NORETURN = 1 << 0,
 };
 
@@ -94,9 +83,8 @@ export type pointer = struct {
 	flags: pointer_flags,
 };
 
-// Type information for slice members. Distinct from [[slice]], which is the
-// representation of a slice object at runtime.
-export type slice_repr = type;
+// Type information for slice members.
+export type slice = type;
 
 // Indicates if a [[_struct]] was declared as a struct or union type.
 export type struct_kind = enum uint {

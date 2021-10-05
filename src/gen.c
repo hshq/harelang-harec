@@ -3504,7 +3504,7 @@ gen_type_info(struct gen_context *ctx,
 		item->value.name = ref.name;
 		break;
 	case STORAGE_SLICE:
-		*repr_name = "slice_repr";
+		*repr_name = "slice";
 		item->value = constw(type_hash(&repr));
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;

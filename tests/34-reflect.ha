@@ -1,6 +1,16 @@
 use types;
 use types::{builtin};
 
+fn unwrap(in: type) *types::typeinfo = {
+	const info = types::reflect(in);
+	match (info.repr) {
+	case a: types::alias =>
+		return unwrap(a.secondary);
+	case =>
+		return info;
+	};
+};
+
 fn builtins() void = {
 	const cases: [_](type, size, size, builtin) = [
 		(type(u8), 1, 1, builtin::U8),
@@ -55,7 +65,7 @@ type watchmen = enum {
 };
 
 fn enums() void = {
-	let ty = types::unwrap(type(watchmen));
+	let ty = unwrap(type(watchmen));
 	let em = ty.repr as types::enumerated;
 	assert(em.storage == builtin::INT);
 
@@ -69,7 +79,7 @@ fn enums() void = {
 	for (let i = 0z; i < len(em.values); i += 1) {
 		const val = em.values[i];
 		const expect = cases[i];
-		assert(val.0 == expect.0 && val.1 == expect.1);
+		assert(val.0 == expect.0 && val.1.u == expect.1);
 	};
 };
 
@@ -86,7 +96,7 @@ fn slices() void = {
 	let ty = types::reflect(type([]int));
 	assert(ty.sz == size(*int) + size(size) + size(size));
 	assert(ty.al == size(*int));
-	let sl = ty.repr as types::slice_repr;
+	let sl = ty.repr as types::slice;
 	assert(sl == type(int));
 };
 
