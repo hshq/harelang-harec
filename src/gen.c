@@ -3085,7 +3085,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		struct qbe_data_item *subitem = &def->data.items;
 		for (struct array_constant *c = constant->array;
 				c; c = c->next) {
-			gen_data_item(ctx, c->value, subitem);
+			subitem = gen_data_item(ctx, c->value, subitem);
 			if (c->next) {
 				subitem->next = xcalloc(1,
 					sizeof(struct qbe_data_item));
