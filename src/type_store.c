@@ -259,13 +259,16 @@ shift_fields(struct type_store *store, struct struct_field *parent)
 			xcalloc(1, sizeof(struct struct_field));
 		next = &new->next;
 		new->type = field->type;
-		new->offset = field->offset;
+		new->offset = parent->offset;
 		if (field->name) {
 			new->name = strdup(field->name);
-			new->offset += parent->offset;
 		} else {
 			shift_fields(store, new);
 		}
+		// Sub-subfields are shifted by field->offset in the recursive
+		// shift_fields call, delay adding it to new->offset to avoid
+		// shifting by field->offset twice
+		new->offset += field->offset;
 	}
 
 	parent->type = type_store_lookup_type(store, &new);

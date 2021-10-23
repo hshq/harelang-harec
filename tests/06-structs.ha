@@ -71,12 +71,14 @@ fn nested() void = {
 		bar = 69,
 		baz = 1337,
 	};
+	assert(offset(s.foo) == 0 && offset(s.bar) == 8 && offset(s.baz) == 16);
 	assert(s.foo == 42 && s.bar == 69 && s.baz == 1337);
 	let s = embed2 {
 		foo = 42,
 		bar = 69,
 		baz = 1337,
 	};
+	assert(offset(s.bar) == 0 && offset(s.baz) == 8 && offset(s.foo) == 16);
 	assert(s.foo == 42 && s.bar == 69 && s.baz == 1337);
 
 	let s = struct {
