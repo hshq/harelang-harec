@@ -1985,7 +1985,21 @@ check_expr_measure(struct context *ctx,
 			ctx->store, aexpr->measure.type);
 		break;
 	case M_OFFSET:
-		assert(0); // TODO
+		if (aexpr->measure.value->type != EXPR_ACCESS) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"offset argument must be a field or tuple access");
+			return;
+		}
+		if (aexpr->measure.value->access.type != ACCESS_FIELD
+				&& aexpr->measure.value->access.type != ACCESS_TUPLE) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"offset argument must be a field or tuple access");
+			return;
+		}
+		expr->measure.value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->measure.value,
+			expr->measure.value, NULL);
+		break;
 	}
 }
 
@@ -3369,7 +3383,7 @@ expr_is_specified(struct context *ctx,
 		case M_SIZE:
 			return atype_is_specified(ctx, aexpr->measure.type, is_static);
 		case M_OFFSET:
-			assert(0); // TODO
+			return expr_is_specified(ctx, aexpr->measure.value, is_static);
 		}
 		assert(0);
 	case EXPR_PROPAGATE:

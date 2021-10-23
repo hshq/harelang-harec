@@ -472,15 +472,23 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 {
 	assert(in->type == EXPR_MEASURE);
 	out->type = EXPR_CONSTANT;
+	out->result = &builtin_type_size;
 	switch (in->measure.op) {
 	case M_LEN:
 		assert(0); // TODO
 	case M_SIZE:
-		out->result = &builtin_type_size;
 		out->constant.uval = in->measure.type->size;
 		return EVAL_OK;
 	case M_OFFSET:
-		assert(0); // TODO
+		if (in->measure.value->access.type == ACCESS_FIELD) {
+			out->constant.uval =
+				in->measure.value->access.field->offset;
+		} else {
+			assert(in->measure.value->access.type == ACCESS_TUPLE);
+			out->constant.uval =
+				in->measure.value->access.tvalue->offset;
+		}
+		return EVAL_OK;
 	}
 	assert(0);
 }

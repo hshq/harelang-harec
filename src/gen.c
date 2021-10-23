@@ -2244,7 +2244,20 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 			.lval = expr->measure.type->size,
 		};
 	case M_OFFSET:
-		assert(0); // TODO
+		if (expr->measure.value->access.type == ACCESS_FIELD) {
+			return (struct gen_value){
+				.kind = GV_CONST,
+				.type = &builtin_type_size,
+				.lval = expr->measure.value->access.field->offset,
+			};
+		} else {
+			assert(expr->measure.value->access.type == ACCESS_TUPLE);
+			return (struct gen_value){
+				.kind = GV_CONST,
+				.type = &builtin_type_size,
+				.lval = expr->measure.value->access.tvalue->offset,
+			};
+		}
 	}
 	abort(); // Invariant
 }

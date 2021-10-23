@@ -1124,7 +1124,9 @@ parse_measurement_expression(struct lexer *lexer)
 		break;
 	case T_OFFSET:
 		exp->measure.op = M_OFFSET;
-		assert(0); // TODO
+		// Let check error out on non-field-accesses
+		exp->measure.value = parse_expression(lexer);
+		break;
 	default:
 		synassert(false, &tok, T_SIZE, T_LEN, T_OFFSET, T_EOF);
 	}
