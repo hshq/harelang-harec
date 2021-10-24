@@ -14,7 +14,7 @@ export fn close(fd: int) int = syscall1(SYS_close, fd: u64): int;
 export fn dup3(old: int, new: int, flags: int) int =
 	syscall3(SYS_dup3, old: u64, new: u64, flags: u64): int;
 
-export fn dup2(old: int, new: int, flags: int) int =
+export fn dup2(old: int, new: int) int =
 	syscall3(SYS_dup3, old: u64, new: u64, 0): int;
 
 export fn getpid() int = syscall0(SYS_getpid): int;
