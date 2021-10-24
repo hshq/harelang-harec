@@ -137,10 +137,6 @@ enum lexical_token {
 	T_ERROR,
 };
 
-#ifndef __STDC_IEC_559__
-#error "harec requires IEC 60559 (IEEE 754) floating-point arithmetic"
-#endif
-
 struct location {
 	const char *path;
 	int lineno, colno;

@@ -99,10 +99,10 @@ emit_const(struct qbe_value *val, FILE *out)
 		fprintf(out, "%lu", val->lval);
 		break;
 	case Q_SINGLE:
-		fprintf(out, "s_%.*g", FLT_DECIMAL_DIG, val->sval);
+		fprintf(out, "s_%.*g", DECIMAL_DIG, val->sval);
 		break;
 	case Q_DOUBLE:
-		fprintf(out, "d_%.*g", DBL_DECIMAL_DIG, val->dval);
+		fprintf(out, "d_%.*g", DECIMAL_DIG, val->dval);
 		break;
 	case Q__VOID:
 	case Q__AGGREGATE:
