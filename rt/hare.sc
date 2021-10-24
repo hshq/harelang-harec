@@ -3,6 +3,7 @@ PHDRS {
 	text PT_LOAD FILEHDR PHDRS;
 	data PT_LOAD;
 }
+ENTRY(_start);
 SECTIONS {
 	. = 0x10000;
 	.text : {
