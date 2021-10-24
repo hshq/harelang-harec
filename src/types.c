@@ -719,6 +719,12 @@ type_is_castable(const struct type *to, const struct type *from)
 		return true;
 	}
 
+	struct type _to, _from;
+	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
+	if (to->id == from->id) {
+		return true;
+	}
+
 	switch (from->storage) {
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
