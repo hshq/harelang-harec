@@ -14,6 +14,8 @@ static const char *
 storage_to_suffix(enum type_storage storage)
 {
 	switch (storage) {
+	case STORAGE_CHAR:
+		return "";
 	case STORAGE_F32:
 		return "f32";
 	case STORAGE_F64:
