@@ -296,10 +296,10 @@ emit_type(const struct type *type, FILE *out)
 				ev; ev = ev->next) {
 			fprintf(out, "%s = ", ev->name);
 			if (type_is_signed(type)) {
-				fprintf(out, "%zu%s", ev->ival,
+				fprintf(out, "%zd%s", ev->ival,
 					storage_to_suffix(type->_enum.storage));
 			} else {
-				fprintf(out, "%zd%s", ev->uval,
+				fprintf(out, "%zu%s", ev->uval,
 					storage_to_suffix(type->_enum.storage));
 			}
 			if (ev->next) {
