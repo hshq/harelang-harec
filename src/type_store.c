@@ -642,11 +642,15 @@ type_init_from_atype(struct type_store *store,
 				if (r != EVAL_OK) {
 					error(store->check_context, atype->loc,
 						"Cannot evaluate enum value at compile time");
+					values = &value->next;
+					avalue = avalue->next;
 					continue;
 				}
 				if (!type_is_assignable(storage, out.result)) {
 					error(store->check_context, atype->loc,
-						"Cannotg assign enum value to enum type");
+						"Cannot assign enum value to enum type");
+					values = &value->next;
+					avalue = avalue->next;
 					continue;
 				}
 				if (type_is_signed(storage)) {
