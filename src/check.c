@@ -374,7 +374,7 @@ check_expr_append(struct context *ctx,
 			avalue = avalue->next) {
 		struct append_values *value = *next =
 			xcalloc(sizeof(struct append_values), 1);
-		value->expr = 
+		value->expr =
 			xcalloc(sizeof(struct expression), 1);
 		check_expression(ctx, avalue->expr, value->expr, memb);
 		if (!type_is_assignable(memb, value->expr->result)) {
@@ -1771,7 +1771,7 @@ check_expr_insert(struct context *ctx,
 			avalue = avalue->next) {
 		struct append_values *value = *next =
 			xcalloc(sizeof(struct append_values), 1);
-		value->expr = 
+		value->expr =
 			xcalloc(sizeof(struct expression), 1);
 		check_expression(ctx, avalue->expr, value->expr, memb);
 		if (!type_is_assignable(memb, value->expr->result)) {
@@ -2284,6 +2284,47 @@ check_expr_slice(struct context *ctx,
 }
 
 static void
+check_struct_exhaustive(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *stype)
+{
+	stype = type_dealias(stype);
+	if (stype->storage == STORAGE_UNION) {
+		return;
+	}
+	assert(stype->storage == STORAGE_STRUCT);
+	struct struct_field *sf = stype->struct_union.fields;
+	struct ast_field_value *af = aexpr->_struct.fields;
+
+	// XXX: O(n^2)?
+	while (sf) {
+		bool found = false;
+		for (struct ast_field_value *f = af; f;
+				f = f->next) {
+			if (!sf->name) {
+				check_struct_exhaustive(ctx, aexpr, expr,
+					sf->type);
+				found = true;
+				continue;
+			}
+			if (strcmp(f->name, sf->name) == 0) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			error(ctx, aexpr->loc, expr,
+				"Field '%s' is uninitialized",
+				sf->name);
+		}
+
+		sf = sf->next;
+	}
+}
+
+static void
 check_expr_struct(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -2380,7 +2421,9 @@ check_expr_struct(struct context *ctx,
 	}
 
 	if (stype) {
-		// TODO: Test for exhaustiveness
+		if (!expr->_struct.autofill) {
+			check_struct_exhaustive(ctx, aexpr, expr, stype);
+		}
 		expr->result = stype;
 	} else {
 		expr->result = type_store_lookup_atype(ctx->store, &satype);
@@ -3792,7 +3835,7 @@ check_internal(struct type_store *ts,
 	// - Creating a top-level scope for the whole unit, to which
 	//   declarations are added.
 	// - Creating a scope for each sub-unit, and populating it with imports.
-	// 
+	//
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
 	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);

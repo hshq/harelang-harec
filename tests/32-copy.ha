@@ -31,7 +31,7 @@ export fn main() void = {
 	assert(a.z == b.z);
 
 	// unions
-	let a = anyint { _16 = 10 };
+	let a = anyint { _16 = 10, ... };
 	let b = a;
 	assert(&a != &b);
 	assert(a._16 == b._16);
