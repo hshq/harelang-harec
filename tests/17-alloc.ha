@@ -68,13 +68,38 @@ fn slice() void = {
 	};
 	free(y);
 
-	let z: []int = alloc([]);
+	let z: []int = [];
 	let p = &z: *struct {
 		data: nullable *[*]int,
 		length: size,
 		capacity: size,
 	};
 	assert(p.data == null && p.length == 0 && p.capacity == 0);
+
+	let x: []int = alloc([1, 2, 3...], 42);
+	defer free(x);
+	assert(x[0] == 1);
+	assert(x[1] == 2);
+	assert(x[2] == 3);
+	for (let i = 2z; i < len(x); i += 1) {
+		assert(x[i] == 3);
+	};
+};
+
+fn slice_copy() void = {
+	let x: []int = [1, 2, 3];
+
+	let p: []int = alloc(x...);
+	defer free(p);
+	assert(p: *[*]int != x: *[*]int);
+	assert(len(p) == len(x));
+	for (let i = 0z; i < len(p); i += 1) {
+		assert(p[i] == x[i]);
+	};
+
+	let q: *[]int = alloc(x);
+	defer free(q);
+	assert((*q): *[*]int == x: *[*]int);
 };
 
 fn string() void = {

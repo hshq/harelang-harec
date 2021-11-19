@@ -1237,17 +1237,26 @@ parse_allocation_expression(struct lexer *lexer)
 	case T_ALLOC:
 		exp = mkexpr(&tok.loc);
 		exp->type = EXPR_ALLOC;
+		exp->alloc.kind = ALLOC_OBJECT;
 		want(lexer, T_LPAREN, NULL);
-		exp->alloc.expr = parse_expression(lexer);
+		exp->alloc.init = parse_expression(lexer);
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
+			// alloc(init, cap)
 			exp->alloc.cap = parse_expression(lexer);
+			exp->alloc.kind = ALLOC_WITH_CAP;
+			want(lexer, T_RPAREN, NULL);
+			break;
+		case T_ELLIPSIS:
+			// alloc(init...)
+			exp->alloc.kind = ALLOC_COPY;
 			want(lexer, T_RPAREN, NULL);
 			break;
 		case T_RPAREN:
+			// alloc(init)
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
+			synassert(false, &tok, T_COMMA, T_RPAREN, T_ELLIPSIS, T_EOF);
 		}
 		break;
 	case T_FREE:

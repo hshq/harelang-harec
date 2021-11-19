@@ -40,6 +40,11 @@ enum expr_type {
 	EXPR_YIELD,
 };
 
+struct expressions {
+	struct expression *expr;
+	struct expressions *next;
+};
+
 enum access_type {
 	ACCESS_IDENTIFIER,
 	ACCESS_INDEX,
@@ -67,8 +72,19 @@ struct expression_access {
 	};
 };
 
+enum alloc_kind {
+	ALLOC_OBJECT,	// alloc(42)
+	ALLOC_WITH_CAP,	// alloc([], 42)
+	ALLOC_WITH_LEN,	// alloc([0...], 42)
+	ALLOC_COPY,	// alloc(x...);
+};
+
 struct expression_alloc {
-	struct expression *expr;
+	enum alloc_kind kind;
+	union {
+		struct expression *init;
+		struct expressions *items;
+	};
 	struct expression *cap;
 };
 
@@ -152,11 +168,6 @@ struct call_argument {
 struct expression_call {
 	struct expression *lvalue;
 	struct call_argument *args;
-};
-
-struct expressions {
-	struct expression *expr;
-	struct expressions *next;
 };
 
 struct expression_compound {

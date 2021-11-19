@@ -634,7 +634,12 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_VOID:
 		return true;
 	case STORAGE_SLICE:
-		from = type_dealias(from);
+		if (from->storage == STORAGE_POINTER) {
+			from = type_dealias(from->pointer.referent);
+			if (from->storage != STORAGE_ARRAY) {
+				return false;
+			}
+		}
 		if (from->storage != STORAGE_ARRAY
 				&& from->storage != STORAGE_SLICE) {
 			return false;

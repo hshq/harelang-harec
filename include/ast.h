@@ -97,6 +97,11 @@ struct ast_type {
 	};
 };
 
+struct ast_expression_list {
+	struct ast_expression *expr;
+	struct ast_expression_list *next;
+};
+
 struct ast_expression_access {
 	enum access_type type;
 	union {
@@ -117,7 +122,11 @@ struct ast_expression_access {
 };
 
 struct ast_expression_alloc {
-	struct ast_expression *expr;
+	enum alloc_kind kind;
+	union {
+		struct ast_expression *init;
+		struct ast_expression_list *items;
+	};
 	struct ast_expression *cap;
 };
 
@@ -233,11 +242,6 @@ struct ast_expression_insert {
 	struct ast_expression *variadic;
 	struct ast_append_values *values;
 	bool is_static;
-};
-
-struct ast_expression_list {
-	struct ast_expression *expr;
-	struct ast_expression_list *next;
 };
 
 struct ast_expression_compound {

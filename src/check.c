@@ -274,6 +274,100 @@ check_expr_access(struct context *ctx,
 }
 
 static void
+check_expr_alloc_init(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	// alloc(initializer) case
+	int ptrflags = 0;
+	const struct type *inithint = NULL;
+	if (hint) {
+		const struct type *htype = type_dealias(hint);
+		switch (htype->storage) {
+		case STORAGE_POINTER:
+			inithint = htype->pointer.referent;
+			// TODO: Describe the use of pointer flags in the spec
+			ptrflags = htype->pointer.flags;
+			break;
+		case STORAGE_SLICE:
+		case STORAGE_ARRAY:
+			inithint = hint;
+			break;
+		default:
+			// The user's code is wrong here, but we'll let it fail
+			// later.
+			break;
+		}
+	}
+
+	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, inithint);
+
+	const struct type *objtype = expr->alloc.init->result;
+	expr->result = type_store_lookup_pointer(ctx->store, objtype, ptrflags);
+}
+
+static void
+check_expr_alloc_slice(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	// alloc(init, capacity) case
+	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
+
+	const struct type *objtype = expr->alloc.init->result;
+	if (type_dealias(objtype)->storage != STORAGE_ARRAY
+			&& type_dealias(objtype)->storage != STORAGE_SLICE) {
+		error(ctx, aexpr->alloc.init->loc, expr,
+			"Slice initializer must be of slice or array type, not %s",
+			type_storage_unparse(type_dealias(objtype)->storage));
+		return;
+	}
+
+	const struct type *caphint = &builtin_type_size;
+	expr->alloc.cap = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->alloc.cap, expr->alloc.cap, caphint);
+
+	const struct type *captype = expr->alloc.cap->result;
+	if (!type_is_assignable(&builtin_type_size, captype)) {
+		error(ctx, aexpr->alloc.cap->loc, expr,
+			"Slice capacity must be assignable to size");
+		return;
+	}
+
+	const struct type *membtype = type_dealias(objtype)->array.members;
+	expr->result = type_store_lookup_slice(ctx->store, membtype);
+
+	if (objtype->storage == STORAGE_ARRAY
+			&& objtype->array.expandable) {
+		expr->alloc.kind = ALLOC_WITH_LEN;
+	}
+}
+
+static void
+check_expr_alloc_copy(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	// alloc(init...) case
+	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
+
+	const struct type *result = expr->alloc.init->result;
+	if (result != hint) {
+		// TODO: We might be able to be less strict on this. We could
+		// copy slices of types which differ only based on the flag, or
+		// copy an array into a new slice.
+		error(ctx, aexpr->alloc.init->loc, expr,
+			"Cannot copy a slice to a slice of another type");
+		return;
+	}
+
+	expr->result = result;
+}
+
+static void
 check_expr_alloc(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -281,72 +375,20 @@ check_expr_alloc(struct context *ctx,
 {
 	assert(aexpr->type == EXPR_ALLOC);
 	expr->type = EXPR_ALLOC;
-	expr->alloc.expr = xcalloc(sizeof(struct expression), 1);
-	const struct type *inittype = NULL;
-	if (hint && type_dealias(hint)->storage == STORAGE_POINTER) {
-		inittype = type_dealias(hint)->pointer.referent;
-	} else if (hint && type_dealias(hint)->storage == STORAGE_SLICE) {
-		inittype = hint;
-	}
-	check_expression(ctx, aexpr->alloc.expr, expr->alloc.expr, inittype);
-	inittype = expr->alloc.expr->result;
-
-	int flags = 0;
-	if (hint && type_is_assignable(hint, inittype)) {
-		if (type_dealias(hint)->storage == STORAGE_SLICE) {
-			inittype = hint;
-		} else if (type_dealias(hint)->storage == STORAGE_POINTER) {
-			inittype = type_dealias(hint)->pointer.referent;
-			flags = type_dealias(hint)->pointer.flags;
-		}
-	}
-
-	switch (type_dealias(inittype)->storage) {
-	case STORAGE_SLICE:
-		expr->result = inittype;
+	expr->alloc.init = xcalloc(1, sizeof(struct expression));
+	expr->alloc.kind = aexpr->alloc.kind;
+	switch (aexpr->alloc.kind) {
+	case ALLOC_OBJECT:
+		check_expr_alloc_init(ctx, aexpr, expr, hint);
 		break;
-	case STORAGE_ARRAY:
-		if (aexpr->alloc.cap) {
-			expr->result = type_store_lookup_slice(ctx->store,
-				type_dealias(inittype)->array.members);
-		} else {
-			expr->result = type_store_lookup_pointer(ctx->store,
-				inittype, flags);
-		}
+	case ALLOC_WITH_CAP:
+		check_expr_alloc_slice(ctx, aexpr, expr, hint);
 		break;
-	default:
-		expr->result = type_store_lookup_pointer(ctx->store,
-			inittype, flags);
+	case ALLOC_COPY:
+		check_expr_alloc_copy(ctx, aexpr, expr, hint);
 		break;
-	}
-
-	enum type_storage storage = type_dealias(expr->result)->storage;
-	switch (storage) {
-	case STORAGE_POINTER:
-		if (aexpr->alloc.cap != NULL) {
-			error(ctx, aexpr->alloc.cap->loc, expr,
-					"Allocation with capacity must be of slice type, not %s",
-					type_storage_unparse(storage));
-			return;
-		}
-		break;
-	case STORAGE_SLICE:
-		if (aexpr->alloc.cap != NULL) {
-			expr->alloc.cap = xcalloc(sizeof(struct expression), 1);
-			check_expression(ctx, aexpr->alloc.cap, expr->alloc.cap, &builtin_type_size);
-			if (!type_is_assignable(&builtin_type_size,
-					expr->alloc.cap->result)) {
-				error(ctx, aexpr->alloc.cap->loc, expr,
-					"Allocation capacity must be assignable to size");
-				return;
-			}
-		}
-		break;
-	default:
-		error(ctx, aexpr->loc, expr,
-			"Allocation type must be pointer or slice, not %s",
-			type_storage_unparse(storage));
-		return;
+	case ALLOC_WITH_LEN:
+		abort(); // Not determined by parse
 	}
 }
 
