@@ -897,6 +897,7 @@ _lex(struct lexer *lexer, struct token *out)
 		return lex_literal(lexer, out);
 	}
 
+	char p[5];
 	switch (c) {
 	case '"':
 	case '\'':
@@ -949,8 +950,10 @@ _lex(struct lexer *lexer, struct token *out)
 		out->token = T_QUESTION;
 		break;
 	default:
-		out->token = T_ERROR;
-		break;
+		p[utf8_encode(p, c)] = '\0';
+		fprintf(stderr, "Error: unexpected code point '%s' at %s:%d:%d\n",
+			p, lexer->loc.path, lexer->loc.lineno, lexer->loc.colno);
+		exit(EXIT_FAILURE);
 	}
 
 	return out->token;
