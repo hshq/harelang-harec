@@ -57,7 +57,6 @@ store_for_type(struct gen_context *ctx, const struct type *type)
 		break;
 	case STORAGE_POINTER:
 	case STORAGE_UINTPTR:
-	case STORAGE_TYPE:
 		switch (ctx->arch.ptr->stype) {
 		case Q_LONG:
 			return Q_STOREL;
@@ -125,7 +124,6 @@ load_for_type(struct gen_context *ctx, const struct type *type)
 		break;
 	case STORAGE_POINTER:
 	case STORAGE_UINTPTR:
-	case STORAGE_TYPE:
 		switch (ctx->arch.ptr->stype) {
 		case Q_LONG:
 			return Q_LOADL;

@@ -115,7 +115,6 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return &builtin_type_null; // const null and null are the same type
 	case STORAGE_STRING:
 		return is_const ? &builtin_type_const_str : &builtin_type_str;
-	case STORAGE_TYPE:
 	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
@@ -710,10 +709,6 @@ type_init_from_atype(struct type_store *store,
 		type->pointer.referent = type_store_lookup_atype(
 			store, atype->pointer.referent);
 		break;
-	case STORAGE_TYPE:
-		type->size = 8; // XXX: ARCH
-		type->align = 8;
-		break;
 	case STORAGE_SLICE:
 		type->size = 24; // XXX: ARCH
 		type->align = 8;
@@ -987,17 +982,6 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 		t->offset = type.size % t->type->align + type.size;
 		type.size += type.size % t->type->align + t->type->size;
 	}
-	return type_store_lookup_type(store, &type);
-}
-
-const struct type *
-type_store_type(struct type_store *store)
-{
-	struct type type = {
-		.storage = STORAGE_TYPE,
-		.size = 8, // XXX: ARCH
-		.align = 8,
-	};
 	return type_store_lookup_type(store, &type);
 }
 

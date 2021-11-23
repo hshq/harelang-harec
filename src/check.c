@@ -661,7 +661,6 @@ type_promote(struct type_store *store,
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
-	case STORAGE_TYPE:
 	case STORAGE_UINTPTR:
 	case STORAGE_UNION:
 	case STORAGE_VOID:
@@ -820,8 +819,7 @@ check_expr_binarithm(struct context *ctx,
 		if (!type_is_numeric(p) && type_dealias(p)->storage != STORAGE_POINTER
 				&& type_dealias(p)->storage != STORAGE_STRING
 				&& type_dealias(p)->storage != STORAGE_BOOL
-				&& type_dealias(p)->storage != STORAGE_RUNE
-				&& type_dealias(p)->storage != STORAGE_TYPE) {
+				&& type_dealias(p)->storage != STORAGE_RUNE) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform equality test on %s type",
 				type_storage_unparse(type_dealias(p)->storage));
@@ -1480,7 +1478,6 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_SLICE:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
-	case STORAGE_TYPE:
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
 		assert(0); // Invariant
@@ -2677,18 +2674,6 @@ check_expr_tuple(struct context *ctx,
 }
 
 static void
-check_expr_type(struct context *ctx,
-	const struct ast_expression *aexpr,
-	struct expression *expr,
-	const struct type *hint)
-{
-	expr->type = EXPR_TYPE;
-	expr->_type.type = type_store_lookup_atype(
-		ctx->store, aexpr->_type.type);
-	expr->result = type_store_type(ctx->store);
-}
-
-static void
 check_expr_unarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -2846,9 +2831,6 @@ check_expression(struct context *ctx,
 		break;
 	case EXPR_TUPLE:
 		check_expr_tuple(ctx, aexpr, expr, hint);
-		break;
-	case EXPR_TYPE:
-		check_expr_type(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr, hint);
@@ -3125,7 +3107,6 @@ type_is_specified(const struct type *type, bool is_static) {
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_STRING:
-	case STORAGE_TYPE:
 	case STORAGE_U16:
 	case STORAGE_U32:
 	case STORAGE_U64:
@@ -3213,7 +3194,6 @@ atype_is_specified(struct context *ctx,
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_STRING:
-	case STORAGE_TYPE:
 	case STORAGE_U16:
 	case STORAGE_U32:
 	case STORAGE_U64:
@@ -3474,8 +3454,6 @@ expr_is_specified(struct context *ctx,
 			}
 		}
 		return true;
-	case EXPR_TYPE:
-		return atype_is_specified(ctx, aexpr->_type.type, is_static);
 	case EXPR_UNARITHM:
 		return expr_is_specified(ctx, aexpr->unarithm.operand, is_static);
 	case EXPR_YIELD:

@@ -143,7 +143,6 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
 	case STORAGE_TAGGED:
-	case STORAGE_TYPE:
 		assert(0); // Invariant
 	}
 }
@@ -218,7 +217,6 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_STRING:
-	case STORAGE_TYPE:
 	case STORAGE_U16:
 	case STORAGE_U32:
 	case STORAGE_U64:

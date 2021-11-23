@@ -89,7 +89,6 @@ itrunc(const struct type *type, uintmax_t val)
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
-	case STORAGE_TYPE:
 	case STORAGE_UNION:
 	case STORAGE_VOID:
 		assert(0);
@@ -347,7 +346,6 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_POINTER:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
-	case STORAGE_TYPE:
 	case STORAGE_U16:
 	case STORAGE_U32:
 	case STORAGE_U64:
@@ -458,8 +456,6 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
 		assert(0); // Invariant
-	case STORAGE_TYPE:
-		assert(0); // TODO
 	case STORAGE_VOID:
 		break; // no-op
 	}
@@ -548,7 +544,6 @@ constant_default(struct context *ctx, struct expression *v)
 		assert(0); // TODO
 	case STORAGE_ALIAS:
 	case STORAGE_FUNCTION:
-	case STORAGE_TYPE:
 		assert(0); // Invariant
 	case STORAGE_VOID:
 		break; // no-op
@@ -744,7 +739,6 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_PROPAGATE:
 	case EXPR_RETURN:
 	case EXPR_SWITCH:
-	case EXPR_TYPE: // XXX: Should this work?
 	case EXPR_YIELD:
 		// Excluded from translation-compatible subset
 		return EVAL_INVALID;

@@ -14,7 +14,6 @@ rt() {
 				rt/+linux/segmalloc.ha \
 				rt/+linux/syscallno+$arch.ha \
 				rt/+linux/syscalls.ha \
-				rt/types_arch+$arch.ha
 
 			libhart_objs=\
 				rt/+linux/syscall+$arch.o
@@ -42,7 +41,6 @@ rt() {
 				rt/+freebsd/segmalloc.ha \
 				rt/+freebsd/syscallno.ha \
 				rt/+freebsd/syscalls.ha \
-				rt/types_arch+$arch.ha
 
 			libhart_objs=\
 				rt/+freebsd/syscall+$arch.o

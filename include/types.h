@@ -27,7 +27,6 @@ enum type_storage {
 	STORAGE_UINT,
 	STORAGE_UINTPTR,
 	STORAGE_VOID,
-	STORAGE_TYPE, // Handled separately
 	// Other types
 	STORAGE_ALIAS,
 	STORAGE_ARRAY,

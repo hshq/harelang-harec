@@ -175,7 +175,6 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	case STORAGE_SIZE:
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
-	case STORAGE_TYPE:
 	case STORAGE_NULL:
 	case STORAGE_F32:
 	case STORAGE_F64:
@@ -216,7 +215,6 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
 	case STORAGE_NULL:
-	case STORAGE_TYPE:
 		return ctx->arch.ptr;
 	case STORAGE_F32:
 		return &qbe_single;
@@ -261,7 +259,6 @@ type_is_aggregate(const struct type *type)
 	case STORAGE_I8:
 	case STORAGE_INT:
 	case STORAGE_POINTER:
-	case STORAGE_TYPE:
 	case STORAGE_NULL:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:

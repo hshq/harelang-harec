@@ -28,7 +28,6 @@ harec() {
 
 all="harec"
 
-subdir types
 subdir rt
 subdir tests
 
