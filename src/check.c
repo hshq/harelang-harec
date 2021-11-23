@@ -2904,7 +2904,6 @@ check_function(struct context *ctx,
 	decl->func.type = fntype;
 	decl->func.flags = afndecl->flags;
 
-	decl->hidden = afndecl->hidden;
 	if (afndecl->symbol) {
 		decl->symbol = strdup(afndecl->symbol);
 	}
@@ -2996,7 +2995,6 @@ check_global(struct context *ctx,
 	decl->global.type = type;
 	decl->global.value = value;
 
-	decl->hidden = adecl->hidden;
 	if (adecl->symbol) {
 		decl->ident.name = strdup(adecl->symbol);
 		decl->symbol = strdup(adecl->symbol);

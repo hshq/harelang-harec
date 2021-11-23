@@ -15,7 +15,6 @@
 static const char *tokens[] = {
 	// Must be alpha sorted and match lex.h
 	[T_ATTR_FINI] = "@fini",
-	[T_ATTR_HIDDEN] = "@hidden",
 	[T_ATTR_INIT] = "@init",
 	[T_ATTR_NORETURN] = "@noreturn",
 	[T_ATTR_OFFSET] = "@offset",

@@ -363,7 +363,6 @@ struct ast_expression {
 
 struct ast_global_decl {
 	char *symbol;
-	bool hidden;
 	struct identifier ident;
 	struct ast_type *type;
 	struct ast_expression *init;
@@ -378,7 +377,6 @@ struct ast_type_decl {
 
 struct ast_function_decl {
 	char *symbol;
-	bool hidden;
 	struct identifier ident;
 	struct ast_function_type prototype;
 	struct ast_expression *body;
