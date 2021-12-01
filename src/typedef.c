@@ -390,11 +390,11 @@ static void
 emit_decl_global(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
-	fprintf(out, "export");
+	fprintf(out, "export let ");
 	if (decl->symbol) {
-		fprintf(out, " @symbol(\"%s\") ", decl->symbol);
+		fprintf(out, "@symbol(\"%s\") ", decl->symbol);
 	}
-	fprintf(out, " let %s: ", ident);
+	fprintf(out, "%s: ", ident);
 	emit_exported_type(decl->global.type, out);
 	fprintf(out, ";\n");
 }

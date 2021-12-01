@@ -2973,11 +2973,9 @@ check_global(struct context *ctx,
 	decl->global.type = type;
 
 	if (adecl->symbol) {
-		decl->ident.name = strdup(adecl->symbol);
 		decl->symbol = strdup(adecl->symbol);
-	} else {
-		mkident(ctx, &decl->ident, &adecl->ident);
 	}
+	mkident(ctx, &decl->ident, &adecl->ident);
 
 	if (!adecl->init) {
 		return decl; // Forward declaration
