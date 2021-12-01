@@ -2965,12 +2965,23 @@ static struct declaration *
 check_global(struct context *ctx,
 	const struct ast_global_decl *adecl)
 {
-	if (!adecl->init) {
-		return NULL; // Forward declaration
-	}
-
 	const struct type *type = type_store_lookup_atype(
 			ctx->store, adecl->type);
+
+	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
+	decl->type = DECL_GLOBAL;
+	decl->global.type = type;
+
+	if (adecl->symbol) {
+		decl->ident.name = strdup(adecl->symbol);
+		decl->symbol = strdup(adecl->symbol);
+	} else {
+		mkident(ctx, &decl->ident, &adecl->ident);
+	}
+
+	if (!adecl->init) {
+		return decl; // Forward declaration
+	}
 
 	// TODO: Free initialier
 	struct expression *initializer =
@@ -2990,17 +3001,7 @@ check_global(struct context *ctx,
 	expect(&adecl->init->loc, r == EVAL_OK,
 		"Unable to evaluate global initializer at compile time");
 
-	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	decl->type = DECL_GLOBAL;
-	decl->global.type = type;
 	decl->global.value = value;
-
-	if (adecl->symbol) {
-		decl->ident.name = strdup(adecl->symbol);
-		decl->symbol = strdup(adecl->symbol);
-	} else {
-		mkident(ctx, &decl->ident, &adecl->ident);
-	}
 
 	return decl;
 }

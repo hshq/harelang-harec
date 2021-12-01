@@ -3160,6 +3160,9 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 {
 	assert(decl->type == DECL_GLOBAL);
 	const struct global_decl *global = &decl->global;
+	if (!global->value) {
+		return; // Forward declaration
+	}
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_DATA;
 	qdef->exported = decl->exported;
