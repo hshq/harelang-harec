@@ -36,7 +36,7 @@ fn storage() void = {
 	assert(su.x == 20 && su.y == 10);
 	assert(au.x == 0 && au.y == 0);
 	assert(a3.coords.x == 0 && a3.coords.y == 0 && a3.z == 0);
-	assert(big_value == 0x1234567887654321);
+	assert(big_value == 0x1234567887654321: aenum);
 	assert(float == 1234.5678);
 	assert(double == 1234.5678);
 };
