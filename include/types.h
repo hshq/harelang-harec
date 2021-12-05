@@ -107,6 +107,7 @@ struct struct_field {
 	char *name;
 	const struct type *type;
 	size_t offset;
+	size_t size;
 	struct struct_field *next;
 };
 
@@ -151,6 +152,11 @@ struct type {
 		struct type_tagged_union tagged;
 		struct type_tuple tuple;
 	};
+};
+
+struct dimensions {
+	size_t size;
+	size_t align;
 };
 
 const struct type *type_dereference(const struct type *type);

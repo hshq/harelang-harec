@@ -9,6 +9,7 @@ enum object_type {
 	O_BIND,
 	O_CONST,
 	O_DECL,
+	O_SCAN,
 	O_TYPE,
 };
 
@@ -52,7 +53,7 @@ struct scope {
 	struct yield *yields;
 
 	// Linked list in insertion order
-	// Used for function parameters, where order matters
+	// Used for function parameters and enum values, where order matters
 	struct scope_object *objects;
 	struct scope_object **next;
 

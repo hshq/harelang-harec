@@ -271,7 +271,7 @@ struct expression_measure {
 	enum measure_operator op;
 	union {
 		struct expression *value;
-		const struct type *type;
+		struct dimensions dimensions;
 		// TODO: Field selection
 	};
 };

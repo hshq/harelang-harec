@@ -2,11 +2,11 @@
 #define HARE_CHECK_H
 #include <stdbool.h>
 #include "identifier.h"
+#include "scope.h"
 #include "types.h"
 #include "type_store.h"
 
 struct expression;
-struct scope;
 
 #define MODCACHE_BUCKETS 256
 
@@ -41,6 +41,7 @@ struct context {
 	bool is_test;
 	struct scope *unit;
 	struct scope *scope;
+	struct scope *resolving_enum;
 	bool deferring;
 	int id;
 	struct errors *errors;
@@ -105,6 +106,34 @@ struct unit {
 	struct declarations *declarations;
 	struct imports *imports;
 };
+
+enum idecl_type {
+	IDECL_DECL,
+	IDECL_ENUM,
+};
+
+// Keeps track of enum specific context required for enum field resolution
+struct incomplete_enum_field {
+	struct ast_enum_field *field;
+	struct ast_type *type;
+	struct scope *enum_scope;
+};
+
+// Keeps track of context required to resolve a declaration or an enum field
+// Extends the scope_object struct so it can be inserted into a scope
+struct incomplete_declaration {
+	const struct scope_object obj;
+	struct scope *imports; // the scope of this declaration's subunit
+	enum idecl_type type;
+	bool in_progress;
+	union {
+		struct ast_decl decl;
+		struct incomplete_enum_field *field;
+	};
+};
+
+const struct scope_object *scan_decl_finish(struct context *ctx,
+	const struct scope_object *obj, struct dimensions *dim);
 
 struct scope *check(struct type_store *ts,
 	bool is_test,

@@ -378,7 +378,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	// XXX: We should also be able to handle expressions which use
 	// symbols/identifiers
 	out->type = EXPR_CONSTANT;
-	out->result = to;
+	out->result = in->result;
 
 	const struct type *subtype;
 	switch (to->storage) {
@@ -391,6 +391,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 			|| from->storage == STORAGE_UINTPTR);
 		out->constant.uval = val.constant.uval;
 		return EVAL_OK;
+	case STORAGE_ENUM:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
@@ -445,7 +446,6 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		}
 		return EVAL_OK;
 	case STORAGE_CHAR:
-	case STORAGE_ENUM:
 	case STORAGE_NULL:
 	case STORAGE_ALIAS:
 		assert(0); // Handled above
@@ -473,7 +473,7 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 	case M_LEN:
 		assert(0); // TODO
 	case M_SIZE:
-		out->constant.uval = in->measure.type->size;
+		out->constant.uval = in->measure.dimensions.size;
 		return EVAL_OK;
 	case M_OFFSET:
 		if (in->measure.value->access.type == ACCESS_FIELD) {

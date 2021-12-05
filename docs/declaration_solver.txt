@@ -1,0 +1,69 @@
+First thing harec does after parsing the inputs is making sure all the global
+declarations are valid. A constraint unique to this compilation step is that
+unlike with sequential bindings in a compound expression, there is no explicit
+order in which the declarations should be traversed to validate them, the
+correct traversal order is given by the contents of declarations themselves. To
+make things even more complex, interdependent declarations may reside in
+different subunits, so there is quite a bit of scope juggling involved to
+achieve correct scope shadowing.
+
+Declarations come in five flavours - functions, constants, type aliases, global
+variables and enum fields.
+
+First, the constants defined upon harec invocation are checked and put into a
+dedicated scope. Then the imports for each subunit are loaded. This step requires
+the command line defines to already be in place. After the imports of a
+subunit are loaded, all of its declarations are marked incomplete and put into
+the unit scope. Duplicate declarations are caught and reported at this step.
+Special care needs to be taken with enums, by creating a scope for each of them
+and inserting all the fields into it in the correct order.
+
+At this point the defines can be copied from the dedicated scope into the unit
+scope, shadowing the declarations from the source files.
+
+With everything but the declarations in place, the core part of the algorithm
+is started:
+
+For each incomplete declaration:
+    (1) Save previous enum and subunit context, and load subunit context for
+        current declaration.
+    (2) If this declaration is marked as in-progress, error out because the
+        declaration part of a dependency cycle, otherwise mark this
+        declaration as in progress.
+    (3) Disambiguate between different declaration flavours:
+        - for functions, constants and globals and enum fields:
+            Check and evaluate as if all the dependencies are already resolved.
+            For enum fields, the relevant enum context has to be loaded and
+            implicit values need to be taken care of.
+
+            If an incomplete dependency is encountered along the way, first
+            resolve that dependency recursively and then continue with
+            resolution. When the check is done, insert the declaration into the
+            unit scope. Declaration is now considered complete.
+        - for type aliases:
+            Types have two distinct properties that both have to be computed
+            before a type is complete, their dimensions and their
+            representation. The approach taken can be summarized as follows:
+
+            (a) Compute secondary type's dimensions by traversing just enough
+                of its constituent types to be able to do so.  If an incomplete
+                type alias is encountered, first compute that type's dimensions
+                recursively and then continue.
+            (b) Insert the complete alias into the type store and into the unit
+                scope.
+            (c) Compute secondary type's representation by traversing all of
+                its constituent types and repeating this entire process on
+                those that are still incomplete.
+
+            A valid type alias never references itself during (a), because such
+            a type would not be storable in memory.  Types may reference
+            themselves during (c). Such types are called self-referential
+            types. Self-references during (c) require no special treatment,
+            because from step (b) onwards the type we are currently declaring
+            can be treated as a regular complete type.
+    (4) Remove the in progress mark
+    (5) Restore the saved subunit and enum context
+
+At this point all the incomplete declarations in the unit scope are shadowed by
+their complete counterparts. From here on, no special considerations regarding
+incomplete declarations apply and check can proceed accordingly.

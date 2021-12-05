@@ -245,6 +245,7 @@ gen_access_ident(struct gen_context *ctx, const struct expression *expr)
 		};
 	case O_CONST:
 	case O_TYPE:
+	case O_SCAN:
 		abort(); // Invariant
 	}
 	abort(); // Invariant
@@ -2232,7 +2233,7 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 		return (struct gen_value){
 			.kind = GV_CONST,
 			.type = &builtin_type_size,
-			.lval = expr->measure.type->size,
+			.lval = expr->measure.dimensions.size,
 		};
 	case M_OFFSET:
 		if (expr->measure.value->access.type == ACCESS_FIELD) {

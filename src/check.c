@@ -128,17 +128,28 @@ check_expr_access(struct context *ctx,
 	expr->type = EXPR_ACCESS;
 	expr->access.type = aexpr->access.type;
 
-	const struct scope_object *obj;
+	const struct scope_object *obj = NULL;
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
-		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
-		char buf[1024];
-		identifier_unparse_static(&aexpr->access.ident, buf, sizeof(buf));
+		if (ctx->resolving_enum) {
+			obj = scope_lookup(ctx->resolving_enum, &aexpr->access.ident);
+		}
 		if (!obj) {
+			obj = scope_lookup(ctx->scope, &aexpr->access.ident);
+		}
+		if (!obj) {
+			char buf[1024];
+			identifier_unparse_static(&aexpr->access.ident,
+				buf, sizeof(buf));
 			error(ctx, aexpr->loc, expr,
 				"Unknown object '%s'", buf);
 			return;
 		}
+		if (obj->otype == O_SCAN) {
+			// complete the declaration first
+			obj = scan_decl_finish(ctx, obj, NULL);
+		}
+
 		switch (obj->otype) {
 		case O_CONST:
 			// Lower constants
@@ -159,6 +170,8 @@ check_expr_access(struct context *ctx,
 			expr->type = EXPR_CONSTANT;
 			expr->result = obj->type;
 			break;
+		case O_SCAN:
+			assert(0); // handled above
 		}
 		break;
 	case ACCESS_INDEX:
@@ -1974,7 +1987,7 @@ check_expr_measure(struct context *ctx,
 		}
 		break;
 	case M_SIZE:
-		expr->measure.type = type_store_lookup_atype(
+		expr->measure.dimensions = type_store_lookup_dimensions(
 			ctx->store, aexpr->measure.type);
 		break;
 	case M_OFFSET:
@@ -2338,6 +2351,10 @@ check_expr_struct(struct context *ctx,
 				"Unknown type alias");
 			return;
 		}
+
+		// Do we want globals without type hints?
+		assert(obj->otype != O_SCAN);
+
 		if (obj->otype != O_TYPE) {
 			error(ctx, aexpr->loc, expr,
 					"Name does not refer to a type");
@@ -2868,7 +2885,6 @@ check_const(struct context *ctx,
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	const struct scope_object *obj = scope_lookup(
 			ctx->unit, &adecl->ident);
-	assert(obj && obj->otype == O_CONST);
 	decl->type = DECL_CONST;
 	decl->constant.type = type;
 	decl->constant.value = obj->value;
@@ -2892,7 +2908,6 @@ check_function(struct context *ctx,
 	};
 	const struct type *fntype = type_store_lookup_atype(
 			ctx->store, &fn_atype);
-	assert(fntype); // Invariant
 	ctx->fntype = fntype;
 
 	expect(&adecl->loc,
@@ -3017,8 +3032,19 @@ check_type(struct context *ctx,
 	decl->type = DECL_TYPE;
 	const struct type *type =
 		type_store_lookup_atype(ctx->store, adecl->type.type);
+	struct type _alias = {
+		.storage = STORAGE_ALIAS,
+		.alias = {
+			.ident = decl->ident,
+			.type = type,
+			.exported = adecl->exported,
+		},
+		.size = type->size,
+		.align = type->align,
+		.flags = type->flags,
+	};
 	const struct type *alias =
-		type_store_lookup_alias(ctx->store, &decl->ident, type, decl->exported);
+		type_store_lookup_alias(ctx->store, &_alias, true);
 	decl->_type = alias;
 	return decl;
 }
@@ -3080,406 +3106,124 @@ check_declarations(struct context *ctx,
 	return next;
 }
 
-// Set is_static = true if you intend to evaluate this expression and
-// statically allocate the result right away.
-static bool expr_is_specified(struct context *ctx,
-	const struct ast_expression *aexpr, bool is_static);
-
-static bool
-type_is_specified(const struct type *type, bool is_static) {
-	assert(type);
-	switch (type->storage) {
-	case STORAGE_BOOL:
-	case STORAGE_CHAR:
-	case STORAGE_F32:
-	case STORAGE_F64:
-	case STORAGE_FCONST:
-	case STORAGE_I16:
-	case STORAGE_I32:
-	case STORAGE_I64:
-	case STORAGE_I8:
-	case STORAGE_ICONST:
-	case STORAGE_INT:
-	case STORAGE_NULL:
-	case STORAGE_RUNE:
-	case STORAGE_SIZE:
-	case STORAGE_STRING:
-	case STORAGE_U16:
-	case STORAGE_U32:
-	case STORAGE_U64:
-	case STORAGE_U8:
-	case STORAGE_UINT:
-	case STORAGE_UINTPTR:
-	case STORAGE_VOID:
-		return true;
-	case STORAGE_ALIAS:
-		if (type->alias.type == NULL) {
-			return false;
-		}
-		return type_is_specified(type->alias.type, is_static);
-	case STORAGE_ARRAY:
-		return type_is_specified(type->array.members, is_static);
-	case STORAGE_SLICE:
-		if (!is_static) {
-			return true;
-		}
-		return type_is_specified(type->array.members, is_static);
-	case STORAGE_ENUM:
-		return true;
-	case STORAGE_FUNCTION:
-		for (struct type_func_param *param = type->func.params;
-				param; param = param->next) {
-			if (!type_is_specified(param->type, is_static)) {
-				return false;
-			}
-		}
-		return type_is_specified(type->func.result, is_static);
-	case STORAGE_POINTER:
-		return true;
-	case STORAGE_STRUCT:
-	case STORAGE_UNION:
-		for (const struct struct_field *field =
-				type->struct_union.fields;
-				field; field = field->next) {
-			if (!type_is_specified(field->type, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	case STORAGE_TAGGED:
-		for (const struct type_tagged_union *ttype = &type->tagged;
-				ttype; ttype = ttype->next) {
-			if (!type_is_specified(ttype->type, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	case STORAGE_TUPLE:
-		for (const struct type_tuple *ttype = &type->tuple;
-				ttype; ttype = ttype->next) {
-			if (!type_is_specified(ttype->type, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	}
-	abort(); // Unreachable
-}
-
-static bool
-atype_is_specified(struct context *ctx,
-		const struct ast_type *atype, bool is_static)
+static struct incomplete_declaration *
+incomplete_declaration_create(struct context *ctx, struct location loc,
+		struct scope *scope, const struct identifier *ident,
+		const struct identifier *name)
 {
-	if (!atype) {
-		return true;
+	struct incomplete_declaration *idecl =
+		(struct incomplete_declaration *)scope_lookup(scope, ident);
+	if (idecl) {
+		error(ctx, loc, NULL, "Duplicate global identifier '%s'",
+			identifier_unparse(ident));
+		return idecl;
 	}
+	idecl =  xcalloc(1, sizeof(struct incomplete_declaration));
 
-	const struct scope_object *object;
-	switch (atype->storage) {
-	case STORAGE_BOOL:
-	case STORAGE_CHAR:
-	case STORAGE_F32:
-	case STORAGE_F64:
-	case STORAGE_FCONST:
-	case STORAGE_I16:
-	case STORAGE_I32:
-	case STORAGE_I64:
-	case STORAGE_I8:
-	case STORAGE_ICONST:
-	case STORAGE_INT:
-	case STORAGE_NULL:
-	case STORAGE_RUNE:
-	case STORAGE_SIZE:
-	case STORAGE_STRING:
-	case STORAGE_U16:
-	case STORAGE_U32:
-	case STORAGE_U64:
-	case STORAGE_U8:
-	case STORAGE_UINT:
-	case STORAGE_UINTPTR:
-	case STORAGE_VOID:
-		return true;
-	case STORAGE_ALIAS:
-		object = scope_lookup(ctx->scope, &atype->alias);
-		if (object == NULL) {
-			return false;
-		}
-		assert(object->otype == O_TYPE);
-		const struct type *secondary = object->type;
-		assert(secondary->storage == STORAGE_ALIAS);
-		return type_is_specified(secondary->alias.type, is_static);
-	case STORAGE_ARRAY:
-		return atype_is_specified(ctx, atype->array.members, is_static)
-			&& expr_is_specified(ctx, atype->array.length, is_static);
-	case STORAGE_SLICE:
-		if (!is_static) {
-			return true;
-		}
-		return atype_is_specified(ctx, atype->array.members, is_static);
-	case STORAGE_ENUM:
-		for (struct ast_enum_field *field = atype->_enum.values;
-				field; field = field->next) {
-			if (!expr_is_specified(ctx, field->value, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	case STORAGE_FUNCTION:
-		for (struct ast_function_parameters *param = atype->func.params;
-				param; param = param->next) {
-			if (!atype_is_specified(ctx, param->type, is_static)) {
-				return false;
-			}
-		}
-		return atype_is_specified(ctx, atype->func.result, is_static);
-	case STORAGE_POINTER:
-		return true;
-	case STORAGE_STRUCT:
-	case STORAGE_UNION:
-		for (const struct ast_struct_union_type *stype =
-				&atype->struct_union;
-				stype; stype = stype->next) {
-			if (!expr_is_specified(ctx, stype->offset, is_static)) {
-				return false;
-			}
-			if (!atype_is_specified(ctx, stype->type, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	case STORAGE_TAGGED:
-		for (const struct ast_tagged_union_type *ttype =
-				&atype->tagged_union;
-				ttype; ttype = ttype->next) {
-			if (!atype_is_specified(ctx, ttype->type, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	case STORAGE_TUPLE:
-		for (const struct ast_tuple_type *ttype = &atype->tuple;
-				ttype; ttype = ttype->next) {
-			if (!atype_is_specified(ctx, ttype->type, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	}
-	abort(); // Unreachable
+	scope_object_init((struct scope_object *)idecl, O_SCAN,
+			ident, name, NULL, NULL);
+	scope_insert_from_object(scope, (struct scope_object *)idecl);
+	return idecl;
 }
 
-static bool
-expr_is_specified(struct context *ctx,
-		const struct ast_expression *aexpr,
-		bool is_static)
+static void
+incomplete_enum_field_create(struct context *ctx, struct scope *imports,
+		struct scope *enum_scope, struct ast_type *etype,
+		struct ast_enum_field *f)
 {
-	if (!aexpr) {
-		return true;
+	// We have to process the last field first
+	// This way, objects in enum_scope will have lnext pointing to
+	// the previous element, which is important for implicit enum values.
+	if (f->next) {
+		incomplete_enum_field_create(ctx, imports, enum_scope,
+			etype, f->next);
 	}
+	assert(etype->storage == STORAGE_ALIAS);
+	struct incomplete_enum_field *field = xcalloc(1, sizeof(struct ast_type));
+	*field = (struct incomplete_enum_field){
+		.field = f,
+		.type = etype,
+		.enum_scope = enum_scope,
+	};
 
-	switch (aexpr->type) {
-	case EXPR_ACCESS:
-		switch (aexpr->access.type) {
-		case ACCESS_IDENTIFIER:
-			// XXX: Is this right?
-			//return scope_lookup(ctx->scope, &aexpr->access.ident);
-			return true;
-		case ACCESS_INDEX:
-			return expr_is_specified(ctx, aexpr->access.array, is_static)
-				&& expr_is_specified(ctx, aexpr->access.index, is_static);
-		case ACCESS_FIELD:
-			return expr_is_specified(ctx, aexpr->access._struct, is_static);
-		case ACCESS_TUPLE:
-			return expr_is_specified(ctx, aexpr->access.tuple, is_static)
-				&& expr_is_specified(ctx, aexpr->access.value, is_static);
-		}
-		assert(0);
-	case EXPR_ALLOC:
-		return expr_is_specified(ctx, aexpr->alloc.expr, is_static)
-			&& expr_is_specified(ctx, aexpr->alloc.cap, is_static);
-	case EXPR_APPEND:
-		for (const struct ast_append_values *value =
-				aexpr->append.values;
-				value; value = value->next) {
-			if (!expr_is_specified(ctx, value->expr, is_static)) {
-				return false;
-			}
-		}
-		return expr_is_specified(ctx, aexpr->append.expr, is_static)
-			&& expr_is_specified(ctx, aexpr->append.variadic, is_static);
-	case EXPR_ASSERT:
-		return expr_is_specified(ctx, aexpr->assert.cond, is_static)
-			&& expr_is_specified(ctx, aexpr->assert.message, is_static);
-	case EXPR_ASSIGN:
-		return expr_is_specified(ctx, aexpr->assign.object, is_static)
-			&& expr_is_specified(ctx, aexpr->assign.value, is_static);
-	case EXPR_BINARITHM:
-		return expr_is_specified(ctx, aexpr->binarithm.lvalue, is_static)
-			&& expr_is_specified(ctx, aexpr->binarithm.rvalue, is_static);
-	case EXPR_BINDING:
-		for (const struct ast_expression_binding *binding =
-				&aexpr->binding;
-				binding; binding = binding->next) {
-			if (!expr_is_specified(ctx, binding->initializer, is_static)) {
-				return false;
-			}
-			if (!atype_is_specified(ctx, binding->type, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	case EXPR_COMPOUND:
-		for (const struct ast_expression_list *list = &aexpr->compound.list;
-				list; list = list->next) {
-			if (!expr_is_specified(ctx, list->expr, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	case EXPR_BREAK:
-	case EXPR_CONTINUE:
-		return true;
-	case EXPR_CALL:
-		for (struct ast_call_argument *arg = aexpr->call.args; arg;
-				arg = arg->next) {
-			if (!expr_is_specified(ctx, arg->value, is_static)) {
-				return false;
-			}
-		}
-		return expr_is_specified(ctx, aexpr->call.lvalue, is_static);
-	case EXPR_CAST:
-		return expr_is_specified(ctx, aexpr->cast.value, is_static)
-			&& atype_is_specified(ctx, aexpr->cast.type, is_static);
-	case EXPR_CONSTANT:
-		if (aexpr->constant.storage == STORAGE_ARRAY) {
-			for (struct ast_array_constant *aconst =
-					aexpr->constant.array;
-					aconst; aconst = aconst->next) {
-				if (!expr_is_specified(ctx, aconst->value, is_static)) {
-					return false;
-				}
-			}
-		}
-		return true;
-	case EXPR_DEFER:
-		return expr_is_specified(ctx, aexpr->defer.deferred, is_static);
-	case EXPR_DELETE:
-		return expr_is_specified(ctx, aexpr->delete.expr, is_static);
-	case EXPR_FOR:
-		return expr_is_specified(ctx, aexpr->_for.bindings, is_static)
-			&& expr_is_specified(ctx, aexpr->_for.cond, is_static)
-			&& expr_is_specified(ctx, aexpr->_for.afterthought, is_static)
-			&& expr_is_specified(ctx, aexpr->_for.body, is_static);
-	case EXPR_FREE:
-		return expr_is_specified(ctx, aexpr->free.expr, is_static);
-	case EXPR_IF:
-		return expr_is_specified(ctx, aexpr->_if.cond, is_static)
-			&& expr_is_specified(ctx, aexpr->_if.true_branch, is_static)
-			&& expr_is_specified(ctx, aexpr->_if.false_branch, is_static);
-	case EXPR_INSERT:
-		assert(0); // TODO
-	case EXPR_MATCH:
-		for (struct ast_match_case *mcase = aexpr->match.cases; mcase;
-				mcase = mcase->next) {
-			if (!atype_is_specified(ctx, mcase->type, is_static)) {
-				return false;
-			}
-			for (const struct ast_expression_list *list = &mcase->exprs;
-					list; list = list->next) {
-				if (!expr_is_specified(ctx, list->expr, is_static)) {
-					return false;
-				}
-			}
-		}
-		return expr_is_specified(ctx, aexpr->match.value, is_static);
-	case EXPR_MEASURE:
-		switch (aexpr->measure.op) {
-		case M_LEN:
-			return expr_is_specified(ctx, aexpr->measure.value, is_static);
-		case M_SIZE:
-			return atype_is_specified(ctx, aexpr->measure.type, is_static);
-		case M_OFFSET:
-			return expr_is_specified(ctx, aexpr->measure.value, is_static);
-		}
-		assert(0);
-	case EXPR_PROPAGATE:
-		return expr_is_specified(ctx, aexpr->propagate.value, is_static);
-	case EXPR_RETURN:
-		return expr_is_specified(ctx, aexpr->_return.value, is_static);
-	case EXPR_SLICE:
-		return expr_is_specified(ctx, aexpr->slice.object, is_static)
-			&& expr_is_specified(ctx, aexpr->slice.start, is_static)
-			&& expr_is_specified(ctx, aexpr->slice.end, is_static);
-	case EXPR_STRUCT:
-		for (struct ast_field_value *field = aexpr->_struct.fields;
-				field; field = field->next) {
-			if (field->type && !atype_is_specified(ctx, field->type, is_static)) {
-				return false;
-			}
-			if (!expr_is_specified(ctx, field->initializer, is_static)) {
-				return false;
-			}
-		}
-		if (aexpr->_struct.type.name) {
-			if (!scope_lookup(ctx->scope, &aexpr->_struct.type)) {
-				return false;
-			}
-		}
-		return true;
-	case EXPR_SWITCH:
-		for (struct ast_switch_case *scase = aexpr->_switch.cases;
-				scase; scase =scase->next) {
-			for (struct ast_case_option *opt = scase->options;
-					opt; opt = opt->next) {
-				if (!expr_is_specified(ctx, opt->value, is_static)) {
-					return false;
-				}
-			}
-			for (const struct ast_expression_list *list = &scase->exprs;
-					list; list = list->next) {
-				if (!expr_is_specified(ctx, list->expr, is_static)) {
-					return false;
-				}
-			}
-		}
-		return expr_is_specified(ctx, aexpr->_switch.value, is_static);
-	case EXPR_TUPLE:
-		for (const struct ast_expression_tuple *tuple = &aexpr->tuple;
-				tuple; tuple = tuple->next) {
-			if (!expr_is_specified(ctx, tuple->expr, is_static)) {
-				return false;
-			}
-		}
-		return true;
-	case EXPR_UNARITHM:
-		return expr_is_specified(ctx, aexpr->unarithm.operand, is_static);
-	case EXPR_YIELD:
-		return expr_is_specified(ctx, aexpr->control.value, is_static);
-	}
-	assert(0); // Unreachable
+	struct identifier name = {
+		.name = strdup(f->name),
+	};
+	struct incomplete_declaration *fld =
+		incomplete_declaration_create(ctx, etype->loc, enum_scope,
+				&name, &name);
+	fld->type = IDECL_ENUM;
+	fld->imports = imports;
+	fld->field = field;
+
+	struct identifier name_ns = {
+		.name = etype->alias.name,
+		.ns = etype->alias.ns,
+	};
+	struct identifier ident = {
+		.name = strdup(f->name),
+		.ns = &name_ns,
+	};
+	struct identifier _ident = {0};
+	mkident(ctx, &_ident, &etype->alias);
+	struct identifier vident = {
+		.name = strdup(f->name),
+		.ns = &_ident,
+	};
+	fld = incomplete_declaration_create(ctx, etype->loc, ctx->scope,
+			&ident, &vident);
+	fld->type = IDECL_ENUM,
+	fld->imports = imports,
+	fld->field = field;
+	free(name.name);
 }
 
-static bool
+static void
+incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl *decl)
+{
+	for (struct ast_type_decl *t = &decl->type; t; t = t->next) {
+		struct identifier with_ns = {0};
+		mkident(ctx, &with_ns, &t->ident);
+		struct incomplete_declaration *idecl =
+			incomplete_declaration_create(ctx, decl->loc, ctx->scope,
+					&with_ns, &t->ident);
+		idecl->type = IDECL_DECL;
+		idecl->decl = (struct ast_decl){
+			.decl_type = AST_DECL_TYPE,
+			.loc = decl->loc,
+			.type = *t,
+			.exported = decl->exported,
+		};
+		idecl->imports = imp;
+		if (t->type->storage == STORAGE_ENUM) {
+			struct ast_type *etype = xcalloc(1, sizeof(struct ast_type));
+			*etype = (struct ast_type){
+				.loc = t->type->loc,
+				.storage = STORAGE_ALIAS,
+				.flags = t->type->flags,
+				.unwrap = false,
+			};
+			identifier_dup(&etype->alias, &t->ident);
+			struct scope *enum_scope = NULL;
+			scope_push(&enum_scope, SCOPE_ENUM);
+			incomplete_enum_field_create(ctx, imp, enum_scope,
+				etype, t->type->_enum.values);
+			scope_push(&enum_scope, SCOPE_ENUM);
+		}
+	}
+}
+
+const struct scope_object *
 scan_const(struct context *ctx, const struct ast_global_decl *decl)
 {
-	// TODO: Get rid of this once the type store bubbles up errors
-	for (const struct ast_global_decl *d = decl; d; d = d->next) {
-		if (!atype_is_specified(ctx, d->type, true)
-				|| !expr_is_specified(ctx, d->init, true)) {
-			return false;
-		}
-	}
 	assert(!decl->symbol); // Invariant
 
 	const struct type *type = type_store_lookup_atype(
 			ctx->store, decl->type);
+	expect(&decl->type->loc, type != NULL, "Unable to resolve type");
 	// TODO: Free the initializer
-	struct expression *initializer =
-		xcalloc(1, sizeof(struct expression));
+	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
-	if (ctx->errors != NULL) {
-		return false;
-	}
 
 	expect(&decl->init->loc, type_is_assignable(type, initializer->result),
 		"Constant type is not assignable from initializer type");
@@ -3493,29 +3237,20 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
-	scope_insert(ctx->unit, O_CONST, &ident, &decl->ident, type, value);
-	return true;
+	return scope_insert(ctx->unit, O_CONST, &ident,
+			&decl->ident, type, value);
 }
 
-static bool
+const struct scope_object *
 scan_function(struct context *ctx, const struct ast_function_decl *decl)
 {
-	if ((decl->flags & FN_TEST) && !ctx->is_test) {
-		return true;
-	}
 	const struct ast_type fn_atype = {
 		.storage = STORAGE_FUNCTION,
 		.flags = TYPE_CONST,
 		.func = decl->prototype,
 	};
-	// TODO: Get rid of this once the type store bubbles up errors
-	// TODO: Do we want to do something on !expr_is_specified(ctx, decl->body)?
-	if (!atype_is_specified(ctx, &fn_atype, false)) {
-		return false;
-	}
 	const struct type *fntype = type_store_lookup_atype(
 			ctx->store, &fn_atype);
-	assert(fntype);
 
 	if (!(decl->flags & FN_TEST)) {
 		struct identifier ident = {0};
@@ -3526,26 +3261,17 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 		} else {
 			ident = decl->ident;
 		}
-		scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, fntype, NULL);
+		return scope_insert(ctx->unit, O_DECL, &ident,
+				&decl->ident, fntype, NULL);
 	}
-
-	char buf[1024];
-	identifier_unparse_static(&decl->ident, buf, sizeof(buf));
-	return true;
+	return NULL;
 }
 
-static bool
+const struct scope_object *
 scan_global(struct context *ctx, const struct ast_global_decl *decl)
 {
-	// TODO: Get rid of this once the type store bubbles up errors
-	if (!atype_is_specified(ctx, decl->type, true)
-			|| !expr_is_specified(ctx, decl->init, true)) {
-		return false;
-	}
-
 	const struct type *type = type_store_lookup_atype(
 			ctx->store, decl->type);
-	assert(type);
 
 	if (decl->type->storage == STORAGE_ARRAY
 			&& decl->type->array.contextual) {
@@ -3553,9 +3279,6 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, decl->init, initializer, type);
-		if (ctx->errors != NULL) {
-			return false;
-		}
 		expect(&decl->init->loc,
 			initializer->result->storage == STORAGE_ARRAY,
 			"Cannot infer array length from non-array type");
@@ -3571,140 +3294,267 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 	} else {
 		mkident(ctx, &ident, &decl->ident);
 	}
-	scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, type, NULL);
-	return true;
+	return scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, type, NULL);
 }
 
-static bool
-scan_type(struct context *ctx, const struct ast_type_decl *decl, bool exported)
+const struct scope_object *
+scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	// TODO: Get rid of this once the type store bubbles up errors
-	if (!atype_is_specified(ctx, decl->type, false)) {
-		return false;
+	assert(ctx->resolving_enum == NULL);
+	assert(idecl->type == IDECL_ENUM);
+
+	struct identifier name = {
+		.name = idecl->obj.ident.name
+	};
+	struct identifier ident = idecl->obj.ident, vident = idecl->obj.name;
+
+	idecl = (struct incomplete_declaration *)scope_lookup(
+			idecl->field->enum_scope, &name);
+	if (idecl->obj.otype != O_SCAN) {
+		return &idecl->obj;
 	}
+
+	ctx->resolving_enum = idecl->field->enum_scope;
+	// TODO set this type's contents to the correct builtin type
 	const struct type *type =
-		type_store_lookup_atype(ctx->store, decl->type);
+		type_store_lookup_atype(ctx->store, idecl->field->type);
 
-	struct identifier ident = {0};
-	if (!decl->ident.ns) {
-		mkident(ctx, &ident, &decl->ident);
-	} else {
-		ident = decl->ident;
-	}
+	struct expression *value =
+		xcalloc(1, sizeof(struct expression));
+	value->result = type;
+	if (idecl->field->field->value) { // explicit value
+		// TODO: negative values in unsigned enums, too big values in
+		// signed enums
+		const struct type *builtin = builtin_type_for_storage(
+				type->alias.type->_enum.storage, false);
 
-	const struct type *alias =
-		type_store_lookup_alias(ctx->store, &ident, type, exported);
-	scope_insert(ctx->unit, O_TYPE, &ident, &decl->ident, alias, NULL);
+		struct expression *initializer =
+			xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, idecl->field->field->value,
+				initializer, builtin);
 
-	if (type->storage == STORAGE_ENUM) {
-		for (struct type_enum_value *value = type->_enum.values; value;
-				value = value->next) {
-			struct ast_type atype = {
-				.loc = decl->type->loc,
-				.storage = STORAGE_ALIAS,
-				.flags = 0,
-				.unwrap = false,
-				.alias = decl->ident,
-			};
-			const struct type *alias =
-				type_store_lookup_atype(ctx->store, &atype);
+		handle_errors(ctx->errors);
+		expect(&idecl->field->field->value->loc,
+			type_is_assignable(builtin, initializer->result),
+			"Enum value type is not assignable from initializer type");
 
-			struct expression *expr =
-				xcalloc(sizeof(struct expression), 1);
-			expr->type = EXPR_CONSTANT;
-			expr->result = alias;
-			if (type_is_signed(alias)) {
-				expr->constant.ival = value->ival;
-			} else {
-				expr->constant.uval = value->uval;
+		initializer = lower_implicit_cast(type, initializer);
+		enum eval_result r = eval_expr(ctx, initializer, value);
+		expect(&idecl->field->field->value->loc, r == EVAL_OK,
+			"Unable to evaluate constant initializer at compile time");
+	} else { // implicit value
+		const struct scope_object *obj = NULL;
+		// find previous enum value
+		if (idecl->obj.lnext && idecl->obj.lnext->otype == O_SCAN) {
+			obj = scope_lookup(idecl->field->enum_scope,
+					&idecl->obj.lnext->name);
+			if (obj->otype == O_SCAN) {
+				// complete previous value first
+				obj = scan_decl_finish(ctx, obj, NULL);
 			}
-
-			struct identifier name_ns = {
-				.name = decl->ident.name,
-				.ns = decl->ident.ns,
-			};
-			struct identifier name = {
-				.name = value->name,
-				.ns = &name_ns,
-			};
-			struct identifier vident = {
-				.name = value->name,
-				.ns = &ident,
-			};
-			scope_insert(ctx->unit, O_CONST, &name, &vident, alias, expr);
+		}
+		value->type = EXPR_CONSTANT;
+		if (type_is_signed(type_dealias(type))) {
+			if (obj == NULL) {
+				value->constant.ival = 0;
+			} else {
+				value->constant.ival = obj->value->constant.ival + 1;
+			}
+		} else {
+			if (obj == NULL) {
+				value->constant.ival = 0;
+			} else {
+				value->constant.uval = obj->value->constant.uval + 1;
+			}
 		}
 	}
-	return true;
+	ctx->resolving_enum = NULL;
+
+	// TODO: allow specifying values by their long name
+	scope_insert(idecl->field->enum_scope, O_CONST, &name, &name, type, value);
+	return scope_insert(ctx->scope, O_CONST, &ident, &vident, type, value);
 }
 
-static bool
-scan_declaration(struct context *ctx, const struct ast_decl *decl)
+static const struct scope_object *
+scan_type(struct context *ctx, struct ast_type_decl *decl, bool exported,
+		struct dimensions dim)
+{
+	struct identifier ident = {0};
+	mkident(ctx, &ident, &decl->ident);
+
+	struct type _alias = {
+		.storage = STORAGE_ALIAS,
+		.alias = {
+			.ident = ident,
+			.type = NULL,
+			.exported = exported,
+		},
+		.size = dim.size,
+		.align = dim.align,
+		.flags = decl->type->flags,
+	};
+
+	const struct type *alias = type_store_lookup_alias(ctx->store, &_alias, true);
+	const struct scope_object *ret =
+		scope_insert(ctx->scope, O_TYPE, &ident, &decl->ident, alias, NULL);
+	((struct type *)ret->type)->alias.type =
+		type_store_lookup_atype(ctx->store, decl->type);
+	return ret;
+}
+
+static void
+scan_decl_start(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 {
 	switch (decl->decl_type) {
 	case AST_DECL_CONST:
-		for (const struct ast_global_decl *c = &decl->constant; c;
-				c = c->next) {
-			if (!scan_const(ctx, c)) {
-				return false;
-			}
+		for (struct ast_global_decl *g = &decl->constant; g; g = g->next) {
+			struct identifier with_ns = {0};
+			mkident(ctx, &with_ns, &g->ident);
+			struct incomplete_declaration *idecl =
+				incomplete_declaration_create(ctx, decl->loc,
+						ctx->scope, &with_ns, &g->ident);
+			idecl->type = IDECL_DECL;
+			idecl->decl = (struct ast_decl){
+				.decl_type = AST_DECL_CONST,
+				.loc = decl->loc,
+				.constant = *g,
+				.exported = decl->exported,
+			};
+			idecl->imports = imports;
 		}
-		return true;
-	case AST_DECL_FUNC:
-		return scan_function(ctx, &decl->function);
+		break;
 	case AST_DECL_GLOBAL:
-		for (const struct ast_global_decl *g = &decl->global; g;
-				g = g->next) {
-			if (!scan_global(ctx, g)) {
-				return false;
-			}
+		for (struct ast_global_decl *g = &decl->global; g; g = g->next) {
+			struct identifier with_ns = {0};
+			mkident(ctx, &with_ns, &g->ident);
+			struct incomplete_declaration *idecl =
+				incomplete_declaration_create(ctx, decl->loc,
+						ctx->scope, &with_ns, &g->ident);
+			idecl->type = IDECL_DECL;
+			idecl->decl = (struct ast_decl){
+				.decl_type = AST_DECL_GLOBAL,
+				.loc = decl->loc,
+				.global = *g,
+				.exported = decl->exported,
+			};
+			idecl->imports = imports;
 		}
-		return true;
+		break;
+	case AST_DECL_FUNC:
+		if ((decl->function.flags & FN_TEST)) {
+			if (ctx->is_test) {
+				scan_function(ctx, &decl->function);
+			}
+			return;
+		}
+		struct ast_function_decl *func = &decl->function;
+		struct identifier with_ns = {0};
+		mkident(ctx, &with_ns, &func->ident);
+		struct incomplete_declaration *idecl =
+			incomplete_declaration_create(ctx, decl->loc,
+					ctx->scope, &with_ns, &func->ident);
+		idecl->type = IDECL_DECL;
+		idecl->decl = (struct ast_decl){
+			.decl_type = AST_DECL_FUNC,
+			.loc = decl->loc,
+			.function = *func,
+			.exported = decl->exported,
+		};
+		idecl->imports = imports;
+		break;
 	case AST_DECL_TYPE:
-		return scan_type(ctx, &decl->type, decl->exported);
+		incomplete_types_create(ctx, imports, decl);
+		break;
 	}
-	assert(0); // Unreachable
 }
 
-static struct ast_decls *
-scan_declarations(struct context *ctx, const struct ast_decls *decls)
+const struct scope_object *
+scan_decl_finish(struct context *ctx, const struct scope_object *obj,
+	struct dimensions *dim)
 {
-	struct ast_decls *next = NULL;
-	bool found = false;
-	while (decls || next) {
-		if (!decls) {
-			if (!found) {
-				return next;
-			}
-			decls = next;
-			next = NULL;
-			found = false;
-		}
-		if (scan_declaration(ctx, &decls->decl)) {
-			found = true;
-		} else {
-			// TODO: Free this
-			struct ast_decls *cur =
-				xcalloc(sizeof(struct ast_decls), 1);
-			memcpy(cur, decls, sizeof(struct ast_decls));
-			cur->next = next;
-			next = cur;
-		}
-		decls = decls->next;
+	// save current subunit and enum context
+	struct scope *enum_scope = ctx->resolving_enum;
+	ctx->resolving_enum = NULL;
+	struct scope *subunit = ctx->unit->parent;
+	ctx->unit->parent = NULL;
+
+	// ensure this declaration wasn't already scanned
+	struct incomplete_declaration *idecl = (struct incomplete_declaration *)obj;
+	obj = scope_lookup(ctx->scope, &idecl->obj.ident);
+	if (obj && obj->otype != O_SCAN) {
+		goto exit;
 	}
-	return next;
+
+	// load this declaration's subunit context
+	ctx->unit->parent = idecl->imports;
+
+	// TODO handle circular enum dependencies
+	if (idecl->type == IDECL_ENUM) {
+		obj = scan_enum_field(ctx, idecl);
+		goto exit;
+	}
+
+	// resolving a declaration that is already in progress -> cycle
+	expect(&idecl->decl.loc, !idecl->in_progress,
+		"Circular dependency for '%s'\n",
+		identifier_unparse(&obj->ident));
+	idecl->in_progress = true;
+
+	switch (idecl->decl.decl_type) {
+	case AST_DECL_CONST:
+		obj = scan_const(ctx, &idecl->decl.constant);
+		break;
+	case AST_DECL_GLOBAL:
+		obj = scan_global(ctx, &idecl->decl.global);
+		break;
+	case AST_DECL_FUNC:
+		obj = scan_function(ctx, &idecl->decl.function);
+		break;
+	case AST_DECL_TYPE:
+		if (dim) {
+			// the caller is only interested in this type's dimensions
+			*dim = type_store_lookup_dimensions(ctx->store,
+				idecl->decl.type.type);
+			obj = NULL;
+		} else {
+			// 1. compute type dimensions
+			struct dimensions _dim =
+			type_store_lookup_dimensions(ctx->store,
+				idecl->decl.type.type);
+
+			handle_errors(ctx->errors);
+			idecl->in_progress = false;
+
+			// 2. compute type representation and store it
+			obj = scan_type(ctx, &idecl->decl.type,
+				idecl->decl.exported, _dim);
+		}
+		break;
+	}
+exit:
+	// load stored context
+	ctx->unit->parent = subunit;
+	ctx->resolving_enum = enum_scope;
+	idecl->in_progress = false;
+	return obj;
 }
 
 static void
 load_import(struct context *ctx, struct ast_imports *import,
 	struct type_store *ts, struct scope *scope)
 {
+	struct context *old_ctx = ctx->store->check_context;
 	struct scope *mod = module_resolve(ctx->modcache,
 			ctx->defines, &import->ident, ts);
+	ctx->store->check_context = old_ctx;
 
 	switch (import->mode) {
 	case AST_IMPORT_IDENTIFIER:
 		for (struct scope_object *obj = mod->objects;
 				obj; obj = obj->lnext) {
+			if (obj->otype == O_SCAN) {
+				continue;
+			}
 			scope_insert(scope, obj->otype, &obj->ident,
 				&obj->name, obj->type, obj->value);
 			if (obj->name.ns && obj->name.ns->ns) {
@@ -3733,6 +3583,9 @@ load_import(struct context *ctx, struct ast_imports *import,
 	case AST_IMPORT_ALIAS:
 		for (struct scope_object *obj = mod->objects;
 				obj; obj = obj->lnext) {
+			if (obj->otype == O_SCAN) {
+				continue;
+			}
 			struct identifier ns = {
 				.name = obj->name.ns->name,
 				.ns = import->alias,
@@ -3772,6 +3625,9 @@ load_import(struct context *ctx, struct ast_imports *import,
 			};
 			for (struct scope_object *o = mod->objects;
 					o; o = o->lnext) {
+				if (obj->otype == O_SCAN) {
+					continue;
+				}
 				if (!identifier_eq(o->name.ns, &ident)) {
 					continue;
 				};
@@ -3801,9 +3657,9 @@ check_internal(struct type_store *ts,
 	ctx.is_test = is_test;
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
-	ctx.modcache = cache;
 	ctx.defines = defines;
 	ctx.next = &ctx.errors;
+	ctx.modcache = cache;
 
 	// Top-level scope management involves:
 	//
@@ -3813,9 +3669,11 @@ check_internal(struct type_store *ts,
 	//
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
-	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 
-	// Install defines (-D on the command line)
+	struct scope *def_scope = NULL;
+	scope_push(&def_scope, SCOPE_UNIT);
+
+	// Put defines into a temporary scope (-D on the command line)
 	// XXX: This duplicates a lot of code with scan_const
 	for (struct define *def = defines; def; def = def->next) {
 		struct location loc = {
@@ -3837,29 +3695,29 @@ check_internal(struct type_store *ts,
 		enum eval_result r = eval_expr(&ctx, initializer, value);
 		expect(&loc, r == EVAL_OK,
 			"Unable to evaluate constant initializer at compile time");
-		scope_insert(ctx.unit, O_CONST,
+		scope_insert(def_scope, O_CONST,
 			&def->ident, &def->ident, type, value);
 	}
-
-	struct scopes *subunit_scopes;
+	struct scopes *subunit_scopes = NULL;
 	struct scopes **next = &subunit_scopes;
+	struct scope *su_scope = NULL;
 	struct imports **inext = &unit->imports;
 
-	struct unresolveds {
-		struct scope *scope;
-		const struct ast_decls *unresolved;
-		struct unresolveds *next;
-	};
-	struct unresolveds *cur = NULL, *unresolved = NULL;
+	ctx.scope = NULL;
+	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 
-	// First pass populates the imports
+	// Populate the imports and put declarations into a scope.
+	// Each declaration holds a reference to its subunit's imports
+	// A scope gets us:
+	//  a) duplicate detection for free
+	//  b) a way to find declaration's definition when it's refered to
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
-		scope_push(&ctx.scope, SCOPE_SUBUNIT);
-
+		su_scope = NULL;
+		scope_push(&su_scope, SCOPE_SUBUNIT);
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
-			load_import(&ctx, imports, ts, ctx.scope);
+			load_import(&ctx, imports, ts, su_scope);
 
 			bool found = false;
 			for (struct imports *uimports = unit->imports;
@@ -3877,89 +3735,50 @@ check_internal(struct type_store *ts,
 			}
 		}
 
-		struct unresolveds *new =
-			xcalloc(sizeof(struct unresolveds), 1);
-		new->unresolved = su->decls;
-		new->next = cur;
-		cur = new;
+		for (struct ast_decls *d = su->decls; d; d = d->next) {
+			scan_decl_start(&ctx, su_scope, &d->decl);
+		};
 
 		*next = xcalloc(1, sizeof(struct scopes));
-		new->scope = (*next)->scope = scope_pop(&ctx.scope);
+		(*next)->scope = su_scope;
 		next = &(*next)->next;
 	}
 
-	// Second pass populates the type graph
-	bool found = false;
-	while (cur || unresolved) {
-		if (!cur) {
-			if (!found) {
-				handle_errors(ctx.errors);
-				error(&ctx, unresolved->unresolved->decl.loc, NULL,
-					"Undefined identifier used in declaration");
-				handle_errors(ctx.errors);
-			}
-			cur = unresolved;
-			unresolved = NULL;
-			found = false;
-		}
-		struct errors *error = ctx.errors;
-		while (error) {
-			struct errors *next = error->next;
-			free(error);
-			error = next;
-		}
-		ctx.errors = NULL;
-		ctx.next = &ctx.errors;
-		ctx.scope = cur->scope;
-		ctx.store->check_context = &ctx;
-		struct ast_decls *left =
-			scan_declarations(&ctx, cur->unresolved);
-		if (left) {
-			struct unresolveds *new =
-				xcalloc(sizeof(struct unresolveds), 1);
-			new->scope = cur->scope;
-			new->unresolved = left;
-			new->next = unresolved;
-			unresolved = new;
-		}
+	// Put defines into unit scope
+	// We have to insert them *after* declarations, because this way they
+	// shadow declarations, not the other way around
+	//
+	// XXX: shadowed declarations are not checked for consistency
+	for (const struct scope_object *obj = def_scope->objects;
+			obj; obj = obj->lnext) {
+		scope_insert(ctx.unit, O_CONST, &obj->ident, &obj->name,
+			obj->type, obj->value);
+	}
+	scope_free(def_scope);
 
-		size_t old_len = 0, new_len = 0;
-		for (const struct ast_decls *old = cur->unresolved; old;
-				old = old->next) {
-			old_len++;
-		}
-		for (struct ast_decls *new = left; new;
-				new = new->next) {
-			new_len++;
-		}
-		if (new_len < old_len) {
-			found = true;
-		}
-
-		struct unresolveds *tmp = cur;
-		cur = tmp->next;
-		free(tmp);
+	// Perform actual declaration resolution
+	ctx.resolving_enum = NULL;
+	for (const struct scope_object *obj = ctx.scope->objects;
+			obj && obj->otype == O_SCAN; obj = obj->lnext) {
+		scan_decl_finish(&ctx, obj, NULL);
+		assert(ctx.resolving_enum == NULL);
 	}
 
+	handle_errors(ctx.errors);
+
 	if (scan_only) {
+		ctx.store->check_context = NULL;
+		ctx.unit->parent = NULL;
 		return ctx.unit;
 	}
 
-	struct errors *error = ctx.errors;
-	while (error) {
-		struct errors *next = error->next;
-		free(error);
-		error = next;
-	}
-	ctx.errors = NULL;
-	ctx.next = &ctx.errors;
-
-	// Third pass populates the expression graph
+	// Populate the expression graph
 	struct scopes *scope = subunit_scopes;
 	struct declarations **next_decl = &unit->declarations;
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
-		ctx.scope = scope->scope;
+		// subunit scope has to be *behind* unit scope
+		ctx.scope->parent = scope->scope;
 		next_decl = check_declarations(&ctx, su->decls, next_decl);
 		scope = scope->next;
 	}
@@ -3969,6 +3788,8 @@ check_internal(struct type_store *ts,
 		exit(EXIT_FAILURE);
 	}
 
+	ctx.store->check_context = NULL;
+	ctx.unit->parent = NULL;
 	return ctx.unit;
 }
 
