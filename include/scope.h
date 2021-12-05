@@ -75,6 +75,12 @@ struct scope *scope_lookup_ancestor(struct scope *scope,
 void scope_free(struct scope *scope);
 void scope_free_all(struct scopes *scopes);
 
+void scope_object_init(struct scope_object *obj, enum object_type otype,
+	const struct identifier *ident, const struct identifier *name,
+	const struct type *type, struct expression *value);
+
+void scope_insert_from_object(struct scope *scope, struct scope_object *object);
+
 const struct scope_object *scope_insert(
 	struct scope *scope, enum object_type otype,
 	const struct identifier *ident, const struct identifier *name,

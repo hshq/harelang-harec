@@ -18,9 +18,7 @@ scope_push(struct scope **stack, enum scope_class class)
 	struct scope *new = xcalloc(1, sizeof(struct scope));
 	new->class = class;
 	new->next = &new->objects;
-	if (*stack) {
-		new->parent = *stack;
-	}
+	new->parent = *stack;
 	*stack = new;
 	return new;
 }
@@ -85,34 +83,46 @@ scope_free_all(struct scopes *scopes)
 	}
 }
 
+void
+scope_object_init(struct scope_object *object, enum object_type otype,
+	const struct identifier *ident, const struct identifier *name,
+	const struct type *type, struct expression *value)
+{
+	identifier_dup(&object->ident, ident);
+	identifier_dup(&object->name, name);
+	object->otype = otype;
+	object->type = type;
+	object->value = value;
+	if (value) {
+		assert(otype == O_CONST);
+		assert(value->type == EXPR_CONSTANT);
+	}
+}
+
+void
+scope_insert_from_object(struct scope *scope, struct scope_object *object)
+{
+	// Linked list
+	*scope->next = object;
+	scope->next = &object->lnext;
+
+	// Hash map
+	uint32_t hash = name_hash(FNV1A_INIT, &object->name);
+	struct scope_object **bucket = &scope->buckets[hash % SCOPE_BUCKETS];
+	if (*bucket) {
+		object->mnext = *bucket;
+	}
+	*bucket = object;
+}
+
 const struct scope_object *
 scope_insert(struct scope *scope, enum object_type otype,
 	const struct identifier *ident, const struct identifier *name,
 	const struct type *type, struct expression *value)
 {
 	struct scope_object *o = xcalloc(1, sizeof(struct scope_object));
-	identifier_dup(&o->ident, ident);
-	identifier_dup(&o->name, name);
-	o->otype = otype;
-	o->type = type;
-	o->value = value;
-	if (value) {
-		assert(otype == O_CONST);
-		assert(value->type == EXPR_CONSTANT);
-	}
-
-	// Linked list
-	*scope->next = o;
-	scope->next = &o->lnext;
-
-	// Hash map
-	uint32_t hash = name_hash(FNV1A_INIT, name);
-	struct scope_object **bucket = &scope->buckets[hash % SCOPE_BUCKETS];
-	if (*bucket) {
-		o->mnext = *bucket;
-	}
-	*bucket = o;
-
+	scope_object_init(o, otype, ident, name, type, value);
+	scope_insert_from_object(scope, o);
 	return o;
 }
 
