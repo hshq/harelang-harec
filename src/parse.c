@@ -1842,35 +1842,13 @@ parse_match_expression(struct lexer *lexer)
 			*next_case = xcalloc(1, sizeof(struct ast_match_case));
 		want(lexer, T_CASE, &tok);
 
-		struct token tok2 = {0};
-		struct identifier ident = {0};
 		struct ast_type *type = NULL;
 		switch (lex(lexer, &tok)) {
-		case T_NAME:
-			switch (lex(lexer, &tok2)) {
-			case T_COLON:
-				_case->name = tok.name; // Assumes ownership
-				_case->type = parse_type(lexer);
-				break;
-			case T_DOUBLE_COLON:
-				ident.ns = xcalloc(1, sizeof(struct identifier));
-				ident.ns->name = tok.name; // Assumes ownership
-				parse_identifier(lexer, &ident, false);
-				_case->type = mktype(&tok.loc);
-				_case->type->storage = STORAGE_ALIAS;
-				_case->type->alias = ident;
-				break;
-			case T_ARROW:
-				unlex(lexer, &tok2);
-				_case->type = mktype(&tok.loc);
-				_case->type->storage = STORAGE_ALIAS;
-				_case->type->alias.name = tok.name;
-				break;
-			default:
-				synassert(false, &tok, T_COLON,
-					T_DOUBLE_COLON, T_ARROW, T_EOF);
-				break;
-			}
+		case T_LET:
+			want(lexer, T_NAME, &tok);
+			_case->name = tok.name;
+			want(lexer, T_COLON, NULL);
+			_case->type = parse_type(lexer);
 			break;
 		case T_ARROW:
 			// Default case

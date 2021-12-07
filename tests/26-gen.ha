@@ -23,7 +23,7 @@ export fn main() void = {
 
 	let x: (void | int) = 10;
 	match (x) {
-	case i: int =>
+	case let i: int =>
 		assert(i == 10);
 	case void =>
 		abort();
@@ -34,7 +34,7 @@ export fn main() void = {
 	let p = match (p) {
 	case void =>
 		abort();
-	case p: u64 =>
+	case let p: u64 =>
 		yield p: uintptr: *int;
 	};
 	assert(*p == 0);
@@ -44,7 +44,7 @@ export fn main() void = {
         let p = match (thing) {
 	case int =>
 		abort();
-	case p: *int =>
+	case let p: *int =>
 		yield p;
         };
         *p = 0;

@@ -18,7 +18,7 @@ fn tagged() void = {
 			yield 1;
 		case uint =>
 			yield 2;
-		case s: str =>
+		case let s: str =>
 			yield len(s);
 		};
 		assert(y == expected[i]);
@@ -56,7 +56,7 @@ fn pointer() void = {
 	let x = 42;
 	let y: nullable *int = &x;
 	let z: int = match (y) {
-	case y: *int =>
+	case let y: *int =>
 		yield *y;
 	case null =>
 		abort();
@@ -90,18 +90,18 @@ fn alias() void = {
 fn tagged_result() void = {
 	let x: (int | uint) = 42i;
 	let y: (int | uint) = match (x) {
-	case x: int =>
+	case let x: int =>
 		yield x;
-	case x: uint =>
+	case let x: uint =>
 		yield x;
 	};
 	assert(y is int);
 
 	x = 42u;
 	y = match (x) {
-	case x: int =>
+	case let x: int =>
 		yield x;
-	case x: uint =>
+	case let x: uint =>
 		yield x;
 	};
 	assert(y is uint);
@@ -113,7 +113,7 @@ fn implicit_cast() void = {
 	let a: (int | foobar) = match (y) {
 	case null =>
 		yield foo;
-	case z: *int =>
+	case let z: *int =>
 		yield *z;
 	};
 	assert(a is foobar);
@@ -122,7 +122,7 @@ fn implicit_cast() void = {
 fn transitivity() void = {
 	let x: (foobar | int) = 10;
 	match (x) {
-	case i: int =>
+	case let i: int =>
 		assert(i == 10);
 	case foo =>
 		abort();
@@ -155,7 +155,7 @@ fn transitivity() void = {
 
 	visit = false;
 	match (x) {
-	case z: (foo | bar) =>
+	case let z: (foo | bar) =>
 		visit = true;
 		assert(z is bar);
 	case int =>
@@ -193,15 +193,15 @@ fn numeric() void = {
 	let visit = true;
 	let x: integer = 1337i;
 	match (x) {
-	case s: signed =>
+	case let s: signed =>
 		match (s) {
-		case i: int =>
+		case let i: int =>
 			visit = true;
 			assert(i == 1337);
 		case =>
 			abort();
 		};
-	case u: unsigned =>
+	case let u: unsigned =>
 		abort();
 	};
 	assert(visit);
@@ -210,7 +210,7 @@ fn numeric() void = {
 fn alignment_conversion() void = {
 	let x: align_8 = 1234i;
 	match (x) {
-	case y: align_4 =>
+	case let y: align_4 =>
 		assert(y as int == 1234);
 	case =>
 		abort();
