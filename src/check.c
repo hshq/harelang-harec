@@ -2361,9 +2361,10 @@ check_expr_struct(struct context *ctx,
 			return;
 		}
 		stype = obj->type;
-		if (type_dealias(stype)->storage != STORAGE_STRUCT) {
+		enum type_storage storage = type_dealias(stype)->storage;
+		if (storage != STORAGE_STRUCT && storage != STORAGE_UNION) {
 			error(ctx, aexpr->loc, expr,
-				"Object named is not a struct type");
+				"Object named is not a struct or union type");
 			return;
 		}
 	}
