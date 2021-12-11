@@ -72,6 +72,7 @@ struct gen_context {
 	const struct type *functype;
 	struct gen_binding *bindings;
 	struct gen_scope *scope;
+	bool deferring;
 };
 
 struct unit;

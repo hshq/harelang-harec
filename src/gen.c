@@ -30,9 +30,10 @@ static void gen_global_decl(struct gen_context *ctx,
 static void
 gen_defers(struct gen_context *ctx, struct gen_scope *scope)
 {
-	if (!scope) {
+	if (ctx->deferring || !scope) {
 		return;
 	}
+	ctx->deferring = true;
 	if (scope->defers) {
 		pushc(ctx->current, "gen defers");
 	}
@@ -40,6 +41,7 @@ gen_defers(struct gen_context *ctx, struct gen_scope *scope)
 			defer = defer->next) {
 		gen_expr(ctx, defer->expr);
 	}
+	ctx->deferring = false;
 }
 
 static struct gen_scope *
