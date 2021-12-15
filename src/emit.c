@@ -241,7 +241,7 @@ emit_data_string(const char *str, size_t sz, FILE *out)
 				q = false;
 				fprintf(out, "\", ");
 			}
-			fprintf(out, "b %d, ", str[i]);
+			fprintf(out, "b %d%s", str[i], i + 1 < sz ? ", " : "");
 		} else {
 			if (!q) {
 				q = true;
