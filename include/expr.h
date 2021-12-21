@@ -168,7 +168,6 @@ struct expression_compound {
 struct array_constant {
 	struct expression *value;
 	struct array_constant *next;
-	bool expand;
 };
 
 // Invariant: these are sorted by field offset

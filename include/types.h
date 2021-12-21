@@ -56,6 +56,7 @@ struct type_alias {
 struct type_array {
 	size_t length; // SIZE_UNDEFINED for [*] and slices
 	const struct type *members;
+	bool expandable;
 };
 
 struct type_enum_value {

@@ -976,13 +976,15 @@ type_store_lookup_pointer(struct type_store *store,
 
 const struct type *
 type_store_lookup_array(struct type_store *store,
-	const struct type *members, size_t len)
+	const struct type *members, size_t len, bool expandable)
 {
 	struct type array = {
 		.storage = STORAGE_ARRAY,
 		.array = {
 			.members = members,
 			.length = len,
+			// TODO: Define expandable semantics better in spec
+			.expandable = expandable,
 		},
 		.size = len == SIZE_UNDEFINED
 			? SIZE_UNDEFINED : members->size * len,

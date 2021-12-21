@@ -397,6 +397,7 @@ type_hash(const struct type *type)
 	case STORAGE_ARRAY:
 		hash = fnv1a_u32(hash, type_hash(type->array.members));
 		hash = fnv1a_size(hash, type->array.length);
+		hash = fnv1a_u32(hash, type->array.expandable);
 		break;
 	case STORAGE_FUNCTION:
 		hash = fnv1a_u32(hash, type_hash(type->func.result));
@@ -650,9 +651,17 @@ type_is_assignable(const struct type *to, const struct type *from)
 		}
 		return to_secondary->id == from_secondary->id;
 	case STORAGE_ARRAY:
-		return from->storage == STORAGE_ARRAY
-			&& to->array.length == SIZE_UNDEFINED
-			&& from->array.length != SIZE_UNDEFINED;
+		if (from->storage != STORAGE_ARRAY) {
+			return false;
+		}
+		if (from->array.expandable) {
+			return to->array.length != SIZE_UNDEFINED
+				&& to->array.length >= from->array.length
+				&& to->array.members == from->array.members;
+		} else {
+			return to->array.length == SIZE_UNDEFINED
+				&& from->array.length != SIZE_UNDEFINED;
+		}
 	case STORAGE_TAGGED:
 		return tagged_select_subtype(to, from_orig) != NULL
 			|| tagged_subset_compat(to, from);

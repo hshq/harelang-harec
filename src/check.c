@@ -995,7 +995,7 @@ lower_vaargs(struct context *ctx,
 
 	// XXX: This error handling is minimum-effort and bad
 	const struct type *hint = type_store_lookup_array(
-		ctx->store, type, SIZE_UNDEFINED);
+		ctx->store, type, SIZE_UNDEFINED, false);
 	check_expression(ctx, &val, vaargs, hint);
 	if (vaargs->result->storage != STORAGE_ARRAY
 			|| vaargs->result->array.members != type) {
@@ -1162,17 +1162,20 @@ check_expr_array(struct context *ctx,
 	const struct type *hint)
 {
 	size_t len = 0;
-	bool expandable = false;
+	bool expand = false;
 	struct ast_array_constant *item = aexpr->constant.array;
 	struct array_constant *cur, **next = &expr->constant.array;
 	const struct type *type = NULL;
 	if (hint) {
 		hint = type_dealias(hint);
-		if (hint->storage == STORAGE_ARRAY
-				|| hint->storage == STORAGE_SLICE) {
+
+		size_t narray = 0;
+		switch (hint->storage) {
+		case STORAGE_ARRAY:
+		case STORAGE_SLICE:
 			type = hint->array.members;
-		} else if (hint->storage == STORAGE_TAGGED) {
-			size_t narray = 0;
+			break;
+		case STORAGE_TAGGED:
 			for (const struct type_tagged_union *tu = &hint->tagged;
 					tu; tu = tu->next) {
 				const struct type *t = type_dealias(tu->type);
@@ -1186,8 +1189,10 @@ check_expr_array(struct context *ctx,
 			if (narray != 1) {
 				type = hint = NULL;
 			}
-		} else {
+			break;
+		default:
 			hint = NULL;
+			break;
 		}
 	}
 
@@ -1209,8 +1214,7 @@ check_expr_array(struct context *ctx,
 		}
 
 		if (item->expand) {
-			expandable = true;
-			expr->constant.array->expand = true;
+			expand = true;
 			assert(!item->next);
 		}
 
@@ -1219,29 +1223,11 @@ check_expr_array(struct context *ctx,
 		++len;
 	}
 
-	if (expandable) {
-		if (hint == NULL) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot expand array for inferred type");
-			return;
-		}
-		if (hint->storage != STORAGE_ARRAY
-				|| hint->array.length == SIZE_UNDEFINED
-				|| hint->array.length < len) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot expand array into destination type");
-			return;
-		}
-		expr->result = type_store_lookup_array(ctx->store,
-				type, hint->array.length);
-	} else {
-		if (type == NULL) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot infer array type from context, try casting it to the desired type");
-			return;
-		}
-		expr->result = type_store_lookup_array(ctx->store, type, len);
+	if (type == NULL) {
+		error(ctx, aexpr->loc, expr, "Cannot infer array type from context, try casting it to the desired type");
+		return;
 	}
+	expr->result = type_store_lookup_array(ctx->store, type, len, expand);
 }
 
 static const struct type *
@@ -3012,6 +2998,15 @@ check_global(struct context *ctx,
 	expect(&adecl->init->loc,
 		type_is_assignable(type, initializer->result),
 		"Constant type is not assignable from initializer type");
+
+	bool context = adecl->type
+		&& adecl->type->storage == STORAGE_ARRAY
+		&& adecl->type->array.contextual;
+	if (context) {
+		// XXX: Do we need to do anything more here
+		type = initializer->result;
+	}
+
 	initializer = lower_implicit_cast(type, initializer);
 
 	struct expression *value =

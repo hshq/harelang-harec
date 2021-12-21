@@ -1141,12 +1141,63 @@ cast_prefers_at(const struct expression *expr)
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		return true;
 	}
+	// array => array
+	if (type_dealias(to)->storage == STORAGE_ARRAY
+			&& type_dealias(from)->storage == STORAGE_ARRAY) {
+		return true;
+	}
 	// array => slice
 	if (type_dealias(from)->storage == STORAGE_ARRAY &&
 		type_dealias(to)->storage == STORAGE_SLICE) {
 		return true;
 	}
 	return false;
+}
+
+static void
+gen_expr_cast_array_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
+{
+	const struct type *typeout = type_dealias(expr->result);
+	const struct type *typein = type_dealias(expr->cast.value->result);
+	gen_expr_at(ctx, expr->cast.value, out);
+	if (!typein->array.expandable) {
+		return;
+	}
+
+	assert(typein->array.length != SIZE_UNDEFINED
+			&& typeout->array.length != SIZE_UNDEFINED);
+	assert(typeout->array.length >= typein->array.length);
+
+	const struct type *membtype = typein->array.members;
+	size_t remain = typeout->array.length - typein->array.length;
+
+	struct qbe_value base = mkqval(ctx, &out);
+	struct qbe_value offs = constl((typein->array.length - 1) * membtype->size);
+	struct gen_value next = mktemp(ctx, membtype, ".%d");
+	struct qbe_value ptr = mklval(ctx, &next);
+	struct gen_value item = mktemp(ctx, membtype, "item.%d");
+	struct qbe_value qitem = mklval(ctx, &item);
+	pushi(ctx->current, &qitem, Q_ADD, &base, &offs, NULL);
+
+	if (remain * membtype->size <= 128) {
+		struct gen_value last = gen_load(ctx, item);
+		for (size_t n = typein->array.length; n < typeout->array.length; ++n) {
+			struct qbe_value offs = constl(n * membtype->size);
+			pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
+			gen_store(ctx, next, last);
+		}
+		return;
+	}
+
+	offs = constl(typein->array.length * membtype->size);
+	pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
+
+	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
+	struct qbe_value dtemp = mklval(ctx, &next);
+	struct qbe_value stemp = mklval(ctx, &item);
+	struct qbe_value sz = constl(remain * membtype->size);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dtemp, &stemp, &sz, NULL);
 }
 
 static void
@@ -1172,6 +1223,9 @@ gen_expr_cast_at(struct gen_context *ctx,
 		break;
 	case STORAGE_TAGGED:
 		gen_expr_cast_tagged_at(ctx, expr, out);
+		break;
+	case STORAGE_ARRAY:
+		gen_expr_cast_array_at(ctx, expr, out);
 		break;
 	default: abort(); // Invariant
 	}
@@ -1386,7 +1440,8 @@ gen_expr_compound_with(struct gen_context *ctx,
 
 static void
 gen_const_array_at(struct gen_context *ctx,
-	const struct expression *expr, struct gen_value out)
+	const struct expression *expr,
+	struct gen_value out)
 {
 	struct array_constant *aexpr = expr->constant.array;
 	struct qbe_value base = mkqval(ctx, &out);
@@ -1402,32 +1457,7 @@ gen_const_array_at(struct gen_context *ctx,
 		++n;
 	}
 
-	if (!aexpr || !aexpr->expand) {
-		return;
-	}
-
-	struct gen_value next = mktemp(ctx, atype->array.members, ".%d");
-	struct qbe_value ptr = mklval(ctx, &next);
-
-	size_t remain = atype->array.length - n;
-	if (remain * atype->array.members->size <= 128) {
-		struct gen_value last = gen_load(ctx, item);
-		for (; n < atype->array.length; ++n) {
-			struct qbe_value offs = constl(n * atype->array.members->size);
-			pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
-			gen_store(ctx, next, last);
-		}
-		return;
-	}
-
-	struct qbe_value offs = constl(n * atype->array.members->size);
-	pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
-
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
-	struct qbe_value dtemp = mklval(ctx, &next);
-	struct qbe_value stemp = mklval(ctx, &item);
-	struct qbe_value sz = constl(remain * atype->array.members->size);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dtemp, &stemp, &sz, NULL);
+	assert(n == atype->array.length);
 }
 
 static void

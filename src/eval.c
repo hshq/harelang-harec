@@ -310,7 +310,6 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 				arr = arr->next) {
 			struct array_constant *aconst = *next =
 				xcalloc(sizeof(struct array_constant), 1);
-			aconst->expand = arr->expand;
 			aconst->value = xcalloc(sizeof(struct expression), 1);
 			eval_expr(ctx, arr->value, aconst->value);
 			next = &aconst->next;
@@ -359,6 +358,28 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	return EVAL_OK;
 }
 
+static void
+eval_expand_array(struct context *ctx,
+	const struct type *intype, const struct type *outtype,
+	struct expression *in, struct expression *out)
+{
+	assert(in->type == EXPR_CONSTANT);
+	assert(out->type == EXPR_CONSTANT);
+	assert(intype->storage == STORAGE_ARRAY);
+	assert(outtype->storage == STORAGE_ARRAY);
+	struct array_constant *array_in = in->constant.array;
+	struct array_constant **next = &out->constant.array;
+	for (size_t i = 0; i < outtype->array.length; i++) {
+		struct array_constant *item = *next =
+			xcalloc(1, sizeof(struct array_constant));
+		item->value = array_in->value;
+		next = &item->next;
+		if (array_in->next) {
+			array_in = array_in->next;
+		}
+	}
+}
+
 enum eval_result
 eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 {
@@ -370,7 +391,9 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 
 	const struct type *to = type_dealias(in->result),
 	      *from = type_dealias(val.result);
-	if (to->storage == from->storage) {
+	// The STORAGE_ARRAY exception is to make sure we handle expandable
+	// arrays at this point.
+	if (to->storage == from->storage && to->storage != STORAGE_ARRAY) {
 		*out = val;
 		return EVAL_OK;
 	}
@@ -416,6 +439,13 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		}
 		return EVAL_OK;
 	case STORAGE_ARRAY:
+		assert(from->storage == STORAGE_ARRAY);
+		if (from->array.expandable) {
+			eval_expand_array(ctx, from, to, &val, out);
+		} else {
+			out->constant = val.constant;
+		}
+		return EVAL_OK;
 	case STORAGE_SLICE:
 		assert(val.result->storage == STORAGE_ARRAY);
 		out->constant = val.constant;
@@ -532,7 +562,6 @@ constant_default(struct context *ctx, struct expression *v)
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 		v->constant.array = xcalloc(1, sizeof(struct array_constant));
-		v->constant.array->expand = true;
 		v->constant.array->value = xcalloc(1, sizeof(struct expression));
 		v->constant.array->value->type = EXPR_CONSTANT;
 		v->constant.array->value->result =
