@@ -3268,6 +3268,14 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
 
+	bool context = decl->type
+		&& decl->type->storage == STORAGE_ARRAY
+		&& decl->type->array.contextual;
+	if (context) {
+		// XXX: Do we need to do anything more here
+		type = initializer->result;
+	}
+
 	expect(&decl->init->loc, type_is_assignable(type, initializer->result),
 		"Constant type is not assignable from initializer type");
 	initializer = lower_implicit_cast(type, initializer);
