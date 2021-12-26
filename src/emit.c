@@ -305,6 +305,9 @@ emit_data(struct qbe_def *def, FILE *out)
 	} else {
 		fprintf(out, "section \".data.%s\" ", def->name);
 	}
+	if (def->data.align != ALIGN_UNDEFINED) {
+		fprintf(out, "align %lu ", def->data.align);
+	}
 	fprintf(out, "{ ");
 
 	struct qbe_data_item *item = &def->data.items;

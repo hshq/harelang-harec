@@ -1600,6 +1600,7 @@ gen_const_string_at(struct gen_context *ctx,
 	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
 	def->name = global.name;
 	def->kind = Q_DATA;
+	def->data.align = ALIGN_UNDEFINED;
 	def->data.items.type = QD_STRING;
 	def->data.items.str = xcalloc(1, len);
 	memcpy(def->data.items.str, val, len);
@@ -3127,6 +3128,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		def = xcalloc(1, sizeof(struct qbe_def));
 		def->name = gen_name(ctx, "strdata.%d");
 		def->kind = Q_DATA;
+		def->data.align = ALIGN_UNDEFINED;
 		def->data.items.type = QD_STRING;
 		def->data.items.str = xcalloc(1, expr->constant.string.len);
 		def->data.items.sz = expr->constant.string.len;
@@ -3157,6 +3159,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		def = xcalloc(1, sizeof(struct qbe_def));
 		def->name = gen_name(ctx, "sldata.%d");
 		def->kind = Q_DATA;
+		def->data.align = ALIGN_UNDEFINED;
 
 		size_t len = 0;
 		struct qbe_data_item *subitem = &def->data.items;
@@ -3323,6 +3326,7 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 	}
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_DATA;
+	qdef->data.align = ALIGN_UNDEFINED;
 	qdef->exported = decl->exported;
 	qdef->name = ident_to_sym(&decl->ident);
 	gen_data_item(ctx, global->value, &qdef->data.items);
