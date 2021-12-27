@@ -748,11 +748,15 @@ check_expr_binarithm(struct context *ctx,
 	expr->binarithm.op = aexpr->binarithm.op;
 
 	enum {
+		BT_INVALID = -1,
 		BT_NUMERIC,
 		BT_LOGICAL,
 		BT_COMPARISON,
 		BT_EQUALITY,
 	} btype;
+
+	btype = BT_INVALID;
+
 	switch (expr->binarithm.op) {
 	// Numeric arithmetic
 	case BIN_BAND:
@@ -879,6 +883,9 @@ check_expr_binarithm(struct context *ctx,
 				"Cannot perform equality test on %s type",
 				type_storage_unparse(type_dealias(p)->storage));
 		}
+		break;
+	case BT_INVALID:
+		abort();
 		break;
 	}
 	lvalue = lower_implicit_cast(p, lvalue);
