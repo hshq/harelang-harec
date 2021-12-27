@@ -281,6 +281,9 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	while (atype) {
 		struct struct_field *field = struct_insert_field(store, fields,
 			storage, size, &usize, align, atype, ccompat, size_only);
+		if (field == NULL) {
+			return;
+		}
 		if (!field->name && !size_only) {
 			// We need to shift the embedded struct/union's fields
 			// so that their offsets are from the start of the
