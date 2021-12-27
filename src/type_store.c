@@ -178,6 +178,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		*ccompat = false;
 		struct expression in, out;
 		check_expression(store->check_context, atype->offset, &in, NULL);
+		field->offset = 0;
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
 		if (r != EVAL_OK) {
 			error(store->check_context, in.loc,
@@ -189,8 +190,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 			error(store->check_context, in.loc,
 				"Field offset must not be less than 0");
 		} else {
-			size_t offs = (size_t)out.constant.uval;
-			field->offset = offs;
+			field->offset = (size_t)out.constant.uval;
 		}
 	} else {
 		size_t offs = *size;
