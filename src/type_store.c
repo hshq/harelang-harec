@@ -594,9 +594,7 @@ type_init_from_atype(struct type_store *store,
 
 	// TODO: Use a dedicated error type instead of void for errors
 	const struct scope_object *obj = NULL;
-	const struct identifier *ident;
 	const struct type *builtin;
-	struct identifier temp;
 	switch (type->storage) {
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
@@ -626,22 +624,11 @@ type_init_from_atype(struct type_store *store,
 		type->align = builtin->align;
 		break;
 	case STORAGE_ALIAS:
-		ident = &atype->alias;
-		if (ident->ns == NULL) {
-			temp = *ident;
-			temp.ns = store->check_context->ns;
-			ident = &temp;
-		}
-
-		obj = scope_lookup(store->check_context->scope, ident);
-		if (!obj) {
-			obj = scope_lookup(store->check_context->scope,
-				&atype->alias);
-		}
+		obj = scope_lookup(store->check_context->scope, &atype->alias);
 		if (!obj) {
 			error(store->check_context, atype->loc,
 				"Unresolvable identifier '%s'",
-				identifier_unparse(ident));
+				identifier_unparse(&atype->alias));
 			*type = builtin_type_void;
 			return (struct dimensions){0};
 		}
