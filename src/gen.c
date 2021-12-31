@@ -2711,15 +2711,15 @@ gen_expr_unarithm(struct gen_context *ctx,
 		val = gen_expr(ctx, operand);
 		temp = mktemp(ctx, operand->result, ".%d");
 		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
-		struct qbe_value one = constl(1);
-		pushi(ctx->current, &qtmp, Q_XOR, &qval, &one, NULL);
+		struct qbe_value zerow = constw(0);
+		pushi(ctx->current, &qtmp, Q_CEQW, &qval, &zerow, NULL);
 		return temp;
 	case UN_MINUS:
 		val = gen_expr(ctx, operand);
 		temp = mktemp(ctx, operand->result, ".%d");
 		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
-		struct qbe_value zero = constl(0);
-		pushi(ctx->current, &qtmp, Q_SUB, &zero, &qval, NULL);
+		struct qbe_value zerol = constl(0);
+		pushi(ctx->current, &qtmp, Q_SUB, &zerol, &qval, NULL);
 		return temp;
 	case UN_PLUS:
 		return gen_expr(ctx, operand);
