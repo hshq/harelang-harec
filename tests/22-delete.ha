@@ -31,7 +31,7 @@ fn slice() void = {
 	assert(len(x) == 0);
 	assert(s.capacity < 5);
 
-	append(x, 6, 7, 8, 9);
+	append(x, [6, 7, 8, 9]...);
 	delete(x[1..3]);
 	assert(len(x) == 2);
 	assert(x[0] == 6 && x[1] == 9);

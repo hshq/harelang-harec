@@ -631,67 +631,65 @@ gen_expr_alloc_with(struct gen_context *ctx,
 static struct gen_value
 gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 {
-	struct gen_value slice = gen_expr(ctx, expr->append.expr);
+	struct gen_value slice = gen_expr(ctx, expr->append.object);
 	slice = gen_autoderef(ctx, slice);
 	struct qbe_value qslice = mkqval(ctx, &slice);
 
-	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value lenptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value prevlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	struct qbe_value offs = constl(builtin_type_size.size);
-	pushi(ctx->current, &ptr, Q_ADD, &qslice, &offs, NULL);
-	struct qbe_value len = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	pushi(ctx->current, &lenptr, Q_ADD, &qslice, &offs, NULL);
 	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
-	pushi(ctx->current, &len, load, &ptr, NULL);
+	pushi(ctx->current, &prevlen, load, &lenptr, NULL);
 
-	size_t args = 0;
-	for (struct append_values *value = expr->append.values; value;
-			value = value->next) {
-		args++;
+	struct qbe_value appendlen;
+	const struct type *valtype = type_dealias(expr->append.value->result);
+	if (expr->append.length != NULL) {
+		struct gen_value length = gen_expr(ctx, expr->append.length);
+		appendlen = mkqval(ctx, &length);
+		assert(valtype->storage == STORAGE_ARRAY && valtype->array.expandable);
+	} else if (!expr->append.is_multi) {
+		appendlen = constl(1);
 	}
-	struct qbe_value qargs = constl(args);
-	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &newlen, Q_ADD, &len, &qargs, NULL);
 
-	const struct type *vtype = NULL;
-	struct qbe_value vdata, vlen;
-	if (expr->append.variadic) {
-		// TODO: If it's an array object we might be able to make this
-		// more efficient by using gen_expr_at to populate the expanded
-		// slice storage area with the variadic data, like
-		// gen_alloc_slice_at does.
-		struct gen_value vobj = gen_expr(ctx, expr->append.variadic);
-		struct qbe_value qvobj = mkqval(ctx, &vobj);
-		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		vdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		vtype = type_dealias(expr->append.variadic->result);
-		switch (vtype->storage) {
-		case STORAGE_ARRAY:
-			pushi(ctx->current, &vdata, Q_COPY, &qvobj, NULL);
-			vlen = constl(vtype->array.length);
-			break;
-		case STORAGE_SLICE:
-			vlen = mkqtmp(ctx, ctx->arch.sz, "vlen.%d");
-			pushi(ctx->current, &vdata, Q_COPY, &qvobj, NULL);
-			pushi(ctx->current, &ptr, Q_ADD, &qvobj, &offs, NULL);
-			pushi(ctx->current, &vlen, load, &ptr, NULL);
-			break;
-		default: abort(); // Invariant
+	struct gen_value value;
+	struct qbe_value qvalue;
+	if (!expr->append.is_multi || valtype->storage != STORAGE_ARRAY) {
+		// We use gen_expr_at for the array case to avoid a copy
+		value = gen_expr(ctx, expr->append.value);
+		qvalue = mkqval(ctx, &value);
+	}
+
+	if (expr->append.is_multi) {
+		if (valtype->storage == STORAGE_ARRAY) {
+			assert(valtype->array.length != SIZE_UNDEFINED);
+			appendlen = constl(valtype->array.length);
+		} else {
+			value = gen_expr(ctx, expr->append.value);
+			qvalue = mkqval(ctx, &value);
+			appendlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
+			struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+			offs = constl(builtin_type_size.size);
+			pushi(ctx->current, &ptr, Q_ADD, &qvalue, &offs, NULL);
+			pushi(ctx->current, &appendlen, load, &ptr, NULL);
 		}
-
-		pushi(ctx->current, &newlen, Q_ADD, &newlen, &vlen, NULL);
 	}
 
+	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	pushi(ctx->current, &newlen, Q_ADD, &prevlen, &appendlen, NULL);
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
-	pushi(ctx->current, NULL, store, &newlen, &ptr, NULL);
+	pushi(ctx->current, NULL, store, &newlen, &lenptr, NULL);
 
+	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	const struct type *mtype = type_dealias(slice.type)->array.members;
 	struct qbe_value membsz = constl(mtype->size);
-
 	if (!expr->append.is_static) {
 		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
 		struct qbe_value lval = mklval(ctx, &slice);
 		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
 	} else {
-		pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
+		offs = constl(builtin_type_size.size * 2);
+		pushi(ctx->current, &ptr, Q_ADD, &qslice, &offs, NULL);
 		struct qbe_value cap = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		pushi(ctx->current, &cap, load, &ptr, NULL);
 
@@ -701,17 +699,15 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
 		pushi(ctx->current, &valid, Q_CULEL, &newlen, &cap, NULL);
 		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+
 		push(&ctx->current->body, &linvalid);
-
 		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-
 		push(&ctx->current->body, &lvalid);
 	}
 
-	offs = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	offs = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &ptr, load, &qslice, NULL);
-	pushi(ctx->current, &offs, Q_MUL, &len, &membsz, NULL);
+	pushi(ctx->current, &offs, Q_MUL, &prevlen, &membsz, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &ptr, &offs, NULL);
 
 	struct gen_value item = {
@@ -719,20 +715,40 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 		.type = mtype,
 		.name = ptr.name,
 	};
-	for (struct append_values *value = expr->append.values; value;
-			value = value->next) {
-		gen_expr_at(ctx, value->expr, item);
-		pushi(ctx->current, &ptr, Q_ADD, &ptr, &membsz, NULL);
-	}
-
-	if (expr->append.variadic) {
+	if (expr->append.is_multi && valtype->storage == STORAGE_ARRAY) {
+		item.type = valtype;
+		gen_expr_at(ctx, expr->append.value, item);
+	} else if (expr->append.is_multi && valtype->storage == STORAGE_SLICE) {
+		struct qbe_value qsrc = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memmove");
 		struct qbe_value sz = mkqtmp(ctx, ctx->arch.sz, ".%d");
-		pushi(ctx->current, &sz, Q_MUL, &vlen, &membsz, NULL);
-		if (vtype->storage == STORAGE_SLICE) {
-			pushi(ctx->current, &vdata, load, &vdata, NULL);
-		}
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &ptr, &vdata, &sz, NULL);
+		pushi(ctx->current, &sz, Q_MUL, &appendlen, &membsz, NULL);
+		pushi(ctx->current, &qsrc, load, &qvalue, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &ptr, &qsrc, &sz, NULL);
+	} else if (expr->append.length != NULL) {
+		// XXX: This could be made more efficient for some cases if
+		// check could determine the length at compile time and lower it
+		// to a fixed-length array type
+		assert(valtype->storage == STORAGE_ARRAY);
+		item.type = valtype;
+		gen_expr_at(ctx, expr->append.value, item);
+
+		assert(valtype->array.length != SIZE_UNDEFINED);
+		struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, "next.%d");
+		struct qbe_value last = mkqtmp(ctx, ctx->arch.ptr, "last.%d");
+		struct qbe_value arlen = constl(valtype->array.length * mtype->size);
+		pushi(ctx->current, &next, Q_ADD, &ptr, &arlen, NULL);
+		arlen = constl((valtype->array.length - 1) * mtype->size);
+		pushi(ctx->current, &last, Q_ADD, &ptr, &arlen, NULL);
+
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
+		struct qbe_value remain = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		struct qbe_value one = constl(1);
+		pushi(ctx->current, &remain, Q_SUB, &appendlen, &one, NULL);
+		pushi(ctx->current, &remain, Q_MUL, &remain, &membsz, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &next, &last, &remain, NULL);
+	} else {
+		gen_store(ctx, item, value);
 	}
 
 	return gv_void;
@@ -1900,74 +1916,67 @@ gen_expr_if_with(struct gen_context *ctx,
 static struct gen_value
 gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 {
-	const struct expression *objexpr = expr->insert.expr;
+	// XXX: A lot of this code is identical to the corresponding append
+	// code, maybe we can/should deduplicate it
+	assert(expr->append.length == NULL);
+	const struct expression *objexpr = expr->append.object;
 	assert(objexpr->type == EXPR_ACCESS
 			&& objexpr->access.type == ACCESS_INDEX);
-
-	const struct expression *arrayexpr = objexpr->access.array;
-	struct gen_value slice = gen_expr(ctx, arrayexpr);
+	const struct expression *arexpr = objexpr->access.array;
+	struct gen_value slice = gen_expr(ctx, arexpr);
 	slice = gen_autoderef(ctx, slice);
+	struct qbe_value qslice = mkqval(ctx, &slice);
 	struct gen_value index = gen_expr(ctx, objexpr->access.index);
 	struct qbe_value qindex = mkqval(ctx, &index);
 
-	const struct type *sltype = type_dereference(arrayexpr->result);
-	const struct type *mtype = type_dealias(sltype)->array.members;
-
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
-	struct qbe_value qslice = mklval(ctx, &slice);
-	struct qbe_value offs = constl(builtin_type_size.size);
 	struct qbe_value lenptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value prevlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	struct qbe_value offs = constl(builtin_type_size.size);
 	pushi(ctx->current, &lenptr, Q_ADD, &qslice, &offs, NULL);
-	struct qbe_value len = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &len, load, &lenptr, NULL);
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
+	pushi(ctx->current, &prevlen, load, &lenptr, NULL);
 
-	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-	pushi(ctx->current, &valid, Q_CULEL, &qindex, &len, NULL);
+	struct qbe_value appendlen = constl(1);
+	const struct type *valtype = type_dealias(expr->append.value->result);
 
-	struct qbe_statement linvalid, lvalid;
-	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-
-	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
-	push(&ctx->current->body, &linvalid);
-	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-	push(&ctx->current->body, &lvalid);
-
-	size_t args = 0;
-	for (struct append_values *value = expr->insert.values;
-			value; value = value->next) {
-		args++;
+	struct gen_value value;
+	struct qbe_value qvalue;
+	if (!expr->append.is_multi || valtype->storage != STORAGE_ARRAY) {
+		// We use gen_expr_at for the array case to avoid a copy
+		value = gen_expr(ctx, expr->append.value);
+		qvalue = mkqval(ctx, &value);
 	}
-	struct qbe_value nadd = constl(args);
+
+	if (expr->append.is_multi) {
+		if (valtype->storage == STORAGE_ARRAY) {
+			assert(valtype->array.length != SIZE_UNDEFINED);
+			appendlen = constl(valtype->array.length);
+		} else {
+			value = gen_expr(ctx, expr->append.value);
+			qvalue = mkqval(ctx, &value);
+			appendlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
+			struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+			offs = constl(builtin_type_size.size);
+			pushi(ctx->current, &ptr, Q_ADD, &qvalue, &offs, NULL);
+			pushi(ctx->current, &appendlen, load, &ptr, NULL);
+		}
+	}
+
 	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &newlen, Q_ADD, &len, &nadd, NULL);
-
-	struct gen_value vobj;
-	struct qbe_value vlen = constl(0), vdata;
-	if (expr->insert.variadic) {
-		vobj = gen_expr(ctx, expr->insert.variadic);
-		struct qbe_value lval = mklval(ctx, &vobj);
-		vdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		pushi(ctx->current, &vdata, load, &lval, NULL);
-
-		struct qbe_value vptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		vlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
-		pushi(ctx->current, &vptr, Q_ADD, &lval, &offs, NULL);
-		pushi(ctx->current, &vlen, load, &vptr, NULL);
-		pushi(ctx->current, &newlen, Q_ADD, &newlen, &vlen, NULL);
-	}
-
+	pushi(ctx->current, &newlen, Q_ADD, &prevlen, &appendlen, NULL);
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	pushi(ctx->current, NULL, store, &newlen, &lenptr, NULL);
-	struct qbe_value membsz = constl(mtype->size);
 
-	if (!expr->insert.is_static) {
+	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	const struct type *mtype = type_dealias(slice.type)->array.members;
+	struct qbe_value membsz = constl(mtype->size);
+	if (!expr->append.is_static) {
 		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
 		struct qbe_value lval = mklval(ctx, &slice);
 		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
 	} else {
-		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		pushi(ctx->current, &ptr, Q_ADD, &lenptr, &offs, NULL);
+		offs = constl(builtin_type_size.size * 2);
+		pushi(ctx->current, &ptr, Q_ADD, &qslice, &offs, NULL);
 		struct qbe_value cap = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		pushi(ctx->current, &cap, load, &ptr, NULL);
 
@@ -1977,45 +1986,44 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
 		pushi(ctx->current, &valid, Q_CULEL, &newlen, &cap, NULL);
 		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+
 		push(&ctx->current->body, &linvalid);
-
 		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-
 		push(&ctx->current->body, &lvalid);
 	}
 
 	struct qbe_value base = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &base, load, &qslice, NULL);
 
-	struct qbe_value src = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &src, Q_MUL, &qindex, &membsz, NULL);
-	pushi(ctx->current, &src, Q_ADD, &base, &src, NULL);
+	pushi(ctx->current, &ptr, Q_MUL, &qindex, &membsz, NULL);
+	pushi(ctx->current, &ptr, Q_ADD, &base, &ptr, NULL);
+
 	struct qbe_value nbyte = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	struct qbe_value dest = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &nbyte, Q_ADD, &nadd, &vlen, NULL);
 	struct qbe_value ncopy = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &ncopy, Q_SUB, &len, &qindex, NULL);
-	pushi(ctx->current, &nbyte, Q_MUL, &nbyte, &membsz, NULL);
+	pushi(ctx->current, &nbyte, Q_MUL, &appendlen, &membsz, NULL);
+	pushi(ctx->current, &ncopy, Q_SUB, &prevlen, &qindex, NULL);
 	pushi(ctx->current, &ncopy, Q_MUL, &ncopy, &membsz, NULL);
-	pushi(ctx->current, &dest, Q_ADD, &src, &nbyte, NULL);
+	pushi(ctx->current, &dest, Q_ADD, &ptr, &nbyte, NULL);
 
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memmove");
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dest, &src, &ncopy, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dest, &ptr, &ncopy, NULL);
 
-	struct gen_value gv = {
+	struct gen_value item = {
 		.kind = GV_TEMP,
 		.type = mtype,
-		.name = src.name,
+		.name = ptr.name,
 	};
-	for (struct append_values *value = expr->insert.values;
-			value; value = value->next) {
-		gen_expr_at(ctx, value->expr, gv);
-		pushi(ctx->current, &src, Q_ADD, &src, &membsz, NULL);
-	}
-	if (expr->insert.variadic) {
-		rtfunc = mkrtfunc(ctx, "rt.memcpy");
-		pushi(ctx->current, &nbyte, Q_MUL, &vlen, &membsz, NULL);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &src, &vdata, &nbyte, NULL);
+	if (expr->append.is_multi && valtype->storage == STORAGE_ARRAY) {
+		item.type = valtype;
+		gen_expr_at(ctx, expr->append.value, item);
+	} else if (expr->append.is_multi && valtype->storage == STORAGE_SLICE) {
+		struct qbe_value qsrc = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memmove");
+		pushi(ctx->current, &qsrc, load, &qvalue, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &ptr, &qsrc, &nbyte, NULL);
+	} else {
+		gen_store(ctx, item, value);
 	}
 
 	return gv_void;

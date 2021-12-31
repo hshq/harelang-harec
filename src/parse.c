@@ -1273,76 +1273,73 @@ parse_allocation_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
+parse_append_insert(struct lexer *lexer, struct location *loc,
+		bool is_static, enum expr_type etype)
+{
+	struct token tok = {0};
+	struct ast_expression *expr = mkexpr(loc);
+	expr->type = etype;
+
+	want(lexer, T_LPAREN, NULL);
+	expr->append.object = parse_object_selector(lexer);
+	if (etype == EXPR_INSERT) {
+		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
+				"expected indexing expression", &tok);
+	}
+	want(lexer, T_COMMA, NULL);
+	expr->append.value = parse_expression(lexer);
+	expr->append.is_static = is_static;
+
+	switch (lex(lexer, &tok)) {
+	case T_ELLIPSIS:
+		expr->append.is_multi = true;
+		break;
+	default:
+		unlex(lexer, &tok);
+		break;
+	}
+
+	switch (lex(lexer, &tok)) {
+	case T_RPAREN:
+		// This space deliberately left blank
+		break;
+	case T_COMMA:
+		expr->append.length = parse_expression(lexer);
+		want(lexer, T_RPAREN, NULL);
+		break;
+	default:
+		synassert(false, &tok, T_RPAREN, T_COMMA, T_EOF);
+	}
+
+	return expr;
+}
+
+static struct ast_expression *
+parse_delete(struct lexer *lexer, struct location *loc, bool is_static)
+{
+	struct ast_expression *exp = mkexpr(loc);
+	exp->type = EXPR_DELETE;
+	want(lexer, T_LPAREN, NULL);
+	exp->delete.expr = parse_expression(lexer);
+	exp->delete.is_static = is_static;
+	want(lexer, T_RPAREN, NULL);
+	return exp;
+}
+
+static struct ast_expression *
 parse_slice_mutation(struct lexer *lexer, bool is_static)
 {
-	struct ast_expression *exp = NULL;
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_APPEND:
 	case T_INSERT:
-		exp = mkexpr(&tok.loc);
-		exp->type = tok.token == T_APPEND ? EXPR_APPEND : EXPR_INSERT;
-		want(lexer, T_LPAREN, NULL);
-
-		struct ast_append_values **next;
-		switch (exp->type) {
-		case EXPR_APPEND:
-			exp->append.expr = parse_object_selector(lexer);
-			exp->append.is_static = is_static;
-			next = &exp->append.values;
-			break;
-		case EXPR_INSERT:
-			exp->insert.expr = parse_object_selector(lexer);
-			exp->insert.is_static = is_static;
-			next = &exp->insert.values;
-			break;
-		default:
-			assert(0);
-		}
-
-		want(lexer, T_COMMA, NULL);
-
-		while (tok.token != T_RPAREN) {
-			if (lex(lexer, &tok) == T_ELLIPSIS) {
-				exp->append.variadic =
-					parse_expression(lexer);
-				break;
-			}
-			*next = xcalloc(1, sizeof(struct ast_append_values));
-			unlex(lexer, &tok);
-			(*next)->expr = parse_expression(lexer);
-
-			lex(lexer, &tok);
-			if (tok.token == T_ELLIPSIS) {
-				exp->append.variadic = (*next)->expr;
-				free(*next);
-				*next = NULL;
-				if (lex(lexer, &tok) != T_COMMA) {
-					unlex(lexer, &tok);
-				}
-				want(lexer, T_RPAREN, &tok);
-				break;
-			} else if (tok.token != T_COMMA) {
-				unlex(lexer, &tok);
-				want(lexer, T_RPAREN, &tok);
-				break;
-			}
-
-			next = &(*next)->next;
-		}
-		break;
+		return parse_append_insert(lexer, &tok.loc, is_static,
+			tok.token == T_APPEND ? EXPR_APPEND : EXPR_INSERT);
 	case T_DELETE:
-		exp = mkexpr(&tok.loc);
-		exp->type = EXPR_DELETE;
-		want(lexer, T_LPAREN, NULL);
-		exp->delete.expr = parse_expression(lexer);
-		exp->delete.is_static = is_static;
-		want(lexer, T_RPAREN, NULL);
-		break;
+		return parse_delete(lexer, &tok.loc, is_static);
 	default:
-		assert(0);
+		abort(); // Invariant
 	}
-	return exp;
 }
 
 static struct ast_expression *

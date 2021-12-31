@@ -88,17 +88,11 @@ struct expression_alloc {
 	struct expression *cap;
 };
 
-struct append_values {
-	struct expression *expr;
-	struct append_values *next;
-};
-
 struct expression_append {
-	struct expression *expr;
-	struct expression *variadic;
-	struct append_values *values;
-	struct location loc;
-	bool is_static;
+	struct expression *object;
+	struct expression *value;
+	struct expression *length;
+	bool is_static, is_multi;
 };
 
 struct expression_assert {
@@ -251,14 +245,6 @@ struct expression_if {
 	struct expression *true_branch, *false_branch;
 };
 
-struct expression_insert {
-	struct expression *expr;
-	struct expression *variadic;
-	struct append_values *values;
-	struct location loc;
-	bool is_static;
-};
-
 struct match_case {
 	const struct scope_object *object;	// NULL if not bound
 	const struct type *type;		// NULL if default
@@ -358,7 +344,7 @@ struct expression {
 	union {
 		struct expression_access access;
 		struct expression_alloc alloc;
-		struct expression_append append;
+		struct expression_append append; // and insert
 		struct expression_assert assert;
 		struct expression_assign assign;
 		struct expression_binarithm binarithm;
@@ -373,7 +359,6 @@ struct expression {
 		struct expression_for _for;
 		struct expression_free free;
 		struct expression_if _if;
-		struct expression_insert insert;
 		struct expression_match match;
 		struct expression_measure measure;
 		struct expression_propagate propagate;

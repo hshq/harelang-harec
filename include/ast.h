@@ -130,16 +130,11 @@ struct ast_expression_alloc {
 	struct ast_expression *cap;
 };
 
-struct ast_append_values {
-	struct ast_expression *expr;
-	struct ast_append_values *next;
-};
-
 struct ast_expression_append {
-	struct ast_expression *expr;
-	struct ast_expression *variadic;
-	struct ast_append_values *values;
-	bool is_static;
+	struct ast_expression *object;
+	struct ast_expression *value;
+	struct ast_expression *length;
+	bool is_static, is_multi;
 };
 
 struct ast_expression_assert {
@@ -237,13 +232,6 @@ struct ast_expression_if {
 	struct ast_expression *true_branch, *false_branch;
 };
 
-struct ast_expression_insert {
-	struct ast_expression *expr;
-	struct ast_expression *variadic;
-	struct ast_append_values *values;
-	bool is_static;
-};
-
 struct ast_expression_compound {
 	char *label;
 	struct location label_loc;
@@ -336,7 +324,7 @@ struct ast_expression {
 	union {
 		struct ast_expression_access access;
 		struct ast_expression_alloc alloc;
-		struct ast_expression_append append;
+		struct ast_expression_append append; // also insert
 		struct ast_expression_assert assert;
 		struct ast_expression_assign assign;
 		struct ast_expression_binarithm binarithm;
@@ -351,7 +339,6 @@ struct ast_expression {
 		struct ast_expression_for _for;
 		struct ast_expression_free free;
 		struct ast_expression_if _if;
-		struct ast_expression_insert insert;
 		struct ast_expression_match match;
 		struct ast_expression_measure measure;
 		struct ast_expression_propagate propagate;
