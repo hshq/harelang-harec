@@ -1072,7 +1072,8 @@ type_store_tagged_to_union(struct type_store *store, const struct type *tagged)
 }
 
 const struct type *
-type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
+type_store_lookup_tuple(struct type_store *store, struct type_tuple *values,
+		struct location loc)
 {
 	struct type type = {
 		.storage = STORAGE_TUPLE,
@@ -1081,6 +1082,11 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values)
 	for (struct type_tuple *t = values; t; t = t->next) {
 		if (t->type->align > type.align) {
 			type.align = t->type->align;
+		}
+		if (t->type->size == 0 || t->type->align == 0) {
+			error(store->check_context, loc,
+				"Tuple values must have nonzero size and alignment");
+			break;
 		}
 		t->offset = type.size % t->type->align + type.size;
 		type.size += type.size % t->type->align + t->type->size;

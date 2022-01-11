@@ -1,6 +1,7 @@
 #ifndef HARE_TYPESTORE_H
 #define HARE_TYPESTORE_H
 #include "ast.h"
+#include "lex.h"
 #include "types.h"
 
 #define TYPE_STORE_BUCKETS 65536
@@ -55,6 +56,6 @@ const struct type *type_store_tagged_to_union(
 	struct type_store *store, const struct type *tagged);
 
 const struct type *type_store_lookup_tuple(struct type_store *store,
-	struct type_tuple *values);
+	struct type_tuple *values, struct location loc);
 
 #endif

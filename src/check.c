@@ -2645,7 +2645,8 @@ check_expr_tuple(struct context *ctx,
 			return;
 		}
 	} else {
-		expr->result = type_store_lookup_tuple(ctx->store, &result);
+		expr->result = type_store_lookup_tuple(ctx->store, &result,
+				aexpr->loc);
 	}
 
 	ttuple = &type_dealias(expr->result)->tuple;
