@@ -44,6 +44,7 @@ static uintmax_t
 itrunc(const struct type *type, uintmax_t val)
 {
 	switch (type->storage) {
+	case STORAGE_CHAR:
 	case STORAGE_U8:
 		return (uint8_t)val;
 	case STORAGE_U16:
@@ -80,7 +81,6 @@ itrunc(const struct type *type, uintmax_t val)
 		return itrunc(type_dealias(type), val);
 	case STORAGE_ENUM:
 		return itrunc(builtin_type_for_storage(type->_enum.storage, false), val);
-	case STORAGE_CHAR:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
