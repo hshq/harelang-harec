@@ -3286,6 +3286,17 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 				item->next = xcalloc(1,
 					sizeof(struct qbe_data_item));
 				item = item->next;
+			} else {
+				const struct type_tuple *fi = tuple->field;
+				if (fi->offset + fi->type->size
+						!= expr->result->size) {
+					item->next = xcalloc(1,
+						sizeof(struct qbe_data_item));
+					item = item->next;
+					item->type = QD_ZEROED;
+					item->zeroed = expr->result->size
+						- (fi->offset + fi->type->size);
+				}
 			}
 		}
 		break;
