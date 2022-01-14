@@ -1177,7 +1177,9 @@ check_expr_cast(struct context *ctx,
 		}
 		if (!type_is_castable(value->result, secondary)) {
 			error(ctx, aexpr->cast.type->loc, expr,
-				"Invalid cast");
+				"Invalid cast from %s to %s",
+				gen_typename(value->result),
+				gen_typename(secondary));
 			return;
 		}
 		bool found = false;
@@ -1199,7 +1201,9 @@ check_expr_cast(struct context *ctx,
 	case C_CAST:
 		if (!type_is_castable(secondary, value->result)) {
 			error(ctx, aexpr->cast.type->loc, expr,
-				"Invalid cast");
+				"Invalid cast from %s to %s",
+				gen_typename(value->result),
+				gen_typename(secondary));
 			return;
 		}
 		// Fallthrough
