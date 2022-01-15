@@ -77,6 +77,38 @@ fn tagged() void = {
 	// TODO: subset-compat
 };
 
+// Real-world sample
+
+type basic = enum {
+	FN,
+	FOR,
+	IF,
+	IN,
+	NOT,
+	SWITCH,
+	WHILE,
+};
+
+const keywords: [_](str, basic) = [
+	("fn", basic::FN),
+	("for", basic::FOR),
+	("if", basic::IF),
+	("in", basic::IN),
+	("not", basic::NOT),
+	("switch", basic::SWITCH),
+	("while", basic::WHILE),
+];
+
+fn tuplearray() void = {
+	assert(keywords[0].0 == "fn");
+	assert(keywords[1].0 == "for");
+	assert(keywords[2].0 == "if");
+	assert(keywords[3].0 == "in");
+	assert(keywords[4].0 == "not");
+	assert(keywords[5].0 == "switch");
+	assert(keywords[6].0 == "while");
+};
+
 export fn main() void = {
 	// TODO: Expand this test:
 	// - Declare & validate globals of more types
@@ -86,4 +118,5 @@ export fn main() void = {
 	invariants();
 	static_binding();
 	pointers();
+	tuplearray();
 };
