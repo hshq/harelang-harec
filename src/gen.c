@@ -809,7 +809,7 @@ gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
 	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
 	struct qbe_value tmp = mkqtmp(ctx, &qbe_long, ".%d");
-	pushi(ctx->current, &tmp, Q_CUGEL, &olen, &vlen, NULL);
+	pushi(ctx->current, &tmp, Q_CEQL, &olen, &vlen, NULL);
 	pushi(ctx->current, NULL, Q_JNZ, &tmp, &bvalid, &binvalid, NULL);
 	push(&ctx->current->body, &linvalid);
 	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
