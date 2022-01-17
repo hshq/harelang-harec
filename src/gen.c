@@ -3312,7 +3312,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		if (constant->tagged.tag->size != 0) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
-			gen_data_item(ctx, constant->tagged.value, item);
+			item = gen_data_item(ctx, constant->tagged.value, item);
 		}
 		if (constant->tagged.tag->size < type->size - type->align) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));

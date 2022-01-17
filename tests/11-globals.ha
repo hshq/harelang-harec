@@ -72,7 +72,15 @@ type foo = (int | uint);
 
 let subtype: foo = 10u;
 
+let arr_of_tagged_of_tuple: [3]((int, int)|void) = [(1, 2), (3, 4), (5, 6)];
+
 fn tagged() void = {
+	assert((arr_of_tagged_of_tuple[0] as (int, int)).0 == 1);
+	assert((arr_of_tagged_of_tuple[0] as (int, int)).1 == 2);
+	assert((arr_of_tagged_of_tuple[1] as (int, int)).0 == 3);
+	assert((arr_of_tagged_of_tuple[1] as (int, int)).1 == 4);
+	assert((arr_of_tagged_of_tuple[2] as (int, int)).0 == 5);
+	assert((arr_of_tagged_of_tuple[2] as (int, int)).1 == 6);
 	assert(subtype is uint);
 	// TODO: subset-compat
 };
@@ -118,5 +126,6 @@ export fn main() void = {
 	invariants();
 	static_binding();
 	pointers();
+	tagged();
 	tuplearray();
 };
