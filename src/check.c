@@ -291,7 +291,6 @@ check_expr_alloc_init(struct context *ctx,
 			ptrflags = htype->pointer.flags;
 			break;
 		case STORAGE_SLICE:
-		case STORAGE_ARRAY:
 			inithint = hint;
 			break;
 		default:
@@ -304,6 +303,23 @@ check_expr_alloc_init(struct context *ctx,
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, inithint);
 
 	const struct type *objtype = expr->alloc.init->result;
+	if (type_dealias(objtype)->storage == STORAGE_ARRAY
+			&& type_dealias(objtype)->array.expandable) {
+		const struct type *atype = type_dealias(objtype);
+		if (!hint) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot infer expandable array length without type hint");
+			return;
+		}
+		const struct type *htype = type_dereference(hint);
+		if (htype->storage != STORAGE_ARRAY) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot assign expandable array from non-array type");
+			return;
+		}
+		assert(htype->array.members == atype->array.members);
+		objtype = hint;
+	}
 	expr->result = type_store_lookup_pointer(ctx->store, objtype, ptrflags);
 }
 
