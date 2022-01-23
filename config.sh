@@ -118,7 +118,7 @@ find_library() {
 docs() { true; }
 
 run_configure() {
-	mkdir -p $outdir
+	mkdir -p "$outdir"
 
 	for flag in -g -std=c11 -D_XOPEN_SOURCE=700 \
 		-Wall -Wextra -Werror -pedantic \
@@ -189,7 +189,7 @@ run_configure() {
 	done
 	echo done
 
-	touch $outdir/cppcache
+	touch "$outdir"/cppcache
 
 	cat <<-EOF >harec.sh
 	export PATH=\$PATH:"$(pwd)"
