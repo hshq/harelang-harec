@@ -152,36 +152,36 @@ run_configure() {
 		exit 1
 	fi
 
-	cat <<-EOF > "$outdir"/config.mk
-	CC=$CC
-	AS=$AS
-	LD=$LD
-	AR=$AR
-	QBE=$QBE
-	SCDOC=$SCDOC
-	LIBS=$LIBS
-	PREFIX=${PREFIX:-/usr/local}
-	OUTDIR=${outdir}
-	SRCDIR=${srcdir}
-	BINDIR?=${BINDIR:-\$(PREFIX)/bin}
-	SHAREDIR?=${SHAREDIR:-\$(PREFIX)/share}
-	SYSCONFDIR?=${SYSCONFDIR:-\$(PREFIX)/etc}
-	LIBDIR?=${LIBDIR:-\$(PREFIX)/lib}
-	MANDIR?=${MANDIR:-\$(PREFIX)/share/man}
-	VARLIBDIR?=${MANDIR:-\$(PREFIX)/var/lib}
-	CACHE=\$(OUTDIR)/cache
-	CFLAGS=${CFLAGS}
-	CFLAGS+=-Iinclude -I\$(OUTDIR)
-	CFLAGS+=-DPREFIX='"\$(PREFIX)"'
-	CFLAGS+=-DLIBDIR='"\$(LIBDIR)"'
-	CFLAGS+=-DVARLIBDIR='"\$(VARLIBDIR)"'
-	CFLAGS+=-DSYSCONFDIR='"\$(SYSCONFDIR)"'
-	LDFLAGS=${LDFLAGS}
-	HARECACHE=./mod
-
-	all: ${all}
-	EOF
 	printf "Creating %s/config.mk... " "$outdir"
+	cat <<EOF > "$outdir"/config.mk
+CC=$CC
+AS=$AS
+LD=$LD
+AR=$AR
+QBE=$QBE
+SCDOC=$SCDOC
+LIBS=$LIBS
+PREFIX=${PREFIX:-/usr/local}
+OUTDIR=${outdir}
+SRCDIR=${srcdir}
+BINDIR=${BINDIR:-\$(PREFIX)/bin}
+SHAREDIR=${SHAREDIR:-\$(PREFIX)/share}
+SYSCONFDIR=${SYSCONFDIR:-\$(PREFIX)/etc}
+LIBDIR=${LIBDIR:-\$(PREFIX)/lib}
+MANDIR=${MANDIR:-\$(PREFIX)/share/man}
+VARLIBDIR=${MANDIR:-\$(PREFIX)/var/lib}
+CACHE=\$(OUTDIR)/cache
+CFLAGS=${CFLAGS} \\
+	-Iinclude -I\$(OUTDIR) \\
+	-DPREFIX='"\$(PREFIX)"' \\
+	-DLIBDIR='"\$(LIBDIR)"' \\
+	-DVARLIBDIR='"\$(VARLIBDIR)"' \\
+	-DSYSCONFDIR='"\$(SYSCONFDIR)"'
+LDFLAGS=${LDFLAGS}
+HARECACHE=./mod
+
+all: ${all}
+EOF
 
 	for target in $all
 	do
