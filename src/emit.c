@@ -236,7 +236,8 @@ emit_data_string(const char *str, size_t sz, FILE *out)
 	bool q = false;
 	for (size_t i = 0; i < sz; ++i) {
 		/* XXX: We could stand to emit less conservatively */
-		if (!isprint(str[i]) || str[i] == '"' || str[i] == '\\') {
+		if (!isprint((unsigned char)(str[i])) || str[i] == '"'
+				|| str[i] == '\\') {
 			if (q) {
 				q = false;
 				fprintf(out, "\", ");
