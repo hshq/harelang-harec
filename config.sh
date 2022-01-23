@@ -152,7 +152,6 @@ run_configure() {
 		exit 1
 	fi
 
-	printf "Creating $outdir/config.mk... "
 	cat <<-EOF > "$outdir"/config.mk
 	CC=$CC
 	AS=$AS
@@ -182,6 +181,7 @@ run_configure() {
 
 	all: ${all}
 	EOF
+	printf "Creating %s/config.mk... " "$outdir"
 
 	for target in $all
 	do
