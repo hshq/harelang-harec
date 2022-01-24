@@ -37,7 +37,8 @@ tests() {
 		31-postfix \
 		32-copy \
 		33-yield \
-		34-declarations
+		34-declarations \
+		35-floats
 	do
 		cat <<EOF
 tests/$t: libhart.a tests/$t.ha
