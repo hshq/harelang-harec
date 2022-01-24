@@ -66,6 +66,11 @@ fn reject() void = {
 		let y: []int = [42];
 		insert(x[1], y...);
 	") != 0); // object member type != value member type
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		let y: []int = [42];
+		insert(x[1], [y...], 3);
+	") != 0); // insert expression doesn't have a length parameter
 };
 
 export fn main() void = {

@@ -1282,10 +1282,6 @@ parse_append_insert(struct lexer *lexer, struct location *loc,
 
 	want(lexer, T_LPAREN, NULL);
 	expr->append.object = parse_object_selector(lexer);
-	if (etype == EXPR_INSERT) {
-		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
-				"expected indexing expression", &tok);
-	}
 	want(lexer, T_COMMA, NULL);
 	expr->append.value = parse_expression(lexer);
 	expr->append.is_static = is_static;
@@ -1297,6 +1293,13 @@ parse_append_insert(struct lexer *lexer, struct location *loc,
 	default:
 		unlex(lexer, &tok);
 		break;
+	}
+
+	if (etype == EXPR_INSERT) {
+		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
+				"expected indexing expression", &tok);
+		want(lexer, T_RPAREN, NULL);
+		return expr;
 	}
 
 	switch (lex(lexer, &tok)) {
