@@ -55,6 +55,18 @@ fn withlength() void = {
 	free(x);
 };
 
+fn typehints() void = {
+	let x: []u8 = [];
+	append(x, 42);
+	append(x, [42]...);
+	append(x, [42...], 3);
+	assert(len(x) == 5);
+	for (let i = 0z; i < 5; i += 1) {
+		assert(x[i] == 42u8);
+	};
+	free(x);
+};
+
 fn reject() void = {
 	assert(rt::compile("
 		let x: []u8 = [0u8];
@@ -90,5 +102,6 @@ export fn main() void = {
 	multi();
 	_static();
 	withlength();
+	typehints();
 	reject();
 };

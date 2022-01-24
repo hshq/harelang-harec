@@ -50,6 +50,16 @@ fn _static() void = {
 	};
 };
 
+fn typehints() void = {
+	let x: []u8 = [];
+	insert(x[0], 42);
+	insert(x[1], [42]...);
+	assert(len(x) == 2);
+	assert(x[0] == 42u8);
+	assert(x[1] == 42u8);
+	free(x);
+};
+
 fn reject() void = {
 	assert(rt::compile("
 		let x: []u8 = [0u8];
@@ -77,5 +87,6 @@ export fn main() void = {
 	basics();
 	multi();
 	_static();
+	typehints();
 	reject();
 };

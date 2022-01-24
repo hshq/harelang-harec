@@ -453,12 +453,7 @@ check_expr_append_insert(struct context *ctx,
 		return;
 	}
 
-	const struct type *valuehint = sltype;
-	if (!expr->append.is_multi) {
-		valuehint = sltype->array.members;
-	}
 	expr->append.value = xcalloc(sizeof(struct expression), 1);
-	check_expression(ctx, aexpr->append.value, expr->append.value, valuehint);
 
 	if (!expr->append.is_multi && !aexpr->append.length) {
 		check_expression(ctx, aexpr->append.value, expr->append.value,
@@ -474,6 +469,7 @@ check_expr_append_insert(struct context *ctx,
 		return;
 	}
 
+	check_expression(ctx, aexpr->append.value, expr->append.value, sltype);
 	const struct type *valtype = type_dereference(expr->append.value->result);
 	valtype = type_dealias(valtype);
 	if (aexpr->append.length) {
