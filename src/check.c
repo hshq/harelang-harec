@@ -425,15 +425,18 @@ check_expr_append_insert(struct context *ctx,
 	assert(expr->append.object->type == EXPR_ACCESS);
 
 	const struct type *sltype;
+	const char *exprtype_name;
 	switch (expr->type) {
 	case EXPR_APPEND:
 		sltype = type_dereference(expr->append.object->result);
 		sltype = type_dealias(sltype);
+		exprtype_name = "append";
 		break;
 	case EXPR_INSERT:
 		assert(expr->append.object->access.type == ACCESS_INDEX);
 		sltype = expr->append.object->access.array->result;
 		sltype = type_dealias(sltype);
+		exprtype_name = "insert";
 		break;
 	default:
 		abort(); // Invariant
@@ -457,21 +460,51 @@ check_expr_append_insert(struct context *ctx,
 	expr->append.value = xcalloc(sizeof(struct expression), 1);
 	check_expression(ctx, aexpr->append.value, expr->append.value, valuehint);
 
+	if (!expr->append.is_multi && !aexpr->append.length) {
+		check_expression(ctx, aexpr->append.value, expr->append.value,
+				sltype->array.members);
+		if (!type_is_assignable(sltype->array.members,
+				expr->append.value->result)) {
+			error(ctx, aexpr->append.value->loc, expr,
+				"Value type must be assignable to object member type");
+			return;
+		}
+		expr->append.value = lower_implicit_cast(
+			sltype->array.members, expr->append.value);
+		return;
+	}
+
+	const struct type *valtype = type_dereference(expr->append.value->result);
+	valtype = type_dealias(valtype);
 	if (aexpr->append.length) {
+		if (valtype->storage != STORAGE_ARRAY
+				|| !valtype->array.expandable) {
+			error(ctx, aexpr->append.value->loc, expr,
+				"Value must be an expandable array in append with length");
+			return;
+		}
 		struct expression *len = xcalloc(sizeof(struct expression), 1);
 		check_expression(ctx, aexpr->append.length, len, &builtin_type_size);
 		if (!type_is_assignable(&builtin_type_size, len->result)) {
-			error(ctx, aexpr->loc, expr,
+			error(ctx, aexpr->append.length->loc, expr,
 				"Length parameter must be assignable to size");
 			return;
 		}
 		len = lower_implicit_cast(&builtin_type_size, len);
 		expr->append.length = len;
+	} else {
+		if (valtype->storage != STORAGE_SLICE
+				&& valtype->storage != STORAGE_ARRAY) {
+			error(ctx, aexpr->append.value->loc, expr,
+				"Value must be an array or a slice in multi-valued %s",
+				exprtype_name);
+			return;
+		}
 	}
-
-	if (!expr->append.is_multi && !expr->append.length) {
-		expr->append.value = lower_implicit_cast(
-			sltype->array.members, expr->append.value);
+	if (sltype->array.members != valtype->array.members) {
+		error(ctx, aexpr->loc, expr,
+			"Value member type must match object member type");
+		return;
 	}
 }
 

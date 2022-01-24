@@ -1,3 +1,5 @@
+use rt;
+
 fn basics() void = {
 	let x: []int = alloc([1, 2, 5]);
 	insert(x[2], 4);
@@ -48,9 +50,27 @@ fn _static() void = {
 	};
 };
 
+fn reject() void = {
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		let y: int = 42;
+		insert(x[1], y);
+	") != 0); // object member type != value type
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		let y = 42u8;
+		insert(x[1], y...);
+	") != 0); // value is not an array or a slice
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		let y: []int = [42];
+		insert(x[1], y...);
+	") != 0); // object member type != value member type
+};
+
 export fn main() void = {
 	basics();
 	multi();
 	_static();
-	return;
+	reject();
 };

@@ -1,3 +1,5 @@
+use rt;
+
 fn basics() void = {
 	let x: []int = [];
 	append(x, 1);
@@ -53,9 +55,40 @@ fn withlength() void = {
 	free(x);
 };
 
+fn reject() void = {
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		let y: int = 42;
+		append(x, y);
+	") != 0); // object member type != value type
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		let y = 42u8;
+		append(x, y...);
+	") != 0); // value is not an array or a slice
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		let y: []int = [42];
+		append(x, y...);
+	") != 0); // object member type != value member type
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		append(x, [42i...], 5);
+	") != 0); // same as above, but for an expression with length
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		append(x, [0u8...], 2i);
+	") != 0); // length expression is not assignable to size
+	assert(rt::compile("
+		let x: []u8 = [0u8];
+		append(x, [42], 3);
+	") != 0); // must be an expandable array
+};
+
 export fn main() void = {
 	basics();
 	multi();
 	_static();
 	withlength();
+	reject();
 };
