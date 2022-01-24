@@ -422,7 +422,11 @@ check_expr_append_insert(struct context *ctx,
 	expr->append.is_multi = aexpr->append.is_multi;
 	expr->append.object = xcalloc(sizeof(struct expression), 1);
 	check_expression(ctx, aexpr->append.object, expr->append.object, NULL);
-	assert(expr->append.object->type == EXPR_ACCESS);
+	if (expr->append.object->type != EXPR_ACCESS) {
+		error(ctx, aexpr->append.object->loc, expr,
+			"Expression must operate on an object");
+		return;
+	};
 
 	const struct type *sltype;
 	const char *exprtype_name;
