@@ -2902,6 +2902,10 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	if (func->flags & FN_TEST) {
 		qdef->name = gen_name(ctx, "testfunc.%d");
+	} else if (func->flags & FN_INIT) {
+		qdef->name = gen_name(ctx, "initfunc.%d");
+	} else if (func->flags & FN_FINI) {
+		qdef->name = gen_name(ctx, "finifunc.%d");
 	} else {
 		qdef->name = decl->symbol ? strdup(decl->symbol)
 			: ident_to_sym(&decl->ident);

@@ -3307,7 +3307,7 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 	const struct type *fntype = type_store_lookup_atype(
 			ctx->store, &fn_atype);
 
-	if (!(decl->flags & FN_TEST)) {
+	if (!decl->flags) {
 		struct identifier ident = {0};
 		if (decl->symbol) {
 			ident.name = strdup(decl->symbol);
@@ -3496,10 +3496,8 @@ scan_decl_start(struct context *ctx, struct scope *imports, struct ast_decl *dec
 		}
 		break;
 	case AST_DECL_FUNC:
-		if ((decl->function.flags & FN_TEST)) {
-			if (ctx->is_test) {
-				scan_function(ctx, &decl->function);
-			}
+		if (decl->function.flags) {
+			scan_function(ctx, &decl->function);
 			return;
 		}
 		struct ast_function_decl *func = &decl->function;

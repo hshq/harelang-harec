@@ -38,8 +38,16 @@ let x: int = 42;
 	x = 1337;
 };
 
+@init fn init() void = {
+	void; // Should be allowed to have the same name
+};
+
 @fini fn fini() void = {
 	rt::exit(42); // Magic number
+};
+
+@fini fn fini() void = {
+	void; // Should be allowed to have the same name
 };
 
 export fn main() void = {
