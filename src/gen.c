@@ -1493,7 +1493,11 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 				default: abort(); // Invariant
 				}
 			} else {
-				assert(0); // TODO
+				switch (fstor) {
+				case STORAGE_F32: op = Q_STOUI; break;
+				case STORAGE_F64: op = Q_DTOUI; break;
+				default: abort(); // Invariant
+				}
 			}
 		} else {
 			abort(); // Invariant
@@ -1530,7 +1534,25 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 				default: abort(); // Invariant
 				}
 			} else {
-				assert(0); // TODO
+				switch (from->size) {
+				case 1:
+				case 2:
+					intermediate = mktemp(ctx,
+						&builtin_type_i32, "cast.%d");
+					qintermediate = mkqval(ctx, &intermediate);
+					pushi(ctx->current, &qintermediate,
+						from->size == 1? Q_EXTUB : Q_EXTUH,
+						&qvalue, NULL);
+					qvalue = qintermediate;
+					/* fallthrough */
+				case 4:
+					op = Q_UWTOF;
+					break;
+				case 8:
+					op = Q_ULTOF;
+					break;
+				default: abort(); // Invariant
+				}
 			}
 		} else {
 			abort(); // Invariant

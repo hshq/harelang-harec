@@ -1,4 +1,4 @@
-fn casts() void = {
+fn signed_casts() void = {
 	let a = 20f64;
 	let f = a: f32;
 	assert(f == 20f32);
@@ -52,7 +52,63 @@ fn casts() void = {
 	assert(f == 20f64);
 };
 
+fn unsigned_casts() void = {
+	let a = 20f64;
+	let f = a: f32;
+	assert(f == 20f32);
+	let i = a: u8;
+	assert(i == 20);
+	let i = a: u16;
+	assert(i == 20);
+	let i = a: u16;
+	assert(i == 20);
+	let i = a: u32;
+	assert(i == 20);
+	let i = a: u64;
+	assert(i == 20);
+
+	let a = 20f32;
+	let f = a: f64;
+	assert(f == 20f64);
+	let i = a: u8;
+	assert(i == 20);
+	let i = a: u16;
+	assert(i == 20);
+	let i = a: u16;
+	assert(i == 20);
+	let i = a: u32;
+	assert(i == 20);
+	let i = a: u64;
+	assert(i == 20);
+
+	let a = 20u8;
+	let f = a: f32;
+	assert(f == 20f32);
+	let f = a: f64;
+	assert(f == 20f64);
+
+	let a = 20u16;
+	let f = a: f32;
+	assert(f == 20f32);
+	let f = a: f64;
+	assert(f == 20f64);
+
+	let a = 20u32;
+	let f = a: f32;
+	assert(f == 20f32);
+	let f = a: f64;
+	assert(f == 20f64);
+
+	let a = 20u64;
+	let f = a: f32;
+	assert(f == 20f32);
+	let f = a: f64;
+	assert(f == 20f64);
+};
+
+
 export fn main() void = {
 	// TODO: test parsing, compile-time evaluation
-	casts();
+	signed_casts();
+	unsigned_casts();
 };

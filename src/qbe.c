@@ -86,6 +86,7 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_CUOS] = "cuos",
 	[Q_DIV] = "div",
 	[Q_DTOSI] = "dtosi",
+	[Q_DTOUI] = "dtoui",
 	[Q_EXTS] = "exts",
 	[Q_EXTSB] = "extsb",
 	[Q_EXTSH] = "extsh",
@@ -119,11 +120,14 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_STORES] = "stores",
 	[Q_STOREW] = "storew",
 	[Q_STOSI] = "stosi",
+	[Q_STOUI] = "stoui",
 	[Q_SUB] = "sub",
 	[Q_SWTOF] = "swtof",
 	[Q_TRUNCD] = "truncd",
 	[Q_UDIV] = "udiv",
+	[Q_ULTOF] = "ultof",
 	[Q_UREM] = "urem",
+	[Q_UWTOF] = "uwtof",
 	[Q_XOR] = "xor",
 };
 
