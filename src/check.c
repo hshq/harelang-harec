@@ -1904,6 +1904,11 @@ check_expr_match(struct context *ctx,
 
 		if (acase->name) {
 			assert(ctype);
+			if (ctype->size == 0 || ctype->size == SIZE_UNDEFINED) {
+				error(ctx, acase->type->loc, expr,
+					"Cannot create binding for type of zero or undefined size");
+				return;
+			}
 			struct identifier ident = {
 				.name = acase->name,
 			};
