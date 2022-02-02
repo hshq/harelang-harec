@@ -198,9 +198,9 @@ static void
 emit_func(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_FUNC);
-	fprintf(out, "%sfunction section \".text.%s\" \"ax\"",
-			def->exported ? "export " : "",
-			def->name);
+	fprintf(out, "section \".text.%s\" \"ax\"%s\nfunction",
+			def->name,
+			def->exported ? " export" : "");
 	if (def->func.returns->stype != Q__VOID) {
 		fprintf(out, " ");
 		emit_qtype(def->func.returns, true, out);
@@ -294,18 +294,18 @@ static void
 emit_data(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_DATA);
-	fprintf(out, "%sdata $%s = ", def->exported ? "export " : "",
-			def->name);
 	if (def->data.section && def->data.secflags) {
-		fprintf(out, "section \"%s\" \"%s\" ",
+		fprintf(out, "section \"%s\" \"%s\"",
 				def->data.section, def->data.secflags);
 	} else if (def->data.section) {
-		fprintf(out, "section \"%s\" ", def->data.section);
+		fprintf(out, "section \"%s\"", def->data.section);
 	} else if (is_zeroes(&def->data.items)) {
-		fprintf(out, "section \".bss.%s\" ", def->name);
+		fprintf(out, "section \".bss.%s\"", def->name);
 	} else {
-		fprintf(out, "section \".data.%s\" ", def->name);
+		fprintf(out, "section \".data.%s\"", def->name);
 	}
+	fprintf(out, "%s\ndata $%s = ", def->exported ? " export" : "",
+			def->name);
 	if (def->data.align != ALIGN_UNDEFINED) {
 		fprintf(out, "align %lu ", def->data.align);
 	}
