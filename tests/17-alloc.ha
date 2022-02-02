@@ -84,6 +84,12 @@ fn slice() void = {
 	for (let i = 2z; i < len(x); i += 1) {
 		assert(x[i] == 3);
 	};
+
+	// ensure capacity is cast to size correctly
+	let a: u32 = 4;
+	let y: []u64 = alloc([1...], a);
+	defer free(y);
+	assert(len(y) == 4 && y[0] == 1 && y[3] == 1);
 };
 
 fn slice_copy() void = {

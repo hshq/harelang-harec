@@ -351,6 +351,7 @@ check_expr_alloc_slice(struct context *ctx,
 			"Slice capacity must be assignable to size");
 		return;
 	}
+	expr->alloc.cap = lower_implicit_cast(&builtin_type_size, expr->alloc.cap);
 
 	const struct type *membtype = type_dealias(objtype)->array.members;
 	expr->result = type_store_lookup_slice(ctx->store, membtype);
