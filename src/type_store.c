@@ -547,14 +547,19 @@ tuple_init_from_atype(struct type_store *store,
 		struct dimensions memb = {0};
 		if (type) {
 			memb = _type_store_lookup_atype(store, &cur->type, atuple->type);
+			if (memb.size == 0 || memb.align == 0) {
+				error(store->check_context, atuple->type->loc,
+					"Tuple member types must have nonzero size and alignment");
+				return dim;
+			}
 			cur->offset = dim.size % memb.align + dim.size;
 		} else {
 			memb = _type_store_lookup_atype(store, NULL, atuple->type);
-		}
-		if (memb.size == 0) {
-			error(store->check_context, atuple->type->loc,
-				"Type of size zero cannot be a tuple member");
-			continue;
+			if (memb.size == 0 || memb.align == 0) {
+				error(store->check_context, atuple->type->loc,
+					"Tuple member types must have nonzero size and alignment");
+				return dim;
+			}
 		}
 		dim.size += dim.size % memb.align + memb.size;
 		if (dim.align < memb.align) {
