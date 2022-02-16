@@ -3013,6 +3013,8 @@ check_function(struct context *ctx,
 				"%s function must return void", flags);
 		expect(&adecl->loc, !decl->exported,
 				"%s function cannot be exported", flags);
+		expect(&adecl->loc, !afndecl->prototype.params,
+				"%s function cannot have parameters", flags);
 	}
 
 	scope_pop(&ctx->scope);
