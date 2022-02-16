@@ -3074,23 +3074,24 @@ check_global(struct context *ctx,
 
 static struct declaration *
 check_type(struct context *ctx,
-	const struct ast_decl *adecl)
+	const struct ast_type_decl *adecl,
+	bool exported)
 {
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	if (!adecl->type.ident.ns) {
-		mkident(ctx, &decl->ident, &adecl->type.ident);
+	if (!adecl->ident.ns) {
+		mkident(ctx, &decl->ident, &adecl->ident);
 	} else {
-		decl->ident = adecl->type.ident;
+		decl->ident = adecl->ident;
 	}
 	decl->type = DECL_TYPE;
 	const struct type *type =
-		type_store_lookup_atype(ctx->store, adecl->type.type);
+		type_store_lookup_atype(ctx->store, adecl->type);
 	struct type _alias = {
 		.storage = STORAGE_ALIAS,
 		.alias = {
 			.ident = decl->ident,
 			.type = type,
-			.exported = adecl->exported,
+			.exported = exported,
 		},
 		.size = type->size,
 		.align = type->align,
@@ -3142,7 +3143,16 @@ check_declarations(struct context *ctx,
 			decl = NULL;
 			break;
 		case AST_DECL_TYPE:
-			decl = check_type(ctx, adecl);
+			for (const struct ast_type_decl *t = &adecl->type;
+					t; t = t->next) {
+				decl = check_type(ctx, t, adecl->exported);
+				struct declarations *decls = *next =
+					xcalloc(1, sizeof(struct declarations));
+				decl->exported = adecl->exported;
+				decls->decl = decl;
+				next = &decls->next;
+			}
+			decl = NULL;
 			break;
 		}
 
