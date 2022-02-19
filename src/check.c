@@ -3570,9 +3570,11 @@ scan_decl_finish(struct context *ctx, const struct scope_object *obj,
 	}
 
 	// resolving a declaration that is already in progress -> cycle
-	expect(&idecl->decl.loc, !idecl->in_progress,
-		"Circular dependency for '%s'\n",
-		identifier_unparse(&obj->ident));
+	if (idecl->in_progress) {
+		expect(&idecl->decl.loc, false,
+			"Circular dependency for '%s'\n",
+			identifier_unparse(&idecl->obj.ident));
+	}
 	idecl->in_progress = true;
 
 	switch (idecl->decl.decl_type) {
