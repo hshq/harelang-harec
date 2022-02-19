@@ -3181,7 +3181,7 @@ incomplete_declaration_create(struct context *ctx, struct location loc,
 		const struct identifier *name)
 {
 	struct incomplete_declaration *idecl =
-		(struct incomplete_declaration *)scope_lookup(scope, ident);
+		(struct incomplete_declaration *)scope_lookup(scope, name);
 	if (idecl) {
 		error(ctx, loc, NULL, "Duplicate global identifier '%s'",
 			identifier_unparse(ident));
@@ -3215,32 +3215,32 @@ incomplete_enum_field_create(struct context *ctx, struct scope *imports,
 		.enum_scope = enum_scope,
 	};
 
-	struct identifier name = {
+	struct identifier localname = {
 		.name = strdup(f->name),
 	};
-	struct incomplete_declaration *fld =
-		incomplete_declaration_create(ctx, etype->loc, enum_scope,
-				&name, &name);
-	fld->type = IDECL_ENUM;
-	fld->imports = imports;
-	fld->field = field;
-
 	struct identifier name_ns = {
 		.name = etype->alias.name,
 		.ns = etype->alias.ns,
 	};
-	struct identifier ident = {
+	struct identifier name = {
 		.name = strdup(f->name),
 		.ns = &name_ns,
 	};
+	struct incomplete_declaration *fld =
+		incomplete_declaration_create(ctx, etype->loc, enum_scope,
+				&name, &localname);
+	fld->type = IDECL_ENUM;
+	fld->imports = imports;
+	fld->field = field;
+
 	struct identifier _ident = {0};
 	mkident(ctx, &_ident, &etype->alias);
-	struct identifier vident = {
+	struct identifier ident = {
 		.name = strdup(f->name),
 		.ns = &_ident,
 	};
 	fld = incomplete_declaration_create(ctx, etype->loc, ctx->scope,
-			&ident, &vident);
+			&ident, &name);
 	fld->type = IDECL_ENUM,
 	fld->imports = imports,
 	fld->field = field;
@@ -3380,13 +3380,13 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 	assert(ctx->resolving_enum == NULL);
 	assert(idecl->type == IDECL_ENUM);
 
-	struct identifier name = {
+	struct identifier localname = {
 		.name = idecl->obj.ident.name
 	};
-	struct identifier ident = idecl->obj.ident, vident = idecl->obj.name;
+	struct identifier ident = idecl->obj.ident, name = idecl->obj.name;
 
 	idecl = (struct incomplete_declaration *)scope_lookup(
-			idecl->field->enum_scope, &name);
+			idecl->field->enum_scope, &localname);
 	if (idecl->obj.otype != O_SCAN) {
 		return &idecl->obj;
 	}
@@ -3447,9 +3447,8 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 	ctx->resolving_enum = NULL;
 
-	// TODO: allow specifying values by their long name
-	scope_insert(idecl->field->enum_scope, O_CONST, &name, &name, type, value);
-	return scope_insert(ctx->scope, O_CONST, &ident, &vident, type, value);
+	scope_insert(idecl->field->enum_scope, O_CONST, &name, &localname, type, value);
+	return scope_insert(ctx->scope, O_CONST, &ident, &name, type, value);
 }
 
 static const struct scope_object *
