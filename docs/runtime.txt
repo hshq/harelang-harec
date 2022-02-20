@@ -9,6 +9,9 @@ fn @noreturn rt::abort_fixed(reason: int) void
 
 	0: Slice or array access out-of-bounds
 	1: Type assertion failed
+	2: Out of memory
+	3: Static append exceeds slice capacity
+	4: Unreachable code
 
 fn memcpy(dest: *void, src: *void, n: size) void;
 	Copy "n" bytes from "src" to "dest". The memory areas shall not
