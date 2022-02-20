@@ -57,9 +57,14 @@ fn equality() void = {
 	assert("foo\0bar" != "foo\0foo");
 };
 
+fn raw() void = {
+	assert(`hello \" world` == "hello \\\" world");
+};
+
 export fn main() void = {
 	measurements();
 	storage();
 	concat();
 	equality();
+	raw();
 };

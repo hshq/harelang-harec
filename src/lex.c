@@ -544,13 +544,15 @@ static enum lexical_token
 lex_string(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, false);
+	uint32_t delim;
 	assert(c != UTF8_INVALID);
 
 	switch (c) {
 	case '"':
+	case '`':
+		delim = c;
 		while ((c = next(lexer, NULL, false)) != UTF8_INVALID) {
-			switch (c) {
-			case '"':;
+			if (c == delim) {
 				char *buf = xcalloc(lexer->buflen, 1);
 				memcpy(buf, lexer->buf, lexer->buflen);
 				out->token = T_LITERAL;
@@ -559,9 +561,11 @@ lex_string(struct lexer *lexer, struct token *out)
 				out->string.value = buf;
 				consume(lexer, -1);
 				return out->token;
-			default:
+			} else {
 				push(lexer, c, false);
-				push(lexer, lex_rune(lexer), false);
+				if (delim == '"') {
+					push(lexer, lex_rune(lexer), false);
+				}
 				next(lexer, NULL, true);
 			}
 		}
@@ -899,6 +903,7 @@ _lex(struct lexer *lexer, struct token *out)
 	char p[5];
 	switch (c) {
 	case '"':
+	case '`':
 	case '\'':
 		push(lexer, c, false);
 		return lex_string(lexer, out);
