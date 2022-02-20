@@ -665,6 +665,7 @@ type_init_from_atype(struct type_store *store,
 			break;
 		}
 		identifier_dup(&type->alias.ident, &obj->ident);
+		identifier_dup(&type->alias.name, &obj->name);
 		type->alias.type = obj->type->alias.type;
 		type->size = obj->type->size;
 		type->align = obj->type->align;
@@ -903,7 +904,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 	// alias was defined with
 	struct type psuedotype = *type;
 	const struct scope_object *obj = scope_lookup(
-		store->check_context->scope, &type->alias.ident);
+		store->check_context->scope, &type->alias.name);
 	psuedotype.flags |= obj->type->flags;
 	return type_store_lookup_alias(store, &psuedotype, true);
 }

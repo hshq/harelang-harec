@@ -132,8 +132,7 @@ scope_lookup(struct scope *scope, const struct identifier *ident)
 	uint32_t hash = name_hash(FNV1A_INIT, ident);
 	struct scope_object *bucket = scope->buckets[hash % SCOPE_BUCKETS];
 	while (bucket) {
-		if (identifier_eq(&bucket->name, ident)
-				|| identifier_eq(&bucket->ident, ident)) {
+		if (identifier_eq(&bucket->name, ident)) {
 			return bucket;
 		}
 		bucket = bucket->mnext;

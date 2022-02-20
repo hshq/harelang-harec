@@ -3096,6 +3096,7 @@ check_type(struct context *ctx,
 		.storage = STORAGE_ALIAS,
 		.alias = {
 			.ident = decl->ident,
+			.name = adecl->ident,
 			.type = type,
 			.exported = exported,
 		},
@@ -3455,13 +3456,15 @@ static const struct scope_object *
 scan_type(struct context *ctx, struct ast_type_decl *decl, bool exported,
 		struct dimensions dim)
 {
-	struct identifier ident = {0};
+	struct identifier ident = {0}, name = {0};
 	mkident(ctx, &ident, &decl->ident);
+	identifier_dup(&name, &decl->ident);
 
 	struct type _alias = {
 		.storage = STORAGE_ALIAS,
 		.alias = {
 			.ident = ident,
+			.name = name,
 			.type = NULL,
 			.exported = exported,
 		},

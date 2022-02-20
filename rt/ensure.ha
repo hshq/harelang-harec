@@ -84,10 +84,10 @@ fn reverse(b: []u8) void = {
 fn println(msgs: str...) void = {
 	for (let i = 0z; i < len(msgs); i += 1) {
 		let msg = msgs[i];
-		rt::write(1, *(&msg: **void): *const char, len(msg)): void;
+		write(1, *(&msg: **void): *const char, len(msg)): void;
 		if (i + 1 < len(msgs)) {
 			const sp = " ";
-			rt::write(1, *(&sp: **void): *const char, 1): void;
+			write(1, *(&sp: **void): *const char, 1): void;
 		};
 	};
 	const linefeed = "\n";
