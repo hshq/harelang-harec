@@ -553,7 +553,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		delim = c;
 		while ((c = next(lexer, NULL, false)) != UTF8_INVALID) {
 			if (c == delim) {
-				char *buf = xcalloc(lexer->buflen, 1);
+				char *buf = xcalloc(lexer->buflen + 1, 1);
 				memcpy(buf, lexer->buf, lexer->buflen);
 				out->token = T_LITERAL;
 				out->storage = STORAGE_STRING;
