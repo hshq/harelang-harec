@@ -108,6 +108,7 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 {
 	struct token tok = {0};
 	struct identifier *i = ident;
+	*ident = (struct identifier){0};
 	bool found_trailing = false;
 	while (!i->name) {
 		switch (lex(lexer, &tok)) {
