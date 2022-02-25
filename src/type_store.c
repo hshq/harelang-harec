@@ -79,8 +79,6 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return is_const ? &builtin_type_const_f32 : &builtin_type_f32;
 	case STORAGE_F64:
 		return is_const ? &builtin_type_const_f64 : &builtin_type_f64;
-	case STORAGE_FCONST:
-		return is_const ? &builtin_type_const_fconst : &builtin_type_fconst;
 	case STORAGE_I8:
 		return is_const ? &builtin_type_const_i8 : &builtin_type_i8;
 	case STORAGE_I16:
@@ -89,8 +87,6 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return is_const ? &builtin_type_const_i32 : &builtin_type_i32;
 	case STORAGE_I64:
 		return is_const ? &builtin_type_const_i64 : &builtin_type_i64;
-	case STORAGE_ICONST:
-		return is_const ? &builtin_type_const_iconst : &builtin_type_iconst;
 	case STORAGE_INT:
 		return is_const ? &builtin_type_const_int : &builtin_type_int;
 	case STORAGE_RUNE:
@@ -118,6 +114,9 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+	case STORAGE_RCONST:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
 	case STORAGE_STRUCT:
@@ -388,7 +387,7 @@ collect_tagged_memb(struct type_store *store,
 		}
 		struct type_tagged_union *tu;
 		ta[*i] = tu = xcalloc(1, sizeof(struct type_tagged_union));
-		tu->type = type;
+		tu->type = lower_const(type, NULL);
 		*i += 1;
 	}
 }
@@ -408,7 +407,7 @@ collect_atagged_memb(struct type_store *store,
 		}
 		struct type_tagged_union *tu;
 		ta[*i] = tu = xcalloc(1, sizeof(struct type_tagged_union));
-		tu->type = type;
+		tu->type = lower_const(type, NULL);
 		*i += 1;
 	}
 }
@@ -603,6 +602,7 @@ type_init_from_atype(struct type_store *store,
 	switch (type->storage) {
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
+	case STORAGE_RCONST:
 		assert(0); // Invariant
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
@@ -958,6 +958,7 @@ const struct type *
 type_store_lookup_pointer(struct type_store *store,
 	const struct type *referent, unsigned int ptrflags)
 {
+	referent = lower_const(referent, NULL);
 	struct type ptr = {
 		.storage = STORAGE_POINTER,
 		.pointer = {
@@ -974,6 +975,7 @@ const struct type *
 type_store_lookup_array(struct type_store *store,
 	const struct type *members, size_t len, bool expandable)
 {
+	members = lower_const(members, NULL);
 	struct type array = {
 		.storage = STORAGE_ARRAY,
 		.array = {
@@ -992,6 +994,7 @@ type_store_lookup_array(struct type_store *store,
 const struct type *
 type_store_lookup_slice(struct type_store *store, const struct type *members)
 {
+	members = lower_const(members, NULL);
 	struct type slice = {
 		.storage = STORAGE_SLICE,
 		.array = {
@@ -1083,9 +1086,9 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values,
 {
 	struct type type = {
 		.storage = STORAGE_TUPLE,
-		.tuple = *values,
 	};
 	for (struct type_tuple *t = values; t; t = t->next) {
+		t->type = lower_const(t->type, NULL);
 		if (t->type->align > type.align) {
 			type.align = t->type->align;
 		}
@@ -1097,6 +1100,7 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values,
 		t->offset = type.size % t->type->align + type.size;
 		type.size += type.size % t->type->align + t->type->size;
 	}
+	type.tuple = *values;
 	return type_store_lookup_type(store, &type);
 }
 

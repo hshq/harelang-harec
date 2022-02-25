@@ -49,6 +49,7 @@ itrunc(const struct type *type, uintmax_t val)
 	case STORAGE_U16:
 		return (uint16_t)val;
 	case STORAGE_U32:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 		return (uint32_t)val;
 	case STORAGE_U64:
@@ -101,10 +102,9 @@ ftrunc(const struct type *type, double val)
 {
 	if (type->storage == STORAGE_F32) {
 		return (float)val;
-	} else if (type->storage == STORAGE_F64) {
-		return val;
 	}
-	assert(0);
+	assert(type_is_float(type));
+	return val;
 }
 
 enum eval_result
@@ -343,6 +343,7 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_INT:
 	case STORAGE_NULL:
 	case STORAGE_POINTER:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_U16:
@@ -428,6 +429,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_SIZE:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 		if (type_is_float(val.result)) {
 			out->constant.ival =
@@ -544,6 +546,7 @@ constant_default(struct context *ctx, struct expression *v)
 	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_NULL:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_BOOL:
 		break; // calloc does this for us

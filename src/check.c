@@ -700,6 +700,10 @@ type_promote(struct type_store *store,
 		return a->storage == STORAGE_ALIAS ? a : b;
 	}
 
+	if (type_is_constant(da) || type_is_constant(db)) {
+		return promote_const(a, b);
+	}
+
 	switch (da->storage) {
 	case STORAGE_ARRAY:
 		if (da->array.length == SIZE_UNDEFINED && da->array.members) {
@@ -780,20 +784,12 @@ type_promote(struct type_store *store,
 		return NULL;
 	// Handled above
 	case STORAGE_ALIAS:
-		assert(0);
-	// Invariant
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
+	case STORAGE_RCONST:
 		assert(0);
 	}
 	assert(0);
-}
-
-static bool
-aexpr_is_flexible(const struct ast_expression *expr)
-{
-	return expr->type == EXPR_CONSTANT
-		&& storage_is_flexible(expr->constant.storage);
 }
 
 static void
@@ -854,62 +850,22 @@ check_expr_binarithm(struct context *ctx,
 		break;
 	}
 
-	bool lflex = aexpr_is_flexible(aexpr->binarithm.lvalue),
-		rflex = aexpr_is_flexible(aexpr->binarithm.rvalue);
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression)),
 		*rvalue = xcalloc(1, sizeof(struct expression));
-
-	if (hint && lflex && rflex) {
-		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
-		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
-	} else if (lflex && rflex) {
-		intmax_t l = aexpr->binarithm.lvalue->constant.ival,
-			r = aexpr->binarithm.rvalue->constant.ival,
-			max = l > r ? l : r, min = l < r ? l : r;
-		enum type_storage storage = STORAGE_ICONST;
-		if (min < 0) {
-			if (max < ((intmax_t)1 << 7) - 1
-					&& min > -((intmax_t)1 << 8)) {
-				storage = STORAGE_I8;
-			} else if (max < ((intmax_t)1 << 15) - 1
-					&& min > -((intmax_t)1 << 16)) {
-				storage = STORAGE_I16;
-			} else if (max < ((intmax_t)1 << 31) - 1
-					&& min > -((intmax_t)1 << 32)) {
-				storage = STORAGE_I32;
-			} else {
-				storage = STORAGE_I64;
-			}
-		} else {
-			if (max < ((intmax_t)1 << 8)) {
-				storage = STORAGE_U8;
-			} else if (max < ((intmax_t)1 << 16)) {
-				storage = STORAGE_U16;
-			} else if (max < ((intmax_t)1 << 32)) {
-				storage = STORAGE_U32;
-			} else {
-				storage = STORAGE_U64;
-			}
-		}
-		assert(storage != STORAGE_ICONST);
-		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, builtin_type_for_storage(storage, false));
-		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, builtin_type_for_storage(storage, false));
-	} else if (!lflex && rflex) {
-		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
-		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, lvalue->result);
-	} else if (lflex && !rflex) {
-		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
-		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, rvalue->result);
-	} else {
-		check_expression(ctx, aexpr->binarithm.lvalue, lvalue, hint);
-		check_expression(ctx, aexpr->binarithm.rvalue, rvalue, hint);
-	}
+	struct ast_expression *alvalue = aexpr->binarithm.lvalue,
+		*arvalue = aexpr->binarithm.rvalue;
+	// XXX: Should hints be passed down?
+	(void)hint;
+	check_expression(ctx, alvalue, lvalue, NULL);
+	check_expression(ctx, arvalue, rvalue, NULL);
 
 	const struct type *p =
 		type_promote(ctx->store, lvalue->result, rvalue->result);
 	if (p == NULL) {
 		error(ctx, aexpr->loc, expr,
-			"Cannot promote lvalue and rvalue");
+			"Cannot promote lvalue %s and rvalue %s",
+			gen_typename(lvalue->result),
+			gen_typename(rvalue->result));
 		return;
 	}
 	expr->result = &builtin_type_bool;
@@ -948,6 +904,7 @@ check_expr_binarithm(struct context *ctx,
 		if (!type_is_numeric(p) && type_dealias(p)->storage != STORAGE_POINTER
 				&& type_dealias(p)->storage != STORAGE_STRING
 				&& type_dealias(p)->storage != STORAGE_BOOL
+				&& type_dealias(p)->storage != STORAGE_RCONST
 				&& type_dealias(p)->storage != STORAGE_RUNE) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform equality test on %s type",
@@ -1050,14 +1007,16 @@ check_expr_binding(struct context *ctx,
 			}
 		}
 
-		if (type->size == 0 || type->size == SIZE_UNDEFINED) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot create binding for type of zero or undefined size");
-			return;
-		}
 		if (!type_is_assignable(type, initializer->result)) {
 			error(ctx, aexpr->loc, expr,
 				"Initializer is not assignable to binding type");
+			return;
+		}
+		// XXX: Can we avoid this?
+		type = lower_const(type, NULL);
+		if (type->size == 0 || type->size == SIZE_UNDEFINED) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot create binding for type of zero or undefined size");
 			return;
 		}
 		binding->initializer = lower_implicit_cast(type, initializer);
@@ -1328,10 +1287,20 @@ check_expr_array(struct context *ctx,
 		if (!type) {
 			type = value->result;
 		} else {
+			if (!hint) {
+				// The promote_const in
+				// check_expression_constant might've caused the
+				// type to change out from under our feet
+				type = expr->constant.array->value->result;
+			}
 			if (!type_is_assignable(type, value->result)) {
 				error(ctx, item->value->loc, expr,
 					"Array members must be of a uniform type");
 				return;
+			}
+			if (!hint) {
+				// Ditto
+				type = expr->constant.array->value->result;
 			}
 			cur->value = lower_implicit_cast(type, cur->value);
 		}
@@ -1351,91 +1320,6 @@ check_expr_array(struct context *ctx,
 		return;
 	}
 	expr->result = type_store_lookup_array(ctx->store, type, len, expand);
-}
-
-static const struct type *
-lower_constant(const struct type *type, struct expression *expr)
-{
-	assert(expr->type == EXPR_CONSTANT);
-	type = type_dealias(type);
-	if (type->storage == STORAGE_TAGGED) {
-		const struct type *tag = NULL;
-		for (const struct type_tagged_union *tu = &type->tagged; tu;
-				tu = tu->next) {
-			if (lower_constant(tu->type, expr)) {
-				if (tag == NULL) {
-					tag = tu->type;
-					continue;
-				}
-				// Ambiguous
-				switch (expr->result->storage) {
-				case STORAGE_ICONST:
-					return lower_constant(&builtin_type_int, expr);
-				case STORAGE_FCONST:
-					return lower_constant(&builtin_type_f64, expr);
-				case STORAGE_RUNE:
-					return lower_constant(&builtin_type_rune, expr);
-				default:
-					assert(0);
-				}
-			}
-		}
-		return tag;
-	}
-	if (type_is_float(type) && type_is_float(expr->result)) {
-		return type;
-	}
-	if (!type_is_integer(type) && type->storage != STORAGE_RUNE) {
-		return NULL;
-	}
-	if (type_is_signed(type)) {
-		intmax_t max, min;
-		switch (type->size) {
-		case 1:
-			max = INT8_MAX;
-			min = INT8_MIN;
-			break;
-		case 2:
-			max = INT16_MAX;
-			min = INT16_MIN;
-			break;
-		case 4:
-			max = INT32_MAX;
-			min = INT32_MIN;
-			break;
-		case 8:
-			max = INT64_MAX;
-			min = INT64_MIN;
-			break;
-		default:
-			assert(0);
-		}
-		if (expr->constant.ival <= max && expr->constant.ival >= min) {
-			return type;
-		}
-		return NULL;
-	}
-	uintmax_t max;
-	switch (type->size) {
-	case 1:
-		max = UINT8_MAX;
-		break;
-	case 2:
-		max = UINT16_MAX;
-		break;
-	case 4:
-		max = UINT32_MAX;
-		break;
-	case 8:
-		max = UINT64_MAX;
-		break;
-	default:
-		assert(0);
-	}
-	if (expr->constant.uval <= max) {
-		return type;
-	}
-	return NULL;
 }
 
 static void
@@ -1503,51 +1387,21 @@ check_expr_constant(struct context *ctx,
 	const struct type *hint)
 {
 	expr->type = EXPR_CONSTANT;
-	expr->result = builtin_type_for_storage(aexpr->constant.storage, false);
-
-	if (expr->result && expr->result->storage == STORAGE_ICONST) {
-		if (hint == NULL) {
-			hint = builtin_type_for_storage(STORAGE_INT, false);
+	enum type_storage storage = aexpr->constant.storage;
+	expr->result = builtin_type_for_storage(storage, false);
+	if (storage == STORAGE_ICONST || storage == STORAGE_FCONST
+			|| storage == STORAGE_RCONST) {
+		expr->result = type_create_const(storage,
+			aexpr->constant.ival, aexpr->constant.ival);
+		if (hint != NULL) {
+			const struct type *new =
+				promote_const(expr->result, hint);
+			if (new == NULL) {
+				expr->result = lower_const(expr->result, NULL);
+			} else {
+				expr->result = new;
+			}
 		}
-		expr->constant.ival = aexpr->constant.ival;
-		const struct type *type = lower_constant(hint, expr);
-		if (!type) {
-			// TODO: This error message is awful
-			error(ctx, aexpr->loc, expr,
-				"Integer constant out of range");
-			return;
-		}
-		expr->result = type;
-	}
-
-	if (expr->result && expr->result->storage == STORAGE_FCONST) {
-		if (hint == NULL) {
-			hint = builtin_type_for_storage(STORAGE_F64, false);
-		}
-		expr->constant.fval = aexpr->constant.fval;
-		const struct type *type = lower_constant(hint, expr);
-		if (!type) {
-			// TODO: This error message is awful
-			error(ctx, aexpr->loc, expr,
-				"Floating constant out of range");
-			return;
-		}
-		expr->result = type;
-	}
-
-	if (expr->result && expr->result->storage == STORAGE_RUNE) {
-		if (hint == NULL) {
-			hint = builtin_type_for_storage(STORAGE_RUNE, false);
-		}
-		expr->constant.uval = aexpr->constant.uval;
-		const struct type *type = lower_constant(hint, expr);
-		if (!type) {
-			// TODO: This error message is awful
-			error(ctx, aexpr->loc, expr,
-				"Rune constant out of range");
-			return;
-		}
-		expr->result = type;
 	}
 
 	switch (aexpr->constant.storage) {
@@ -1567,7 +1421,7 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_SIZE:
 		expr->constant.uval = aexpr->constant.uval;
 		break;
-	case STORAGE_RUNE:
+	case STORAGE_RCONST:
 		expr->constant.rune = aexpr->constant.rune;
 		break;
 	case STORAGE_BOOL:
@@ -1597,6 +1451,7 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_ALIAS:
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
+	case STORAGE_RUNE:
 	case STORAGE_SLICE:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
@@ -2775,11 +2630,6 @@ check_expr_unarithm(struct context *ctx,
 				"Cannot perform binary NOT (~) on non-integer type");
 			return;
 		}
-		if (type_is_signed(operand->result)) {
-			error(ctx, aexpr->unarithm.operand->loc, expr,
-				"Cannot perform binary NOT (~) on signed type");
-			return;
-		}
 		expr->result = operand->result;
 		break;
 	case UN_MINUS:
@@ -2787,11 +2637,6 @@ check_expr_unarithm(struct context *ctx,
 		if (!type_is_numeric(operand->result)) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform operation on non-numeric type");
-			return;
-		}
-		if (!type_is_signed(operand->result)) {
-			error(ctx, aexpr->unarithm.operand->loc, expr,
-				"Cannot perform operation on unsigned type");
 			return;
 		}
 		expr->result = operand->result;
@@ -2911,6 +2756,7 @@ check_expression(struct context *ctx,
 		break;
 	}
 	assert(expr->result);
+	const_refer(expr->result, &expr->result);
 	if (hint && hint->storage == STORAGE_VOID) {
 		if ((expr->result->flags & TYPE_ERROR) != 0) {
 			error(ctx, aexpr->loc, expr,
@@ -3068,7 +2914,8 @@ check_global(struct context *ctx,
 
 	expect(&adecl->init->loc,
 		type_is_assignable(type, initializer->result),
-		"Constant type is not assignable from initializer type");
+		"Initializer type %s is not assignable to constant type %s",
+		gen_typename(initializer->result), gen_typename(type));
 
 	bool context = adecl->type
 		&& adecl->type->storage == STORAGE_ARRAY
@@ -3317,7 +3164,8 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	}
 
 	expect(&decl->init->loc, type_is_assignable(type, initializer->result),
-		"Constant type is not assignable from initializer type");
+		"Initializer type %s is not assignable to constant type %s",
+		gen_typename(initializer->result), gen_typename(type));
 	initializer = lower_implicit_cast(type, initializer);
 
 	struct expression *value =
@@ -3780,7 +3628,8 @@ check_internal(struct type_store *ts,
 		// TODO: This could be more detailed
 		expect(&loc, ctx.errors == NULL, "Invalid initializer");
 		expect(&loc, type_is_assignable(type, initializer->result),
-			"Constant type is not assignable from initializer type");
+			"Initializer type %s is not assignable to constant type type %s",
+			gen_typename(initializer->result), gen_typename(type));
 		initializer = lower_implicit_cast(type, initializer);
 		struct expression *value =
 			xcalloc(1, sizeof(struct expression));

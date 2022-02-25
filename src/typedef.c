@@ -85,7 +85,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_ICONST:
 	case STORAGE_INT:
 		fprintf(out, "%ld%s", val->ival,
-			storage_to_suffix(expr->result->storage));
+			storage_to_suffix(type_dealias(expr->result)->storage));
 		break;
 	case STORAGE_NULL:
 		fprintf(out, "null");
@@ -98,11 +98,12 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 		fprintf(out, "%lu%s", val->uval,
-			storage_to_suffix(expr->result->storage));
+			storage_to_suffix(type_dealias(expr->result)->storage));
 		break;
 	case STORAGE_VOID:
 		fprintf(out, "void");
 		break;
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 		fprintf(out, "\'\\U%08" PRIx32 "\'", (uint32_t)val->uval);
 		break;
@@ -208,12 +209,14 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_CHAR:
 	case STORAGE_F32:
 	case STORAGE_F64:
+	case STORAGE_FCONST:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_I8:
 	case STORAGE_INT:
 	case STORAGE_NULL:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_STRING:
@@ -317,9 +320,10 @@ emit_type(const struct type *type, FILE *out)
 		}
 		fprintf(out, ")");
 		break;
-	case STORAGE_FCONST:
 	case STORAGE_ICONST:
-		assert(0); // Invariant
+		fprintf(out, "[iconst min=%jd max=%jd]", type->_const.min,
+			type->_const.max);
+		break;
 	}
 	return ret;
 }

@@ -1450,6 +1450,8 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value intermediate;
 	struct qbe_value qintermediate;
 
+	from = lower_const(from, NULL);
+
 	enum qbe_instr op;
 	bool is_signed = type_is_signed(from);
 	enum type_storage fstor = type_dealias(from)->storage,
@@ -1483,7 +1485,6 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 			assert(tstor == STORAGE_UINTPTR);
 			op = Q_COPY;
 		} else if (fstor == STORAGE_RUNE) {
-			assert(tstor == STORAGE_U32);
 			op = Q_COPY;
 		} else if (type_is_float(from)) {
 			if (type_is_signed(to)) {
@@ -1576,6 +1577,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
+	case STORAGE_RCONST:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
@@ -3103,6 +3105,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	struct qbe_def *def;
 	const struct expression_constant *constant = &expr->constant;
 	const struct type *type = type_dealias(expr->result);
+	type = lower_const(type, NULL);
 	if (constant->object) {
 		item->type = QD_SYMOFFS;
 		item->sym = ident_to_sym(&constant->object->ident);
@@ -3368,6 +3371,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
+	case STORAGE_RCONST:
 	case STORAGE_NULL:
 	case STORAGE_VOID:
 		assert(0); // Invariant

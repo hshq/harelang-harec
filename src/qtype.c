@@ -166,6 +166,7 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	case STORAGE_BOOL:
 	case STORAGE_I32:
 	case STORAGE_U32:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_INT:
 	case STORAGE_UINT:
@@ -237,9 +238,11 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_FUNCTION:
 		return ctx->arch.ptr;
 	case STORAGE_VOID:
+		abort(); // Invariant
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
-		abort(); // Invariant
+	case STORAGE_RCONST:
+		return qtype_lookup(ctx, lower_const(type, NULL), xtype);
 	}
 	abort(); // Invariant
 }
@@ -285,7 +288,9 @@ type_is_aggregate(const struct type *type)
 		return true;
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
-		assert(0); // Lowered in check
+	case STORAGE_RCONST:
+		lower_const(type, NULL);
+		return false;
 	}
 	assert(0); // Unreachable
 }

@@ -97,6 +97,7 @@ scope_object_init(struct scope_object *object, enum object_type otype,
 		assert(otype == O_CONST);
 		assert(value->type == EXPR_CONSTANT);
 	}
+	const_refer(type, &object->type);
 }
 
 void

@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include "expr.h"
+#include "scope.h"
 #include "types.h"
 #include "util.h"
 
@@ -136,6 +138,8 @@ type_storage_unparse(enum type_storage storage)
 		return "pointer";
 	case STORAGE_NULL:
 		return "null";
+	case STORAGE_RCONST:
+		return "rconst";
 	case STORAGE_RUNE:
 		return "rune";
 	case STORAGE_SIZE:
@@ -186,6 +190,7 @@ type_is_integer(const struct type *type)
 	case STORAGE_UNION:
 	case STORAGE_BOOL:
 	case STORAGE_NULL:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_F32:
 	case STORAGE_F64:
@@ -229,6 +234,7 @@ type_is_numeric(const struct type *type)
 	case STORAGE_UNION:
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_NULL:
 		return false;
@@ -259,16 +265,20 @@ type_is_numeric(const struct type *type)
 bool
 type_is_float(const struct type *type)
 {
+	type = type_dealias(type);
 	return type->storage == STORAGE_F32 || type->storage == STORAGE_F64
 		|| type->storage == STORAGE_FCONST;
 }
 
 bool
-type_storage_is_signed(enum type_storage storage)
+type_is_signed(const struct type *type)
 {
+	enum type_storage storage = type_dealias(type)->storage;
+	if (storage == STORAGE_ENUM) {
+		storage = type_dealias(type)->_enum.storage;
+	}
 	switch (storage) {
 	case STORAGE_VOID:
-	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:
 	case STORAGE_ENUM:
 	case STORAGE_FUNCTION:
@@ -281,6 +291,7 @@ type_storage_is_signed(enum type_storage storage)
 	case STORAGE_UNION:
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
+	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_NULL:
 	case STORAGE_SIZE:
@@ -301,59 +312,19 @@ type_storage_is_signed(enum type_storage storage)
 	case STORAGE_FCONST:
 		return true;
 	case STORAGE_ICONST:
-		assert(0); // XXX
+		return type->_const.min < 0;
+	case STORAGE_ALIAS:
+		assert(0); // Handled above
 	}
 	assert(0); // Unreachable
 }
 
 bool
-type_is_signed(const struct type *type)
+type_is_constant(const struct type *type)
 {
-	if (type->storage == STORAGE_ENUM) {
-		return type_storage_is_signed(type->_enum.storage);
-	}
-	return type_storage_is_signed(type_dealias(type)->storage);
-}
-
-bool storage_is_flexible(enum type_storage storage)
-{
-	switch (storage) {
-	case STORAGE_ALIAS:
-	case STORAGE_ARRAY:
-	case STORAGE_BOOL:
-	case STORAGE_CHAR:
-	case STORAGE_ENUM:
-	case STORAGE_F32:
-	case STORAGE_F64:
-	case STORAGE_FUNCTION:
-	case STORAGE_I16:
-	case STORAGE_I32:
-	case STORAGE_I64:
-	case STORAGE_I8:
-	case STORAGE_INT:
-	case STORAGE_NULL:
-	case STORAGE_POINTER:
-	case STORAGE_RUNE:
-	case STORAGE_SIZE:
-	case STORAGE_SLICE:
-	case STORAGE_STRING:
-	case STORAGE_STRUCT:
-	case STORAGE_TAGGED:
-	case STORAGE_TUPLE:
-	case STORAGE_U16:
-	case STORAGE_U32:
-	case STORAGE_U64:
-	case STORAGE_U8:
-	case STORAGE_UINT:
-	case STORAGE_UINTPTR:
-	case STORAGE_UNION:
-	case STORAGE_VOID:
-		return false;
-	case STORAGE_FCONST:
-	case STORAGE_ICONST:
-		return true;
-	}
-	assert(0); // Unreachable
+	return type->storage == STORAGE_FCONST
+		|| type->storage == STORAGE_ICONST
+		|| type->storage == STORAGE_RCONST;
 }
 
 uint32_t
@@ -368,12 +339,10 @@ type_hash(const struct type *type)
 	case STORAGE_CHAR:
 	case STORAGE_F32:
 	case STORAGE_F64:
-	case STORAGE_FCONST:
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
-	case STORAGE_ICONST:
 	case STORAGE_INT:
 	case STORAGE_NULL:
 	case STORAGE_RUNE:
@@ -415,6 +384,11 @@ type_hash(const struct type *type)
 			hash = fnv1a_s(hash, value->name);
 			hash = fnv1a_u64(hash, value->uval);
 		}
+		break;
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+	case STORAGE_RCONST:
+		hash = fnv1a(hash, type->_const.id);
 		break;
 	case STORAGE_POINTER:
 		hash = fnv1a(hash, type->pointer.flags);
@@ -506,6 +480,193 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 	return NULL;
 }
 
+static intmax_t
+min_value(const struct type *t)
+{
+	assert(type_is_integer(t));
+	if (!type_is_signed(t)) {
+		return 0;
+	}
+	if (t->size == sizeof(intmax_t)) {
+		return INTMAX_MIN;
+	}
+	return -(1 << (t->size * 8 - 1));
+}
+
+static uintmax_t
+max_value(const struct type *t)
+{
+	assert(type_is_integer(t));
+	size_t bits = t->size * 8;
+	if (type_is_signed(t)) {
+		bits--;
+	}
+	if (bits == sizeof(uintmax_t) * 8) {
+		return UINTMAX_MAX;
+	}
+	return ((uintmax_t)1 << bits) - 1;
+}
+
+const struct type *
+type_create_const(enum type_storage storage, intmax_t min, intmax_t max)
+{
+	// XXX: This'll be impossible to free. The right solution would be to
+	// store iconsts in the type store, but that'd require passing the store
+	// into type_is_assignable et al. An easier solution would be to keep
+	// our own list of iconsts and free them separately. Whatever, it
+	// doesn't really matter that much.
+	static uint32_t id = 0;
+	struct type *type = xcalloc(sizeof(struct type), 1);
+	type->storage = storage;
+	type->size = SIZE_UNDEFINED;
+	type->align = ALIGN_UNDEFINED;
+	type->_const.min = min;
+	type->_const.max = max;
+	type->_const.id = id++;
+	type->id = type_hash(type);
+	assert(type_is_constant(type));
+	return type;
+}
+
+// Register a reference to a flexible constant type. When `type` is lowered in
+// [[lower_const]], *ref will be updated to point to the new type.
+void
+const_refer(const struct type *type, const struct type **ref)
+{
+	if (type == NULL || !type_is_constant(type)) {
+		return;
+	}
+	struct type_const *constant = (struct type_const *)&type->_const;
+
+	if (constant->nrefs >= constant->zrefs) {
+		constant->zrefs *= 2;
+		if (constant->zrefs == 0) {
+			constant->zrefs++;
+		}
+		constant->refs = xrealloc(constant->refs,
+			constant->zrefs * sizeof(const struct type **));
+	}
+	constant->refs[constant->nrefs] = ref;
+	constant->nrefs++;
+}
+
+// Lower a flexible constant type. If new == NULL, lower it to its default type.
+const struct type *
+lower_const(const struct type *old, const struct type *new) {
+	if (!type_is_constant(old)) {
+		// If new != NULL, we're expected to always do something, and we
+		// can't if it's not a constant
+		assert(new == NULL);
+		return old;
+	}
+	if (new == NULL) {
+		switch (old->storage) {
+		case STORAGE_FCONST:
+			new = &builtin_type_f64;
+			break;
+		case STORAGE_ICONST:
+			if (old->_const.max <= (intmax_t)max_value(&builtin_type_int)
+					&& old->_const.min >= min_value(&builtin_type_int)) {
+				new = &builtin_type_int;
+			} else {
+				new = &builtin_type_i64;
+			}
+			break;
+		case STORAGE_RCONST:
+			new = &builtin_type_rune;
+			break;
+		default:
+			assert(0);
+		}
+	}
+	for (size_t i = 0; i < old->_const.nrefs; i++) {
+		const_refer(new, old->_const.refs[i]);
+		*old->_const.refs[i] = new;
+	}
+	// XXX: Can we free old?
+	return new;
+}
+
+// Implements the flexible constant promotion algorithm
+const struct type *
+promote_const(const struct type *a, const struct type *b) {
+	if (a->storage == STORAGE_ICONST && b->storage == STORAGE_ICONST) {
+		intmax_t min = a->_const.min < b->_const.min
+			? a->_const.min : b->_const.min;
+		intmax_t max = a->_const.max > b->_const.max
+			? a->_const.max : b->_const.max;
+		const struct type *l =
+			type_create_const(STORAGE_ICONST, min, max);
+		lower_const(a, l);
+		lower_const(b, l);
+		return l;
+	}
+	if (type_is_constant(a)) {
+		if (a->storage == b->storage) {
+			const struct type *l =
+				type_create_const(a->storage, 0, 0);
+			lower_const(a, l);
+			lower_const(b, l);
+			return l;
+		}
+		if (type_is_constant(b)) {
+			return NULL;
+		}
+		return promote_const(b, a);
+	}
+	assert(!type_is_constant(a) && type_is_constant(b));
+	if (type_dealias(a)->storage == STORAGE_TAGGED) {
+		const struct type *tag = NULL;
+		for (const struct type_tagged_union *tu =
+				&type_dealias(a)->tagged; tu; tu = tu->next) {
+			const struct type *p = promote_const(tu->type, b);
+			if (!p) {
+				continue;
+			}
+			if (tag) {
+				// Ambiguous
+				return NULL;
+			}
+			tag = p;
+		}
+		return tag;
+	}
+	switch (b->storage) {
+	case STORAGE_FCONST:
+		if (!type_is_float(a)) {
+			return NULL;
+		}
+		lower_const(b, a);
+		return a;
+	case STORAGE_ICONST:
+		if (!type_is_integer(a)) {
+			return NULL;
+		}
+		if (type_is_signed(a) && min_value(a) > b->_const.min) {
+			return NULL;
+		}
+		if (b->_const.max > 0 && max_value(a) < (uintmax_t)b->_const.max) {
+			return NULL;
+		}
+		lower_const(b, a);
+		return a;
+	case STORAGE_RCONST:
+		if (type_dealias(a)->storage == STORAGE_RUNE) {
+			lower_const(b, a);
+			return a;
+		}
+		// XXX: This is probably a bit too lenient but I can't think of
+		// a better way to do this
+		if (!type_is_integer(a)) {
+			return NULL;
+		}
+		lower_const(b, a);
+		return a;
+	default:
+		assert(0); // Invariant
+	}
+}
+
 bool
 tagged_subset_compat(const struct type *to, const struct type *from)
 {
@@ -545,6 +706,7 @@ struct_subtype(const struct type *to, const struct type *from) {
 	}
 	return false;
 }
+
 bool
 type_is_assignable(const struct type *to, const struct type *from)
 {
@@ -555,18 +717,23 @@ type_is_assignable(const struct type *to, const struct type *from)
 
 	// const and non-const types are mutually assignable
 	struct type _to, _from;
-	const struct type *from_orig = from;
+	const struct type *to_orig = to, *from_orig = from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
 	if (to->id == from->id) {
 		return true;
+	}
+	
+	if (type_is_constant(from)) {
+		return promote_const(to_orig, from_orig);
 	}
 
 	struct type _to_secondary, _from_secondary;
 	const struct type *to_secondary, *from_secondary;
 	switch (to->storage) {
-	case STORAGE_ICONST:
 	case STORAGE_FCONST:
-		assert(0); // Invariant
+	case STORAGE_ICONST:
+	case STORAGE_RCONST:
+		return promote_const(to_orig, from_orig);
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -732,6 +899,8 @@ type_is_castable(const struct type *to, const struct type *from)
 	switch (from->storage) {
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
+	case STORAGE_RCONST:
+		return lower_const(from, to);
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -800,24 +969,22 @@ builtin_types_init()
 {
 	struct type *builtins[] = {
 		&builtin_type_bool, &builtin_type_char, &builtin_type_f32,
-		&builtin_type_f64, &builtin_type_fconst, &builtin_type_i8,
-		&builtin_type_i16, &builtin_type_i32, &builtin_type_i64,
-		&builtin_type_iconst, &builtin_type_int, &builtin_type_u8,
-		&builtin_type_u16, &builtin_type_u32, &builtin_type_u64,
-		&builtin_type_uint, &builtin_type_uintptr, &builtin_type_null,
-		&builtin_type_rune, &builtin_type_size, &builtin_type_void,
-		&builtin_type_const_bool, &builtin_type_const_char,
-		&builtin_type_const_f32, &builtin_type_const_f64,
-		&builtin_type_const_fconst, &builtin_type_const_i8,
+		&builtin_type_f64, &builtin_type_i8, &builtin_type_i16,
+		&builtin_type_i32, &builtin_type_i64, &builtin_type_int,
+		&builtin_type_u8, &builtin_type_u16, &builtin_type_u32,
+		&builtin_type_u64, &builtin_type_uint, &builtin_type_uintptr,
+		&builtin_type_null, &builtin_type_rune, &builtin_type_size,
+		&builtin_type_void, &builtin_type_const_bool,
+		&builtin_type_const_char, &builtin_type_const_f32,
+		&builtin_type_const_f64, &builtin_type_const_i8,
 		&builtin_type_const_i16, &builtin_type_const_i32,
-		&builtin_type_const_i64, &builtin_type_const_iconst,
-		&builtin_type_const_int, &builtin_type_const_u8,
-		&builtin_type_const_u16, &builtin_type_const_u32,
-		&builtin_type_const_u64, &builtin_type_const_uint,
-		&builtin_type_const_uintptr, &builtin_type_const_rune,
-		&builtin_type_const_size, &builtin_type_const_void,
-		&builtin_type_ptr_const_char, &builtin_type_str,
-		&builtin_type_const_str,
+		&builtin_type_const_i64, &builtin_type_const_int,
+		&builtin_type_const_u8, &builtin_type_const_u16,
+		&builtin_type_const_u32, &builtin_type_const_u64,
+		&builtin_type_const_uint, &builtin_type_const_uintptr,
+		&builtin_type_const_rune, &builtin_type_const_size,
+		&builtin_type_const_void, &builtin_type_ptr_const_char,
+		&builtin_type_str, &builtin_type_const_str,
 	};
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
 		builtins[i]->id = type_hash(builtins[i]);
@@ -845,11 +1012,6 @@ builtin_type_f64 = {
 	.size = 8,
 	.align = 8,
 },
-builtin_type_fconst = {
-	.storage = STORAGE_FCONST,
-	.size = SIZE_UNDEFINED,
-	.align = ALIGN_UNDEFINED,
-},
 builtin_type_i8 = {
 	.storage = STORAGE_I8,
 	.size = 1,
@@ -869,11 +1031,6 @@ builtin_type_i64 = {
 	.storage = STORAGE_I64,
 	.size = 8,
 	.align = 8,
-},
-builtin_type_iconst = {
-	.storage = STORAGE_ICONST,
-	.size = SIZE_UNDEFINED,
-	.align = ALIGN_UNDEFINED,
 },
 builtin_type_int = {
 	.storage = STORAGE_INT,
@@ -954,12 +1111,6 @@ builtin_type_const_f64 = {
 	.size = 8,
 	.align = 8,
 },
-builtin_type_const_fconst = {
-	.storage = STORAGE_FCONST,
-	.flags = TYPE_CONST,
-	.size = SIZE_UNDEFINED,
-	.align = ALIGN_UNDEFINED,
-},
 builtin_type_const_i8 = {
 	.storage = STORAGE_I8,
 	.flags = TYPE_CONST,
@@ -983,12 +1134,6 @@ builtin_type_const_i64 = {
 	.flags = TYPE_CONST,
 	.size = 8,
 	.align = 8,
-},
-builtin_type_const_iconst = {
-	.storage = STORAGE_ICONST,
-	.flags = TYPE_CONST,
-	.size = SIZE_UNDEFINED,
-	.align = ALIGN_UNDEFINED,
 },
 builtin_type_const_int = {
 	.storage = STORAGE_INT,

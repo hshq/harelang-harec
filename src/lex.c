@@ -585,7 +585,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		c = next(lexer, NULL, false);
 		assert(c == '\'');
 		out->token = T_LITERAL;
-		out->storage = STORAGE_RUNE;
+		out->storage = STORAGE_RCONST;
 		return out->token;
 	default:
 		assert(0); // Invariant
@@ -1125,7 +1125,7 @@ token_str(const struct token *tok)
 		case STORAGE_FCONST:
 			snprintf(buf, sizeof(buf), "%lf", tok->fval);
 			break;
-		case STORAGE_RUNE:
+		case STORAGE_RCONST:
 			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
 			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "%s",
 				rune_unparse(tok->rune));
@@ -1141,6 +1141,7 @@ token_str(const struct token *tok)
 		case STORAGE_FUNCTION:
 		case STORAGE_POINTER:
 		case STORAGE_NULL:
+		case STORAGE_RUNE:
 		case STORAGE_SLICE:
 		case STORAGE_STRUCT:
 		case STORAGE_TAGGED:

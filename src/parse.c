@@ -785,7 +785,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_FCONST:
 		exp->constant.fval = tok.fval;
 		break;
-	case STORAGE_RUNE:
+	case STORAGE_RCONST:
 		exp->constant.rune = tok.rune;
 		break;
 	case STORAGE_STRING:
@@ -812,6 +812,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_ENUM:
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
+	case STORAGE_RUNE:
 	case STORAGE_SLICE:
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:

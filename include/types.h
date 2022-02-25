@@ -40,6 +40,7 @@ enum type_storage {
 	STORAGE_UNION,
 	STORAGE_FCONST,
 	STORAGE_ICONST,
+	STORAGE_RCONST,
 };
 
 struct type;
@@ -96,6 +97,14 @@ struct type_func {
 	unsigned int flags; // enum function_flags
 };
 
+struct type_const {
+	intmax_t min, max;
+	uint32_t id;
+	const struct type ***refs;
+	size_t nrefs;
+	size_t zrefs;
+};
+
 enum pointer_flags {
 	PTR_NULLABLE = 1 << 0,
 };
@@ -149,6 +158,7 @@ struct type {
 		struct type_array array;
 		struct type_enum _enum;
 		struct type_func func;
+		struct type_const _const;
 		struct type_pointer pointer;
 		struct type_struct_union struct_union;
 		struct type_tagged_union tagged;
@@ -173,17 +183,23 @@ const struct type *tagged_select_subtype(
 bool tagged_subset_compat(const struct type *to, const struct type *from);
 
 const char *type_storage_unparse(enum type_storage storage);
-bool storage_is_flexible(enum type_storage storage);
 bool type_is_signed(const struct type *type);
 bool type_is_integer(const struct type *type);
 bool type_is_numeric(const struct type *type);
 bool type_is_float(const struct type *type);
+bool type_is_constant(const struct type *type);
 bool type_has_error(const struct type *type);
 
 uint32_t type_hash(const struct type *type);
 
+const struct type *promote_const(const struct type *a, const struct type *b);
 bool type_is_assignable(const struct type *to, const struct type *from);
 bool type_is_castable(const struct type *to, const struct type *from);
+
+const struct type *type_create_const(enum type_storage storage,
+	intmax_t min, intmax_t max);
+const struct type *lower_const(const struct type *old, const struct type *new);
+void const_refer(const struct type *type, const struct type **ref);
 
 void builtin_types_init();
 
@@ -194,12 +210,10 @@ extern struct type
 	builtin_type_char,
 	builtin_type_f32,
 	builtin_type_f64,
-	builtin_type_fconst,
 	builtin_type_i8,
 	builtin_type_i16,
 	builtin_type_i32,
 	builtin_type_i64,
-	builtin_type_iconst,
 	builtin_type_int,
 	builtin_type_u8,
 	builtin_type_u16,
@@ -216,12 +230,10 @@ extern struct type
 	builtin_type_const_char,
 	builtin_type_const_f32,
 	builtin_type_const_f64,
-	builtin_type_const_fconst,
 	builtin_type_const_i8,
 	builtin_type_const_i16,
 	builtin_type_const_i32,
 	builtin_type_const_i64,
-	builtin_type_const_iconst,
 	builtin_type_const_int,
 	builtin_type_const_u8,
 	builtin_type_const_u16,
