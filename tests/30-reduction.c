@@ -129,4 +129,60 @@ int main(void) {
 	test(&ctx, "",
 		"if (true) null "
 		"else void");
+
+	// However, constants behave differently in if vs switch/match
+
+	test(&ctx, "int", "if (true) 0 else if (true) 1 else 2");
+	test(&ctx, "(int | i64)", "if (true) 0 else 9223372036854775807");
+	test(&ctx, "(int | size)", "if (true) 0 else 0z");
+	test(&ctx, "(int | void)", "if (true) 0 else void");
+
+	test(&ctx, "int",
+		"switch (0) { "
+		"case 0 => "
+		"	yield 0; "
+		"case 1 => "
+		"	yield 1; "
+		"case => "
+		"	yield 2; "
+		"};");
+	test(&ctx, "(int | i64)",
+		"switch (0) { "
+		"case 0 => "
+		"	yield 0; "
+		"case => "
+		"	yield 9223372036854775807; "
+		"};");
+	test(&ctx, "(int | size)",
+		"switch (0) { "
+		"case 0 => "
+		"	yield 0; "
+		"case => "
+		"	yield 0z; "
+		"};");
+	test(&ctx, "(int | void)",
+		"switch (0) { "
+		"case 0 => "
+		"	yield 0; "
+		"case => "
+		"	yield; "
+		"};");
+	test(&ctx, "(int | size | u32)",
+		"switch (0) { "
+		"case 0 => "
+		"	yield 0; "
+		"case 1 => "
+		"	yield 1z; "
+		"case => "
+		"	yield 2u32; "
+		"};");
+	test(&ctx, "(int | i64)",
+		"switch (0) { "
+		"case 0 => "
+		"	yield 0; "
+		"case 1 => "
+		"	yield 1i; "
+		"case => "
+		"	yield 9223372036854775807; "
+		"};");
 }
