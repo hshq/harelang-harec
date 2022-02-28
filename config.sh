@@ -192,7 +192,7 @@ EOF
 	touch "$outdir"/cppcache
 
 	cat <<-EOF >harec.sh
-	export PATH=\$PATH:"$(pwd)"
+	export PATH="$(pwd)":\$PATH
 	EOF
 
 	if [ "$srcdir" = "." ]
