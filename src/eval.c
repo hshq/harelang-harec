@@ -548,6 +548,7 @@ constant_default(struct context *ctx, struct expression *v)
 	case STORAGE_NULL:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
+	case STORAGE_SLICE:
 	case STORAGE_BOOL:
 		break; // calloc does this for us
 	case STORAGE_STRUCT:
@@ -563,7 +564,6 @@ constant_default(struct context *ctx, struct expression *v)
 		v->constant.string.len = 0;
 		break;
 	case STORAGE_ARRAY:
-	case STORAGE_SLICE:
 		v->constant.array = xcalloc(1, sizeof(struct array_constant));
 		v->constant.array->value = xcalloc(1, sizeof(struct expression));
 		v->constant.array->value->type = EXPR_CONSTANT;
