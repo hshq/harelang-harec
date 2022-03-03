@@ -2183,12 +2183,18 @@ parse_expression(struct lexer *lexer)
 		case T_LABEL:
 			unlex(lexer, &tok);
 			value = parse_compound_expression(lexer);
+			value = parse_cast_expression(lexer, value);
+			value = parse_bin_expression(lexer, value, 0);
 			break;
 		case T_MATCH:
 			value = parse_match_expression(lexer);
+			value = parse_cast_expression(lexer, value);
+			value = parse_bin_expression(lexer, value, 0);
 			break;
 		case T_SWITCH:
 			value = parse_switch_expression(lexer);
+			value = parse_cast_expression(lexer, value);
+			value = parse_bin_expression(lexer, value, 0);
 			break;
 		default:
 			assert(0);
