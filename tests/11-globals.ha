@@ -13,11 +13,20 @@ let sl: []int = [1, 2, 3];
 let st: str = "Hello!";
 
 type coords = struct { x: int, y: int };
-let su: coords = coords { y = 10, x = 20 };
+let su: coords = coords { y = 10, x = 20};
+let su_autofill: coords = coords { y = 10, x = 20, ... };
 let au: coords = coords { ... };
 
 type coords3 = struct { coords: coords, z: int };
 let a3: coords3 = coords3 { ... };
+
+type embedded = struct { a: uint, b: u8 };
+type with_embedded = struct { embedded, c: int };
+let em: with_embedded = with_embedded {
+	a = 3,
+	b = 4,
+	c = 18,
+};
 
 type aenum = enum u64 {
 	BIG_VALUE = 0x1234567887654321,
@@ -34,8 +43,10 @@ fn storage() void = {
 	assert(sl[0] == 1 && sl[1] == 2 && sl[2] == 3);
 	assert(len(st) == 6);
 	assert(su.x == 20 && su.y == 10);
+	assert(su_autofill.x == 20 && su_autofill.y == 10);
 	assert(au.x == 0 && au.y == 0);
 	assert(a3.coords.x == 0 && a3.coords.y == 0 && a3.z == 0);
+	assert(em.a == 3 && em.b == 4 && em.c == 18);
 	assert(big_value == 0x1234567887654321: aenum);
 	assert(float == 1234.5678);
 	assert(double == 1234.5678);

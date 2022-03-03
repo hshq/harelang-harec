@@ -2492,7 +2492,7 @@ gen_expr_struct_at(struct gen_context *ctx,
 	}
 
 	struct gen_value ftemp = mktemp(ctx, &builtin_type_void, "field.%d");
-	for (const struct expr_struct_field *field = &expr->_struct.fields;
+	for (const struct expr_struct_field *field = expr->_struct.fields;
 			field; field = field->next) {
 		if (!field->value) {
 			assert(expr->_struct.autofill);

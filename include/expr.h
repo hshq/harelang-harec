@@ -309,7 +309,7 @@ struct expr_struct_field {
 };
 
 struct expression_struct {
-	struct expr_struct_field fields;
+	struct expr_struct_field *fields;
 	bool autofill;
 };
 

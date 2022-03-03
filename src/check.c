@@ -2417,8 +2417,7 @@ check_expr_struct(struct context *ctx,
 	};
 	struct ast_struct_union_type *tfield = &satype.struct_union;
 	struct ast_struct_union_type **tnext = &tfield->next;
-	struct expr_struct_field *sexpr = &expr->_struct.fields;
-	struct expr_struct_field **snext = &sexpr->next;
+	struct expr_struct_field *sexpr, **snext = &expr->_struct.fields;
 	expr->_struct.autofill = aexpr->_struct.autofill;
 	if (stype == NULL && expr->_struct.autofill) {
 		error(ctx, aexpr->loc, expr,
@@ -2429,6 +2428,9 @@ check_expr_struct(struct context *ctx,
 	struct ast_field_value *afield = aexpr->_struct.fields;
 	while (afield) {
 		const struct type *ftype;
+		*snext = sexpr = xcalloc(1, sizeof(struct expr_struct_field));
+		snext = &sexpr->next;
+		sexpr->value = xcalloc(1, sizeof(struct expression));
 		if (!stype) {
 			assert(afield->name); // TODO
 			if (!afield->type) {
@@ -2438,8 +2440,14 @@ check_expr_struct(struct context *ctx,
 			}
 			tfield->name = afield->name;
 			tfield->type = afield->type;
-			ftype = type_store_lookup_atype(
-				ctx->store, tfield->type);
+			ftype = type_store_lookup_atype(ctx->store, tfield->type);
+			check_expression(ctx, afield->initializer,
+				sexpr->value, ftype);
+			if (afield->next) {
+				*tnext = tfield = xcalloc(
+					1, sizeof(struct ast_struct_union_type));
+				tnext = &tfield->next;
+			}
 		} else {
 			sexpr->field = type_get_field(type_dealias(stype),
 					afield->name);
@@ -2449,12 +2457,9 @@ check_expr_struct(struct context *ctx,
 				return;
 			}
 			ftype = sexpr->field->type;
-		}
+			check_expression(ctx, afield->initializer,
+					sexpr->value, ftype);
 
-		sexpr->value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, afield->initializer, sexpr->value, ftype);
-
-		if (stype) {
 			if (!type_is_assignable(sexpr->field->type, sexpr->value->result)) {
 				error(ctx, afield->initializer->loc, expr,
 					"Initializer is not assignable to struct field");
@@ -2462,16 +2467,6 @@ check_expr_struct(struct context *ctx,
 			}
 			sexpr->value = lower_implicit_cast(
 				sexpr->field->type, sexpr->value);
-		}
-
-		if (afield->next) {
-			if (!stype) {
-				*tnext = tfield = xcalloc(
-					1, sizeof(struct ast_struct_union_type));
-				tnext = &tfield->next;
-			}
-			*snext = sexpr = xcalloc(1, sizeof(struct expr_struct_field));
-			snext = &sexpr->next;
 		}
 
 		afield = afield->next;
@@ -2486,7 +2481,7 @@ check_expr_struct(struct context *ctx,
 		expr->result = type_store_lookup_atype(ctx->store, &satype);
 
 		tfield = &satype.struct_union;
-		sexpr = &expr->_struct.fields;
+		sexpr = expr->_struct.fields;
 		while (tfield) {
 			const struct struct_field *field = type_get_field(
 				expr->result, tfield->name);

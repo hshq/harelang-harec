@@ -587,6 +587,53 @@ field_compar(const void *_a, const void *_b)
 	return (*a)->field->offset - (*b)->field->offset;
 }
 
+static size_t
+count_struct_fields(const struct type *type)
+{
+	size_t n = 0;
+	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
+	for (const struct struct_field *field = type->struct_union.fields;
+			field; field = field->next) {
+		if (!field->name) {
+			n += count_struct_fields(type_dealias(field->type));
+		} else {
+			++n;
+		}
+	}
+	return n;
+}
+
+void
+autofill_struct(struct context *ctx, const struct type *type, struct struct_constant **fields)
+{
+	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
+	for (const struct struct_field *field = type->struct_union.fields;
+			field; field = field->next) {
+		size_t i = 0;
+		bool skip = false;
+		for (; fields[i]; ++i) {
+			if (!field->name) {
+				autofill_struct(ctx,
+					type_dealias(field->type), fields);
+				skip = true;
+				break;
+			}
+			if (!strcmp(field->name, fields[i]->field->name)) {
+				skip = true;
+				break;
+			}
+		}
+		if (!skip) {
+			fields[i] = xcalloc(1, sizeof(struct struct_constant));
+			fields[i]->field = field;
+			fields[i]->value = xcalloc(1, sizeof(struct expression));
+			fields[i]->value->type = EXPR_CONSTANT;
+			fields[i]->value->result = field->type;
+			constant_default(ctx, fields[i]->value);
+		}
+	}
+}
+
 enum eval_result
 eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 {
@@ -595,42 +642,30 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 	const struct type *type = type_dealias(in->result);
 	out->type = EXPR_CONSTANT;
 
-	size_t n = 0;
-	for (const struct struct_field *field = type->struct_union.fields;
-			field; field = field->next) {
-		++n;
-	}
+	size_t n = count_struct_fields(type);
 	assert(n > 0);
 
 	size_t i = 0;
 	struct struct_constant **fields =
 		xcalloc(n, sizeof(struct struct_constant *));
-	for (const struct struct_field *field = type->struct_union.fields;
-			field; field = field->next, ++i) {
-		const struct expr_struct_field *field_in = NULL;
-		for (field_in = &in->_struct.fields; field_in; field_in = field_in->next) {
-			if (field_in->field == field) {
-				break;
-			}
-		}
+	for (const struct expr_struct_field *field_in = in->_struct.fields;
+			field_in; field_in = field_in->next, ++i) {
+		const struct struct_field *field =
+			type_get_field(type, field_in->field->name);
+		fields[i] = xcalloc(1, sizeof(struct struct_constant));
+		fields[i]->field = field;
+		fields[i]->value = xcalloc(1, sizeof(struct expression));
 
-		struct struct_constant *cfield = fields[i] =
-			xcalloc(1, sizeof(struct struct_constant));
-		cfield->field = field;
-		cfield->value = xcalloc(1, sizeof(struct expression));
-
-		if (!field_in) {
-			assert(in->_struct.autofill);
-			cfield->value->type = EXPR_CONSTANT;
-			cfield->value->result = field->type;
-			constant_default(ctx, cfield->value);
-		} else {
-			enum eval_result r = eval_expr(ctx,
-				field_in->value, cfield->value);
-			if (r != EVAL_OK) {
-				return r;
-			}
+		enum eval_result r = eval_expr(ctx,
+			field_in->value, fields[i]->value);
+		if (r != EVAL_OK) {
+			return r;
 		}
+	}
+	assert(in->_struct.autofill || i == n);
+
+	if (in->_struct.autofill) {
+		autofill_struct(ctx, type, fields);
 	}
 
 	qsort(fields, n, sizeof(struct struct_constant *), field_compar);
