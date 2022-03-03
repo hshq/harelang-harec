@@ -2449,6 +2449,12 @@ check_expr_struct(struct context *ctx,
 				tnext = &tfield->next;
 			}
 		} else {
+			if (!afield->name) {
+				error(ctx, afield->initializer->loc, expr,
+					"Cannot embed a struct literal into "
+					"a named struct literal");
+				return;
+			}
 			sexpr->field = type_get_field(type_dealias(stype),
 					afield->name);
 			if (!sexpr->field) {
