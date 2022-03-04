@@ -808,6 +808,7 @@ check_expr_binarithm(struct context *ctx,
 	enum {
 		BT_INVALID = -1,
 		BT_NUMERIC,
+		BT_INTEGER,
 		BT_LOGICAL,
 		BT_COMPARISON,
 		BT_EQUALITY,
@@ -817,17 +818,20 @@ check_expr_binarithm(struct context *ctx,
 
 	switch (expr->binarithm.op) {
 	// Numeric arithmetic
+	case BIN_DIV:
+	case BIN_MINUS:
+	case BIN_PLUS:
+	case BIN_TIMES:
+		btype = BT_NUMERIC;
+		break;
+	// Integer artithmetic
 	case BIN_BAND:
 	case BIN_BOR:
-	case BIN_DIV:
 	case BIN_LSHIFT:
-	case BIN_MINUS:
 	case BIN_MODULO:
-	case BIN_PLUS:
 	case BIN_RSHIFT:
-	case BIN_TIMES:
 	case BIN_BXOR:
-		btype = BT_NUMERIC;
+		btype = BT_INTEGER;
 		break;
 	// Logical arithmetic
 	case BIN_LAND:
@@ -914,6 +918,14 @@ check_expr_binarithm(struct context *ctx,
 		if (!type_is_numeric(p)) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform arithmetic on non-numeric %s type",
+				type_storage_unparse(type_dealias(p)->storage));
+		}
+		expr->result = p;
+		break;
+	case BT_INTEGER:
+		if (!type_is_integer(p)) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot perform operation on non-integer %s type",
 				type_storage_unparse(type_dealias(p)->storage));
 		}
 		expr->result = p;
