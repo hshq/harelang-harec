@@ -2875,7 +2875,7 @@ check_function(struct context *ctx,
 		expect(&adecl->loc, !afndecl->prototype.params,
 				"%s function cannot have parameters", flags);
 	}
-	if (decl->func.flags & FN_NORETURN) {
+	if (fntype->func.flags & FN_NORETURN) {
 		expect(&adecl->loc, fntype->func.result == &builtin_type_void,
 				"@noreturn function must return void");
 	};
