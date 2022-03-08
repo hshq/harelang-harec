@@ -14,7 +14,9 @@ fn addr() void = {
 	let z = &struct { a: int = 42 };
 	assert(z.a == 42);
 	let a = -2;
-	assert(a == 0i - 2i);
+	assert(a == 0 - 2);
+	let b = 1-1;
+	assert(b == 0);
 };
 
 export fn main() void = {

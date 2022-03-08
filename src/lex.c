@@ -279,9 +279,6 @@ static uint32_t
 lex_literal(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, true);
-	if (c == '-') {
-		c = next(lexer, NULL, true);
-	}
 	assert(c != UTF8_INVALID && c <= 0x7F && isdigit(c));
 
 	int base = 10;
@@ -434,16 +431,13 @@ finalize:
 		}
 		break;
 	case STORAGE_ICONST:
-		if (lexer->buf[0] != '-') {
-			uintmax_t uval = strtoumax(lexer->buf, NULL, base);
-			for (intmax_t i = 0; i < exponent; i++) {
-				uval *= 10;
-			}
-			if (uval > (uintmax_t)INT64_MAX) {
-				out->storage = STORAGE_U64;
-				out->uval = uval;
-				break;
-			}
+		out->uval = strtoumax(lexer->buf, NULL, base);
+		for (intmax_t i = 0; i < exponent; i++) {
+			out->uval *= 10;
+		}
+		if (out->uval > (uintmax_t)INT64_MAX) {
+			out->storage = STORAGE_U64;
+			break;
 		}
 		// Fallthrough
 	case STORAGE_I8:
@@ -451,6 +445,15 @@ finalize:
 	case STORAGE_I32:
 	case STORAGE_INT:
 	case STORAGE_I64:
+		out->uval = strtoumax(lexer->buf, NULL, base);
+		for (intmax_t i = 0; i < exponent; i++) {
+			out->uval *= 10;
+		}
+		if (out->uval == (uintmax_t)INT64_MIN) {
+			// XXX: Hack
+			out->ival = INT64_MIN;
+			break;
+		}
 		out->ival = strtoimax(lexer->buf, NULL, base);
 		for (intmax_t i = 0; i < exponent; i++) {
 			out->ival *= 10;
@@ -816,11 +819,6 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			out->token = T_MINUSEQ;
 			break;
 		default:
-			if (c != UTF8_INVALID && c <= 0x7F && isdigit(c)) {
-				push(lexer, c, false);
-				push(lexer, '-', false);
-				return lex_literal(lexer, out);
-			}
 			push(lexer, c, false);
 			out->token = T_MINUS;
 			break;

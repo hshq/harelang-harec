@@ -2633,6 +2633,17 @@ check_expr_unarithm(struct context *ctx,
 		expr->result = operand->result;
 		break;
 	case UN_MINUS:
+		if (operand->result->storage == STORAGE_ICONST) {
+			// Not technically quite right, but we need
+			// operand->result to be lowered with expr->result, and
+			// this is correct enough
+			const struct type *old = operand->result;
+			const struct type *new = type_create_const(
+				STORAGE_ICONST, -old->_const.min,
+				-old->_const.max);
+			lower_const(old, new);
+		}
+		// Fallthrough
 	case UN_PLUS:
 		if (!type_is_numeric(operand->result)) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,

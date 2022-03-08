@@ -755,7 +755,11 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		out->constant.bval = !lvalue.constant.bval;
 		break;
 	case UN_MINUS:
-		out->constant.ival = -lvalue.constant.ival;
+		if (type_is_float(out->result)) {
+			out->constant.fval = -lvalue.constant.fval;
+		} else {
+			out->constant.ival = -lvalue.constant.ival;
+		}
 		break;
 	case UN_PLUS:
 		out->constant = lvalue.constant;

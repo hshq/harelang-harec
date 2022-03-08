@@ -106,6 +106,7 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_LOADUH] = "loaduh",
 	[Q_LOADUW] = "loaduw",
 	[Q_MUL] = "mul",
+	[Q_NEG] = "neg",
 	[Q_OR] = "or",
 	[Q_REM] = "rem",
 	[Q_RET] = "ret",

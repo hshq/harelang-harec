@@ -134,6 +134,7 @@ enum qbe_instr {
 	Q_OR,
 	Q_REM,
 	Q_RET,
+	Q_NEG,
 	Q_SAR,
 	Q_SHL,
 	Q_SHR,
