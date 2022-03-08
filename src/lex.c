@@ -111,14 +111,12 @@ static const char *tokens[] = {
 	[T_LXOREQ] = "^^=",
 	[T_MINUS] = "-",
 	[T_MINUSEQ] = "-=",
-	[T_MINUSMINUS] = "--",
 	[T_MODEQ] = "%=",
 	[T_MODULO] = "%",
 	[T_NEQUAL] = "!=",
 	[T_BOREQ] = "|=",
 	[T_PLUS] = "+",
 	[T_PLUSEQ] = "+=",
-	[T_PLUSPLUS] = "++",
 	[T_QUESTION] = "?",
 	[T_RBRACE] = "}",
 	[T_RBRACKET] = "]",
@@ -806,9 +804,6 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		case '=':
 			out->token = T_PLUSEQ;
 			break;
-		case '+':
-			out->token = T_PLUSPLUS;
-			break;
 		default:
 			push(lexer, c, false);
 			out->token = T_PLUS;
@@ -819,9 +814,6 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		switch ((c = next(lexer, NULL, false))) {
 		case '=':
 			out->token = T_MINUSEQ;
-			break;
-		case '-':
-			out->token = T_MINUSMINUS;
 			break;
 		default:
 			if (c != UTF8_INVALID && c <= 0x7F && isdigit(c)) {
