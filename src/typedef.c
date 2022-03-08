@@ -111,7 +111,7 @@ emit_const(const struct expression *expr, FILE *out)
 		fprintf(out, "\"");
 		for (size_t i = 0; i < val->string.len; i += 1) {
 			char c = val->string.value[i];
-			if (isalnum(c)) {
+			if (isalnum((unsigned char)c)) {
 				fprintf(out, "%c", c);
 			} else {
 				fprintf(out, "\\x%02X", c);
