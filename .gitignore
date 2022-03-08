@@ -4,5 +4,5 @@ mod/
 harec*
 **/*.o
 **/*.a
-tests/
+tests/*
 !tests/*.ha
