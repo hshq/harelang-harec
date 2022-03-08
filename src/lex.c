@@ -203,11 +203,17 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 	return c;
 }
 
+static bool
+isharespace(uint32_t c)
+{
+	return c == '\t' || c == '\n' || c == ' ';
+}
+
 static uint32_t
 wgetc(struct lexer *lexer, struct location *loc)
 {
 	uint32_t c;
-	while ((c = next(lexer, loc, false)) != UTF8_INVALID && isspace(c)) ;
+	while ((c = next(lexer, loc, false)) != UTF8_INVALID && isharespace(c)) ;
 	return c;
 }
 
