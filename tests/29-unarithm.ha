@@ -13,6 +13,8 @@ fn addr() void = {
 	assert(*y == 69);
 	let z = &struct { a: int = 42 };
 	assert(z.a == 42);
+	let a = -2;
+	assert(a == 0i - 2i);
 };
 
 export fn main() void = {
