@@ -38,8 +38,33 @@ export fn main() int = {
 	err_if_false(true)!;
 };
 
+fn void_assignability() void = {
+	assert(rt::compile(`type err = !void;
+
+fn reterr() (int | err) = {
+	return err;
+};
+
+fn properr() void = {
+	reterr()?;
+};
+
+export fn main() void = void;`) != 0); // error types cannot be assigned to void
+
+	assert(rt::compile(`fn disallow_1() void = {
+	return "I am illegal";
+};
+
+fn disallow_2() void = {
+	return 12;
+};
+
+export fn main() void = void;`) != 0); // non-void types cannot be assigned to void
+};
+
 export fn main() void = {
 	assignability();
 	propagate();
 	cannotignore();
+	void_assignability();
 };

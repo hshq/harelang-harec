@@ -719,7 +719,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 	struct type _to, _from;
 	const struct type *to_orig = to, *from_orig = from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
-	if (to->id == from->id) {
+	if (to->id == from->id && to->storage != STORAGE_VOID) {
 		return true;
 	}
 	
@@ -799,7 +799,8 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_STRING:
 		return to->id == builtin_type_ptr_const_char.id;
 	case STORAGE_VOID:
-		return true;
+		return to_orig->id == from_orig->id &&
+			(from_orig->flags & TYPE_ERROR)	== (to_orig->flags & TYPE_ERROR);
 	case STORAGE_SLICE:
 		if (from->storage == STORAGE_POINTER) {
 			from = type_dealias(from->pointer.referent);
