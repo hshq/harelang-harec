@@ -612,15 +612,13 @@ autofill_struct(struct context *ctx, const struct type *type, struct struct_cons
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
 	for (const struct struct_field *field = type->struct_union.fields;
 			field; field = field->next) {
+		if (!field->name) {
+			autofill_struct(ctx, type_dealias(field->type), fields);
+			continue;
+		}
 		size_t i = 0;
 		bool skip = false;
 		for (; fields[i]; ++i) {
-			if (!field->name) {
-				autofill_struct(ctx,
-					type_dealias(field->type), fields);
-				skip = true;
-				break;
-			}
 			if (!strcmp(field->name, fields[i]->field->name)) {
 				skip = true;
 				break;

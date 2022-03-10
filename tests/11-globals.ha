@@ -21,12 +21,14 @@ type coords3 = struct { coords: coords, z: int };
 let a3: coords3 = coords3 { ... };
 
 type embedded = struct { a: uint, b: u8 };
+
 type with_embedded = struct { embedded, c: int };
-let em: with_embedded = with_embedded {
-	a = 3,
-	b = 4,
-	c = 18,
-};
+let em: with_embedded = with_embedded { a = 3, b = 4, c = 18 };
+let em_autofill: with_embedded = with_embedded { ... };
+
+type with_embedded2 = struct { c: int, embedded };
+let em2: with_embedded2 = with_embedded2 { a = 3, b = 4, c = 18 };
+let em2_autofill: with_embedded2 = with_embedded2 { ... };
 
 type aenum = enum u64 {
 	BIG_VALUE = 0x1234567887654321,
@@ -47,6 +49,9 @@ fn storage() void = {
 	assert(au.x == 0 && au.y == 0);
 	assert(a3.coords.x == 0 && a3.coords.y == 0 && a3.z == 0);
 	assert(em.a == 3 && em.b == 4 && em.c == 18);
+	assert(em_autofill.a == 0 && em_autofill.b == 0 && em_autofill.c == 0);
+	assert(em2.a == 3 && em2.b == 4 && em2.c == 18);
+	assert(em2_autofill.a == 0 && em2_autofill.b == 0 && em2_autofill.c == 0);
 	assert(big_value == 0x1234567887654321: aenum);
 	assert(float == 1234.5678);
 	assert(double == 1234.5678);
