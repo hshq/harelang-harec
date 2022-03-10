@@ -19,7 +19,7 @@ export fn dup2(old: int, new: int) int =
 
 export fn getpid() int = syscall0(SYS_getpid): int;
 
-export @noreturn fn exit(status: int) void = syscall1(SYS_exit, status: u64);
+export @noreturn fn exit(status: int) void = { syscall1(SYS_exit, status: u64); };
 
 export fn fork() int = syscall2(SYS_clone, SIGCHLD: u64, 0u64): int;
 
@@ -32,9 +32,10 @@ export fn execve(
 	argv: uintptr: u64,
 	envp: uintptr: u64): int;
 
-export fn wait4(pid: int, status: *int, options: int, rusage: nullable *void) void =
+export fn wait4(pid: int, status: *int, options: int, rusage: nullable *void) void = {
 	syscall4(SYS_wait4, pid: u64, status: uintptr: u64,
 		options: u64, rusage: uintptr: u64);
+};
 
 export fn wifexited(status: int) bool = wtermsig(status) == 0;
 export fn wexitstatus(status: int) int = (status & 0xff00) >> 8;
