@@ -98,7 +98,7 @@ main(int argc, char *argv[])
 	struct define *defines = NULL, *def;
 
 	int c;
-	while ((c = getopt(argc, argv, "D:o:Tt:N:")) != -1) {
+	while ((c = getopt(argc, argv, "D:ho:Tt:N:")) != -1) {
 		switch (c) {
 		case 'D':
 			def = parse_define(argv[0], optarg);
@@ -121,6 +121,7 @@ main(int argc, char *argv[])
 			parse_identifier(&lexer, unit.ns, false);
 			lex_finish(&lexer);
 			break;
+		case 'h':
 		default:
 			usage(argv[0]);
 			return EXIT_FAILURE;
