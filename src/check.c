@@ -2289,8 +2289,8 @@ check_expr_struct(struct context *ctx,
 		.storage = STORAGE_STRUCT,
 		.flags = TYPE_CONST,
 	};
-	struct ast_struct_union_type *tfield = &satype.struct_union;
-	struct ast_struct_union_type **tnext = &tfield->next;
+	struct ast_struct_union_field *tfield = &satype.struct_union.fields;
+	struct ast_struct_union_field **tnext = &tfield->next;
 	struct expr_struct_field *sexpr, **snext = &expr->_struct.fields;
 	expr->_struct.autofill = aexpr->_struct.autofill;
 	if (stype == NULL && expr->_struct.autofill) {
@@ -2319,7 +2319,7 @@ check_expr_struct(struct context *ctx,
 				sexpr->value, ftype);
 			if (afield->next) {
 				*tnext = tfield = xcalloc(
-					1, sizeof(struct ast_struct_union_type));
+					1, sizeof(struct ast_struct_union_field));
 				tnext = &tfield->next;
 			}
 		} else {
@@ -2360,7 +2360,7 @@ check_expr_struct(struct context *ctx,
 	} else {
 		expr->result = type_store_lookup_atype(ctx->store, &satype);
 
-		tfield = &satype.struct_union;
+		tfield = &satype.struct_union.fields;
 		sexpr = expr->_struct.fields;
 		while (tfield) {
 			const struct struct_field *field = type_get_field(
@@ -2380,8 +2380,8 @@ check_expr_struct(struct context *ctx,
 			sexpr->field = field;
 			sexpr->value = lower_implicit_cast(field->type, sexpr->value);
 
-			struct ast_struct_union_type *next = tfield->next;
-			if (tfield != &satype.struct_union) {
+			struct ast_struct_union_field *next = tfield->next;
+			if (tfield != &satype.struct_union.fields) {
 				free(tfield);
 			}
 			tfield = next;
