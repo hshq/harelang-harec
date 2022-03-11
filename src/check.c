@@ -1889,7 +1889,7 @@ check_expr_measure(struct context *ctx,
 				"len argument must be of an array, slice, or str type");
 			return;
 		}
-		if (expr->measure.value->result->size == SIZE_UNDEFINED) {
+		if (atype->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot take length of array type with undefined length");
 			return;
