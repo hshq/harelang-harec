@@ -1,3 +1,5 @@
+use rt;
+
 fn indexing() void = {
 	let x = [1, 2, 3];
 	let y = &x;
@@ -45,6 +47,16 @@ fn assignment() void = {
 	z = y;
 	assert(y[0] == 1 && y[1] == 2 && y[2] == 3);
 	assert(z[0] == 1 && z[1] == 2 && z[2] == 3);
+
+	assert(rt::compile("
+		export fn main() void = {
+			let a: [3]uint = [1u,2u,3u];
+			let b: uint = 0;
+
+			let ptr: *[3]uint = &a;
+			ptr = &b;
+		};
+	") != 0);
 };
 
 fn param(x: [3]int) void = {

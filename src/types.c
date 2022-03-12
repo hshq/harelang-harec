@@ -772,8 +772,8 @@ type_is_assignable(const struct type *to, const struct type *from)
 			case STORAGE_VOID:
 				break;
 			case STORAGE_ARRAY:
-				if (type_is_assignable(to_secondary, from_secondary)) {
-					return true;
+				if (!type_is_assignable(to_secondary, from_secondary)) {
+					return false;
 				}
 				break;
 			default:
