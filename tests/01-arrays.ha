@@ -57,6 +57,14 @@ fn assignment() void = {
 			ptr = &b;
 		};
 	") != 0);
+
+	assert(rt::compile(`
+		export fn main() void = {
+			let a: *[*]uint = &[1u,2u,3u];
+			let b: [3]str = ["a", "b", "c"];
+			a = &b;
+		};
+	`) != 0);
 };
 
 fn param(x: [3]int) void = {
