@@ -704,12 +704,20 @@ type_promote(struct type_store *store,
 		return promote_const(a, b);
 	}
 
+	if (db->storage == STORAGE_ENUM && da->storage == db->_enum.storage) {
+		return b;
+	}
 	switch (da->storage) {
 	case STORAGE_ARRAY:
 		if (da->array.length == SIZE_UNDEFINED && da->array.members) {
 			return b;
 		}
 		if (db->array.length == SIZE_UNDEFINED && db->array.members) {
+			return a;
+		}
+		return NULL;
+	case STORAGE_ENUM:
+		if (da->_enum.storage == db->storage) {
 			return a;
 		}
 		return NULL;
@@ -770,7 +778,6 @@ type_promote(struct type_store *store,
 		return NULL;
 	// Cannot be promoted
 	case STORAGE_BOOL:
-	case STORAGE_ENUM:
 	case STORAGE_FUNCTION:
 	case STORAGE_RUNE:
 	case STORAGE_SLICE:
