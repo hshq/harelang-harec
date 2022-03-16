@@ -3506,87 +3506,40 @@ load_import(struct context *ctx, struct ast_imports *import,
 			ctx->defines, &import->ident, ts);
 	ctx->store->check_context = old_ctx;
 
-	switch (import->mode) {
-	default:
-		for (struct scope_object *obj = mod->objects;
-				obj; obj = obj->lnext) {
-			if (obj->otype == O_SCAN) {
-				continue;
-			}
-			scope_insert(scope, obj->otype, &obj->ident,
-				&obj->name, obj->type, obj->value);
-			if (obj->name.ns && obj->name.ns->ns) {
-				struct identifier ns2 = {
-					.name = NULL,
-					.ns = NULL,
-				};
-				struct identifier ns = {
-					.name = obj->name.ns->name,
-					.ns = NULL
-				};
-				struct identifier name = {
-					.name = obj->name.name,
-					.ns = &ns,
-				};
-				if (type_dealias(obj->type)->storage == STORAGE_ENUM
-						&& obj->otype == O_CONST) {
-					ns2.name = obj->name.ns->ns->name;
-					ns.ns = &ns2;
-				};
-				scope_insert(scope, obj->otype, &obj->ident,
-					&name, obj->type, obj->value);
-			}
-		}
-		break;
-	case AST_IMPORT_WILDCARD:
-	case AST_IMPORT_ALIAS:
-		for (struct scope_object *obj = mod->objects;
-				obj; obj = obj->lnext) {
-			if (obj->otype == O_SCAN) {
-				continue;
-			}
-			struct identifier ns = {
-				.name = obj->name.ns->name,
-				.ns = import->alias,
-			};
-			struct identifier name = {
-				.name = obj->name.name,
-				.ns = import->alias,
-			};
-			if (type_dealias(obj->type)->storage == STORAGE_ENUM
-					&& obj->otype == O_CONST) {
-				name.ns = &ns;
-			};
-			scope_insert(scope, obj->otype, &obj->ident,
-				&name, obj->type, obj->value);
-		}
-		break;
-	case AST_IMPORT_MEMBERS:
+	struct identifier _ident = {0};
+	struct identifier *mod_ident = &_ident;
+	if (import->mode & (AST_IMPORT_WILDCARD | AST_IMPORT_ALIAS)) {
+		mod_ident = import->alias;
+	} else {
+		mod_ident->name = import->ident.name;
+	}
+	if (import->mode & AST_IMPORT_MEMBERS) {
+		assert(!(import->mode & AST_IMPORT_WILDCARD));
 		for (struct ast_imports *member = import->members;
 				member; member = member->next) {
 			struct identifier name = {
-				.name = member->ident.name,
-				.ns = NULL,
+				.name = member->alias?
+					member->alias->name : member->ident.name,
+				.ns = import->alias,
 			};
 			struct identifier ident = {
 				.name = member->ident.name,
 				.ns = &import->ident,
 			};
 			const struct scope_object *obj = scope_lookup(mod, &ident);
-			char buf[1024];
-			identifier_unparse_static(&ident, buf, sizeof(buf));
-			expect(&member->loc, obj, "Unknown object '%s'", buf);
+			if (!obj) {
+				expect(&member->loc, false, "Unknown object '%s'",
+						identifier_unparse(&ident));
+			}
 			scope_insert(scope, obj->otype, &obj->ident,
 				&name, obj->type, obj->value);
-			if (type_dealias(obj->type)->storage != STORAGE_ENUM
-					|| obj->otype != O_TYPE) {
+			if (obj->otype != O_TYPE
+					|| type_dealias(obj->type)->storage
+						!= STORAGE_ENUM) {
 				continue;
 			};
 			for (struct scope_object *o = mod->objects;
 					o; o = o->lnext) {
-				if (obj->otype == O_SCAN) {
-					continue;
-				}
 				if (!identifier_eq(o->name.ns, &ident)) {
 					continue;
 				};
@@ -3597,8 +3550,36 @@ load_import(struct context *ctx, struct ast_imports *import,
 				scope_insert(scope, o->otype, &o->ident,
 					&n, o->type, o->value);
 			};
+
 		}
-		break;
+	} else {
+		for (struct scope_object *obj = mod->objects;
+				obj; obj = obj->lnext) {
+			if (obj->otype == O_SCAN) {
+				continue;
+			}
+
+			if (!(import->mode & AST_IMPORT_ALIAS)
+					&& import->ident.ns != NULL) {
+				scope_insert(scope, obj->otype, &obj->ident,
+					&obj->name, obj->type, obj->value);
+			}
+
+			struct identifier ns, name = {
+				.name = obj->name.name,
+				.ns = mod_ident,
+			};
+			if (type_dealias(obj->type)->storage == STORAGE_ENUM
+					&& obj->otype == O_CONST) {
+				ns = (struct identifier){
+					.name = obj->name.ns->name,
+					.ns = mod_ident,
+				};
+				name.ns = &ns;
+			};
+			scope_insert(scope, obj->otype, &obj->ident,
+				&name, obj->type, obj->value);
+		}
 	}
 }
 
