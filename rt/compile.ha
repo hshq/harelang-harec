@@ -17,7 +17,10 @@ export fn compile(src: const str) int = {
 			constchar("-\0"),
 			null
 		];
-		const envp: [_]nullable *const char = [null];
+		const envp: [_]nullable *const char = [
+			constchar("HARECACHE=mod\0"),
+			null
+		];
 		execve(constchar(path), &argv, &envp);
 		abort();
 	} else {
