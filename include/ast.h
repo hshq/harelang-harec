@@ -9,15 +9,15 @@
 
 struct ast_type;
 
-enum ast_import_mode {
-	AST_IMPORT_IDENTIFIER,	// use foo::bar;
-	AST_IMPORT_ALIAS,	// use foo::bar = x::y;
-	AST_IMPORT_MEMBERS,	// use foo::bar::{a, b, c};
+enum ast_import_mode_flags {
+	AST_IMPORT_ALIAS = 1 << 0,	// use foo::bar = x::y;
+	AST_IMPORT_MEMBERS = 1 << 1,	// use foo::bar::{a, b, c};
+	AST_IMPORT_WILDCARD = 1 << 2,	// use foo::bar::*;
 };
 
 struct ast_imports {
 	struct location loc;
-	enum ast_import_mode mode;
+	enum ast_import_mode_flags mode;
 	struct identifier ident;
 	struct identifier *alias;
 	struct ast_imports *members;

@@ -167,11 +167,15 @@ parse_name_list(struct lexer *lexer, struct ast_imports *name)
 				next = &name->next;
 			}
 			break;
+		case T_EQUAL:
+			name->alias = xcalloc(1, sizeof(struct identifier));
+			*name->alias = name->ident;
+			break;
 		case T_RBRACE:
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_RBRACE, T_COMMA, T_EOF);
+			synassert(false, &tok, T_RBRACE, T_EQUAL, T_COMMA, T_EOF);
 			break;
 		}
 	}
@@ -181,35 +185,45 @@ static void
 parse_import(struct lexer *lexer, struct ast_imports *imports)
 {
 	struct identifier ident = {0};
-	bool trailing_colon = parse_identifier(lexer, &ident, true);
-
 	struct token tok = {0};
-	switch (lex(lexer, &tok)) {
-	case T_EQUAL:
-		synassert(!trailing_colon, &tok, T_NAME, T_EOF);
-		imports->mode = AST_IMPORT_ALIAS;
-		imports->alias = xcalloc(1, sizeof(struct identifier));
-		*imports->alias = ident;
-		parse_identifier(lexer, &imports->ident, false);
-		want(lexer, T_SEMICOLON, &tok);
-		break;
-	case T_LBRACE:
-		synassert(trailing_colon, &tok, T_DOUBLE_COLON, T_EOF);
-		imports->mode = AST_IMPORT_MEMBERS;
-		imports->ident = ident;
-		imports->members = xcalloc(1, sizeof(struct ast_imports));
-		parse_name_list(lexer, imports->members);
-		want(lexer, T_SEMICOLON, &tok);
-		break;
-	case T_SEMICOLON:
-		synassert(!trailing_colon, &tok, T_NAME, T_EOF);
-		imports->mode = AST_IMPORT_IDENTIFIER;
-		imports->ident = ident;
-		break;
-	default:
-		synassert(!trailing_colon, &tok, T_EQUAL, T_SEMICOLON, T_EOF);
-		synassert(trailing_colon, &tok, T_NAME, T_LBRACE, T_EOF);
-		break;
+	imports->mode = 0;
+	while (true) {
+		bool trailing_colon = parse_identifier(lexer, &ident, true);
+		switch (lex(lexer, &tok)) {
+		case T_EQUAL:
+			synassert(!trailing_colon, &tok, T_NAME, T_EOF);
+			synassert(!(imports->mode & AST_IMPORT_ALIAS), &tok,
+					T_SEMICOLON, T_LBRACE, T_EOF);
+			imports->mode |= AST_IMPORT_ALIAS;
+			imports->alias = xcalloc(1, sizeof(struct identifier));
+			*imports->alias = ident;
+			break;
+		case T_LBRACE:
+			synassert(trailing_colon, &tok, T_DOUBLE_COLON, T_EOF);
+			imports->mode |= AST_IMPORT_MEMBERS;
+			imports->ident = ident;
+			imports->members = xcalloc(1, sizeof(struct ast_imports));
+			parse_name_list(lexer, imports->members);
+			want(lexer, T_SEMICOLON, &tok);
+			return;
+		case T_SEMICOLON:
+			synassert(!trailing_colon, &tok, T_NAME, T_EOF);
+			imports->ident = ident;
+			return;
+		case T_TIMES:
+			synassert(trailing_colon, &tok, T_DOUBLE_COLON, T_EOF);
+			synassert(!(imports->mode & AST_IMPORT_ALIAS), &tok,
+					T_SEMICOLON, T_LBRACE, T_EOF);
+			imports->mode |= AST_IMPORT_WILDCARD;
+			imports->alias = NULL;
+			imports->ident = ident;
+			want(lexer, T_SEMICOLON, &tok);
+			return;
+		default:
+			synassert(!trailing_colon, &tok, T_EQUAL, T_SEMICOLON, T_EOF);
+			synassert(trailing_colon, &tok, T_NAME, T_LBRACE, T_EOF);
+			break;
+		}
 	}
 }
 

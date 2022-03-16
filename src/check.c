@@ -3507,7 +3507,7 @@ load_import(struct context *ctx, struct ast_imports *import,
 	ctx->store->check_context = old_ctx;
 
 	switch (import->mode) {
-	case AST_IMPORT_IDENTIFIER:
+	default:
 		for (struct scope_object *obj = mod->objects;
 				obj; obj = obj->lnext) {
 			if (obj->otype == O_SCAN) {
@@ -3538,6 +3538,7 @@ load_import(struct context *ctx, struct ast_imports *import,
 			}
 		}
 		break;
+	case AST_IMPORT_WILDCARD:
 	case AST_IMPORT_ALIAS:
 		for (struct scope_object *obj = mod->objects;
 				obj; obj = obj->lnext) {
