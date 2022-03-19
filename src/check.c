@@ -1167,7 +1167,7 @@ check_expr_call(struct context *ctx,
 		param = param->next;
 	}
 
-	if (aarg) {
+	if (aarg && fntype->func.variadism != VARIADISM_C) {
 		error(ctx, aexpr->loc, expr,
 			"Too many parameters for function call");
 		return;
@@ -2831,10 +2831,6 @@ check_function(struct context *ctx,
 			ctx->store, &fn_atype);
 	ctx->fntype = fntype;
 
-	expect(&adecl->loc,
-		fntype->func.variadism != VARIADISM_C,
-		"C-style variadism is not allowed for function declarations");
-
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_FUNC;
 	decl->func.type = fntype;
@@ -2848,6 +2844,10 @@ check_function(struct context *ctx,
 	if (!adecl->function.body) {
 		return decl; // Prototype
 	}
+
+	expect(&adecl->loc,
+		fntype->func.variadism != VARIADISM_C,
+		"C-style variadism is not allowed for function declarations");
 
 	decl->func.scope = scope_push(&ctx->scope, SCOPE_FUNC);
 	struct ast_function_parameters *params = afndecl->prototype.params;
