@@ -50,9 +50,29 @@ let x: int = 42;
 	void; // Should be allowed to have the same name
 };
 
+fn cvafn(n: int, ...) void = {
+	let ap = vastart();
+	defer vaend(ap);
+	let ap2 = ap;
+	defer vaend(ap2);
+	for (let i = 0; i < n; i += 1) {
+		let arg: int = vaarg(ap);
+		assert(arg == i + 1);
+	};
+	for (let i = 0; i < n; i += 1) {
+		let arg: int = vaarg(ap2);
+		assert(arg == i + 1);
+	};
+};
+
+fn cvaargs() void = {
+	cvafn(3, 1, 2, 3);
+};
+
 export fn main() void = {
 	assert(simple() == 69);
 	pointers();
 	vaargs();
+	cvaargs();
 	assert(x == 1337);
 };

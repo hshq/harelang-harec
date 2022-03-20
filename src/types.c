@@ -168,6 +168,8 @@ type_storage_unparse(enum type_storage storage)
 		return "uintptr";
 	case STORAGE_UNION:
 		return "union";
+	case STORAGE_VALIST:
+		return "valist";
 	case STORAGE_VOID:
 		return "void";
 	}
@@ -195,6 +197,7 @@ type_is_integer(const struct type *type)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
+	case STORAGE_VALIST:
 		return false;
 	case STORAGE_CHAR:
 	case STORAGE_ENUM:
@@ -237,6 +240,7 @@ type_is_numeric(const struct type *type)
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_NULL:
+	case STORAGE_VALIST:
 		return false;
 	case STORAGE_ENUM:
 	case STORAGE_I8:
@@ -301,6 +305,7 @@ type_is_signed(const struct type *type)
 	case STORAGE_U64:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
+	case STORAGE_VALIST:
 		return false;
 	case STORAGE_I8:
 	case STORAGE_I16:
@@ -353,6 +358,7 @@ type_hash(const struct type *type)
 	case STORAGE_U64:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 	case STORAGE_STRING:
 		break; // built-ins
@@ -851,6 +857,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_TUPLE:
 	case STORAGE_UINTPTR:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 		return false;
 	}
 
@@ -957,6 +964,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_TUPLE:
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 		return false;
 	case STORAGE_TAGGED:
 	case STORAGE_ALIAS:
@@ -987,6 +995,7 @@ builtin_types_init()
 		&builtin_type_const_rune, &builtin_type_const_size,
 		&builtin_type_const_void, &builtin_type_ptr_const_char,
 		&builtin_type_str, &builtin_type_const_str,
+		&builtin_type_valist,
 	};
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
 		builtins[i]->id = type_hash(builtins[i]);
@@ -1216,5 +1225,10 @@ builtin_type_const_str = {
 	.storage = STORAGE_STRING,
 	.flags = TYPE_CONST,
 	.size = 24, // XXX: ARCH
+	.align = 8,
+},
+builtin_type_valist = {
+	.storage = STORAGE_VALIST,
+	.size = 32, // XXX: ARCH
 	.align = 8,
 };

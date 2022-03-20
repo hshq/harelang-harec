@@ -37,6 +37,9 @@ enum expr_type {
 	EXPR_SWITCH,
 	EXPR_TUPLE,
 	EXPR_UNARITHM,
+	EXPR_VAARG,
+	EXPR_VAEND,
+	EXPR_VASTART,
 	EXPR_YIELD,
 };
 
@@ -332,6 +335,10 @@ struct expression_unarithm {
 	struct expression *operand;
 };
 
+struct expression_vaarg {
+	struct expression *ap;
+};
+
 struct expression {
 	const struct type *result;
 	enum expr_type type;
@@ -364,6 +371,7 @@ struct expression {
 		struct expression_slice slice;
 		struct expression_tuple tuple;
 		struct expression_unarithm unarithm;
+		struct expression_vaarg vaarg;
 		void *user;
 	};
 };

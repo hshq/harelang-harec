@@ -50,6 +50,7 @@ enum qbe_value_kind {
 	QV_GLOBAL,
 	QV_LABEL,
 	QV_TEMPORARY,
+	QV_VARIADIC,
 };
 
 struct qbe_value {
@@ -154,6 +155,8 @@ enum qbe_instr {
 	Q_ULTOF,
 	Q_UREM,
 	Q_UWTOF,
+	Q_VAARG,
+	Q_VASTART,
 	Q_XOR,
 
 	Q_LAST_INSTR,
@@ -199,6 +202,7 @@ struct qbe_statements {
 struct qbe_func {
 	const struct qbe_type *returns;
 	struct qbe_func_param *params;
+	bool variadic;
 	struct qbe_statements prelude, body;
 };
 

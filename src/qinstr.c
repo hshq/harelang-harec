@@ -81,6 +81,7 @@ store_for_type(struct gen_context *ctx, const struct type *type)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 		abort(); // Invariant
 	}
@@ -149,6 +150,7 @@ load_for_type(struct gen_context *ctx, const struct type *type)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 		abort(); // Invariant
 	}

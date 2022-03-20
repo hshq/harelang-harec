@@ -76,6 +76,10 @@ static const char *tokens[] = {
 	[T_UINTPTR] = "uintptr",
 	[T_UNION] = "union",
 	[T_USE] = "use",
+	[T_VAARG] = "vaarg",
+	[T_VAEND] = "vaend",
+	[T_VALIST] = "valist",
+	[T_VASTART] = "vastart",
 	[T_VOID] = "void",
 	[T_YIELD] = "yield",
 
@@ -1144,6 +1148,7 @@ token_str(const struct token *tok)
 		case STORAGE_TAGGED:
 		case STORAGE_TUPLE:
 		case STORAGE_UNION:
+		case STORAGE_VALIST:
 		case STORAGE_VOID:
 			assert(0);
 		}

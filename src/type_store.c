@@ -105,6 +105,8 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return is_const ? &builtin_type_const_uint : &builtin_type_uint;
 	case STORAGE_UINTPTR:
 		return is_const ? &builtin_type_const_uintptr : &builtin_type_uintptr;
+	case STORAGE_VALIST:
+		return &builtin_type_valist;
 	case STORAGE_VOID:
 		return is_const ? &builtin_type_const_void : &builtin_type_void;
 	case STORAGE_NULL:
@@ -629,6 +631,7 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_U64:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 		builtin = builtin_type_for_storage(type->storage, false);
 		type->size = builtin->size;

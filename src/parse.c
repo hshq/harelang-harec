@@ -396,6 +396,9 @@ parse_primitive_type(struct lexer *lexer)
 	case T_VOID:
 		type->storage = STORAGE_VOID;
 		break;
+	case T_VALIST:
+		type->storage = STORAGE_VALIST;
+		break;
 	default:
 		assert(0);
 	}
@@ -656,6 +659,7 @@ parse_type(struct lexer *lexer)
 	case T_U8:
 	case T_UINT:
 	case T_UINTPTR:
+	case T_VALIST:
 	case T_VOID:
 		unlex(lexer, &tok);
 		type = parse_primitive_type(lexer);
@@ -842,6 +846,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 		assert(0); // Handled in a different nonterminal
 	}
 	return exp;
@@ -1461,6 +1466,37 @@ parse_object_selector(struct lexer *lexer)
 }
 
 static struct ast_expression *
+parse_va_expression(struct lexer *lexer)
+{
+	struct ast_expression *expr;
+	struct token tok;
+	switch (lex(lexer, &tok)) {
+	case T_VASTART:
+		expr = mkexpr(&lexer->loc);
+		expr->type = EXPR_VASTART;
+		want(lexer, T_LPAREN, NULL);
+		want(lexer, T_RPAREN, NULL);
+		return expr;
+	case T_VAARG:
+		expr = mkexpr(&lexer->loc);
+		expr->type = EXPR_VAARG;
+		want(lexer, T_LPAREN, NULL);
+		expr->vaarg.ap = parse_object_selector(lexer);
+		want(lexer, T_RPAREN, NULL);
+		return expr;
+	case T_VAEND:
+		expr = mkexpr(&lexer->loc);
+		expr->type = EXPR_VAEND;
+		want(lexer, T_LPAREN, NULL);
+		expr->vaarg.ap = parse_object_selector(lexer);
+		want(lexer, T_RPAREN, NULL);
+		return expr;
+	default:
+		assert(0);
+	}
+}
+
+static struct ast_expression *
 parse_builtin_expression(struct lexer *lexer)
 {
 	struct token tok;
@@ -1499,6 +1535,11 @@ parse_builtin_expression(struct lexer *lexer)
 	case T_OFFSET:
 		unlex(lexer, &tok);
 		return parse_measurement_expression(lexer);
+	case T_VAARG:
+	case T_VAEND:
+	case T_VASTART:
+		unlex(lexer, &tok);
+		return parse_va_expression(lexer);
 	default:
 		unlex(lexer, &tok);
 		break;

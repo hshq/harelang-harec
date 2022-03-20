@@ -180,6 +180,7 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 	case STORAGE_FUNCTION:
 		abort(); // Invariant
@@ -237,6 +238,8 @@ qtype_lookup(struct gen_context *ctx,
 		return aggregate_lookup(ctx, type);
 	case STORAGE_FUNCTION:
 		return ctx->arch.ptr;
+	case STORAGE_VALIST:
+		return ctx->arch.ptr;
 	case STORAGE_VOID:
 		abort(); // Invariant
 	case STORAGE_FCONST:
@@ -285,6 +288,7 @@ type_is_aggregate(const struct type *type)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 		return true;
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:

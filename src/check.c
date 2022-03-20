@@ -787,6 +787,7 @@ type_promote(struct type_store *store,
 	case STORAGE_TUPLE:
 	case STORAGE_UINTPTR:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 		return NULL;
 	// Handled above
@@ -1129,11 +1130,12 @@ check_expr_call(struct context *ctx,
 	struct call_argument *arg, **next = &expr->call.args;
 	struct ast_call_argument *aarg = aexpr->call.args;
 	struct type_func_param *param = fntype->func.params;
-	while (param && aarg) {
+	while ((param || fntype->func.variadism == VARIADISM_C) && aarg) {
 		arg = *next = xcalloc(1, sizeof(struct call_argument));
 		arg->value = xcalloc(1, sizeof(struct expression));
 
-		if (!param->next && fntype->func.variadism == VARIADISM_HARE
+		if (param && !param->next
+				&& fntype->func.variadism == VARIADISM_HARE
 				&& !aarg->variadic) {
 			lower_vaargs(ctx, aarg, arg->value,
 				param->type->array.members);
@@ -1143,18 +1145,26 @@ check_expr_call(struct context *ctx,
 			break;
 		}
 
-		check_expression(ctx, aarg->value, arg->value, param->type);
-
-		if (!type_is_assignable(param->type, arg->value->result)) {
-			error(ctx, aarg->value->loc, expr,
-				"Argument type %s is not assignable to parameter type %s", gen_typename(arg->value->result), gen_typename(param->type));
-			return;
+		const struct type *ptype = NULL;
+		if (param) {
+			ptype = param->type;
 		}
-		arg->value = lower_implicit_cast(param->type, arg->value);
+		check_expression(ctx, aarg->value, arg->value, ptype);
+
+		if (param) {
+			if (!type_is_assignable(ptype, arg->value->result)) {
+				error(ctx, aarg->value->loc, expr,
+					"Argument type %s is not assignable to parameter type %s", gen_typename(arg->value->result), gen_typename(param->type));
+				return;
+			}
+			arg->value = lower_implicit_cast(ptype, arg->value);
+		}
 
 		aarg = aarg->next;
-		param = param->next;
 		next = &arg->next;
+		if (param) {
+			param = param->next;
+		}
 	}
 
 	if (param && fntype->func.variadism == VARIADISM_HARE) {
@@ -1464,6 +1474,7 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_TUPLE:
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 		assert(0); // Invariant
 	}
 }
@@ -2680,6 +2691,60 @@ check_expr_unarithm(struct context *ctx,
 	}
 }
 
+static void
+check_expr_vastart(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	if (ctx->fntype->func.variadism != VARIADISM_C) {
+		error(ctx, aexpr->loc, expr,
+			"Cannot use vastart within function which does not use C-style variadism");
+		return;
+	}
+	expr->type = EXPR_VASTART;
+	expr->result = &builtin_type_valist;
+}
+
+static void
+check_expr_vaarg(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	expr->type = EXPR_VAARG;
+	if (hint == NULL) {
+		error(ctx, aexpr->loc, expr,
+			"Cannot infer type of vaarg without hint");
+		return;
+	}
+	expr->vaarg.ap = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->vaarg.ap, expr->vaarg.ap, &builtin_type_valist);
+	if (type_dealias(expr->vaarg.ap->result)->storage != STORAGE_VALIST) {
+		error(ctx, aexpr->loc, expr,
+			"Expected vaarg operand to be valist");
+		return;
+	}
+	expr->result = hint;
+}
+
+static void
+check_expr_vaend(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	expr->type = EXPR_VAEND;
+	expr->vaarg.ap = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->vaarg.ap, expr->vaarg.ap, &builtin_type_valist);
+	if (type_dealias(expr->vaarg.ap->result)->storage != STORAGE_VALIST) {
+		error(ctx, aexpr->loc, expr,
+			"Expected vaend operand to be valist");
+		return;
+	}
+	expr->result = &builtin_type_void;
+}
+
 void
 check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -2772,6 +2837,15 @@ check_expression(struct context *ctx,
 	case EXPR_UNARITHM:
 		check_expr_unarithm(ctx, aexpr, expr, hint);
 		break;
+	case EXPR_VAARG:
+		check_expr_vaarg(ctx, aexpr, expr, hint);
+		break;
+	case EXPR_VAEND:
+		check_expr_vaend(ctx, aexpr, expr, hint);
+		break;
+	case EXPR_VASTART:
+		check_expr_vastart(ctx, aexpr, expr, hint);
+		break;
 	}
 	assert(expr->result);
 	const_refer(expr->result, &expr->result);
@@ -2844,10 +2918,6 @@ check_function(struct context *ctx,
 	if (!adecl->function.body) {
 		return decl; // Prototype
 	}
-
-	expect(&adecl->loc,
-		fntype->func.variadism != VARIADISM_C,
-		"C-style variadism is not allowed for function declarations");
 
 	decl->func.scope = scope_push(&ctx->scope, SCOPE_FUNC);
 	struct ast_function_parameters *params = afndecl->prototype.params;

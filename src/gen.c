@@ -144,6 +144,7 @@ gen_store(struct gen_context *ctx,
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
+	case STORAGE_VALIST:
 		gen_copy_aligned(ctx, object, value);
 		return;
 	case STORAGE_UNION:
@@ -176,6 +177,7 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 		return object;
 	case STORAGE_ENUM:
 		object.type = builtin_type_for_storage(ty->_enum.storage,
@@ -1074,6 +1076,8 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		call.out->type = qtype_lookup(ctx, rtype->func.result, false);
 	}
 
+	bool cvar = false;
+	struct type_func_param *param = rtype->func.params;
 	struct qbe_arguments *args, **next = &call.args;
 	args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 	args->value = mkqval(ctx, &lvalue);
@@ -1085,6 +1089,15 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		args->value = mkqval(ctx, &arg);
 		args->value.type = qtype_lookup(ctx, carg->value->result, false);
 		next = &args->next;
+		if (param) {
+			param = param->next;
+		}
+		if (!param && !cvar && rtype->func.variadism == VARIADISM_C) {
+			cvar = true;
+			args = *next = xcalloc(1, sizeof(struct qbe_arguments));
+			args->value.kind = QV_VARIADIC;
+			next = &args->next;
+		}
 	}
 	push(&ctx->current->body, &call);
 
@@ -1583,6 +1596,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 		abort(); // Invariant
 	}
@@ -2775,6 +2789,28 @@ gen_expr_unarithm(struct gen_context *ctx,
 }
 
 static struct gen_value
+gen_expr_vaarg(struct gen_context *ctx,
+	const struct expression *expr)
+{
+	// XXX: qbe only supports variadic base types, should check for this
+	struct gen_value result = mktemp(ctx, expr->result, ".%d");
+	struct qbe_value qresult = mkqval(ctx, &result);
+	struct gen_value ap = gen_expr(ctx, expr->vaarg.ap);
+	struct qbe_value qap = mkqval(ctx, &ap);
+	pushi(ctx->current, &qresult, Q_VAARG, &qap, NULL);
+	return result;
+}
+
+static void
+gen_expr_vastart_at(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value out)
+{
+	struct qbe_value base = mklval(ctx, &out);
+	pushi(ctx->current, NULL, Q_VASTART, &base, NULL);
+}
+
+static struct gen_value
 gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
 	switch ((int)expr->type) {
@@ -2828,9 +2864,14 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return gen_expr_switch_with(ctx, expr, NULL);
 	case EXPR_UNARITHM:
 		return gen_expr_unarithm(ctx, expr);
+	case EXPR_VAARG:
+		return gen_expr_vaarg(ctx, expr);
+	case EXPR_VAEND:
+		return gv_void; // no-op
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_TUPLE:
+	case EXPR_VASTART:
 		break; // Prefers -at style
 	// gen-specific psuedo-expressions
 	case EXPR_GEN_VALUE:
@@ -2883,6 +2924,9 @@ gen_expr_at(struct gen_context *ctx,
 		return;
 	case EXPR_TUPLE:
 		gen_expr_tuple_at(ctx, expr, out);
+		return;
+	case EXPR_VASTART:
+		gen_expr_vastart_at(ctx, expr, out);
 		return;
 	default:
 		break; // Prefers non-at style
@@ -2943,6 +2987,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			ctx, fntype->func.result, false);
 	} else {
 		qdef->func.returns = &qbe_void;
+	}
+	if (fntype->func.variadism == VARIADISM_C) {
+		qdef->func.variadic = true;
 	}
 
 	struct qbe_func_param *param, **next = &qdef->func.params;
@@ -3372,6 +3419,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
 	case STORAGE_NULL:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 		assert(0); // Invariant
 	}

@@ -38,6 +38,7 @@ enum type_storage {
 	STORAGE_TAGGED,
 	STORAGE_TUPLE,
 	STORAGE_UNION,
+	STORAGE_VALIST,
 	STORAGE_FCONST,
 	STORAGE_ICONST,
 	STORAGE_RCONST,
@@ -247,6 +248,7 @@ extern struct type
 	// etc
 	builtin_type_ptr_const_char,
 	builtin_type_str,
-	builtin_type_const_str;
+	builtin_type_const_str,
+	builtin_type_valist;
 
 #endif

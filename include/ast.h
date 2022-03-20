@@ -319,6 +319,10 @@ struct ast_expression_unarithm {
 	struct ast_expression *operand;
 };
 
+struct ast_expression_vaarg {
+	struct ast_expression *ap;
+};
+
 struct ast_expression {
 	struct location loc;
 	enum expr_type type;
@@ -349,6 +353,7 @@ struct ast_expression {
 		struct ast_expression_switch _switch;
 		struct ast_expression_tuple tuple;
 		struct ast_expression_unarithm unarithm;
+		struct ast_expression_vaarg vaarg;
 	};
 };
 

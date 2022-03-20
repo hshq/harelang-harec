@@ -48,6 +48,8 @@ storage_to_suffix(enum type_storage storage)
 		return "u";
 	case STORAGE_UINTPTR:
 		return "u64: uintptr";
+	case STORAGE_VALIST:
+		return "valist";
 	default:
 		assert(0);
 	}
@@ -144,6 +146,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
 	case STORAGE_TAGGED:
+	case STORAGE_VALIST:
 		assert(0); // Invariant
 	}
 }
@@ -226,6 +229,7 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_U8:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
+	case STORAGE_VALIST:
 	case STORAGE_VOID:
 		fprintf(out, "%s", type_storage_unparse(type->storage));
 		break;

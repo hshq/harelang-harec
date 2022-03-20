@@ -126,6 +126,9 @@ emit_value(struct qbe_value *val, FILE *out)
 	case QV_TEMPORARY:
 		fprintf(out, "%%%s", val->name);
 		break;
+	case QV_VARIADIC:
+		fprintf(out, "...");
+		break;
 	}
 }
 
@@ -143,8 +146,10 @@ emit_call(struct qbe_statement *stmt, FILE *out)
 	bool comma = false;
 	while (arg) {
 		fprintf(out, "%s", comma ? ", " : "");
-		emit_qtype(arg->value.type, true, out);
-		fprintf(out, " ");
+		if (arg->value.kind != QV_VARIADIC) {
+			emit_qtype(arg->value.type, true, out);
+			fprintf(out, " ");
+		}
 		emit_value(&arg->value, out);
 		arg = arg->next;
 		comma = true;
@@ -215,6 +220,9 @@ emit_func(struct qbe_def *def, FILE *out)
 		}
 		param = param->next;
 	}
+	if (def->func.variadic) {
+		fprintf(out, ", ...");
+	}
 	fprintf(out, ") {\n");
 
 	for (size_t i = 0; i < def->func.prelude.ln; ++i) {
@@ -274,6 +282,8 @@ is_zeroes(struct qbe_data_item *data)
 			case QV_LABEL:
 			case QV_TEMPORARY:
 				return false;
+			case QV_VARIADIC:
+				abort();
 			}
 			break;
 		case QD_STRING:
