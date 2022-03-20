@@ -318,10 +318,6 @@ struct expression_tuple {
 	struct expression_tuple *next;
 };
 
-struct expression_type {
-	const struct type *type;
-};
-
 enum unarithm_operator {
 	UN_ADDRESS,	// &
 	UN_BNOT,	// ~
@@ -366,7 +362,6 @@ struct expression {
 		struct expression_switch _switch;
 		struct expression_struct _struct;
 		struct expression_slice slice;
-		struct expression_type _type;
 		struct expression_tuple tuple;
 		struct expression_unarithm unarithm;
 		void *user;
