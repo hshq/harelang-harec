@@ -904,6 +904,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	}
 
 	struct type _to, _from;
+	const struct type *to_orig = to, *from_orig = from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
 	if (to->id == from->id) {
 		return true;
@@ -913,7 +914,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		return lower_const(from, to);
+		return lower_const(from_orig, to_orig);
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
