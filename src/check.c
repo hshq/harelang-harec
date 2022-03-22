@@ -1410,15 +1410,6 @@ check_expr_constant(struct context *ctx,
 			|| storage == STORAGE_RCONST) {
 		expr->result = type_create_const(storage,
 			aexpr->constant.ival, aexpr->constant.ival);
-		if (hint != NULL) {
-			const struct type *new =
-				promote_const(expr->result, hint);
-			if (new == NULL) {
-				expr->result = lower_const(expr->result, NULL);
-			} else {
-				expr->result = new;
-			}
-		}
 	}
 
 	switch (aexpr->constant.storage) {
