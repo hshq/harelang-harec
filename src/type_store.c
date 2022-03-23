@@ -144,16 +144,15 @@ builtin_for_type(const struct type *type)
 static struct struct_field *
 struct_insert_field(struct type_store *store, struct struct_field **fields,
 	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
-	const struct ast_struct_union_field *afield,
-	bool *ccompat, bool size_only, bool packed)
+	const struct ast_struct_union_type *atype, bool *ccompat, bool size_only)
 {
-	while (*fields && (!afield->name || !(*fields)->name || strcmp((*fields)->name, afield->name) < 0)) {
+	while (*fields && (!atype->name || !(*fields)->name || strcmp((*fields)->name, atype->name) < 0)) {
 		fields = &(*fields)->next;
 	}
 	struct struct_field *field = *fields;
-	if (field != NULL && afield->name && field->name && strcmp(field->name, afield->name) == 0) {
-		error(store->check_context, afield->type->loc,
-			"Duplicate struct/union member '%s'", afield->name);
+	if (field != NULL && atype->name && field->name && strcmp(field->name, atype->name) == 0) {
+		error(store->check_context, atype->type->loc,
+			"Duplicate struct/union member '%s'", atype->name);
 		return NULL;
 	}
 	// XXX: leaks if size_only
@@ -161,25 +160,25 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	(*fields)->next = field;
 	field = *fields;
 
-	if (afield->name) {
-		field->name = strdup(afield->name);
+	if (atype->name) {
+		field->name = strdup(atype->name);
 	}
 	struct dimensions dim = {0};
 	if (size_only) {
-		dim = _type_store_lookup_atype(store, NULL, afield->type);
+		dim = _type_store_lookup_atype(store, NULL, atype->type);
 	} else {
-		dim = _type_store_lookup_atype(store, &field->type, afield->type);
+		dim = _type_store_lookup_atype(store, &field->type, atype->type);
 	}
 	if (dim.size == 0) {
-		error(store->check_context, afield->type->loc,
+		error(store->check_context, atype->type->loc,
 			"Struct field size cannot be zero");
 		return NULL;
 	}
 
-	if (afield->offset) {
+	if (atype->offset) {
 		*ccompat = false;
 		struct expression in, out;
-		check_expression(store->check_context, afield->offset, &in, NULL);
+		check_expression(store->check_context, atype->offset, &in, NULL);
 		field->offset = 0;
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
 		if (r != EVAL_OK) {
@@ -194,9 +193,6 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		} else {
 			field->offset = (size_t)out.constant.uval;
 		}
-	} else if (packed) {
-		size_t offs = *size;
-		field->offset = offs;
 	} else {
 		size_t offs = *size;
 		if (offs % dim.align) {
@@ -278,16 +274,14 @@ shift_fields(struct type_store *store, struct struct_field *parent)
 static void
 struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	size_t *size, size_t *align, struct struct_field **fields,
-	const struct ast_struct_union_field *afield,
-	bool *ccompat, bool size_only, bool packed)
+	const struct ast_struct_union_type *atype, bool *ccompat, bool size_only)
 {
 	// TODO: fields with size SIZE_UNDEFINED
 	size_t usize = 0;
 	assert(storage == STORAGE_STRUCT || storage == STORAGE_UNION);
-	while (afield) {
+	while (atype) {
 		struct struct_field *field = struct_insert_field(store, fields,
-			storage, size, &usize, align, afield,
-			ccompat, size_only, packed);
+			storage, size, &usize, align, atype, ccompat, size_only);
 		if (field == NULL) {
 			return;
 		}
@@ -300,7 +294,7 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 			// there for sorting fields.
 			shift_fields(store, field);
 		}
-		afield = afield->next;
+		atype = atype->next;
 	}
 
 	if (storage == STORAGE_UNION) {
@@ -825,12 +819,11 @@ type_init_from_atype(struct type_store *store,
 		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		type->struct_union.c_compat = !atype->struct_union.packed;
+		type->struct_union.c_compat = true;
 		struct_init_from_atype(store, type->storage, &type->size,
 			&type->align, &type->struct_union.fields,
-			&atype->struct_union.fields,
-			&type->struct_union.c_compat,
-			size_only, atype->struct_union.packed);
+			&atype->struct_union, &type->struct_union.c_compat,
+			size_only);
 		if (!type->struct_union.c_compat) {
 			// Recompute size
 			type->size = 0;

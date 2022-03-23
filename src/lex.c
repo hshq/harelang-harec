@@ -18,7 +18,6 @@ static const char *tokens[] = {
 	[T_ATTR_INIT] = "@init",
 	[T_ATTR_NORETURN] = "@noreturn",
 	[T_ATTR_OFFSET] = "@offset",
-	[T_ATTR_PACKED] = "@packed",
 	[T_ATTR_SYMBOL] = "@symbol",
 	[T_ATTR_TEST] = "@test",
 	[T_UNDERSCORE] = "_",

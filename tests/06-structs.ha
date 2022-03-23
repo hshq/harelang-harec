@@ -225,19 +225,6 @@ fn fields() void = {
 	assert(&sp.c: uintptr == &n: uintptr + 2);
 };
 
-type packed_struct = struct @packed {
-	x: u8,
-	y: u32,
-	z: u64,
-};
-
-fn packed() void = {
-	let p = packed_struct { ... };
-	assert(offset(p.x) == 0);
-	assert(offset(p.y) == 1);
-	assert(offset(p.z) == 5);
-};
-
 export fn main() void = {
 	padding();
 	storage();
@@ -248,8 +235,8 @@ export fn main() void = {
 	autofill();
 	invariants();
 	fields();
-	packed();
 	// TODO:
 	// - Union tests
 	// - Embedded structs
+	// - offset()
 };
