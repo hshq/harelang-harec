@@ -631,6 +631,10 @@ promote_const(const struct type *a, const struct type *b) {
 			}
 			if (tag) {
 				// Ambiguous
+				b = lower_const(b, NULL);
+				if (type_is_assignable(a, b)) {
+					return b;
+				}
 				return NULL;
 			}
 			tag = p;
