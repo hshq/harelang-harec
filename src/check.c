@@ -111,7 +111,7 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 
 	struct expression *cast = xcalloc(1, sizeof(struct expression));
 	cast->type = EXPR_CAST;
-	cast->result = to;
+	cast->result = cast->cast.secondary = to;
 	cast->terminates = false;
 	cast->cast.kind = C_CAST;
 	cast->cast.value = expr;
