@@ -1388,16 +1388,19 @@ gen_expr_cast_at(struct gen_context *ctx,
 static struct gen_value
 gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 {
-	const struct type *to = expr->result, *from = expr->cast.value->result;
-	switch (expr->cast.kind) {
-	case C_TEST:
-		return gen_expr_type_test(ctx, expr);
-	case C_ASSERTION:
-		assert(type_dealias(from)->storage == STORAGE_TAGGED);
-		assert(tagged_select_subtype(from, to));
-		// Fallthrough
-	case C_CAST:
-		break;
+	const struct type *to = expr->cast.secondary,
+		*from = expr->cast.value->result;
+	if (expr->cast.kind != C_CAST) {
+		bool is_valid_tagged, is_valid_pointer;
+		is_valid_tagged = type_dealias(from)->storage == STORAGE_TAGGED
+				&& tagged_select_subtype(from, to);
+		is_valid_pointer = type_dealias(from)->storage == STORAGE_POINTER
+				&& (type_dealias(to)->storage == STORAGE_POINTER
+				|| type_dealias(to)->storage == STORAGE_NULL);
+		assert(is_valid_tagged || is_valid_pointer);
+		if (expr->cast.kind == C_TEST && is_valid_tagged) {
+			return gen_expr_type_test(ctx, expr);
+		}
 	}
 
 	if (cast_prefers_at(expr)) {
@@ -1415,14 +1418,60 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	// Special cases
+	bool want_null = false;
 	switch (type_dealias(to)->storage) {
+	case STORAGE_NULL:
+		want_null = true;
+		// fallthrough
 	case STORAGE_POINTER:
 		if (type_dealias(from)->storage == STORAGE_SLICE) {
 			struct gen_value value = gen_expr(ctx, expr->cast.value);
 			value.type = to;
 			return gen_load(ctx, value);
 		}
-		break;
+		if (type_dealias(from)->storage != STORAGE_POINTER) {
+			break;
+		}
+
+		struct gen_value val = gen_expr(ctx, expr->cast.value);
+		struct qbe_value qval = mkqval(ctx, &val);
+		if (expr->cast.kind == C_TEST) {
+			struct gen_value out =
+				mktemp(ctx, &builtin_type_bool, ".%d");
+			struct qbe_value qout = mkqval(ctx, &out);
+			struct qbe_value zero = constl(0);
+
+			enum qbe_instr compare = want_null? Q_CEQL : Q_CNEL;
+			pushi(ctx->current, &qout, compare, &qval, &zero, NULL);
+			return out;
+		} else if (expr->cast.kind == C_ASSERTION) {
+			struct qbe_statement failedl, passedl;
+			struct qbe_value bfailed =
+				mklabel(ctx, &failedl, "failed.%d");
+			struct qbe_value bpassed =
+				mklabel(ctx, &passedl, "passed.%d");
+
+			if (want_null) {
+				pushi(ctx->current, NULL, Q_JNZ, &qval,
+					&bfailed, &bpassed, NULL);
+			} else {
+				pushi(ctx->current, NULL, Q_JNZ, &qval,
+					&bpassed, &bfailed, NULL);
+			}
+			push(&ctx->current->body, &failedl);
+			gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
+
+			push(&ctx->current->body, &passedl);
+			if (want_null) {
+				return (struct gen_value){
+					.kind = GV_CONST,
+					.type = &builtin_type_null,
+					.lval = 0,
+				};
+			}
+		}
+		val.type = to;
+		return val;
 	case STORAGE_VOID:
 		gen_expr(ctx, expr->cast.value); // Side-effects
 		return gv_void;

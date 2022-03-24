@@ -1212,20 +1212,26 @@ check_expr_cast(struct context *ctx,
 		type_store_lookup_atype(ctx->store, aexpr->cast.type);
 	// TODO: Instead of allowing errors on casts to void, we should use a
 	// different nonterminal
-	check_expression(ctx, aexpr->cast.value, value, secondary == &builtin_type_void ? NULL : secondary);
+	check_expression(ctx, aexpr->cast.value, value,
+			secondary == &builtin_type_void ? NULL : secondary);
 
-	if (aexpr->cast.kind == C_ASSERTION || aexpr->cast.kind == C_TEST) {
-		const struct type *primary = type_dealias(expr->cast.value->result);
+	const struct type *primary = type_dealias(expr->cast.value->result);
+	switch (aexpr->cast.kind) {
+	case C_ASSERTION:
+	case C_TEST:
+		if (primary->storage == STORAGE_POINTER) {
+			if (!(primary->pointer.flags & PTR_NULLABLE)) {
+				error(ctx, aexpr->cast.value->loc, expr,
+					"Expected a tagged union type or "
+					"a nullable pointer");
+				return;
+			}
+			break;
+		}
 		if (primary->storage != STORAGE_TAGGED) {
 			error(ctx, aexpr->cast.value->loc, expr,
-				"Expected a tagged union type");
-			return;
-		}
-		if (!type_is_castable(value->result, secondary)) {
-			error(ctx, aexpr->cast.type->loc, expr,
-				"Invalid cast from %s to %s",
-				gen_typename(value->result),
-				gen_typename(secondary));
+				"Expected a tagged union type or "
+				"a nullable pointer");
 			return;
 		}
 		bool found = false;
@@ -1238,12 +1244,11 @@ check_expr_cast(struct context *ctx,
 		}
 		if (!found) {
 			error(ctx, aexpr->cast.type->loc, expr,
-				"Type is not a valid member of the tagged union type");
+				"Type is not a valid member of "
+				"the tagged union type");
 			return;
 		}
-	}
-
-	switch (aexpr->cast.kind) {
+		break;
 	case C_CAST:
 		if (!type_is_castable(secondary, value->result)) {
 			error(ctx, aexpr->cast.type->loc, expr,
@@ -1252,14 +1257,9 @@ check_expr_cast(struct context *ctx,
 				gen_typename(secondary));
 			return;
 		}
-		// Fallthrough
-	case C_ASSERTION:
-		expr->result = secondary;
-		break;
-	case C_TEST:
-		expr->result = &builtin_type_bool;
 		break;
 	}
+	expr->result = aexpr->cast.kind == C_TEST? &builtin_type_bool : secondary;
 }
 
 static void

@@ -22,6 +22,31 @@ fn _nullable() void = {
 	) != 0);
 };
 
+fn casts() void = {
+	let a: *uint = &4u;
+	let b = a: *void;
+	let c = b: *uint;
+	assert(a == c && *c == 4);
+
+	let a: nullable *uint = &7u;
+	let b = a: *uint;
+	assert(b == a && *b == 7);
+
+	let a: nullable *uint = &10u;
+	let b = a as *uint;
+	assert(b == a && *b == 10);
+
+	let a: nullable *int = &4;
+	assert(a is *int);
+
+	let a: nullable *int = null;
+	assert(a is null);
+	assert((a as null): nullable *void == null);
+
+	let a: nullable *int = &4;
+	a as nullable *int;
+};
+
 fn reject() void = {
 	assert(rt::compile("
 		type s = null;
@@ -65,10 +90,19 @@ fn reject() void = {
 			let a = null;
 		};
 	") != 0);
+
+	// type assertions on non-nullable pointers are prohibited
+	assert(rt::compile("
+		fn test() void = {
+			let a: *int = &4;
+			assert(a as *int);
+		};
+	") != 0);
 };
 
 export fn main() void = {
 	basics();
 	_nullable();
+	casts();
 	reject();
 };
