@@ -1018,6 +1018,11 @@ check_expr_binding(struct context *ctx,
 			}
 		}
 
+		if (type->storage == STORAGE_NULL) {
+			error(ctx, aexpr->loc, expr,
+				"Null is not a valid type for a binding");
+			return;
+		}
 		if (!type_is_assignable(type, initializer->result)) {
 			error(ctx, aexpr->loc, expr,
 				"Initializer is not assignable to binding type");
@@ -1787,6 +1792,11 @@ check_expr_match(struct context *ctx,
 			if (ctype->size == 0 || ctype->size == SIZE_UNDEFINED) {
 				error(ctx, acase->type->loc, expr,
 					"Cannot create binding for type of zero or undefined size");
+				return;
+			}
+			if (ctype->storage == STORAGE_NULL) {
+				error(ctx, aexpr->loc, expr,
+					"Null is not a valid type for a binding");
 				return;
 			}
 			struct identifier ident = {
@@ -3255,6 +3265,8 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	enum eval_result r = eval_expr(ctx, initializer, value);
 	expect(&decl->init->loc, r == EVAL_OK,
 		"Unable to evaluate constant initializer at compile time");
+	expect(&decl->init->loc, type->storage != STORAGE_NULL,
+		"Null is not a valid type for a constant");
 
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
@@ -3308,6 +3320,9 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 			"Initializer is not assignable to binding type");
 		type = initializer->result;
 	}
+
+	expect(&decl->init->loc, type->storage != STORAGE_NULL,
+		"Null is not a valid type for a global");
 
 	struct identifier ident = {0};
 	if (decl->symbol) {

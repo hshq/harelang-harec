@@ -18,8 +18,11 @@ const unsigned int typeflags[] = {
 	TYPE_ERROR | TYPE_CONST,
 };
 
-static struct dimensions _type_store_lookup_atype(struct type_store *store,
+static struct dimensions lookup_atype_with_dimensions(struct type_store *store,
 		const struct type **type, const struct ast_type *atype);
+
+static const struct type *
+lookup_atype(struct type_store *store, const struct ast_type *atype);
 
 static void
 error(struct context *ctx, const struct location loc, char *fmt, ...)
@@ -165,9 +168,9 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	}
 	struct dimensions dim = {0};
 	if (size_only) {
-		dim = _type_store_lookup_atype(store, NULL, atype->type);
+		dim = lookup_atype_with_dimensions(store, NULL, atype->type);
 	} else {
-		dim = _type_store_lookup_atype(store, &field->type, atype->type);
+		dim = lookup_atype_with_dimensions(store, &field->type, atype->type);
 	}
 	if (dim.size == 0) {
 		error(store->check_context, atype->type->loc,
@@ -402,7 +405,7 @@ collect_atagged_memb(struct type_store *store,
 {
 	for (; atu; atu = atu->next) {
 		const struct type *type =
-			type_store_lookup_atype(store, atu->type);
+			lookup_atype(store, atu->type);
 		if (type->storage == STORAGE_TAGGED) {
 			collect_tagged_memb(store, ta, &type->tagged, i);
 			continue;
@@ -507,7 +510,7 @@ _tagged_size(struct type_store *store, const struct ast_tagged_union_type *u)
 		} else if (atype->storage == STORAGE_TAGGED) {
 			memb = _tagged_size(store, &atype->tagged_union);
 		} else {
-			memb = _type_store_lookup_atype(store, NULL, atype);
+			memb = lookup_atype_with_dimensions(store, NULL, atype);
 		}
 		if (dim.size < memb.size) {
 			dim.size = memb.size;
@@ -547,7 +550,7 @@ tuple_init_from_atype(struct type_store *store,
 	while (atuple) {
 		struct dimensions memb = {0};
 		if (type) {
-			memb = _type_store_lookup_atype(store, &cur->type, atuple->type);
+			memb = lookup_atype_with_dimensions(store, &cur->type, atuple->type);
 			if (memb.size == 0 || memb.align == 0) {
 				error(store->check_context, atuple->type->loc,
 					"Tuple member types must have nonzero size and alignment");
@@ -555,7 +558,7 @@ tuple_init_from_atype(struct type_store *store,
 			}
 			cur->offset = dim.size % memb.align + dim.size;
 		} else {
-			memb = _type_store_lookup_atype(store, NULL, atuple->type);
+			memb = lookup_atype_with_dimensions(store, NULL, atuple->type);
 			if (memb.size == 0 || memb.align == 0) {
 				error(store->check_context, atuple->type->loc,
 					"Tuple member types must have nonzero size and alignment");
@@ -615,7 +618,6 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
-	case STORAGE_NULL:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_STRING:
@@ -677,10 +679,10 @@ type_init_from_atype(struct type_store *store,
 		type->array.length = ast_array_len(store, atype);
 		struct dimensions memb = {0};
 		if (size_only) {
-			memb = _type_store_lookup_atype(store,
+			memb = lookup_atype_with_dimensions(store,
 				NULL, atype->array.members);
 		} else {
-			memb = _type_store_lookup_atype(store,
+			memb = lookup_atype_with_dimensions(store,
 				&type->array.members, atype->array.members);
 		}
 		if (memb.size == SIZE_UNDEFINED) {
@@ -780,7 +782,7 @@ type_init_from_atype(struct type_store *store,
 		if (size_only) {
 			break;
 		}
-		type->func.result = type_store_lookup_atype(store,
+		type->func.result = lookup_atype(store,
 				atype->func.result);
 		type->func.variadism = atype->func.variadism;
 		type->func.flags = atype->func.flags;
@@ -788,7 +790,7 @@ type_init_from_atype(struct type_store *store,
 		for (struct ast_function_parameters *aparam = atype->func.params;
 				aparam; aparam = aparam->next) {
 			param = *next = xcalloc(1, sizeof(struct type_func_param));
-			param->type = type_store_lookup_atype(store, aparam->type);
+			param->type = lookup_atype(store, aparam->type);
 			if (atype->func.variadism == VARIADISM_HARE
 					&& !aparam->next) {
 				param->type = type_store_lookup_slice(
@@ -804,7 +806,7 @@ type_init_from_atype(struct type_store *store,
 			break;
 		}
 		type->pointer.flags = atype->pointer.flags;
-		type->pointer.referent = type_store_lookup_atype(
+		type->pointer.referent = lookup_atype(
 			store, atype->pointer.referent);
 		break;
 	case STORAGE_SLICE:
@@ -813,7 +815,7 @@ type_init_from_atype(struct type_store *store,
 		if (size_only) {
 			break;
 		}
-		type->array.members = type_store_lookup_atype(
+		type->array.members = lookup_atype(
 			store, atype->array.members);
 		type->array.length = SIZE_UNDEFINED;
 		break;
@@ -855,6 +857,11 @@ type_init_from_atype(struct type_store *store,
 			tuple_init_from_atype(store, type, atype);
 		}
 		break;
+	case STORAGE_NULL:
+		error(store->check_context, atype->loc,
+			"Type null used in invalid context");
+		*type = builtin_type_void;
+		return (struct dimensions){0};
 	}
 	return (struct dimensions){ .size = type->size, .align = type->align };
 }
@@ -913,7 +920,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 }
 
 static struct dimensions
-_type_store_lookup_atype(struct type_store *store, const struct type **type, const struct ast_type *atype)
+lookup_atype_with_dimensions(struct type_store *store, const struct type **type, const struct ast_type *atype)
 {
 	struct type temp = {0};
 	struct dimensions dim = {0};
@@ -927,13 +934,22 @@ _type_store_lookup_atype(struct type_store *store, const struct type **type, con
 	return dim;
 }
 
-const struct type *
-type_store_lookup_atype(struct type_store *store, const struct ast_type *atype)
+static const struct type *
+lookup_atype(struct type_store *store, const struct ast_type *atype)
 {
 	struct type temp = {0};
 	const struct type *type = &temp;
-	_type_store_lookup_atype(store, &type, atype);
+	lookup_atype_with_dimensions(store, &type, atype);
 	return type;
+}
+
+const struct type *
+type_store_lookup_atype(struct type_store *store, const struct ast_type *atype)
+{
+	if (atype->storage == STORAGE_NULL) {
+		return &builtin_type_null;
+	};
+	return lookup_atype(store, atype);
 }
 
 // Compute dimensions of an incomplete type without completing it

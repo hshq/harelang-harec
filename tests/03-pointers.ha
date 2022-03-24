@@ -22,7 +22,53 @@ fn _nullable() void = {
 	) != 0);
 };
 
+fn reject() void = {
+	assert(rt::compile("
+		type s = null;
+		fn test() void = {
+			void;
+		};
+	") != 0);
+	assert(rt::compile("
+		fn test() void = {
+			let a = &3: null;
+		};
+	") != 0);
+	assert(rt::compile("
+		fn test() void = {
+			let b: nullable *int = null;
+			let a = b as null;
+		};
+	") != 0);
+	assert(rt::compile("
+		fn test() void = {
+			let a = (null, 3);
+		};
+	") != 0);
+	assert(rt::compile("
+		fn test() void = {
+			let a: []null = [null];
+		};
+	") != 0);
+	assert(rt::compile("
+		fn test() void = {
+			let a = [null];
+		};
+	") != 0);
+	assert(rt::compile("
+		fn test() void = {
+			let a: [_]null = [null];
+		};
+	") != 0);
+	assert(rt::compile("
+		fn test() void = {
+			let a = null;
+		};
+	") != 0);
+};
+
 export fn main() void = {
 	basics();
 	_nullable();
+	reject();
 };

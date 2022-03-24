@@ -1587,7 +1587,13 @@ parse_cast_expression(struct lexer *lexer, struct ast_expression *value)
 	exp->type = EXPR_CAST;
 	exp->cast.kind = kind;
 	exp->cast.value = value;
-	exp->cast.type = parse_type(lexer);
+	if (lex(lexer, &tok) == T_NULL) {
+		exp->cast.type = mktype(&tok.loc);
+		exp->cast.type->storage = STORAGE_NULL;
+	} else {
+		unlex(lexer, &tok);
+		exp->cast.type = parse_type(lexer);
+	}
 	return parse_cast_expression(lexer, exp);
 }
 
