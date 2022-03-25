@@ -970,9 +970,12 @@ check_expr_binding(struct context *ctx,
 		bool context = abinding->type
 			&& abinding->type->storage == STORAGE_ARRAY
 			&& abinding->type->array.contextual;
-		if (type && !context) {
-			// If the type is defined in advance, we can insert the
-			// object into the scope early, which is required for
+		const struct scope_object *shadowed =
+			scope_lookup(ctx->scope, &ident);
+		if (type && !context && shadowed == NULL) {
+			// If the type is defined in advance, and a variable
+			// isn't being shadowed, we can insert the object into
+			// the scope early, which is required for
 			// self-referencing objects.
 			if (!abinding->is_static) {
 				binding->object = scope_insert(ctx->scope,
@@ -1000,7 +1003,7 @@ check_expr_binding(struct context *ctx,
 			type = initializer->result;
 		}
 
-		if (context || !type) {
+		if (context || !type || shadowed != NULL) {
 			if (!type) {
 				type = type_store_lookup_with_flags(ctx->store,
 					initializer->result, abinding->flags);
