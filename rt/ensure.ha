@@ -42,32 +42,6 @@ type base = enum uint {
 	HEX = 16,
 };
 
-// XXX: TEMP
-fn u64tosb(u: u64, b: base) const str = {
-	static let buf: [64]u8 = [0...]; // 64 binary digits
-
-	static const lut_upper = [
-		'0', '1', '2', '3', '4', '5', '6', '7',
-		'8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
-	];
-	const lut = &lut_upper;
-
-	let s = string { data = &buf, ... };
-	if (u == 0) {
-		buf[s.length] = '0': u32: u8;
-		s.length += 1z;
-	};
-
-	for (u > 0u64) {
-		buf[s.length] = lut[u % b: u64]: u32: u8;
-		s.length += 1;
-		u /= b;
-	};
-
-	reverse(buf[..s.length]);
-	return *(&s: *str);
-};
-
 fn reverse(b: []u8) void = {
 	if (len(b) == 0) {
 		return;
