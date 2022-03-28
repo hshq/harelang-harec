@@ -678,28 +678,28 @@ promote_const(const struct type *a, const struct type *b) {
 }
 
 bool
-tagged_subset_compat(const struct type *to, const struct type *from)
+tagged_subset_compat(const struct type *superset, const struct type *subset)
 {
 	// Note: this implementation depends on the invariant that tagged union
 	// member types are sorted by their type ID.
-	to = type_dealias(to), from = type_dealias(from);
-	if (to->storage != STORAGE_TAGGED || from->storage != STORAGE_TAGGED) {
+	superset = type_dealias(superset), subset = type_dealias(subset);
+	if (superset->storage != STORAGE_TAGGED || subset->storage != STORAGE_TAGGED) {
 		return false;
 	}
-	const struct type_tagged_union *to_tu = &to->tagged,
-	      *from_tu = &from->tagged;
-	while (from_tu && to_tu) {
-		while (to_tu) {
-			if (to_tu->type->id == from_tu->type->id) {
-				from_tu = from_tu->next;
-				to_tu = to_tu->next;
+	const struct type_tagged_union *superset_tu = &superset->tagged,
+	      *subset_tu = &subset->tagged;
+	while (subset_tu && superset_tu) {
+		while (superset_tu) {
+			if (superset_tu->type->id == subset_tu->type->id) {
+				subset_tu = subset_tu->next;
+				superset_tu = superset_tu->next;
 				break;
 			}
-			to_tu = to_tu->next;
+			superset_tu = superset_tu->next;
 		}
 	}
 
-	return !from_tu;
+	return !subset_tu;
 }
 
 static bool
