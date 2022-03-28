@@ -167,12 +167,20 @@ fn subsetcast() void = {
 	assert(x is (int | void) && (x is int) && !(x is void));
 };
 
+type foo = (int | void);
+type bar = (size | foo);
+
 fn castout() void = {
 	let x: (int | void) = 1337;
 	assert(x: int == 1337);
 	assert(x as int == 1337);
 	assert(x is int);
 	// XXX: We can probably expand this
+
+	let a: bar = 42i;
+	assert(a as int == 42);
+	assert(a: int == 42);
+	assert(a is int);
 };
 
 fn assertions() void = {
