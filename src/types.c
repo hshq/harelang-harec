@@ -869,13 +869,21 @@ type_is_assignable(const struct type *to, const struct type *from)
 }
 
 static bool
-castable_from_tagged(const struct type *to, const struct type *from)
+is_castable_with_tagged(const struct type *to, const struct type *from)
 {
-	// TODO: This may need to be expanded upon
-	from = type_dealias(from);
-	for (const struct type_tagged_union *tu = &from->tagged;
-			tu; tu = tu->next) {
-		if (tu->type->id == to->id) {
+	if (type_dealias(from)->storage == STORAGE_TAGGED
+			&& type_dealias(to)->storage == STORAGE_TAGGED) {
+		if (tagged_subset_compat(to, from) || tagged_subset_compat(from, to)) {
+			return true;
+		}
+	}
+	if (type_dealias(to)->storage == STORAGE_TAGGED) {
+		if (tagged_select_subtype(to, from) != NULL) {
+			return true;
+		}
+	}
+	if (type_dealias(from)->storage == STORAGE_TAGGED) {
+		if (tagged_select_subtype(from, to) != NULL) {
 			return true;
 		}
 	}
@@ -889,13 +897,9 @@ type_is_castable(const struct type *to, const struct type *from)
 		return true;
 	}
 
-	if (type_dealias(to)->storage == STORAGE_TAGGED) {
-		return tagged_select_subtype(to, from) != NULL
-			|| tagged_subset_compat(to, from);
-	}
-
-	if (type_dealias(from)->storage == STORAGE_TAGGED) {
-		return castable_from_tagged(to, from);
+	if (type_dealias(from)->storage == STORAGE_TAGGED
+			|| type_dealias(to)->storage == STORAGE_TAGGED) {
+		return is_castable_with_tagged(to, from);
 	}
 
 	to = type_dealias(to), from = type_dealias(from);

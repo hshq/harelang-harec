@@ -1107,26 +1107,39 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value gen_expr_cast(struct gen_context *ctx,
 		const struct expression *expr);
 
+static struct gen_value gen_subset_match_tests(struct gen_context *ctx,
+	struct qbe_value bmatch, struct qbe_value bnext,
+	struct qbe_value tag, const struct type *type);
+
 static struct gen_value
 gen_expr_type_test(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct type *secondary = expr->cast.secondary,
 	      *from = expr->cast.value->result;
 	assert(type_dealias(from)->storage == STORAGE_TAGGED);
-	const struct type *subtype = tagged_select_subtype(from, secondary);
-	assert(subtype && subtype == secondary); // Lowered by check
-
 	struct gen_value val = gen_expr(ctx, expr->cast.value);
 	struct qbe_value qval = mkqval(ctx, &val);
+
 	struct qbe_value tag = mkqtmp(ctx,
-			qtype_lookup(ctx, &builtin_type_uint, false),
-			".%d");
+			qtype_lookup(ctx, &builtin_type_uint, false), ".%d");
 	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+
+	struct gen_value result = {0};
 	pushi(ctx->current, &tag, load, &qval, NULL);
-	struct qbe_value expected = constl(secondary->id);
-	struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
-	struct qbe_value qr = mkqval(ctx, &result);
-	pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
+	if (tagged_select_subtype(from, secondary) != NULL) {
+		result = mktemp(ctx, &builtin_type_bool, ".%d");
+		struct qbe_value qr = mkqval(ctx, &result);
+		struct qbe_value expected = constl(secondary->id);
+		pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
+	} else if (tagged_subset_compat(from, secondary)) {
+		struct qbe_statement endl;
+		struct qbe_value bend = mklabel(ctx, &endl, ".%d");
+		result = gen_subset_match_tests(ctx, bend, bend, tag,
+				type_dealias(secondary));
+		push(&ctx->current->body, &endl);
+	} else {
+		abort();
+	}
 	return result;
 }
 
@@ -1137,21 +1150,27 @@ gen_type_assertion(struct gen_context *ctx,
 {
 	const struct type *want = expr->result;
 	struct qbe_value tag = mkqtmp(ctx,
-		qtype_lookup(ctx, &builtin_type_uint, false),
-		".%d");
+		qtype_lookup(ctx, &builtin_type_uint, false), ".%d");
 	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
 	pushi(ctx->current, &tag, load, &base, NULL);
-	struct qbe_value expected = constl(want->id);
-	struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
-	struct qbe_value qr = mkqval(ctx, &result);
-	pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
 
 	struct qbe_statement failedl, passedl;
 	struct qbe_value bfailed = mklabel(ctx, &failedl, "failed.%d");
 	struct qbe_value bpassed = mklabel(ctx, &passedl, "passed.%d");
-	pushi(ctx->current, NULL, Q_JNZ, &qr, &bpassed, &bfailed, NULL);
-	push(&ctx->current->body, &failedl);
+	if (tagged_select_subtype(expr->cast.value->result, want)) {
+		struct gen_value result = mktemp(ctx, &builtin_type_bool, ".%d");
+		struct qbe_value expected = constl(want->id);
+		struct qbe_value qr = mkqval(ctx, &result);
+		pushi(ctx->current, &qr, Q_CEQW, &tag, &expected, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &qr, &bpassed, &bfailed, NULL);
+	} else if (tagged_subset_compat(expr->cast.value->result, want)) {
+		gen_subset_match_tests(ctx, bpassed, bfailed, tag,
+				type_dealias(want));
+	} else {
+		abort();
+	}
 
+	push(&ctx->current->body, &failedl);
 	gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
 
 	push(&ctx->current->body, &passedl);
@@ -1203,17 +1222,9 @@ static void
 gen_expr_cast_tagged_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
+	assert(expr->type == EXPR_CAST);
 	const struct type *to = expr->result, *from = expr->cast.value->result;
 	const struct type *subtype = tagged_select_subtype(to, from);
-	if ((int)expr->cast.value->type != EXPR_GEN_VALUE) {
-		// EXPR_GEN_VALUE is a special case used by match for
-		// COMPAT_MISALIGNED. Normally, casts are only allowed between
-		// tagged unions if 'to' is a superset of 'from'. However, in
-		// the EXPR_GEN_VALUE case, 'to' is a subset of 'from', but the
-		// match code has already determined that the selected tag is a
-		// member of 'to'.
-		assert(subtype || tagged_subset_compat(to, from));
-	}
 
 	if (!subtype && tagged_align_compat(from, to)) {
 		// Case 1: from is a union whose members are a subset of to, and
@@ -1221,12 +1232,20 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		// type 'from' as if it were of type 'to'
 		struct gen_value out2 = out;
 		out2.type = from;
-		gen_expr_at(ctx, expr->cast.value, out2);
+		struct gen_value val = gen_expr(ctx, expr->cast.value);
+		gen_store(ctx, out2, val);
+		struct qbe_value qout = mkqval(ctx, &out2);
+		if (expr->cast.kind == C_ASSERTION) {
+			gen_type_assertion(ctx, expr, qout);
+		}
 	} else if (!subtype) {
 		// Case 2: like case 1, but with an alignment mismatch; more
 		// work is required.
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value qval = mkqval(ctx, &value);
+		if (expr->cast.kind == C_ASSERTION) {
+			gen_type_assertion(ctx, expr, qval);
+		}
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value tag = mkqtmp(ctx,
 			qtype_lookup(ctx, &builtin_type_uint, false), "tag.%d");
@@ -1254,6 +1273,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		gen_copy_aligned(ctx, iout, ival);
 	} else {
 		// Case 3: from is a member of to
+		assert(expr->cast.kind == C_CAST);
 		assert(subtype == from); // Lowered by check
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value id = constw(subtype->id);
@@ -1393,7 +1413,8 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	if (expr->cast.kind != C_CAST) {
 		bool is_valid_tagged, is_valid_pointer;
 		is_valid_tagged = type_dealias(from)->storage == STORAGE_TAGGED
-				&& tagged_select_subtype(from, to);
+				&& (tagged_select_subtype(from, to)
+				|| tagged_subset_compat(from, to));
 		is_valid_pointer = type_dealias(from)->storage == STORAGE_POINTER
 				&& (type_dealias(to)->storage == STORAGE_POINTER
 				|| type_dealias(to)->storage == STORAGE_NULL);
@@ -2204,10 +2225,10 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 	pushi(ctx->current, NULL, Q_JMP, &bmatch, NULL);
 }
 
-static void
+static struct gen_value
 gen_subset_match_tests(struct gen_context *ctx,
 	struct qbe_value bmatch, struct qbe_value bnext,
-	struct qbe_value tag, const struct match_case *_case)
+	struct qbe_value tag, const struct type *type)
 {
 	// In this case, we're testing a case which is itself a tagged union,
 	// and is a subset of the match object.
@@ -2222,18 +2243,18 @@ gen_subset_match_tests(struct gen_context *ctx,
 	//
 	// In this situation, we test the match object's tag against each type
 	// ID of the case type.
-	const struct type *casetype = type_dealias(_case->type);
-	for (const struct type_tagged_union *tu = &casetype->tagged;
-			tu; tu = tu->next) {
+	struct gen_value match = mktemp(ctx, &builtin_type_bool, ".%d");
+	for (const struct type_tagged_union *tu = &type->tagged; tu; tu = tu->next) {
 		struct qbe_statement lnexttag;
 		struct qbe_value bnexttag = mklabel(ctx, &lnexttag, ".%d");
 		struct qbe_value id = constl(tu->type->id);
-		struct qbe_value match = mkqtmp(ctx, &qbe_word, ".%d");
-		pushi(ctx->current, &match, Q_CEQW, &tag, &id, NULL);
-		pushi(ctx->current, NULL, Q_JNZ, &match, &bmatch, &bnexttag, NULL);
+		struct qbe_value qmatch = mkqval(ctx, &match);
+		pushi(ctx->current, &qmatch, Q_CEQW, &tag, &id, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &qmatch, &bmatch, &bnexttag, NULL);
 		push(&ctx->current->body, &lnexttag);
 	}
 	pushi(ctx->current, NULL, Q_JMP, &bnext, NULL);
+	return match;
 }
 
 static struct gen_value
@@ -2283,7 +2304,8 @@ gen_match_with_tagged(struct gen_context *ctx,
 			} else {
 				compat = COMPAT_MISALIGNED;
 			}
-			gen_subset_match_tests(ctx, bmatch, bnext, tag, _case);
+			const struct type *casetype = type_dealias(_case->type);
+			gen_subset_match_tests(ctx, bmatch, bnext, tag, casetype);
 		}
 
 		push(&ctx->current->body, &lmatch);

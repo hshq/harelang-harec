@@ -129,6 +129,7 @@ fn membercast() void = {
 
 fn subsetcast() void = {
 	// Equal alignment
+	// subset -> superset
 	let x: (size | void) = 1337z;
 	let y: (size | int | void) = x;
 	let p = &y: *struct {
@@ -140,8 +141,14 @@ fn subsetcast() void = {
 	};
 	assert(p.tag == 1737287038);
 	assert(p.data.z == 1337z);
+	// superset -> subset
+	let x: (size | void | int) = 2z;
+	assert(x: (size | void) as size == 2);
+	assert(x as (size | void) as size == 2);
+	assert(x is (size | void) && (x is size) && !(x is void));
 
 	// Disjoint alignment
+	// subset -> superset
 	let x: (int | void) = 1337;
 	let y: (size | int | void) = x;
 	let p = &y: *struct {
@@ -153,12 +160,18 @@ fn subsetcast() void = {
 	};
 	assert(p.tag == 1099590421);
 	assert(p.data.i == 1337);
+	// superset -> subset
+	let x: (size | int | void) = 2i;
+	assert(x: (int | void) as int == 2);
+	assert(x as (int | void) as int == 2);
+	assert(x is (int | void) && (x is int) && !(x is void));
 };
 
 fn castout() void = {
 	let x: (int | void) = 1337;
-	let y = x: int;
-	assert(y == 1337);
+	assert(x: int == 1337);
+	assert(x as int == 1337);
+	assert(x is int);
 	// XXX: We can probably expand this
 };
 
@@ -166,6 +179,40 @@ fn assertions() void = {
 	let a: (u8 | u16) = 42u16;
 	assert(a is u16);
 	assert(a as u16 == 42u16);
+};
+
+fn reject() void = {
+	// cannot type assert into a disjoint tagged type
+	assert(rt::compile(
+		"fn test() void = {
+			let a: (u8 | u16) = 42u8;
+			let b = a as (str | void);
+		};"
+	) != 0);
+
+	// cannot type assert into non-member type
+	assert(rt::compile(
+		"fn test() void = {
+			let a: (u8 | u16) = 42u8;
+			let b = a as *str;
+		};"
+	) != 0);
+
+	// cannot type assert into superset
+	assert(rt::compile(
+		"fn test() void = {
+			let a: (u8 | u16) = 42u8;
+			let b = a as (u8 | u16 | void);
+		};"
+	) != 0);
+
+	// cannot type assert into the same type
+	assert(rt::compile(
+		"fn test() void = {
+			let a: (u8 | u16) = 42u8;
+			let b = a as (u8 | u16);
+		};"
+	) != 0);
 };
 
 export fn main() void = {
@@ -178,4 +225,5 @@ export fn main() void = {
 	subsetcast();
 	castout();
 	assertions();
+	reject();
 };

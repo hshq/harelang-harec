@@ -1234,15 +1234,11 @@ check_expr_cast(struct context *ctx,
 				"a nullable pointer");
 			return;
 		}
-		bool found = false;
-		for (const struct type_tagged_union *t = &primary->tagged;
-				t; t = t->next) {
-			if (t->type->id == secondary->id) {
-				found = true;
-				break;
-			}
-		}
-		if (!found) {
+		// secondary type must be a strict subset or a
+		// member of the primary type
+		if (!((tagged_subset_compat(primary, secondary)
+				|| tagged_select_subtype(primary, secondary))
+				&& !tagged_subset_compat(secondary, primary))) {
 			error(ctx, aexpr->cast.type->loc, expr,
 				"Type is not a valid member of "
 				"the tagged union type");
