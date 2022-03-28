@@ -421,10 +421,24 @@ parse_enum_type(struct lexer *lexer)
 		type->_enum.storage = STORAGE_INT;
 		unlex(lexer, &tok);
 		break;
-	default:
+	case T_I8:
+	case T_I16:
+	case T_I32:
+	case T_I64:
+	case T_U8:
+	case T_U16:
+	case T_U32:
+	case T_U64:
+	case T_INT:
+	case T_UINT:
+	case T_SIZE:
+	case T_UINTPTR:
+	case T_CHAR:
 		unlex(lexer, &tok);
 		type->_enum.storage = parse_integer_type(lexer);
 		break;
+	default:
+		synassert_msg(false, "Enum storage must be an integer", &tok);
 	}
 	want(lexer, T_LBRACE, NULL);
 	while (tok.token != T_RBRACE) {
