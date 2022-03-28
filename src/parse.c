@@ -437,8 +437,11 @@ parse_enum_type(struct lexer *lexer)
 		unlex(lexer, &tok);
 		type->_enum.storage = parse_integer_type(lexer);
 		break;
+	case T_RUNE:
+		type->_enum.storage = STORAGE_RUNE;
+		break;
 	default:
-		synassert_msg(false, "Enum storage must be an integer", &tok);
+		synassert_msg(false, "Enum storage must be an integer or rune", &tok);
 	}
 	want(lexer, T_LBRACE, NULL);
 	while (tok.token != T_RBRACE) {

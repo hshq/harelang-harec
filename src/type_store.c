@@ -703,9 +703,10 @@ type_init_from_atype(struct type_store *store,
 		type->_enum.storage = atype->_enum.storage;
 		const struct type *storage =
 			builtin_type_for_storage(type->_enum.storage, true);
-		if (!type_is_integer(storage)) {
+		if (!type_is_integer(storage)
+				&& type->_enum.storage != STORAGE_RUNE) {
 			error(store->check_context, atype->loc,
-				"Enum storage must be an integer");
+				"Enum storage must be an integer or rune");
 			*type = builtin_type_void;
 			return (struct dimensions){0};
 		}
