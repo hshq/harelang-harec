@@ -1117,40 +1117,11 @@ static struct gen_value gen_nested_match_tests(struct gen_context *ctx,
 		const struct type *type);
 
 static struct gen_value
-gen_expr_type_test(struct gen_context *ctx, const struct expression *expr)
-{
-	const struct type *secondary = expr->cast.secondary,
-	      *from = expr->cast.value->result;
-	assert(type_dealias(from)->storage == STORAGE_TAGGED);
-	struct gen_value val = gen_expr(ctx, expr->cast.value);
-	struct qbe_value qval = mkqval(ctx, &val);
-
-	struct qbe_value tag = mkqtmp(ctx,
-			qtype_lookup(ctx, &builtin_type_uint, false), ".%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
-
-	struct gen_value result = {0};
-	struct qbe_statement endl;
-	struct qbe_value bend = mklabel(ctx, &endl, ".%d");
-	pushi(ctx->current, &tag, load, &qval, NULL);
-	if (tagged_select_subtype(from, secondary) != NULL) {
-		result = gen_nested_match_tests(ctx, val, bend, bend, tag, secondary);
-	} else if (tagged_subset_compat(from, secondary)) {
-		result = gen_subset_match_tests(ctx, bend, bend, tag,
-				type_dealias(secondary));
-	} else {
-		abort();
-	}
-	push(&ctx->current->body, &endl);
-	return result;
-}
-
-static void
-gen_type_assertion(struct gen_context *ctx,
-		const struct expression *expr,
+gen_type_assertion_or_test(struct gen_context *ctx, const struct expression *expr,
 		struct gen_value base)
 {
-	const struct type *want = expr->result;
+	assert(expr->cast.kind == C_TEST || expr->cast.kind == C_ASSERTION);
+	const struct type *want = expr->cast.secondary;
 	struct qbe_value tag = mkqtmp(ctx,
 		qtype_lookup(ctx, &builtin_type_uint, false), ".%d");
 	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
@@ -1158,21 +1129,29 @@ gen_type_assertion(struct gen_context *ctx,
 	pushi(ctx->current, &tag, load, &qbase, NULL);
 
 	struct qbe_statement failedl, passedl;
-	struct qbe_value bfailed = mklabel(ctx, &failedl, "failed.%d");
-	struct qbe_value bpassed = mklabel(ctx, &passedl, "passed.%d");
+	struct qbe_value bfailed, bpassed = mklabel(ctx, &passedl, "passed.%d");
+	if (expr->cast.kind == C_ASSERTION) {
+		bfailed = mklabel(ctx, &failedl, "failed.%d");
+	} else {
+		bfailed = bpassed;
+	}
+	struct gen_value result = {0};
 	if (tagged_select_subtype(expr->cast.value->result, want)) {
-		gen_nested_match_tests(ctx, base, bpassed, bfailed, tag, want);
+		result = gen_nested_match_tests(ctx, base, bpassed,
+				bfailed, tag, want);
 	} else if (tagged_subset_compat(expr->cast.value->result, want)) {
-		gen_subset_match_tests(ctx, bpassed, bfailed, tag,
+		result = gen_subset_match_tests(ctx, bpassed, bfailed, tag,
 				type_dealias(want));
 	} else {
 		abort();
 	}
 
-	push(&ctx->current->body, &failedl);
-	gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
-
+	if (expr->cast.kind == C_ASSERTION) {
+		push(&ctx->current->body, &failedl);
+		gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
+	}
 	push(&ctx->current->body, &passedl);
+	return result;
 }
 
 static void
@@ -1233,7 +1212,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		out2.type = from;
 		gen_expr_at(ctx, expr->cast.value, out2);
 		if (expr->cast.kind == C_ASSERTION) {
-			gen_type_assertion(ctx, expr, out2);
+			gen_type_assertion_or_test(ctx, expr, out2);
 		}
 	} else if (!subtype) {
 		// Case 2: like case 1, but with an alignment mismatch; more
@@ -1241,7 +1220,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value qval = mkqval(ctx, &value);
 		if (expr->cast.kind == C_ASSERTION) {
-			gen_type_assertion(ctx, expr, value);
+			gen_type_assertion_or_test(ctx, expr, value);
 		}
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value tag = mkqtmp(ctx,
@@ -1419,7 +1398,8 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 				|| type_dealias(to)->storage == STORAGE_NULL);
 		assert(is_valid_tagged || is_valid_pointer);
 		if (expr->cast.kind == C_TEST && is_valid_tagged) {
-			return gen_expr_type_test(ctx, expr);
+			return gen_type_assertion_or_test(ctx, expr,
+					gen_expr(ctx, expr->cast.value));
 		}
 	}
 
@@ -1503,7 +1483,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value base = mkcopy(ctx, &value, ".%d");
 		if (expr->cast.kind == C_ASSERTION) {
-			gen_type_assertion(ctx, expr, value);
+			gen_type_assertion_or_test(ctx, expr, value);
 		}
 
 		struct qbe_value align = nested_tagged_offset(
