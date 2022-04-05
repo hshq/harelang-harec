@@ -372,7 +372,7 @@ check_expr_alloc_copy(struct context *ctx,
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 
 	const struct type *result = expr->alloc.init->result;
-	if (result != hint) {
+	if (hint && result != hint) {
 		// TODO: We might be able to be less strict on this. We could
 		// copy slices of types which differ only based on the flag, or
 		// copy an array into a new slice.
