@@ -3242,6 +3242,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	// TODO: Free the initializer
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
+	handle_errors(ctx->errors);
 
 	bool context = decl->type
 		&& decl->type->storage == STORAGE_ARRAY
@@ -3308,6 +3309,7 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, decl->init, initializer, type);
+		handle_errors(ctx->errors);
 		expect(&decl->init->loc,
 			initializer->result->storage == STORAGE_ARRAY,
 			"Cannot infer array length from non-array type");
