@@ -917,7 +917,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 	const struct scope_object *obj = scope_lookup(
 		store->check_context->scope, &type->alias.name);
 	psuedotype.flags |= obj->type->flags;
-	return type_store_lookup_alias(store, &psuedotype, true);
+	return type_store_lookup_alias(store, &psuedotype);
 }
 
 static struct dimensions
@@ -1028,7 +1028,7 @@ type_store_lookup_slice(struct type_store *store, const struct type *members)
 }
 
 const struct type *
-type_store_lookup_alias(struct type_store *store, const struct type *type, bool exported)
+type_store_lookup_alias(struct type_store *store, const struct type *type)
 {
 	struct type tmp = *type;
 	const struct type *ret = NULL;

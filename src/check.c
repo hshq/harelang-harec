@@ -3058,7 +3058,7 @@ check_type(struct context *ctx,
 		.flags = type->flags,
 	};
 	const struct type *alias =
-		type_store_lookup_alias(ctx->store, &_alias, true);
+		type_store_lookup_alias(ctx->store, &_alias);
 	decl->_type = alias;
 	return decl;
 }
@@ -3434,7 +3434,7 @@ scan_type(struct context *ctx, struct ast_type_decl *decl, bool exported,
 		.flags = decl->type->flags,
 	};
 
-	const struct type *alias = type_store_lookup_alias(ctx->store, &_alias, true);
+	const struct type *alias = type_store_lookup_alias(ctx->store, &_alias);
 	const struct scope_object *ret =
 		scope_insert(ctx->scope, O_TYPE, &ident, &decl->ident, alias, NULL);
 	((struct type *)ret->type)->alias.type =
