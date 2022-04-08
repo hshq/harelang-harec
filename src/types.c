@@ -720,6 +720,7 @@ struct_subtype(const struct type *to, const struct type *from) {
 bool
 type_is_assignable(const struct type *to, const struct type *from)
 {
+	const struct type *to_orig = to, *from_orig = from;
 	if (type_dealias(to)->storage != STORAGE_TAGGED) {
 		to = type_dealias(to);
 		from = type_dealias(from);
@@ -727,7 +728,6 @@ type_is_assignable(const struct type *to, const struct type *from)
 
 	// const and non-const types are mutually assignable
 	struct type _to, _from;
-	const struct type *to_orig = to, *from_orig = from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
 	if (to->id == from->id && to->storage != STORAGE_VOID) {
 		return true;
@@ -902,13 +902,13 @@ type_is_castable(const struct type *to, const struct type *from)
 		return is_castable_with_tagged(to, from);
 	}
 
+	const struct type *to_orig = to, *from_orig = from;
 	to = type_dealias(to), from = type_dealias(from);
 	if (to == from) {
 		return true;
 	}
 
 	struct type _to, _from;
-	const struct type *to_orig = to, *from_orig = from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
 	if (to->id == from->id) {
 		return true;
