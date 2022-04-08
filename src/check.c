@@ -1916,6 +1916,11 @@ check_expr_measure(struct context *ctx,
 	case M_SIZE:
 		expr->measure.dimensions = type_store_lookup_dimensions(
 			ctx->store, aexpr->measure.type);
+		if (expr->measure.dimensions.size == SIZE_UNDEFINED) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take size of a type with undefined size");
+			return;
+		}
 		break;
 	case M_OFFSET:
 		if (aexpr->measure.value->type != EXPR_ACCESS) {
