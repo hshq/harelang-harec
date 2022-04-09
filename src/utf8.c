@@ -26,7 +26,7 @@ struct {
 };
 
 size_t
-utf8_chsize(uint32_t ch)
+utf8_cpsize(uint32_t ch)
 {
 	if (ch < 0x80) {
 		return 1;
@@ -108,7 +108,7 @@ utf8_size(const char *s)
 }
 
 uint32_t
-utf8_fgetch(FILE *f)
+utf8_get(FILE *f)
 {
 	char buffer[UTF8_MAX_SIZE];
 	int c = fgetc(f);

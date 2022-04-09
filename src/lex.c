@@ -179,7 +179,7 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 		lexer->c[0] = lexer->c[1];
 		lexer->c[1] = UINT32_MAX;
 	} else {
-		c = utf8_fgetch(lexer->in);
+		c = utf8_get(lexer->in);
 		update_lineno(&lexer->loc, c);
 	}
 	if (loc != NULL) {
@@ -193,7 +193,7 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 	if (c == UTF8_INVALID || !buffer) {
 		return c;
 	}
-	if (lexer->buflen + utf8_chsize(c) >= lexer->bufsz) {
+	if (lexer->buflen + utf8_cpsize(c) >= lexer->bufsz) {
 		lexer->bufsz *= 2;
 		lexer->buf = xrealloc(lexer->buf, lexer->bufsz);
 	}
@@ -1062,7 +1062,7 @@ rune_unparse(uint32_t c)
 		} else if (!isprint(c)) {
 			snprintf(buf, sizeof(buf), "\\x%02x", c);
 		} else {
-			assert(utf8_chsize(c) < sizeof(buf));
+			assert(utf8_cpsize(c) < sizeof(buf));
 			buf[utf8_encode(buf, c)] = '\0';
 		}
 		break;
