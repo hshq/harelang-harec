@@ -1,8 +1,6 @@
 #ifndef HAREC_UTF8_H
 #define HAREC_UTF8_H
 
-// Technically UTF-8 supports up to 6 byte codepoints, but Unicode itself
-// doesn't really bother with more than 4.
 #define UTF8_MAX_SIZE 4
 
 #define UTF8_INVALID 0x80
