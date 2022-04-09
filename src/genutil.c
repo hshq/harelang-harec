@@ -85,17 +85,6 @@ mkrtfunc(struct gen_context *ctx, const char *name)
 	};
 }
 
-char *
-mkrttype(enum type_storage storage)
-{
-	int n = snprintf(NULL, 0, "rt.builtin_%s",
-		type_storage_unparse(storage));
-	char *str = xcalloc(1, n + 1);
-	snprintf(str, n + 1, "rt.builtin_%s",
-		type_storage_unparse(storage));
-	return str;
-}
-
 struct qbe_value
 mklabel(struct gen_context *ctx, struct qbe_statement *stmt, const char *fmt)
 {
