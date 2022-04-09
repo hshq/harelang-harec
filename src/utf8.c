@@ -132,12 +132,3 @@ utf8_fgetch(FILE *f)
 	const char *ptr = buffer;
 	return utf8_decode(&ptr);
 }
-
-size_t
-utf8_fputch(FILE *f, uint32_t ch)
-{
-	char buffer[UTF8_MAX_SIZE];
-	char *ptr = buffer;
-	size_t size = utf8_encode(ptr, ch);
-	return fwrite(&buffer, 1, size, f);
-}

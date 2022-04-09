@@ -32,9 +32,4 @@ size_t utf8_chsize(uint32_t ch);
  */
 uint32_t utf8_fgetch(FILE *f);
 
-/**
- * Writes this character to the file and returns the number of bytes written.
- */
-size_t utf8_fputch(FILE *f, uint32_t ch);
-
 #endif
