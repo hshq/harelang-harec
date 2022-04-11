@@ -2386,7 +2386,10 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 			i->type->flags |= TYPE_CONST;
 		}
 
-		if (lex(lexer, &tok) == T_EQUAL) {
+		if (mode == T_DEF) {
+			want(lexer, T_EQUAL, NULL);
+			i->init = parse_expression(lexer);
+		} else if (lex(lexer, &tok) == T_EQUAL) {
 			i->init = parse_expression(lexer);
 		} else {
 			unlex(lexer, &tok);
