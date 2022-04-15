@@ -918,7 +918,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		return lower_const(from_orig, to_orig);
+		return promote_const(from_orig, to_orig);
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
