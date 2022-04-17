@@ -84,10 +84,7 @@ enum alloc_kind {
 
 struct expression_alloc {
 	enum alloc_kind kind;
-	union {
-		struct expression *init;
-		struct expressions *items;
-	};
+	struct expression *init;
 	struct expression *cap;
 };
 

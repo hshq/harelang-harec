@@ -123,10 +123,7 @@ struct ast_expression_access {
 
 struct ast_expression_alloc {
 	enum alloc_kind kind;
-	union {
-		struct ast_expression *init;
-		struct ast_expression_list *items;
-	};
+	struct ast_expression *init;
 	struct ast_expression *cap;
 };
 
