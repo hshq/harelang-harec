@@ -34,36 +34,3 @@ export fn unensure(s: *slice, membsz: size) void = {
 	assert(data != null || s.capacity * membsz == 0);
 	s.data = data;
 };
-
-type base = enum uint {
-	BIN = 2,
-	OCT = 8,
-	DEC = 10,
-	HEX = 16,
-};
-
-fn reverse(b: []u8) void = {
-	if (len(b) == 0) {
-		return;
-	};
-	for (let s = 0z, e = len(b) - 1; s < e) {
-		let x = b[s];
-		b[s] = b[e];
-		b[e] = x;
-		s += 1;
-		e -= 1;
-	};
-};
-
-fn println(msgs: str...) void = {
-	for (let i = 0z; i < len(msgs); i += 1) {
-		let msg = msgs[i];
-		write(1, *(&msg: **void): *const char, len(msg)): void;
-		if (i + 1 < len(msgs)) {
-			const sp = " ";
-			write(1, *(&sp: **void): *const char, 1): void;
-		};
-	};
-	const linefeed = "\n";
-	write(1, *(&linefeed: **void): *const char, 1): void;
-};
