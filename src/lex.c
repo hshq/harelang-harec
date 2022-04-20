@@ -517,7 +517,13 @@ lex_rune(struct lexer *lexer)
 			buf[1] = next(lexer, NULL, false);
 			buf[2] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
-			assert(*endptr == '\0');
+			if (*endptr != '\0') {
+				fprintf(stderr,
+					"Error: invalid hex literal at %s:%d:%d\n",
+					lexer->loc.path, lexer->loc.lineno,
+					lexer->loc.colno);
+				exit(EXIT_FAILURE);
+			}
 			return c;
 		case 'u':
 			buf[0] = next(lexer, NULL, false);
@@ -526,7 +532,13 @@ lex_rune(struct lexer *lexer)
 			buf[3] = next(lexer, NULL, false);
 			buf[4] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
-			assert(*endptr == '\0');
+			if (*endptr != '\0') {
+				fprintf(stderr,
+					"Error: invalid hex literal at %s:%d:%d\n",
+					lexer->loc.path, lexer->loc.lineno,
+					lexer->loc.colno);
+				exit(EXIT_FAILURE);
+			}
 			return c;
 		case 'U':
 			buf[0] = next(lexer, NULL, false);
@@ -539,10 +551,20 @@ lex_rune(struct lexer *lexer)
 			buf[7] = next(lexer, NULL, false);
 			buf[8] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
-			assert(*endptr == '\0');
+			if (*endptr != '\0') {
+				fprintf(stderr,
+					"Error: invalid hex literal at %s:%d:%d\n",
+					lexer->loc.path, lexer->loc.lineno,
+					lexer->loc.colno);
+				exit(EXIT_FAILURE);
+			}
 			return c;
 		default:
-			assert(0); // Invariant
+			fprintf(stderr,
+				"Error: invalid escape '\\%c' at %s:%d:%d\n",
+				c, lexer->loc.path, lexer->loc.lineno,
+				lexer->loc.colno);
+			exit(EXIT_FAILURE);
 		}
 		assert(0);
 	default:
