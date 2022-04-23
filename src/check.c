@@ -2423,6 +2423,16 @@ check_expr_switch(struct context *ctx,
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
 	const struct type *type = type_dealias(value->result);
 	expr->_switch.value = value;
+	if (!type_is_numeric(type)
+			&& type_dealias(type)->storage != STORAGE_POINTER
+			&& type_dealias(type)->storage != STORAGE_STRING
+			&& type_dealias(type)->storage != STORAGE_BOOL
+			&& type_dealias(type)->storage != STORAGE_RCONST
+			&& type_dealias(type)->storage != STORAGE_RUNE) {
+		error(ctx, aexpr->loc, expr,
+			"Cannot switch on %s type",
+			type_storage_unparse(type_dealias(type)->storage));
+	}
 
 	struct type_tagged_union result_type = {0};
 	struct type_tagged_union *tagged = &result_type,
