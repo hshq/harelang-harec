@@ -2148,7 +2148,8 @@ check_expr_return(struct context *ctx,
 
 	if (!type_is_assignable(ctx->fntype->func.result, rval->result)) {
 		error(ctx, aexpr->loc, expr,
-			"Return value is not assignable to function result type");
+			"Return value %s is not assignable to function result type %s",
+			gen_typename(rval->result), gen_typename(ctx->fntype->func.result));
 		return;
 	}
 	if (ctx->fntype->func.result != rval->result) {
@@ -2950,7 +2951,8 @@ check_function(struct context *ctx,
 
 	expect(&afndecl->body->loc,
 		body->terminates || type_is_assignable(fntype->func.result, body->result),
-		"Result value is not assignable to function result type");
+		"Result value %s is not assignable to function result type %s",
+		gen_typename(body->result), gen_typename(fntype->func.result));
 	if (!body->terminates && fntype->func.result != body->result) {
 		body = lower_implicit_cast(fntype->func.result, body);
 	}
