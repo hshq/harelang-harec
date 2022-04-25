@@ -12,7 +12,9 @@ fn index() void = {
 
 	static delete(y[3]);
 	assert(len(x) == 3);
-	assert(x[0] == 1 && x[1] == 3 && x[2] == 4);
+	delete(y[0]);
+	assert(len(x) == 2);
+	assert(x[0] == 3 && x[1] == 4);
 	free(x);
 };
 

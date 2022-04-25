@@ -2,13 +2,14 @@ use rt;
 
 fn basics() void = {
 	let x: []int = alloc([1, 2, 5]);
+	let y = &x;
 	insert(x[2], 4);
 	insert(x[2], 3);
 	assert(len(x) == 5);
 	for (let i = 0z; i < len(x); i += 1) {
 		assert(x[i] == i: int + 1);
 	};
-	insert(x[0], 42);
+	insert(y[0], 42);
 	assert(len(x) == 6 && x[0] == 42);
 	free(x);
 };

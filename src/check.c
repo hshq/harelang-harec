@@ -444,7 +444,7 @@ check_expr_append_insert(struct context *ctx,
 	case EXPR_INSERT:
 		assert(expr->append.object->access.type == ACCESS_INDEX);
 		sltype = expr->append.object->access.array->result;
-		sltype = type_dealias(sltype);
+		sltype = type_dealias(type_dereference(sltype));
 		exprtype_name = "insert";
 		break;
 	default:
@@ -1532,10 +1532,7 @@ check_expr_delete(struct context *ctx,
 			"Deleted expression must be slicing or indexing expression");
 		return;
 	}
-	otype = type_dealias(otype);
-	while (otype->storage == STORAGE_POINTER) {
-		otype = type_dealias(otype->pointer.referent);
-	}
+	otype = type_dealias(type_dereference(otype));
 	if (otype->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->delete.expr->loc, expr,
 			"delete must operate on a slice");
