@@ -321,6 +321,10 @@ check_expr_alloc_init(struct context *ctx,
 		objtype = hint;
 	}
 	expr->result = type_store_lookup_pointer(ctx->store, objtype, ptrflags);
+	if (expr->result->size == 0 || expr->result->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->loc, expr,
+			"Cannot allocate object of zero or undefined size");
+	}
 }
 
 static void
