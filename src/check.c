@@ -2129,6 +2129,10 @@ check_expr_return(struct context *ctx,
 			"Cannot return inside a defer expression");
 		return;
 	}
+	if (ctx->fntype == NULL) {
+		error(ctx, aexpr->loc, expr, "Cannot return outside a function body");
+		return;
+	}
 	if (ctx->fntype->func.flags & FN_NORETURN) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot return inside @noreturn function");
