@@ -20,8 +20,6 @@ include tests/Makefile
 	@printf 'AS\t$@\n'
 	@$(AS) -o $@ $<
 
-docs:
-
 clean: clean-tests clean-rt
 	@rm -f harec $(harec_objects)
 
@@ -32,4 +30,4 @@ install: harec
 	mkdir -p $(DESTDIR)$(BINDIR)
 	install -m755 harec $(DESTDIR)$(BINDIR)/harec
 
-.PHONY: docs clean distclean install
+.PHONY: clean distclean install

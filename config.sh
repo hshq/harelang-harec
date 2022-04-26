@@ -7,7 +7,6 @@ CFLAGS=${CFLAGS:-}
 LDFLAGS=${LDFLAGS:-}
 LD=${LD:-ld}
 QBE=${QBE:-qbe}
-SCDOC=${SCDOC:-scdoc}
 
 for arg
 do
@@ -124,8 +123,6 @@ find_library() {
 	LIBS="$LIBS $(pkg-config --libs "$pc")"
 }
 
-docs() { true; }
-
 run_configure() {
 	mkdir -p "$outdir"
 
@@ -141,15 +138,6 @@ run_configure() {
 			echo no
 		fi
 	done
-
-	printf "Checking for scdoc... "
-	if $SCDOC -v >/dev/null 2>&1
-	then
-		echo yes
-		all="$all docs"
-	else
-		echo no
-	fi
 
 	printf "Checking for qbe... "
 	if $QBE -h > /dev/null 2>&1
@@ -168,7 +156,6 @@ AS=$AS
 LD=$LD
 AR=$AR
 QBE=$QBE
-SCDOC=$SCDOC
 LIBS=$LIBS
 PREFIX=${PREFIX:-/usr/local}
 OUTDIR=${outdir}
