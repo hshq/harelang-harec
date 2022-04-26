@@ -1364,7 +1364,7 @@ check_expr_compound(struct context *ctx,
 	struct expressions **next = &list->next;
 
 	const struct ast_expression_list *alist = &aexpr->compound.list;
-	struct expression *lexpr;
+	struct expression *lexpr = NULL;
 	while (alist) {
 		lexpr = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, alist->expr, lexpr, &builtin_type_void);
