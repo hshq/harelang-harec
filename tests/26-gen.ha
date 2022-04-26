@@ -10,6 +10,14 @@ type thing = struct {
 	e: embedded,
 };
 
+def THING: thing = thing{
+	offs = 0,
+	e = embedded {
+		a = 1,
+		b = 0,
+	},
+};
+
 export fn main() void = {
 	let t = thing {
 		offs = 0,
@@ -20,6 +28,12 @@ export fn main() void = {
 	};
 	let t = t;
 	assert(t.e.a == 1);
+
+	let t2 = THING;
+	assert(t2.e.a == 1);
+
+	t2.offs = 42;
+	assert(THING.offs == 0);
 
 	let x: (void | int) = 10;
 	match (x) {

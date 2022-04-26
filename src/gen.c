@@ -1744,6 +1744,26 @@ gen_const_string_at(struct gen_context *ctx,
 }
 
 static void
+gen_const_struct_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
+{
+	// TODO: Merge me into constant expressions
+	struct qbe_value base = mkqval(ctx, &out);
+
+	struct gen_value ftemp = mkgtemp(ctx, &builtin_type_void, "field.%d");
+	for (const struct struct_constant *field = expr->constant._struct;
+			field; field = field->next) {
+		assert(field->value);
+
+		struct qbe_value offs = constl(field->field->offset);
+		ftemp.type = field->value->result;
+		struct qbe_value ptr = mklval(ctx, &ftemp);
+		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
+		gen_expr_at(ctx, field->value, ftemp);
+	}
+}
+
+static void
 gen_expr_const_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
@@ -1758,6 +1778,9 @@ gen_expr_const_at(struct gen_context *ctx,
 		break;
 	case STORAGE_STRING:
 		gen_const_string_at(ctx, expr, out);
+		break;
+	case STORAGE_STRUCT:
+		gen_const_struct_at(ctx, expr, out);
 		break;
 	default:
 		abort(); // Invariant
