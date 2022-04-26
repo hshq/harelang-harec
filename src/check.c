@@ -3323,6 +3323,9 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 
 	if (decl->type->storage == STORAGE_ARRAY
 			&& decl->type->array.contextual) {
+		expect(&decl->type->loc, decl->init,
+			"Cannot infer array length without an initializer");
+
 		// TODO: Free initialier
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
