@@ -220,18 +220,14 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 static const struct type *type_store_lookup_type(struct type_store *store, const struct type *type);
 
 void
-shift_fields(struct type_store *store, struct struct_field *parent)
+shift_fields(struct type_store *store,
+	const struct ast_struct_union_type *atype, struct struct_field *parent)
 {
 	if (parent->type->storage == STORAGE_ALIAS
 			&& type_dealias(parent->type)->storage != STORAGE_STRUCT
 			&& type_dealias(parent->type)->storage != STORAGE_UNION) {
-		// TODO
-		struct location loc = {
-			.path = "<unknown>",
-			.lineno = 0,
-			.colno = 0,
-		};
-		error(store->check_context, loc,
+		assert(atype);
+		error(store->check_context, atype->type->loc,
 			"Cannot embed non-struct non-union alias");
 		return;
 	}
@@ -263,7 +259,7 @@ shift_fields(struct type_store *store, struct struct_field *parent)
 		if (field->name) {
 			new->name = strdup(field->name);
 		} else {
-			shift_fields(store, new);
+			shift_fields(store, NULL, new);
 		}
 		// Sub-subfields are shifted by field->offset in the recursive
 		// shift_fields call, delay adding it to new->offset to avoid
@@ -295,7 +291,7 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 			// type_get_field far easier to implement and doesn't
 			// cause any trouble in gen since offsets are only used
 			// there for sorting fields.
-			shift_fields(store, field);
+			shift_fields(store, atype, field);
 		}
 		atype = atype->next;
 	}
