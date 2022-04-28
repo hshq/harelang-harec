@@ -4,6 +4,24 @@ srcdir=${SRCDIR:-$(dirname "$0")}
 eval ". $srcdir/config.sh"
 
 harec() {
+	headers \
+		"ast.h" \
+		"check.h" \
+		"emit.h" \
+		"eval.h" \
+		"expr.h" \
+		"gen.h" \
+		"identifier.h" \
+		"lex.h" \
+		"mod.h" \
+		"parse.h" \
+		"qbe.h" \
+		"scope.h" \
+		"type_store.h" \
+		"typedef.h" \
+		"types.h" \
+		"utf8.h" \
+		"util.h"
 	genrules harec \
 		src/check.c \
 		src/emit.c \

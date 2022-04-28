@@ -44,6 +44,15 @@ subdir() {
 	eval ". $srcdir/$1/configure"
 }
 
+headers() {
+	printf 'HEADERS=\\\n'
+	while [ $# -ne 0 ]
+	do
+		printf '\tinclude/%s \\\n' "$1"
+		shift
+	done
+}
+
 genrules() {
 	target="$1"
 	shift
@@ -57,7 +66,7 @@ genrules() {
 		then
 			deps=" harec"
 		fi
-		printf '%s.o: %s.%s%s\n' "$file" "$file" "$ext" "$deps"
+		printf '%s.o: %s.%s%s $(HEADERS)\n' "$file" "$file" "$ext" "$deps"
 	done
 	printf '%s_objects=\\\n' "$target"
 	n=0
@@ -188,8 +197,6 @@ EOF
 		$target >>"$outdir"/config.mk
 	done
 	echo done
-
-	touch "$outdir"/cppcache
 
 	cat <<-EOF >harec.sh
 	export PATH="$(pwd)":\$PATH

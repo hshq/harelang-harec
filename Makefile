@@ -2,7 +2,6 @@
 .SUFFIXES:
 OUTDIR=.build
 include $(OUTDIR)/config.mk
-include $(OUTDIR)/cppcache
 
 harec: $(harec_objects)
 	@printf 'CCLD\t$@\n'
@@ -15,9 +14,6 @@ include tests/Makefile
 
 .c.o:
 	@printf 'CC\t$@\n'
-	@touch $(OUTDIR)/cppcache
-	@grep $< $(OUTDIR)/cppcache >/dev/null || \
-		$(CPP) $(CFLAGS) -MM -MT $@ $< >> $(OUTDIR)/cppcache
 	@$(CC) -c $(CFLAGS) -o $@ $<
 
 .s.o:
