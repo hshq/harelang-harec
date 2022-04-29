@@ -665,7 +665,8 @@ check_expr_assign(struct context *ctx,
 		}
 		if (!type_is_assignable(object->result, value->result)) {
 			error(ctx, aexpr->loc, expr,
-				"rvalue type is not assignable to lvalue");
+				"rvalue type (%s) is not assignable to lvalue (%s)",
+				gen_typename(value->result), gen_typename(object->result));
 			return;
 		}
 		value = lower_implicit_cast(object->result, value);
