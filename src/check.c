@@ -1905,7 +1905,8 @@ check_expr_measure(struct context *ctx,
 				|| vstor == STORAGE_STRING;
 		if (!valid) {
 			error(ctx, aexpr->measure.value->loc, expr,
-				"len argument must be of an array, slice, or str type");
+				"len argument must be of an array, slice, or str type, but got %s",
+				gen_typename(atype));
 			return;
 		}
 		if (atype->size == SIZE_UNDEFINED) {
