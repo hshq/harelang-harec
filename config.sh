@@ -8,6 +8,11 @@ LDFLAGS=${LDFLAGS:-}
 LD=${LD:-ld}
 QBE=${QBE:-qbe}
 
+if [ `uname -s` = "OpenBSD" ]
+then
+	LD="${LD:-ld} -nopie"
+fi
+
 for arg
 do
 	case "$arg" in

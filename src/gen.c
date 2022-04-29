@@ -501,7 +501,7 @@ gen_expr_alloc_init_with(struct gen_context *ctx,
 	objtype = objtype->pointer.referent;
 
 	struct qbe_value sz = constl(objtype->size);
-	struct gen_value result = mktemp(ctx, expr->result, ".%d");
+	struct gen_value result = mkgtemp(ctx, expr->result, ".%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
 	pushi(ctx->current, &qresult, Q_CALL, &rtfunc, &sz, NULL);
@@ -539,7 +539,7 @@ gen_expr_alloc_slice_with(struct gen_context *ctx,
 		gen_alloc_slice_at(ctx, expr, *out, expand);
 		return gv_void;
 	}
-	struct gen_value temp = mktemp(ctx, expr->result, "object.%d");
+	struct gen_value temp = mkgtemp(ctx, expr->result, "object.%d");
 	struct qbe_value base = mkqval(ctx, &temp);
 	struct qbe_value sz = constl(expr->result->size);
 	enum qbe_instr alloc = alloc_for_align(expr->result->align);
@@ -555,7 +555,7 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	// alloc(init...) case
 	struct gen_value ret = gv_void;
 	if (out == NULL) {
-		ret = mktemp(ctx, expr->result, "object.%d");
+		ret = mkgtemp(ctx, expr->result, "object.%d");
 		out = &ret;
 
 		struct qbe_value base = mkqval(ctx, out);
@@ -906,7 +906,7 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct type *ltype = type_dealias(expr->binarithm.lvalue->result);
 	const struct type *rtype = type_dealias(expr->binarithm.rvalue->result);
-	struct gen_value result = mktemp(ctx, expr->result, ".%d");
+	struct gen_value result = mkgtemp(ctx, expr->result, ".%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
 
 	if (expr->binarithm.op == BIN_LAND || expr->binarithm.op == BIN_LOR) {
@@ -1070,7 +1070,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	};
 	struct gen_value rval = gv_void;
 	if (type_dealias(rtype->func.result)->storage != STORAGE_VOID) {
-		rval = mktemp(ctx, rtype->func.result, "returns.%d");
+		rval = mkgtemp(ctx, rtype->func.result, "returns.%d");
 		call.out = xcalloc(1, sizeof(struct qbe_value));
 		*call.out = mkqval(ctx, &rval);
 		call.out->type = qtype_lookup(ctx, rtype->func.result, false);
@@ -1238,8 +1238,8 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		subtype = tagged_subset_compat(to, from) ? from : to;
 		const struct type *innertype = type_store_tagged_to_union(
 				ctx->store, type_dealias(subtype));
-		struct gen_value iout = mktemp(ctx, innertype, ".%d");
-		struct gen_value ival = mktemp(ctx, innertype, ".%d");
+		struct gen_value iout = mkgtemp(ctx, innertype, ".%d");
+		struct gen_value ival = mkgtemp(ctx, innertype, ".%d");
 		struct qbe_value qiout = mkqval(ctx, &iout);
 		struct qbe_value qival = mkqval(ctx, &ival);
 		struct qbe_value offs = constl(to->align);
@@ -1259,7 +1259,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 			return;
 		}
 
-		struct gen_value storage = mktemp(ctx, subtype, ".%d");
+		struct gen_value storage = mkgtemp(ctx, subtype, ".%d");
 		struct qbe_value qstor = mklval(ctx, &storage);
 		struct qbe_value offs = constl(to->align);
 		pushi(ctx->current, &qstor, Q_ADD, &qout, &offs, NULL);
@@ -1323,9 +1323,9 @@ gen_expr_cast_array_at(struct gen_context *ctx,
 
 	struct qbe_value base = mkqval(ctx, &out);
 	struct qbe_value offs = constl((typein->array.length - 1) * membtype->size);
-	struct gen_value next = mktemp(ctx, membtype, ".%d");
+	struct gen_value next = mkgtemp(ctx, membtype, ".%d");
 	struct qbe_value ptr = mklval(ctx, &next);
-	struct gen_value item = mktemp(ctx, membtype, "item.%d");
+	struct gen_value item = mkgtemp(ctx, membtype, "item.%d");
 	struct qbe_value qitem = mklval(ctx, &item);
 	pushi(ctx->current, &qitem, Q_ADD, &base, &offs, NULL);
 
@@ -1404,7 +1404,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	if (cast_prefers_at(expr)) {
-		struct gen_value out = mktemp(ctx, expr->result, "object.%d");
+		struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
 		struct qbe_value base = mkqval(ctx, &out);
 		struct qbe_value sz = constl(expr->result->size);
 		enum qbe_instr alloc = alloc_for_align(expr->result->align);
@@ -1437,7 +1437,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		struct qbe_value qval = mkqval(ctx, &val);
 		if (expr->cast.kind == C_TEST) {
 			struct gen_value out =
-				mktemp(ctx, &builtin_type_bool, ".%d");
+				mkgtemp(ctx, &builtin_type_bool, ".%d");
 			struct qbe_value qout = mkqval(ctx, &out);
 			struct qbe_value zero = constl(0);
 
@@ -1507,7 +1507,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 
 	struct gen_value value = gen_expr(ctx, expr->cast.value);
 	struct qbe_value qvalue = mkqval(ctx, &value);
-	struct gen_value result = mktemp(ctx, expr->result, "cast.%d");
+	struct gen_value result = mkgtemp(ctx, expr->result, "cast.%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
 	struct gen_value intermediate;
 	struct qbe_value qintermediate;
@@ -1580,7 +1580,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 				switch (from->size) {
 				case 1:
 				case 2:
-					intermediate = mktemp(ctx,
+					intermediate = mkgtemp(ctx,
 						&builtin_type_i32, "cast.%d");
 					qintermediate = mkqval(ctx, &intermediate);
 					pushi(ctx->current, &qintermediate,
@@ -1600,7 +1600,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 				switch (from->size) {
 				case 1:
 				case 2:
-					intermediate = mktemp(ctx,
+					intermediate = mkgtemp(ctx,
 						&builtin_type_i32, "cast.%d");
 					qintermediate = mkqval(ctx, &intermediate);
 					pushi(ctx->current, &qintermediate,
@@ -1665,7 +1665,7 @@ gen_expr_compound_with(struct gen_context *ctx,
 
 	struct gen_value gvout = gv_void;
 	if (!out) {
-		gvout = mktemp(ctx, expr->result, ".%d");
+		gvout = mkgtemp(ctx, expr->result, ".%d");
 	}
 	scope->out = out;
 	scope->result = gvout;
@@ -1692,7 +1692,7 @@ gen_const_array_at(struct gen_context *ctx,
 
 	size_t n = 0;
 	const struct type *atype = type_dealias(expr->result);
-	struct gen_value item = mktemp(ctx, atype->array.members, "item.%d");
+	struct gen_value item = mkgtemp(ctx, atype->array.members, "item.%d");
 	for (const struct array_constant *ac = aexpr; ac; ac = ac->next) {
 		struct qbe_value offs = constl(n * atype->array.members->size);
 		struct qbe_value ptr = mklval(ctx, &item);
@@ -1768,7 +1768,7 @@ static struct gen_value
 gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 {
 	if (type_is_aggregate(type_dealias(expr->result))) {
-		struct gen_value out = mktemp(ctx, expr->result, "object.%d");
+		struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
 		struct qbe_value base = mkqval(ctx, &out);
 		struct qbe_value sz = constl(expr->result->size);
 		enum qbe_instr alloc = alloc_for_align(expr->result->align);
@@ -1987,7 +1987,7 @@ gen_expr_if_with(struct gen_context *ctx,
 {
 	struct gen_value gvout = gv_void;
 	if (!out) {
-		gvout = mktemp(ctx, expr->result, ".%d");
+		gvout = mkgtemp(ctx, expr->result, ".%d");
 	}
 
 	struct qbe_statement ltrue, lfalse, lend;
@@ -2194,7 +2194,7 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 	// tag of the foo object for int.
 	struct qbe_value *subtag = &tag;
 	struct qbe_value subval = mkcopy(ctx, &object, "subval.%d");
-	struct gen_value match = mktemp(ctx, &builtin_type_bool, ".%d");
+	struct gen_value match = mkgtemp(ctx, &builtin_type_bool, ".%d");
 	struct qbe_value qmatch = mkqval(ctx, &match);
 	struct qbe_value temp = mkqtmp(ctx, &qbe_word, ".%d");
 	const struct type *subtype = object.type;
@@ -2244,7 +2244,7 @@ gen_subset_match_tests(struct gen_context *ctx,
 	//
 	// In this situation, we test the match object's tag against each type
 	// ID of the case type.
-	struct gen_value match = mktemp(ctx, &builtin_type_bool, ".%d");
+	struct gen_value match = mkgtemp(ctx, &builtin_type_bool, ".%d");
 	for (const struct type_tagged_union *tu = &type->tagged; tu; tu = tu->next) {
 		struct qbe_statement lnexttag;
 		struct qbe_value bnexttag = mklabel(ctx, &lnexttag, ".%d");
@@ -2265,7 +2265,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 {
 	struct gen_value gvout = gv_void;
 	if (!out) {
-		gvout = mktemp(ctx, expr->result, ".%d");
+		gvout = mkgtemp(ctx, expr->result, ".%d");
 	}
 
 	const struct type *objtype = expr->match.value->result;
@@ -2397,7 +2397,7 @@ gen_match_with_nullable(struct gen_context *ctx,
 {
 	struct gen_value gvout = gv_void;
 	if (!out) {
-		gvout = mktemp(ctx, expr->result, ".%d");
+		gvout = mkgtemp(ctx, expr->result, ".%d");
 	}
 
 	struct qbe_statement lout;
@@ -2433,7 +2433,7 @@ gen_match_with_nullable(struct gen_context *ctx,
 		}
 
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
-		gb->value = mktemp(ctx, _case->type, "binding.%d");
+		gb->value = mkgtemp(ctx, _case->type, "binding.%d");
 		gb->object = _case->object;
 		gb->next = ctx->bindings;
 		ctx->bindings = gb;
@@ -2509,7 +2509,7 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 		case STORAGE_STRING:
 			gv = gen_expr(ctx, value);
 			gv = gen_autoderef(ctx, gv);
-			temp = mktemp(ctx, &builtin_type_size, ".%d");
+			temp = mkgtemp(ctx, &builtin_type_size, ".%d");
 			struct qbe_value qv = mkqval(ctx, &gv),
 				qtemp = mkqval(ctx, &temp),
 				offs = constl(builtin_type_size.size);
@@ -2580,7 +2580,7 @@ gen_expr_struct_at(struct gen_context *ctx,
 			&base, &zero, &size, NULL);
 	}
 
-	struct gen_value ftemp = mktemp(ctx, &builtin_type_void, "field.%d");
+	struct gen_value ftemp = mkgtemp(ctx, &builtin_type_void, "field.%d");
 	for (const struct expr_struct_field *field = expr->_struct.fields;
 			field; field = field->next) {
 		if (!field->value) {
@@ -2603,7 +2603,7 @@ gen_expr_switch_with(struct gen_context *ctx,
 {
 	struct gen_value gvout = gv_void;
 	if (!out) {
-		gvout = mktemp(ctx, expr->result, ".%d");
+		gvout = mkgtemp(ctx, expr->result, ".%d");
 	}
 
 	struct qbe_statement lout;
@@ -2714,7 +2714,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 		qbase = mkqtmp(ctx, ctx->arch.sz, "base.%d");
 		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
 		pushi(ctx->current, &qbase, load, &qobject, NULL);
-		length = mktemp(ctx, &builtin_type_size, "len.%d");
+		length = mkgtemp(ctx, &builtin_type_size, "len.%d");
 		qlength = mkqval(ctx, &length);
 		pushi(ctx->current, &qptr, Q_ADD, &qobject, &offset, NULL);
 		pushi(ctx->current, &qlength, load, &qptr, NULL);
@@ -2795,7 +2795,7 @@ gen_expr_tuple_at(struct gen_context *ctx,
 	struct qbe_value base = mkqval(ctx, &out);
 
 	const struct type *type = type_dealias(expr->result);
-	struct gen_value vtemp = mktemp(ctx, &builtin_type_void, "value.%d");
+	struct gen_value vtemp = mkgtemp(ctx, &builtin_type_void, "value.%d");
 	const struct expression_tuple *value = &expr->tuple;
 	for (const struct type_tuple *tuple = &type->tuple;
 			tuple; tuple = tuple->next) {
@@ -2822,7 +2822,7 @@ gen_expr_unarithm(struct gen_context *ctx,
 			val.type = expr->result;
 			return val;
 		}
-		struct gen_value val = mktemp(ctx, operand->result, ".%d");
+		struct gen_value val = mkgtemp(ctx, operand->result, ".%d");
 		struct qbe_value qv = mklval(ctx, &val);
 		struct qbe_value sz = constl(val.type->size);
 		enum qbe_instr alloc = alloc_for_align(val.type->align);
@@ -2837,21 +2837,21 @@ gen_expr_unarithm(struct gen_context *ctx,
 		return gen_load(ctx, val);
 	case UN_BNOT:
 		val = gen_expr(ctx, operand);
-		temp = mktemp(ctx, operand->result, ".%d");
+		temp = mkgtemp(ctx, operand->result, ".%d");
 		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
 		struct qbe_value ones = constl((uint64_t)-1);
 		pushi(ctx->current, &qtmp, Q_XOR, &qval, &ones, NULL);
 		return temp;
 	case UN_LNOT:
 		val = gen_expr(ctx, operand);
-		temp = mktemp(ctx, operand->result, ".%d");
+		temp = mkgtemp(ctx, operand->result, ".%d");
 		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
 		struct qbe_value zerow = constw(0);
 		pushi(ctx->current, &qtmp, Q_CEQW, &qval, &zerow, NULL);
 		return temp;
 	case UN_MINUS:
 		val = gen_expr(ctx, operand);
-		temp = mktemp(ctx, operand->result, ".%d");
+		temp = mkgtemp(ctx, operand->result, ".%d");
 		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
 		pushi(ctx->current, &qtmp, Q_NEG, &qval, NULL);
 		return temp;
@@ -2866,7 +2866,7 @@ gen_expr_vaarg(struct gen_context *ctx,
 	const struct expression *expr)
 {
 	// XXX: qbe only supports variadic base types, should check for this
-	struct gen_value result = mktemp(ctx, expr->result, ".%d");
+	struct gen_value result = mkgtemp(ctx, expr->result, ".%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
 	struct gen_value ap = gen_expr(ctx, expr->vaarg.ap);
 	struct qbe_value qap = mkqval(ctx, &ap);
@@ -2951,7 +2951,7 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		return *(struct gen_value *)expr->user;
 	}
 
-	struct gen_value out = mktemp(ctx, expr->result, "object.%d");
+	struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
 	struct qbe_value base = mkqval(ctx, &out);
 	struct qbe_value sz = constl(expr->result->size);
 	enum qbe_instr alloc = alloc_for_align(expr->result->align);

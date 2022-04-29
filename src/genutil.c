@@ -66,7 +66,7 @@ mkqtmp(struct gen_context *ctx, const struct qbe_type *qtype, const char *fmt)
 }
 
 struct gen_value
-mktemp(struct gen_context *ctx, const struct type *type, const char *fmt)
+mkgtemp(struct gen_context *ctx, const struct type *type, const char *fmt)
 {
 	return (struct gen_value){
 		.kind = GV_TEMP,

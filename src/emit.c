@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <float.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "emit.h"
@@ -96,7 +97,7 @@ emit_const(struct qbe_value *val, FILE *out)
 		fprintf(out, "%u", val->wval);
 		break;
 	case Q_LONG:
-		fprintf(out, "%lu", val->lval);
+		fprintf(out, "%" PRIu64, val->lval);
 		break;
 	case Q_SINGLE:
 		fprintf(out, "s_%.*g", DECIMAL_DIG, val->sval);

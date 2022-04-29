@@ -48,6 +48,33 @@ rt() {
 			rt: libhart.a rt/+freebsd/start+$arch.o
 			EOF
 			;;
+		OpenBSD)
+			case $arch in
+				amd64)
+					arch=x86_64
+					;;
+				aarch64|riscv64)
+					;;
+				*)
+					printf "unsupported OpenBSD arch %s\n" "$(uname)" >&2
+					;;
+			esac
+			rtstart=rt/+openbsd/start+$arch.o
+			cat <<-EOF
+			rtstart=rt/+openbsd/start+$arch.o
+
+			libhart_srcs=\
+				rt/+openbsd/errno.ha \
+				rt/+openbsd/segmalloc.ha \
+				rt/+openbsd/syscallno.ha \
+				rt/+openbsd/syscalls.ha \
+
+			libhart_objs=\
+				rt/+openbsd/syscall+$arch.o
+
+			rt: libhart.a rt/+openbsd/start+$arch.o
+			EOF
+			;;
 		*)
 			printf "rt not supported for %s\n" "$(uname)" >&2
 			exit 1

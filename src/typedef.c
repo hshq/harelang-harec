@@ -86,7 +86,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_I8:
 	case STORAGE_ICONST:
 	case STORAGE_INT:
-		fprintf(out, "%ld%s", val->ival,
+		fprintf(out, "%" PRIiMAX "%s", val->ival,
 			storage_to_suffix(type_dealias(expr->result)->storage));
 		break;
 	case STORAGE_NULL:
@@ -99,7 +99,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_U8:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
-		fprintf(out, "%lu%s", val->uval,
+		fprintf(out, "%" PRIuMAX "%s", val->uval,
 			storage_to_suffix(type_dealias(expr->result)->storage));
 		break;
 	case STORAGE_VOID:
@@ -301,10 +301,10 @@ emit_type(const struct type *type, FILE *out)
 				ev; ev = ev->next) {
 			fprintf(out, "%s = ", ev->name);
 			if (type_is_signed(type)) {
-				fprintf(out, "%zd%s", ev->ival,
+				fprintf(out, "%" PRIi64 "%s", ev->ival,
 					storage_to_suffix(type->_enum.storage));
 			} else {
-				fprintf(out, "%zu%s", ev->uval,
+				fprintf(out, "%" PRIu64 "%s", ev->uval,
 					storage_to_suffix(type->_enum.storage));
 			}
 			if (ev->next) {

@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "gen.h"
@@ -18,9 +19,9 @@ sf_compar(const void *_a, const void *_b)
 static const struct qbe_type *
 tagged_qtype(struct gen_context *ctx, const struct type *type)
 {
-	int n = snprintf(NULL, 0, "tags.%zd", ctx->id);
+	int n = snprintf(NULL, 0, "tags.%" PRIu64, ctx->id);
 	char *name = xcalloc(1, n + 1);
-	snprintf(name, n + 1, "tags.%zd", ctx->id);
+	snprintf(name, n + 1, "tags.%" PRIu64, ctx->id);
 	++ctx->id;
 
 	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
@@ -65,9 +66,9 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		}
 	}
 
-	int n = snprintf(NULL, 0, "type.%zd", ctx->id);
+	int n = snprintf(NULL, 0, "type.%" PRIu64, ctx->id);
 	char *name = xcalloc(1, n + 1);
-	snprintf(name, n + 1, "type.%zd", ctx->id);
+	snprintf(name, n + 1, "type.%" PRIu64, ctx->id);
 	++ctx->id;
 
 	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
