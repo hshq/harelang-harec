@@ -24,6 +24,7 @@ export fn compile(src: const str) int = {
 		execve(constchar(path), &argv, &envp);
 		abort();
 	} else {
+		assert(child != -1, "fork(2) failed");
 		close(pipefd[0]);
 
 		const buf = constchar(src): *const [*]u8;
