@@ -315,6 +315,10 @@ lex_literal(struct lexer *lexer, struct token *out)
 		if (!strchr(basechrs, c)) {
 			switch (c) {
 			case '.':
+				if (lexer->require_int) {
+					push(lexer, '.', true);
+					goto finalize;
+				}
 				if (isfloat || suff || exp) {
 					push(lexer, c, true);
 					goto finalize;
@@ -362,6 +366,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 	}
 
 finalize:
+	lexer->require_int = false;
 	out->token = T_LITERAL;
 	if (isfloat) {
 		out->storage = STORAGE_FCONST;
@@ -648,6 +653,7 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 		default:
 			push(lexer, c, false);
 			out->token = T_DOT;
+			lexer->require_int = true;
 			break;
 		}
 		break;
@@ -912,14 +918,16 @@ _lex(struct lexer *lexer, struct token *out)
 		return out->token;
 	}
 
-	if (c <= 0x7F && (isalpha(c) || c == '_' || c == '@')) {
-		push(lexer, c, false);
-		return lex_name(lexer, out);
-	}
-
 	if (c <= 0x7F && isdigit(c)) {
 		push(lexer, c, false);
 		return lex_literal(lexer, out);
+	}
+
+	lexer->require_int = false;
+
+	if (c <= 0x7F && (isalpha(c) || c == '_' || c == '@')) {
+		push(lexer, c, false);
+		return lex_name(lexer, out);
 	}
 
 	char p[5];

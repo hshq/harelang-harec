@@ -6,8 +6,10 @@ fn storage() void = {
 };
 
 fn indexing() void = {
-	let x: (int, size) = (42, 1337);
-	assert(x.0 == 42 && x.1 == 1337);
+	let x: ((int, uint), size) = ((42, 69), 1337);
+	assert(x.0.0 == 42);
+	assert(x.0.1 == 69);
+	assert(x.1 == 1337);
 };
 
 fn func(in: (int, size)) (int, size) = (in.0 + 1, in.1 + 1);
