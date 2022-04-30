@@ -10,6 +10,9 @@ fn indexing() void = {
 	assert(x.0.0 == 42);
 	assert(x.0.1 == 69);
 	assert(x.1 == 1337);
+	assert(x.1z == 1337);
+	assert(x.0x1 == 1337);
+	assert(x.1e+0 == 1337);
 };
 
 fn func(in: (int, size)) (int, size) = (in.0 + 1, in.1 + 1);
