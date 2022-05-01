@@ -39,7 +39,8 @@ do
 			SYSCONFDIR=${arg#*=}
 			;;
 		*)
-			option "$arg"
+			printf 'Error: unknown configure option %s\n' "$arg" >&2
+			exit 1
 			;;
 	esac
 done
