@@ -192,7 +192,7 @@ check_expr_access(struct context *ctx,
 		if (atype->storage != STORAGE_ARRAY
 				&& atype->storage != STORAGE_SLICE) {
 			error(ctx, aexpr->access.array->loc, expr,
-				"Cannot index non-array, non-slice %s object",
+				"Can only index into array or slice object, but got %s",
 				type_storage_unparse(atype->storage));
 			return;
 		}
@@ -434,26 +434,27 @@ check_expr_append_insert(struct context *ctx,
 	};
 
 	const struct type *sltype;
+	const struct type *sltypename;
 	const char *exprtype_name;
 	switch (expr->type) {
 	case EXPR_APPEND:
-		sltype = type_dereference(expr->append.object->result);
-		sltype = type_dealias(sltype);
+		sltypename = expr->append.object->result;
 		exprtype_name = "append";
 		break;
 	case EXPR_INSERT:
 		assert(expr->append.object->access.type == ACCESS_INDEX);
-		sltype = expr->append.object->access.array->result;
-		sltype = type_dealias(type_dereference(sltype));
+		sltypename = expr->append.object->access.array->result;
 		exprtype_name = "insert";
 		break;
 	default:
 		abort(); // Invariant
 	}
+	sltype = type_dealias(type_dereference(sltypename));
 
 	if (sltype->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->append.object->loc, expr,
-			"expression must operate on a slice");
+			"%s expression must operate on a slice, but got %s",
+			exprtype_name, gen_typename(sltypename));
 		return;
 	}
 	if (sltype->flags & TYPE_CONST) {
@@ -1321,7 +1322,8 @@ check_expr_array(struct context *ctx,
 			}
 			if (!type_is_assignable(type, value->result)) {
 				error(ctx, item->value->loc, expr,
-					"Array members must be of a uniform type");
+					"Array members must be of a uniform type, previously seen %s, but now see %s",
+					gen_typename(type), gen_typename(value->result));
 				return;
 			}
 			if (!hint) {
@@ -1956,7 +1958,8 @@ check_expr_propagate(struct context *ctx,
 	const struct type *intype = lvalue->result;
 	if (type_dealias(intype)->storage != STORAGE_TAGGED) {
 		error(ctx, aexpr->loc, expr,
-			"Cannot use error propagation with non-tagged type");
+			"Cannot use error propagation on non-tagged type %s",
+			gen_typename(intype));
 		return;
 	}
 	if (!aexpr->propagate.abort) {
