@@ -53,13 +53,13 @@ export fn main() void = {
 	};
 	assert(*p == 0);
 
-        let thing: int = 0;
-        let thing = &thing: (*int | int);
-        let p = match (thing) {
+	let thing: int = 0;
+	let thing = &thing: (*int | int);
+	let p = match (thing) {
 	case int =>
 		abort();
 	case let p: *int =>
 		yield p;
-        };
-        *p = 0;
+	};
+	*p = 0;
 };

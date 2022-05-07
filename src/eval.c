@@ -394,7 +394,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	}
 
 	const struct type *to = type_dealias(in->result),
-	      *from = type_dealias(val.result);
+		*from = type_dealias(val.result);
 	// The STORAGE_ARRAY exception is to make sure we handle expandable
 	// arrays at this point.
 	if (to->storage == from->storage && to->storage != STORAGE_ARRAY) {

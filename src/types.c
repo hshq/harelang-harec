@@ -687,7 +687,7 @@ tagged_subset_compat(const struct type *superset, const struct type *subset)
 		return false;
 	}
 	const struct type_tagged_union *superset_tu = &superset->tagged,
-	      *subset_tu = &subset->tagged;
+		*subset_tu = &subset->tagged;
 	while (subset_tu && superset_tu) {
 		while (superset_tu) {
 			if (superset_tu->type->id == subset_tu->type->id) {
@@ -732,7 +732,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 	if (to->id == from->id && to->storage != STORAGE_VOID) {
 		return true;
 	}
-	
+
 	if (type_is_constant(from)) {
 		return promote_const(to_orig, from_orig);
 	}

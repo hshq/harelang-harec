@@ -18,7 +18,7 @@ fn indexing() void = {
 fn func(in: (int, size)) (int, size) = (in.0 + 1, in.1 + 1);
 
 fn eval_expr_access() void = {
-	static assert ((42, 0).0 == 42 && (42, 0).1 == 0);
+	static assert((42, 0).0 == 42 && (42, 0).1 == 0);
 };
 
 fn eval_expr_tuple() void = {

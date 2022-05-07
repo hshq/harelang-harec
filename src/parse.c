@@ -1864,7 +1864,7 @@ parse_switch_expression(struct lexer *lexer)
 	want(lexer, T_LBRACE, &tok);
 
 	bool more = true;
-	struct ast_switch_case **next_case = &exp->_switch.cases; 
+	struct ast_switch_case **next_case = &exp->_switch.cases;
 	while (more) {
 		struct ast_switch_case *_case =
 			*next_case = xcalloc(1, sizeof(struct ast_switch_case));

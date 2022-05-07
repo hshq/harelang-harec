@@ -1159,7 +1159,7 @@ gen_expr_cast_slice_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
 	const struct type *to = expr->result,
-	      *from = type_dealias(expr->cast.value->result);
+		*from = type_dealias(expr->cast.value->result);
 	if (from->storage == STORAGE_POINTER) {
 		from = type_dealias(from->pointer.referent);
 	}

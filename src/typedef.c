@@ -181,7 +181,7 @@ emit_struct(const struct type *type, FILE *out)
 	fprintf(out, "%s { ", type->storage == STORAGE_STRUCT
 			? "struct" : "union");
 	for (size_t i = 0; i < n; ++i) {
-		const struct struct_field *f = fields[i]; 
+		const struct struct_field *f = fields[i];
 		if (!type->struct_union.c_compat) {
 			fprintf(out, "@offset(%zd) ", f->offset);
 		}

@@ -62,9 +62,9 @@ fn pointer() void = {
 		abort();
 	};
 	assert(z == 42);
-	
+
 	y = null;
-	z = match(y) {
+	z = match (y) {
 	case *int =>
 		abort();
 	case null =>

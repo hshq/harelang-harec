@@ -383,7 +383,7 @@ finalize:
 			[STORAGE_I16] = "i16",
 			[STORAGE_I32] = "i32",
 			[STORAGE_I64] = "i64",
-		
+
 			[STORAGE_UINT] = "u",
 			[STORAGE_INT] = "i",
 			[STORAGE_SIZE] = "z",
