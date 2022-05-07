@@ -31,7 +31,7 @@ enum stage {
 	STAGE_EMIT,
 };
 
-enum stage
+static enum stage
 parse_stage(const char *s)
 {
 	if (s == NULL) {
