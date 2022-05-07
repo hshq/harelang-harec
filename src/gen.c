@@ -553,6 +553,8 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value *out)
 {
 	// alloc(init...) case
+	assert(expr->alloc.cap == NULL);
+
 	struct gen_value ret = gv_void;
 	if (out == NULL) {
 		ret = mkgtemp(ctx, expr->result, "object.%d");
@@ -568,15 +570,27 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 
 	struct gen_value src = gen_expr(ctx, expr->alloc.init);
-	struct qbe_value sbase = mkcopy(ctx, &src, ".%d");
 	struct qbe_value dbase = mkcopy(ctx, out, ".%d");
-	struct qbe_value srcdata = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &srcdata, load, &sbase, NULL);
 	struct qbe_value offs = constl(builtin_type_size.size);
-	pushi(ctx->current, &sbase, Q_ADD, &sbase, &offs, NULL);
 
-	struct qbe_value length = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &length, load, &sbase, NULL);
+	const struct type *initres = type_dealias(expr->alloc.init->result);
+	struct qbe_value srcdata;
+	struct qbe_value length;
+	if (initres->storage == STORAGE_SLICE) {
+		assert(initres->array.length == SIZE_UNDEFINED);
+		srcdata = mkqtmp(ctx, ctx->arch.sz, ".%d");
+		struct qbe_value sbase = mkcopy(ctx, &src, ".%d");
+		pushi(ctx->current, &srcdata, load, &sbase, NULL);
+		pushi(ctx->current, &sbase, Q_ADD, &sbase, &offs, NULL);
+		length = mkqtmp(ctx, ctx->arch.sz, ".%d");
+		pushi(ctx->current, &length, load, &sbase, NULL);
+	} else if (initres->storage == STORAGE_ARRAY) {
+		assert(initres->array.length != SIZE_UNDEFINED);
+		srcdata = mkcopy(ctx, &src, ".%d"); // TODO: object.%d
+		length = constl(initres->array.length);
+	} else {
+		abort();
+	}
 
 	struct qbe_statement linvalid, lvalid, lalloc;
 	struct qbe_value balloc = mklabel(ctx, &lalloc, ".%d");
@@ -589,10 +603,10 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	pushi(ctx->current, NULL, Q_JNZ, &length, &balloc, &bvalid, NULL);
 	push(&ctx->current->body, &lalloc);
 
-	const struct type *membtype =
-		type_dealias(expr->alloc.init->result)->array.members;
+	const struct type *result = type_dealias(expr->result);
+	assert(result->storage == STORAGE_SLICE);
 	struct qbe_value sz = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	struct qbe_value membsz = constl(membtype->size);
+	struct qbe_value membsz = constl(result->array.members->size);
 	pushi(ctx->current, &sz, Q_MUL, &membsz, &length, NULL);
 
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");

@@ -106,6 +106,13 @@ fn slice_copy() void = {
 	let q: *[]int = alloc(x);
 	defer free(q);
 	assert((*q): *[*]int == x: *[*]int);
+
+	let r: []int = alloc([1, 2, 3]...);
+	defer free(r);
+	assert(len(x) == len(r));
+	for (let i = 0z; i < len(x); i += 1) {
+		assert(x[i] == r[i]);
+	};
 };
 
 fn string() void = {

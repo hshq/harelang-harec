@@ -293,6 +293,9 @@ check_expr_alloc_init(struct context *ctx,
 		case STORAGE_SLICE:
 			inithint = hint;
 			break;
+		case STORAGE_TAGGED:
+			// TODO
+			break;
 		default:
 			// The user's code is wrong here, but we'll let it fail
 			// later.
@@ -375,17 +378,28 @@ check_expr_alloc_copy(struct context *ctx,
 	// alloc(init...) case
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 
-	const struct type *result = expr->alloc.init->result;
-	if (hint && result != hint) {
-		// TODO: We might be able to be less strict on this. We could
-		// copy slices of types which differ only based on the flag, or
-		// copy an array into a new slice.
+	const struct type *result = type_dealias(expr->alloc.init->result);
+	if (result->storage != STORAGE_ARRAY
+			&& result->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->alloc.init->loc, expr,
-			"Cannot copy a slice to a slice of another type");
+			"Slice initializer must be of slice or array type, not %s",
+			type_storage_unparse(result->storage));
 		return;
 	}
+	if (hint) {
+		const struct type *htype = type_dealias(hint);
+		if (htype->storage != STORAGE_SLICE
+				&& htype->storage != STORAGE_TAGGED) {
+			error(ctx, aexpr->alloc.init->loc, expr,
+				"Hint must be a slice type, not %s",
+				type_storage_unparse(htype->storage));
+			return;
+		}
+	}
 
-	expr->result = result;
+	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
+	result = type_dealias(expr->alloc.init->result);
+	expr->result = type_store_lookup_slice(ctx->store, result->array.members);
 }
 
 static void
