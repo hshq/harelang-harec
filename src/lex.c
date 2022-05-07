@@ -287,25 +287,27 @@ lex_literal(struct lexer *lexer, struct token *out)
 
 	int base = 10;
 	const char *basechrs = "0123456789";
-	switch ((c = next(lexer, NULL, true))) {
-	case 'b':
-		base = 2;
-		basechrs = "01";
-		consume(lexer, 2);
-		break;
-	case 'o':
-		base = 8;
-		basechrs = "01234567";
-		consume(lexer, 2);
-		break;
-	case 'x':
-		base = 16;
-		basechrs = "0123456789ABCDEFabcdef";
-		consume(lexer, 2);
-		break;
-	default:
-		push(lexer, c, true);
-		break;
+	if (c == '0') {
+		switch ((c = next(lexer, NULL, true))) {
+		case 'b':
+			base = 2;
+			basechrs = "01";
+			consume(lexer, 2);
+			break;
+		case 'o':
+			base = 8;
+			basechrs = "01234567";
+			consume(lexer, 2);
+			break;
+		case 'x':
+			base = 16;
+			basechrs = "0123456789ABCDEFabcdef";
+			consume(lexer, 2);
+			break;
+		default:
+			push(lexer, c, true);
+			break;
+		}
 	}
 
 	char *suff = NULL;
