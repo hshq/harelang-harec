@@ -1384,6 +1384,38 @@ parse_slice_mutation(struct lexer *lexer, bool is_static)
 }
 
 static struct ast_expression *
+parse_static_expression(struct lexer *lexer, bool allowbinding)
+{
+	struct token tok = {0};
+	switch (lex(lexer, &tok)) {
+	case T_LET:
+	case T_CONST:
+		synassert(allowbinding, &tok, T_ABORT, T_ASSERT, T_APPEND,
+			T_INSERT, T_DELETE, T_EOF);
+		unlex(lexer, &tok);
+		return parse_binding_list(lexer, true);
+	case T_ABORT:
+	case T_ASSERT:
+		unlex(lexer, &tok);
+		return parse_assertion_expression(lexer, true);
+	case T_APPEND:
+	case T_INSERT:
+	case T_DELETE:
+		unlex(lexer, &tok);
+		return parse_slice_mutation(lexer, true);
+	default:
+		if (allowbinding) {
+			synassert(false, &tok, T_LET, T_CONST, T_ABORT,
+				T_ASSERT, T_APPEND, T_INSERT, T_DELETE, T_EOF);
+		} else {
+			synassert(false, &tok, T_ABORT, T_ASSERT, T_APPEND,
+				T_INSERT, T_DELETE, T_EOF);
+		}
+	}
+	assert(0); // Unreachable
+}
+
+static struct ast_expression *
 parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
 	if (lvalue == NULL) {
@@ -1518,21 +1550,7 @@ parse_builtin_expression(struct lexer *lexer)
 		unlex(lexer, &tok);
 		return parse_slice_mutation(lexer, false);
 	case T_STATIC:
-		switch (lex(lexer, &tok)) {
-		case T_ABORT:
-		case T_ASSERT:
-			unlex(lexer, &tok);
-			return parse_assertion_expression(lexer, true);
-		case T_APPEND:
-		case T_DELETE:
-		case T_INSERT:
-			unlex(lexer, &tok);
-			return parse_slice_mutation(lexer, true);
-		default:
-			synassert(false, &tok, T_ABORT, T_ASSERT,
-					T_APPEND, T_DELETE, T_INSERT, T_EOF);
-		};
-		break;
+		return parse_static_expression(lexer, false);
 	case T_ABORT:
 	case T_ASSERT:
 		unlex(lexer, &tok);
@@ -1784,13 +1802,28 @@ parse_for_expression(struct lexer *lexer)
 		unlex(lexer, &tok);
 		exp->_for.bindings = parse_binding_list(lexer, false);
 		want(lexer, T_SEMICOLON, &tok);
+		exp->_for.cond = parse_expression(lexer);
+		break;
+	case T_STATIC:
+		switch (lex(lexer, &tok)) {
+		case T_LET:
+		case T_CONST:
+			unlex(lexer, &tok);
+			exp->_for.bindings = parse_binding_list(lexer, true);
+			want(lexer, T_SEMICOLON, &tok);
+			exp->_for.cond = parse_expression(lexer);
+			break;
+		default:
+			unlex(lexer, &tok);
+			exp->_for.cond = parse_static_expression(lexer, false);
+			break;
+		}
 		break;
 	default:
 		unlex(lexer, &tok);
+		exp->_for.cond = parse_expression(lexer);
 		break;
 	}
-
-	exp->_for.cond = parse_expression(lexer);
 
 	switch (lex(lexer, &tok)) {
 	case T_SEMICOLON:
@@ -2210,24 +2243,7 @@ parse_expression(struct lexer *lexer)
 		unlex(lexer, &tok);
 		return parse_binding_list(lexer, false);
 	case T_STATIC:
-		switch (lex(lexer, &tok)) {
-		case T_LET:
-		case T_CONST:
-			unlex(lexer, &tok);
-			return parse_binding_list(lexer, true);
-		case T_ABORT:
-		case T_ASSERT:
-			unlex(lexer, &tok);
-			return parse_assertion_expression(lexer, true);
-		case T_APPEND:
-		case T_INSERT:
-		case T_DELETE:
-			unlex(lexer, &tok);
-			return parse_slice_mutation(lexer, true);
-		default:
-			synassert(false, &tok, T_LET, T_CONST, T_ABORT, T_ASSERT, T_EOF);
-		}
-		assert(0); // Unreachable
+		return parse_static_expression(lexer, true);
 	case T_BREAK:
 	case T_CONTINUE:
 	case T_RETURN:

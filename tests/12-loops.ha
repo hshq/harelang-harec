@@ -106,6 +106,16 @@ fn alias() void = {
 	abort("unreachable");
 };
 
+fn _static() void = {
+	let count = 0z;
+	for (let i = 0z; i < 2; i += 1) {
+		for (static let j = 0z; j < 5; j += 1) {
+			count += 1;
+		};
+	};
+	assert(count == 5);
+};
+
 export fn main() void = {
 	scope();
 	conditional();
@@ -115,4 +125,5 @@ export fn main() void = {
 	_continue();
 	label();
 	alias();
+	_static();
 };
