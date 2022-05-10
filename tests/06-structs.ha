@@ -225,6 +225,20 @@ fn fields() void = {
 	assert(&sp.c: uintptr == &n: uintptr + 2);
 };
 
+fn eval_struct() void = {
+	static let s = struct {
+		a: u8 = 69,
+		b: u32 = 1337,
+	};
+};
+
+fn eval_access() void = {
+	static assert(struct {
+		a: u8 = 69,
+		b: u32 = 1337,
+	}.b == 1337);
+};
+
 export fn main() void = {
 	padding();
 	storage();
@@ -235,6 +249,8 @@ export fn main() void = {
 	autofill();
 	invariants();
 	fields();
+	eval_struct();
+	eval_access();
 	// TODO:
 	// - Union tests
 	// - Embedded structs

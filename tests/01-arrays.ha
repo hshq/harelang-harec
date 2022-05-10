@@ -125,6 +125,14 @@ fn extype() void = {
 	assert(x[1] == 42);
 };
 
+fn eval_array() void = {
+	static let a = [1, 2];
+};
+
+fn eval_access() void = {
+	static assert([1, 2][0] == 1 && [1, 2][1] == 2);
+};
+
 export fn main() void = {
 	indexing();
 	measurements();
@@ -135,4 +143,6 @@ export fn main() void = {
 	nested();
 	expanded();
 	extype();
+	eval_array();
+	eval_access();
 };

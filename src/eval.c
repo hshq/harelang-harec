@@ -14,6 +14,9 @@
 static enum eval_result
 eval_access(struct context *ctx, struct expression *in, struct expression *out)
 {
+	struct expression tmp = {0};
+	enum eval_result r;
+
 	out->type = EXPR_CONSTANT;
 	out->result = in->result;
 
@@ -21,18 +24,49 @@ eval_access(struct context *ctx, struct expression *in, struct expression *out)
 	case ACCESS_IDENTIFIER:
 		return EVAL_INVALID; // &ident handled in eval_unarithm
 	case ACCESS_INDEX:
-		assert(0); // TODO
+		r = eval_expr(ctx, in->access.array, &tmp);
+		if (r != EVAL_OK) {
+			return r;
+		}
+		const struct array_constant *array = tmp.constant.array;
+		r = eval_expr(ctx, in->access.index, &tmp);
+		if (r != EVAL_OK) {
+			return r;
+		}
+		for (size_t i = tmp.constant.uval; i > 0; --i) {
+			if (array == NULL) {
+				// out of bounds
+				return EVAL_INVALID;
+			}
+			array = array->next;
+		}
+		return eval_expr(ctx, array->value, out);
 	case ACCESS_FIELD:
-		assert(0); // TODO
+		r = eval_expr(ctx, in->access._struct, &tmp);
+		if (r != EVAL_OK) {
+			return r;
+		}
+		const struct struct_constant *fields = tmp.constant._struct;
+		for (; fields != NULL; fields = fields->next) {
+			if (!strcmp(fields->field->name, in->access.field->name)) {
+				break;
+			}
+		}
+		if (fields == NULL) {
+			return EVAL_INVALID;
+		}
+		return eval_expr(ctx, fields->value, out);
 	case ACCESS_TUPLE:
-		out->type = EXPR_CONSTANT;
-		struct expression tmp = {0};
-		enum eval_result r = eval_expr(ctx, in->access.tuple, &tmp);
+		r = eval_expr(ctx, in->access.tuple, &tmp);
 		if (r != EVAL_OK) {
 			return r;
 		}
 		const struct tuple_constant *tuple = tmp.constant.tuple;
 		for (size_t i = in->access.tindex; i > 0; --i) {
+			if (tuple == NULL) {
+				// out of bounds
+				return EVAL_INVALID;
+			}
 			tuple = tuple->next;
 		}
 		return eval_expr(ctx, tuple->value, out);
