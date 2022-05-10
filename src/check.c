@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -359,6 +360,21 @@ check_expr_alloc_slice(struct context *ctx,
 		return;
 	}
 	expr->alloc.cap = lower_implicit_cast(&builtin_type_size, expr->alloc.cap);
+
+	struct expression cap = {0};
+	if (expr->alloc.init->type == EXPR_CONSTANT
+			&& eval_expr(ctx, expr->alloc.cap, &cap) == EVAL_OK) {
+		uintmax_t len = 0;
+		for (struct array_constant *c = expr->alloc.init->constant.array;
+				c != NULL; c = c->next) {
+			len++;
+		}
+		if (cap.constant.uval < len) {
+			error(ctx, aexpr->alloc.cap->loc, expr,
+				"Slice capacity cannot be smaller than length of initializer");
+			return;
+		}
+	}
 
 	const struct type *membtype = type_dealias(objtype)->array.members;
 	expr->result = type_store_lookup_slice(ctx->store, membtype);
