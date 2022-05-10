@@ -23,6 +23,8 @@ fn measurements() void = {
 	let x = [1, 2, 3];
 	assert(len(x) == 3);
 	assert(size([3]int) == size(int) * 3);
+
+	static assert(len([1, 2, 3]) == 3);
 };
 
 fn storage() void = {

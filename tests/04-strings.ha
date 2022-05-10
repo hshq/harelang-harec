@@ -9,6 +9,8 @@ fn measurements() void = {
 		if (size(*u8) > size(size)) size(*u8)
 		else size(size);
 	assert(&x: uintptr: size % align == 0);
+
+	static assert(len("Hello!") == 6);
 };
 
 fn storage() void = {

@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include "check.h"
@@ -505,9 +506,33 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 	assert(in->type == EXPR_MEASURE);
 	out->type = EXPR_CONSTANT;
 	out->result = &builtin_type_size;
+	struct expression obj = {0};
+	enum eval_result res;
 	switch (in->measure.op) {
 	case M_LEN:
-		assert(0); // TODO
+		res = eval_expr(ctx, in->measure.value, &obj);
+		if (res != EVAL_OK) {
+			return res;
+		}
+
+		switch (obj.result->storage) {
+		case STORAGE_ARRAY:
+		case STORAGE_SLICE:
+			break;
+		case STORAGE_STRING:
+			out->constant.uval = obj.constant.string.len;
+			return EVAL_OK;
+		default:
+			abort(); // Invariant
+		}
+
+		uintmax_t len = 0;
+		for (struct array_constant *c = obj.constant.array;
+				c != NULL; c = c->next) {
+			len++;
+		}
+		out->constant.uval = len;
+		return EVAL_OK;
 	case M_SIZE:
 		out->constant.uval = in->measure.dimensions.size;
 		return EVAL_OK;
