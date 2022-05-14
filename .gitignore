@@ -6,3 +6,6 @@ harec*
 **/*.a
 tests/*
 !tests/*.ha
+!tests/run
+!Makefile
+!configure
