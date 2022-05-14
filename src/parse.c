@@ -2112,7 +2112,7 @@ parse_deferred_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_control_statement(struct lexer *lexer)
+parse_control_expression(struct lexer *lexer)
 {
 	struct ast_expression *exp = mkexpr(&lexer->loc);
 
@@ -2261,7 +2261,7 @@ parse_expression(struct lexer *lexer)
 		case T_RETURN:
 		case T_YIELD:
 			unlex(lexer, &tok);
-			value = parse_control_statement(lexer);
+			value = parse_control_expression(lexer);
 			break;
 		case T_DEFER:
 			value = parse_deferred_expression(lexer);
