@@ -1250,6 +1250,11 @@ check_expr_cast(struct context *ctx,
 	// different nonterminal
 	check_expression(ctx, aexpr->cast.value, value,
 			secondary == &builtin_type_void ? NULL : secondary);
+	if (value->terminates) {
+		error(ctx, aexpr->cast.value->loc, expr,
+			"Cast must not operate on terminating expression");
+		return;
+	}
 
 	const struct type *primary = type_dealias(expr->cast.value->result);
 	switch (aexpr->cast.kind) {
