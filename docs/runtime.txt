@@ -1,9 +1,9 @@
 harec expects the runtime to provide some features under the "rt" namespace.
 
-fn @noreturn rt::abort(msg: str) void
+@noreturn @symbol("rt.abort") fn _abort(msg: str) void;
 	Print a diagnostic message and terminate the program.
 
-fn @noreturn rt::abort_fixed(reason: int) void
+@noreturn fn abort_fixed(reason: int) void;
 	Print a diagnostic message from a list of pre-determined abort reasons,
 	and terminate the program. The list of reasons are:
 
@@ -33,7 +33,7 @@ field accordingly. "unensure" is called when the space is no longer needed, and
 should shrink the allocation as appropriate.
 
 	type slice = struct {
-		data: *void,
+		data: nullable *void,
 		length: size,
 		capacity: size,
 	};
