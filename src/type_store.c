@@ -176,6 +176,10 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		error(store->check_context, atype->type->loc,
 			"Struct field size cannot be zero");
 		return NULL;
+	} else if (dim.align == 0) {
+		error(store->check_context, atype->type->loc,
+			"Struct field alignment cannot be zero");
+		return NULL;
 	}
 
 	if (atype->offset) {
