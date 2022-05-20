@@ -8,6 +8,7 @@ harec: $(harec_objects)
 	@$(CC) $(LDFLAGS) -o $@ $(harec_objects) $(LIBS)
 
 include rt/Makefile
+include testmod/Makefile
 include tests/Makefile
 
 .SUFFIXES: .c .o .ha .s .scd .1 .5
@@ -20,7 +21,7 @@ include tests/Makefile
 	@printf 'AS\t$@\n'
 	@$(AS) -o $@ $<
 
-clean: clean-tests clean-rt
+clean: clean-tests clean-rt clean-testmod
 	@rm -f harec $(harec_objects)
 
 distclean: clean

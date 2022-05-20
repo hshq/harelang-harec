@@ -225,6 +225,7 @@ EOF
 	populate "$srcdir/rt"
 	populate "$srcdir/src"
 	populate "$srcdir/tests"
+	populate "$srcdir/testmod"
 	ln -sf "$srcdir"/Makefile ./
 	echo done
 }

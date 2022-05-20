@@ -1,41 +1,42 @@
 use rt;
+use testmod;
 
 fn accept() void = {
 	assert(rt::compile("
-		use rt;
-		export fn main() void = { &rt::free_; };
+		use testmod;
+		export fn main() void = { &testmod::testfunc1; };
 	") == 0);
 	assert(rt::compile("
-		use rt;
-		use test = rt;
-		export fn main() void = static assert(&rt::free_ == &test::free_);
+		use testmod;
+		use alias = testmod;
+		export fn main() void = static assert(&testmod::testfunc1 == &alias::testfunc1);
 	") == 0);
 	assert(rt::compile("
-		use rt;
-		use rt::{free_, malloc};
+		use testmod;
+		use testmod::{testfunc1, testfunc2};
 		export fn main() void = static assert(
-			&rt::free_ == &free_ && &rt::malloc == &malloc
+			&testmod::testfunc1 == &testfunc1 && &testmod::testfunc2 == &testfunc2
 		);
 	") == 0);
 	assert(rt::compile("
-		use rt;
-		use rt::*;
+		use testmod;
+		use testmod::*;
 		export fn main() void = static assert(
-			&rt::free_ == &free_ && &rt::malloc == &malloc
+			&testmod::testfunc1 == &testfunc1 && &testmod::testfunc2 == &testfunc2
 		);
 	") == 0);
 	assert(rt::compile("
-		use rt;
-		use rt::{test = free_, malloc};
+		use testmod;
+		use testmod::{alias = testfunc1, testfunc2};
 		export fn main() void = static assert(
-			&rt::free_ == &test && &rt::malloc == &malloc
+			&testmod::testfunc1 == &alias && &testmod::testfunc2 == &testfunc2
 		);
 	") == 0);
 	assert(rt::compile("
-		use rt;
-		use test = rt::{test = free_, malloc};
+		use testmod;
+		use modalias = testmod::{fnalias = testfunc1, testfunc2};
 		export fn main() void = static assert(
-			&rt::free_ == &test::test && &rt::malloc == &test::malloc
+			&testmod::testfunc1 == &modalias::fnalias && &testmod::testfunc2 == &modalias::testfunc2
 		);
 	") == 0);
 };
@@ -43,37 +44,37 @@ fn accept() void = {
 fn reject() void = {
 	assert(rt::compile("
 		use wrong;
-		export fn main() void = &rt::free_;
+		export fn main() void = { &testmod::testfunc1 };
 	") != 0);
 	assert(rt::compile("
-		use rt::{free_};
+		use testmod::{testfunc1};
 		export fn main() void = static assert(
-			&rt::free_ != null
+			&testmod::testfunc1 != null
 		);
 	") != 0);
 	assert(rt::compile("
-		use rt::{free_};
+		use testmod::{testfunc1};
 		export fn main() void = static assert(
-			&malloc != null
+			&testfunc2 != null
 		);
 	") != 0);
 	assert(rt::compile("
-		use rt;
-		use test = rt::*;
+		use testmod;
+		use test = testmod::*;
 		export fn main() void = void;
 	") != 0);
 	assert(rt::compile("
-		use rt;
-		use rt*;
+		use testmod;
+		use testmod*;
 		export fn main() void = void;
 	") != 0);
 	assert(rt::compile("
-		use rt::{test = free_, malloc};
-		export fn main() void = static assert(&free_ != null);
+		use testmod::{alias = testfunc1, testfunc2};
+		export fn main() void = static assert(&testfunc1 != null);
 	") != 0);
 	assert(rt::compile("
-		use test = rt::{test = free_, malloc};
-		export fn main() void = static assert(&test != null);
+		use modalias = testmod::{fnalias = testfunc1, testfunc2};
+		export fn main() void = static assert(&fnalias != null);
 	") != 0);
 };
 
