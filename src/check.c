@@ -3408,7 +3408,6 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 
 	ctx->resolving_enum = idecl->field->enum_scope;
-	// TODO set this type's contents to the correct builtin type
 	const struct type *type =
 		type_store_lookup_atype(ctx->store, idecl->field->type);
 
@@ -3416,9 +3415,6 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		xcalloc(1, sizeof(struct expression));
 	value->result = type;
 	if (idecl->field->field->value) { // explicit value
-		// TODO: negative values in unsigned enums, too big values in
-		// signed enums
-
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, idecl->field->field->value,
