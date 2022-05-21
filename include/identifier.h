@@ -9,6 +9,11 @@ struct identifier {
 	struct identifier *ns;
 };
 
+struct identifiers {
+	struct identifier ident;
+	struct identifiers *next;
+};
+
 uint32_t identifier_hash(uint32_t init, const struct identifier *ident);
 char *identifier_unparse(const struct identifier *ident);
 int identifier_unparse_static(

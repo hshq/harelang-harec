@@ -3797,7 +3797,7 @@ check_internal(struct type_store *ts,
 	struct scopes *subunit_scopes = NULL;
 	struct scopes **next = &subunit_scopes;
 	struct scope *su_scope = NULL;
-	struct imports **inext = &unit->imports;
+	struct identifiers **inext = &unit->imports;
 
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
@@ -3816,7 +3816,7 @@ check_internal(struct type_store *ts,
 			load_import(&ctx, imports, ts, su_scope);
 
 			bool found = false;
-			for (struct imports *uimports = unit->imports;
+			for (struct identifiers *uimports = unit->imports;
 					uimports; uimports = uimports->next) {
 				if (identifier_eq(&uimports->ident, &imports->ident)) {
 					found = true;
@@ -3824,8 +3824,8 @@ check_internal(struct type_store *ts,
 				}
 			}
 			if (!found) {
-				struct imports *uimport = *inext =
-					xcalloc(1, sizeof(struct imports));
+				struct identifiers *uimport = *inext =
+					xcalloc(1, sizeof(struct identifiers));
 				identifier_dup(&uimport->ident, &imports->ident);
 				inext = &uimport->next;
 			}
