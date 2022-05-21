@@ -3288,7 +3288,6 @@ incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl 
 			scope_push(&enum_scope, SCOPE_ENUM);
 			incomplete_enum_field_create(ctx, imp, enum_scope,
 				etype, t->type->_enum.values);
-			scope_push(&enum_scope, SCOPE_ENUM);
 		}
 	}
 }
