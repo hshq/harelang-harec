@@ -643,11 +643,12 @@ type_init_from_atype(struct type_store *store,
 			return (struct dimensions){0};
 		}
 
-
 		if (obj->otype == O_SCAN) {
 			// an incomplete declaration was encountered
 			struct dimensions dim = {0};
-			if (size_only) {
+			struct incomplete_declaration *idecl =
+				(struct incomplete_declaration *)obj;
+			if (size_only && idecl->type == IDECL_DECL) {
 				scan_decl_finish(store->check_context, obj, &dim);
 				type->size = dim.size;
 				type->align = dim.align;
@@ -665,7 +666,11 @@ type_init_from_atype(struct type_store *store,
 			return (struct dimensions){0};
 		}
 
-		if (atype->unwrap) {
+		type->storage = obj->type->storage;
+		if (obj->type->storage == STORAGE_ENUM) {
+			assert(obj->type->enum_values);
+			type->enum_values = obj->type->enum_values;
+		} else if (atype->unwrap) {
 			*type = *type_dealias(obj->type);
 			break;
 		}
@@ -700,82 +705,19 @@ type_init_from_atype(struct type_store *store,
 		}
 		break;
 	case STORAGE_ENUM:
-		type->_enum.storage = atype->_enum.storage;
-		const struct type *storage =
-			builtin_type_for_storage(type->_enum.storage, true);
-		if (!type_is_integer(storage)
-				&& type->_enum.storage != STORAGE_RUNE) {
+		mkident(store->check_context, &type->alias.ident, &atype->alias);
+		identifier_dup(&type->alias.name, &atype->alias);
+		type->alias.type =
+			builtin_type_for_storage(atype->_enum.storage, false);
+		if (!type_is_integer(type->alias.type)
+				&& type->alias.type->storage != STORAGE_RUNE) {
 			error(store->check_context, atype->loc,
 				"Enum storage must be an integer or rune");
 			*type = builtin_type_void;
 			return (struct dimensions){0};
 		}
-		type->size = storage->size;
-		type->align = storage->size;
-		if (size_only) {
-			break;
-		}
-
-		struct scope *scope = scope_push(
-			&store->check_context->scope, SCOPE_ENUM);
-		// TODO: Check for duplicates
-		struct ast_enum_field *avalue = atype->_enum.values;
-		struct type_enum_value **values = &type->_enum.values;
-		intmax_t iimplicit = 0;
-		uintmax_t uimplicit = 0;
-		while (avalue) {
-			struct type_enum_value *value = *values =
-				xcalloc(sizeof(struct type_enum_value), 1);
-			value->name = strdup(avalue->name);
-			if (avalue->value != NULL) {
-				struct expression in, out;
-				check_expression(store->check_context,
-					avalue->value, &in, storage);
-				enum eval_result r =
-					eval_expr(store->check_context, &in, &out);
-				if (r != EVAL_OK) {
-					error(store->check_context, atype->loc,
-						"Cannot evaluate enum value at compile time");
-					values = &value->next;
-					avalue = avalue->next;
-					continue;
-				}
-				if (!type_is_assignable(storage, out.result)) {
-					error(store->check_context, atype->loc,
-						"Cannot assign enum value to enum type");
-					values = &value->next;
-					avalue = avalue->next;
-					continue;
-				}
-				if (type_is_signed(storage)) {
-					iimplicit = out.constant.ival;
-				} else {
-					uimplicit = out.constant.uval;
-				}
-			}
-			// TODO: Test that the value fits into this precision
-			if (type_is_signed(storage)) {
-				value->ival = iimplicit++;
-			} else {
-				value->uval = uimplicit++;
-			}
-
-			struct identifier name = {
-				.name = value->name,
-				.ns = NULL,
-			};
-			// TODO: This leaks:
-			struct expression *vexpr = xcalloc(1, sizeof(struct expression));
-			vexpr->type = EXPR_CONSTANT;
-			vexpr->result = storage;
-			vexpr->constant.uval = value->uval;
-			scope_insert(scope, O_CONST, &name, &name, storage, vexpr);
-
-			values = &value->next;
-			avalue = avalue->next;
-		}
-		scope_pop(&store->check_context->scope);
-		scope_free(scope);
+		type->size = type->alias.type->size;
+		type->align = type->alias.type->size;
 		break;
 	case STORAGE_FUNCTION:
 		type->size = SIZE_UNDEFINED;

@@ -66,8 +66,6 @@ store_for_type(struct gen_context *ctx, const struct type *type)
 		}
 		break;
 	case STORAGE_ENUM:
-		return store_for_type(ctx, builtin_type_for_storage(
-				type->_enum.storage, false));
 	case STORAGE_ALIAS:
 		return store_for_type(ctx, type->alias.type);
 	case STORAGE_ARRAY:
@@ -135,8 +133,6 @@ load_for_type(struct gen_context *ctx, const struct type *type)
 		}
 		break;
 	case STORAGE_ENUM:
-		return load_for_type(ctx, builtin_type_for_storage(
-				type->_enum.storage, false));
 	case STORAGE_ALIAS:
 		return load_for_type(ctx, type->alias.type);
 	case STORAGE_ARRAY:

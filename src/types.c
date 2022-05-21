@@ -279,7 +279,7 @@ type_is_signed(const struct type *type)
 {
 	enum type_storage storage = type_dealias(type)->storage;
 	if (storage == STORAGE_ENUM) {
-		storage = type_dealias(type)->_enum.storage;
+		storage = type_dealias(type)->alias.type->storage;
 	}
 	switch (storage) {
 	case STORAGE_VOID:
@@ -362,6 +362,9 @@ type_hash(const struct type *type)
 	case STORAGE_VOID:
 	case STORAGE_STRING:
 		break; // built-ins
+	case STORAGE_ENUM:
+		hash = fnv1a(hash, type->alias.type->storage);
+		/* fallthrough */
 	case STORAGE_ALIAS:
 		for (const struct identifier *ident = &type->alias.ident; ident;
 				ident = ident->ns) {
@@ -381,14 +384,6 @@ type_hash(const struct type *type)
 		for (struct type_func_param *param = type->func.params;
 				param; param = param->next) {
 			hash = fnv1a_u32(hash, type_hash(param->type));
-		}
-		break;
-	case STORAGE_ENUM:
-		hash = fnv1a(hash, type->_enum.storage);
-		for (struct type_enum_value *value = type->_enum.values; value;
-				value = value->next) {
-			hash = fnv1a_s(hash, value->name);
-			hash = fnv1a_u64(hash, value->uval);
 		}
 		break;
 	case STORAGE_FCONST:

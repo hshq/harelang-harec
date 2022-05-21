@@ -410,11 +410,12 @@ static struct ast_expression *parse_binding_list(
 static struct ast_expression *parse_object_selector(struct lexer *lexer);
 
 static struct ast_type *
-parse_enum_type(struct lexer *lexer)
+parse_enum_type(struct identifier *ident, struct lexer *lexer)
 {
 	struct token tok = {0};
 	struct ast_type *type = mktype(&lexer->loc);
 	type->storage = STORAGE_ENUM;
+	identifier_dup(&type->alias, ident);
 	struct ast_enum_field **next = &type->_enum.values;
 	switch (lex(lexer, &tok)) {
 	case T_LBRACE:
@@ -2438,7 +2439,7 @@ parse_type_decl(struct lexer *lexer, struct ast_type_decl *decl)
 		want(lexer, T_EQUAL, NULL);
 		switch (lex(lexer, &tok)) {
 		case T_ENUM:
-			i->type = parse_enum_type(lexer);
+			i->type = parse_enum_type(&i->ident, lexer);
 			break;
 		default:
 			unlex(lexer, &tok);

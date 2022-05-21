@@ -63,9 +63,31 @@ fn reject() void = {
 	assert(rt::compile("export let a: int = 0: enum{A, B}: int;") != 0);
 };
 
+type interdependent1 = enum {
+	A = 0,
+	B = interdependent2::A + 1,
+	C = interdependent2::B + 1,
+};
+
+type interdependent2 = enum {
+	A = interdependent1::A + 1,
+	B = interdependent1::B + 1,
+	C = interdependent1::C + 1,
+};
+
+fn interdependent() void = {
+	assert(interdependent1::A == 0);
+	assert(interdependent2::A == 1);
+	assert(interdependent1::B == 2);
+	assert(interdependent2::B == 3);
+	assert(interdependent1::C == 4);
+	assert(interdependent2::C == 5);
+};
+
 export fn main() void = {
 	implicit();
 	explicit();
 	storage();
 	reject();
+	interdependent();
 };

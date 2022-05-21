@@ -151,8 +151,7 @@ gen_store(struct gen_context *ctx,
 		gen_copy_memcpy(ctx, object, value);
 		return;
 	case STORAGE_ENUM:
-		object.type = builtin_type_for_storage(ty->_enum.storage,
-			(ty->flags & TYPE_CONST) != 0);
+		object.type = ty->alias.type;
 		break;
 	default:
 		break; // no-op
@@ -180,8 +179,7 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 	case STORAGE_VALIST:
 		return object;
 	case STORAGE_ENUM:
-		object.type = builtin_type_for_storage(ty->_enum.storage,
-			(ty->flags & TYPE_CONST) != 0);
+		object.type = ty->alias.type;
 		break;
 	default:
 		break; // no-op
@@ -3437,7 +3435,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		}
 		break;
 	case STORAGE_ENUM:
-		switch (type->_enum.storage) {
+		switch (type->alias.type->storage) {
 		case STORAGE_I8:
 		case STORAGE_U8:
 			item->type = QD_VALUE;

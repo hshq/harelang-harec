@@ -15,7 +15,7 @@
 #include "types.h"
 #include "util.h"
 
-static void
+void
 mkident(struct context *ctx, struct identifier *out, const struct identifier *in)
 {
 	identifier_dup(out, in);
@@ -740,7 +740,7 @@ type_promote(struct type_store *store,
 		return promote_const(a, b);
 	}
 
-	if (db->storage == STORAGE_ENUM && da->storage == db->_enum.storage) {
+	if (db->storage == STORAGE_ENUM && da->storage == db->alias.type->storage) {
 		return b;
 	}
 	switch (da->storage) {
@@ -753,7 +753,7 @@ type_promote(struct type_store *store,
 		}
 		return NULL;
 	case STORAGE_ENUM:
-		if (da->_enum.storage == db->storage) {
+		if (da->alias.type->storage == db->storage) {
 			return a;
 		}
 		return NULL;
@@ -3102,21 +3102,24 @@ check_type(struct context *ctx,
 	decl->type = DECL_TYPE;
 	const struct type *type =
 		type_store_lookup_atype(ctx->store, adecl->type);
-	struct type _alias = {
-		.storage = STORAGE_ALIAS,
-		.alias = {
-			.ident = decl->ident,
-			.name = adecl->ident,
-			.type = type,
-			.exported = exported,
-		},
-		.size = type->size,
-		.align = type->align,
-		.flags = type->flags,
-	};
-	const struct type *alias =
-		type_store_lookup_alias(ctx->store, &_alias);
-	decl->_type = alias;
+	if (type->storage == STORAGE_ENUM) {
+		decl->_type = type;
+	} else {
+		struct type _alias = {
+			.storage = type->storage == STORAGE_ENUM ?
+				STORAGE_ENUM : STORAGE_ALIAS,
+			.alias = {
+				.ident = decl->ident,
+				.name = adecl->ident,
+				.type = type,
+				.exported = exported,
+			},
+			.size = type->size,
+			.align = type->align,
+			.flags = type->flags,
+		};
+		decl->_type = type_store_lookup_alias(ctx->store, &_alias);
+	}
 	return decl;
 }
 
@@ -3218,7 +3221,7 @@ incomplete_enum_field_create(struct context *ctx, struct scope *imports,
 		incomplete_enum_field_create(ctx, imports, enum_scope,
 			etype, f->next);
 	}
-	assert(etype->storage == STORAGE_ALIAS);
+	assert(etype->storage == STORAGE_ENUM);
 	struct incomplete_enum_field *field = xcalloc(1, sizeof(struct ast_type));
 	*field = (struct incomplete_enum_field){
 		.field = f,
@@ -3240,7 +3243,7 @@ incomplete_enum_field_create(struct context *ctx, struct scope *imports,
 	struct incomplete_declaration *fld =
 		incomplete_declaration_create(ctx, etype->loc, enum_scope,
 				&name, &localname);
-	fld->type = IDECL_ENUM;
+	fld->type = IDECL_ENUM_FLD;
 	fld->imports = imports;
 	fld->field = field;
 
@@ -3252,7 +3255,7 @@ incomplete_enum_field_create(struct context *ctx, struct scope *imports,
 	};
 	fld = incomplete_declaration_create(ctx, etype->loc, ctx->scope,
 			&ident, &name);
-	fld->type = IDECL_ENUM,
+	fld->type = IDECL_ENUM_FLD,
 	fld->imports = imports,
 	fld->field = field;
 	free(name.name);
@@ -3267,7 +3270,6 @@ incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl 
 		struct incomplete_declaration *idecl =
 			incomplete_declaration_create(ctx, decl->loc, ctx->scope,
 					&with_ns, &t->ident);
-		idecl->type = IDECL_DECL;
 		idecl->decl = (struct ast_decl){
 			.decl_type = AST_DECL_TYPE,
 			.loc = decl->loc,
@@ -3276,18 +3278,12 @@ incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl 
 		};
 		idecl->imports = imp;
 		if (t->type->storage == STORAGE_ENUM) {
-			struct ast_type *etype = xcalloc(1, sizeof(struct ast_type));
-			*etype = (struct ast_type){
-				.loc = t->type->loc,
-				.storage = STORAGE_ALIAS,
-				.flags = t->type->flags,
-				.unwrap = false,
-			};
-			identifier_dup(&etype->alias, &t->ident);
-			struct scope *enum_scope = NULL;
-			scope_push(&enum_scope, SCOPE_ENUM);
-			incomplete_enum_field_create(ctx, imp, enum_scope,
-				etype, t->type->_enum.values);
+			scope_push(&idecl->enum_values, SCOPE_ENUM);
+			incomplete_enum_field_create(ctx, imp, idecl->enum_values,
+				t->type, t->type->_enum.values);
+			idecl->type = IDECL_ENUM_TYPE;
+		} else {
+			idecl->type = IDECL_DECL;
 		}
 	}
 }
@@ -3399,7 +3395,7 @@ const struct scope_object *
 scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	assert(ctx->resolving_enum == NULL);
-	assert(idecl->type == IDECL_ENUM);
+	assert(idecl->type == IDECL_ENUM_FLD);
 
 	struct identifier localname = {
 		.name = idecl->obj.ident.name
@@ -3423,17 +3419,15 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 	if (idecl->field->field->value) { // explicit value
 		// TODO: negative values in unsigned enums, too big values in
 		// signed enums
-		const struct type *builtin = builtin_type_for_storage(
-				type->alias.type->_enum.storage, false);
 
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, idecl->field->field->value,
-				initializer, builtin);
+				initializer, type->alias.type);
 
 		handle_errors(ctx->errors);
 		expect(&idecl->field->field->value->loc,
-			type_is_assignable(builtin, initializer->result),
+			type_is_assignable(type->alias.type, initializer->result),
 			"Enum value type is not assignable from initializer type");
 
 		initializer = lower_implicit_cast(type, initializer);
@@ -3473,6 +3467,19 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 }
 
 static const struct scope_object *
+scan_enum_type(struct context *ctx, struct incomplete_declaration *idecl)
+{
+	assert(idecl->type == IDECL_ENUM_TYPE);
+	struct type *type = (struct type *)type_store_lookup_atype(ctx->store,
+			idecl->decl.type.type);
+	type->enum_values = idecl->enum_values;
+	type->alias.exported = idecl->decl.exported;
+	type_store_lookup_alias(ctx->store, type);
+	return scope_insert(ctx->scope, O_TYPE,
+		&idecl->obj.ident, &idecl->obj.name, type, NULL);
+}
+
+static const struct scope_object *
 scan_type(struct context *ctx, struct ast_type_decl *decl, bool exported,
 		struct dimensions dim)
 {
@@ -3498,6 +3505,7 @@ scan_type(struct context *ctx, struct ast_type_decl *decl, bool exported,
 		scope_insert(ctx->scope, O_TYPE, &ident, &decl->ident, alias, NULL);
 	((struct type *)ret->type)->alias.type =
 		type_store_lookup_atype(ctx->store, decl->type);
+	assert(alias->alias.type->storage != STORAGE_ENUM);
 	return ret;
 }
 
@@ -3585,10 +3593,16 @@ scan_decl_finish(struct context *ctx, const struct scope_object *obj,
 	// load this declaration's subunit context
 	ctx->unit->parent = idecl->imports;
 
-	// TODO handle circular enum dependencies
-	if (idecl->type == IDECL_ENUM) {
+	switch (idecl->type) {
+	case IDECL_ENUM_FLD:
+		// TODO handle circular enum dependencies
 		obj = scan_enum_field(ctx, idecl);
 		goto exit;
+	case IDECL_ENUM_TYPE:
+		obj = scan_enum_type(ctx, idecl);
+		goto exit;
+	case IDECL_DECL:
+		break;
 	}
 
 	// resolving a declaration that is already in progress -> cycle

@@ -115,7 +115,7 @@ itrunc(const struct type *type, uintmax_t val)
 	case STORAGE_ALIAS:
 		return itrunc(type_dealias(type), val);
 	case STORAGE_ENUM:
-		return itrunc(builtin_type_for_storage(type->_enum.storage, false), val);
+		return itrunc(type->alias.type, val);
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
@@ -349,7 +349,7 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	out->result = in->result;
 	enum type_storage storage = type_dealias(out->result)->storage;
 	if (storage == STORAGE_ENUM) {
-		storage = type_dealias(out->result)->_enum.storage;
+		storage = type_dealias(out->result)->alias.type->storage;
 	}
 	struct array_constant **next;
 	switch (storage) {

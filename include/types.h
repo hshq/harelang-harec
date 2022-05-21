@@ -72,7 +72,6 @@ struct type_enum_value {
 };
 
 struct type_enum {
-	enum type_storage storage;
 	struct type_enum_value *values;
 };
 
@@ -155,9 +154,11 @@ struct type {
 	unsigned int flags;
 	size_t size, align;
 	union {
-		struct type_alias alias;
+		struct {
+			struct type_alias alias;
+			struct scope *enum_values;
+		};
 		struct type_array array;
-		struct type_enum _enum;
 		struct type_func func;
 		struct type_const _const;
 		struct type_pointer pointer;

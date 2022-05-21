@@ -122,18 +122,25 @@ emit_const(const struct expression *expr, FILE *out)
 		fprintf(out, "\"");
 		break;
 	case STORAGE_ENUM:
-		assert(expr->result->storage == STORAGE_ALIAS);
-		char *ident = identifier_unparse(&expr->result->alias.ident);
-		fprintf(out, "%s::", ident);
-		free(ident);
-		struct type_enum_value *ev = type_dealias(expr->result)->_enum.values;
-		for (; ev; ev = ev->next) {
-			if (ev->uval == val->uval) {
+		assert(expr->result->storage == STORAGE_ENUM);
+		struct scope_object *ev =
+			type_dealias(expr->result)->enum_values->objects;
+		for(; ev; ev = ev->lnext) {
+			if (ev->otype == O_SCAN) {
+				continue;
+			}
+			if (ev->type->alias.type->storage == STORAGE_CHAR
+					|| !type_is_signed(ev->type->alias.type)) {
+				if (ev->value->constant.uval == val->uval) {
+					fprintf(out, "%ld", val->uval);
+					break;
+				}
+			} else if (ev->value->constant.ival == val->ival) {
+				fprintf(out, "%ld", val->ival);
 				break;
 			}
 		}
 		assert(ev);
-		fprintf(out, "%s", ev->name);
 		break;
 	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:
@@ -296,22 +303,10 @@ emit_type(const struct type *type, FILE *out)
 		ret &= emit_type(type->func.result, out);
 		break;
 	case STORAGE_ENUM:
-		fprintf(out, "enum %s { ", type_storage_unparse(type->_enum.storage));
-		for (const struct type_enum_value *ev = type->_enum.values;
-				ev; ev = ev->next) {
-			fprintf(out, "%s = ", ev->name);
-			if (type_is_signed(type)) {
-				fprintf(out, "%" PRIi64 "%s", ev->ival,
-					storage_to_suffix(type->_enum.storage));
-			} else {
-				fprintf(out, "%" PRIu64 "%s", ev->uval,
-					storage_to_suffix(type->_enum.storage));
-			}
-			if (ev->next) {
-				fprintf(out, ", ");
-			}
-		}
-		fprintf(out, "}");
+		ret &= type->alias.exported;
+		ident = identifier_unparse(&type->alias.ident);
+		fprintf(out, "%s", ident);
+		free(ident);
 		break;
 	case STORAGE_TUPLE:
 		fprintf(out, "(");
@@ -412,8 +407,25 @@ emit_decl_type(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	fprintf(out, "export type %s = ", ident);
-	assert(decl->_type->storage == STORAGE_ALIAS);
-	emit_exported_type(decl->_type->alias.type, out);
+	assert(decl->_type->storage == STORAGE_ALIAS
+			|| decl->_type->storage == STORAGE_ENUM);
+	if (decl->_type->storage == STORAGE_ENUM) {
+		const struct type *type = decl->_type;
+		fprintf(out, "enum %s { ",
+			type_storage_unparse(type->alias.type->storage));
+		for (const struct scope_object *ev = type->enum_values->objects;
+				ev; ev = ev->lnext) {
+			if (ev->otype == O_SCAN) {
+				continue;
+			}
+			fprintf(out, "%s = ", ev->name.name);
+			emit_const(ev->value, out);
+			fprintf(out, ", ");
+		}
+		fprintf(out, "}");
+	} else {
+		emit_exported_type(decl->_type->alias.type, out);
+	}
 	fprintf(out, "; // size: %zd, align: %zd, id: %u\n",
 		decl->_type->size, decl->_type->align, decl->_type->id);
 }

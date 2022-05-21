@@ -224,9 +224,6 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_F64:
 		return &qbe_double;
 	case STORAGE_ENUM:
-		return qtype_lookup(ctx,
-			builtin_type_for_storage(type->_enum.storage, false),
-			xtype);
 	case STORAGE_ALIAS:
 		return qtype_lookup(ctx, type->alias.type, xtype);
 	case STORAGE_ARRAY:

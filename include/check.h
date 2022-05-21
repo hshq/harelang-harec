@@ -109,7 +109,8 @@ struct unit {
 
 enum idecl_type {
 	IDECL_DECL,
-	IDECL_ENUM,
+	IDECL_ENUM_TYPE,
+	IDECL_ENUM_FLD,
 };
 
 // Keeps track of enum specific context required for enum field resolution
@@ -127,10 +128,16 @@ struct incomplete_declaration {
 	enum idecl_type type;
 	bool in_progress;
 	union {
-		struct ast_decl decl;
+		struct {
+			struct ast_decl decl;
+			struct scope *enum_values;
+		};
 		struct incomplete_enum_field *field;
 	};
 };
+
+void mkident(struct context *ctx, struct identifier *out,
+		const struct identifier *in);
 
 const struct scope_object *scan_decl_finish(struct context *ctx,
 	const struct scope_object *obj, struct dimensions *dim);

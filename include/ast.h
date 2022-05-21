@@ -83,7 +83,6 @@ struct ast_type {
 	unsigned int flags;
 	union {
 		struct ast_list_type array;
-		struct ast_enum_type _enum;
 		struct ast_function_type func;
 		struct ast_pointer_type pointer;
 		struct ast_list_type slice;
@@ -92,7 +91,10 @@ struct ast_type {
 		struct ast_tuple_type tuple;
 		struct {
 			struct identifier alias;
-			bool unwrap;
+			union {
+				struct ast_enum_type _enum;
+				bool unwrap;
+			};
 		};
 	};
 };
