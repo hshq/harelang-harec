@@ -3789,17 +3789,20 @@ load_import(struct context *ctx, struct ast_imports *import,
 						!= STORAGE_ENUM) {
 				continue;
 			};
-			for (struct scope_object *o = mod->objects;
+			struct scope *enum_scope =
+				type_dealias(obj->type)->_enum.values;
+			for (struct scope_object *o = enum_scope->objects;
 					o; o = o->lnext) {
-				if (!identifier_eq(o->name.ns, &ident)) {
-					continue;
+				struct identifier value_ident = {
+					.name = o->name.name,
+					.ns = &ident,
 				};
-				struct identifier n = {
+				struct identifier value_name = {
 					.name = o->name.name,
 					.ns = &name,
 				};
-				scope_insert(scope, o->otype, &o->ident,
-					&n, o->type, o->value);
+				scope_insert(scope, o->otype, &value_ident,
+					&value_name, o->type, o->value);
 			};
 
 		}
