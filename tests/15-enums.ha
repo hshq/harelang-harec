@@ -1,3 +1,5 @@
+use rt;
+
 type implicit_values = enum {
 	ZERO,
 	ONE,
@@ -56,8 +58,14 @@ fn storage() void = {
 	assert(rune_storage::FOO == '0' && rune_storage::BAR == '1');
 };
 
+fn reject() void = {
+	assert(rt::compile("export let a: enum { A, B } = 0;") != 0);
+	assert(rt::compile("export let a: int = 0: enum{A, B}: int;") != 0);
+};
+
 export fn main() void = {
 	implicit();
 	explicit();
 	storage();
+	reject();
 };

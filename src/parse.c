@@ -671,9 +671,6 @@ parse_type(struct lexer *lexer)
 		unlex(lexer, &tok);
 		type = parse_primitive_type(lexer);
 		break;
-	case T_ENUM:
-		type = parse_enum_type(lexer);
-		break;
 	case T_NULLABLE:
 		nullable = true;
 		want(lexer, T_TIMES, NULL);
@@ -2439,7 +2436,14 @@ parse_type_decl(struct lexer *lexer, struct ast_type_decl *decl)
 	while (more) {
 		parse_identifier(lexer, &i->ident, false);
 		want(lexer, T_EQUAL, NULL);
-		i->type = parse_type(lexer);
+		switch (lex(lexer, &tok)) {
+		case T_ENUM:
+			i->type = parse_enum_type(lexer);
+			break;
+		default:
+			unlex(lexer, &tok);
+			i->type = parse_type(lexer);
+		}
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			if (lex(lexer, &tok) == T_NAME) {
