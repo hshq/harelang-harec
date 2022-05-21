@@ -668,8 +668,7 @@ type_init_from_atype(struct type_store *store,
 
 		type->storage = obj->type->storage;
 		if (obj->type->storage == STORAGE_ENUM) {
-			assert(obj->type->enum_values);
-			type->enum_values = obj->type->enum_values;
+			type->_enum = obj->type->_enum;
 		} else if (atype->unwrap) {
 			*type = *type_dealias(obj->type);
 			break;

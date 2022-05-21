@@ -124,7 +124,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_ENUM:
 		assert(expr->result->storage == STORAGE_ENUM);
 		struct scope_object *ev =
-			type_dealias(expr->result)->enum_values->objects;
+			type_dealias(expr->result)->_enum.values->objects;
 		for(; ev; ev = ev->lnext) {
 			if (ev->otype == O_SCAN) {
 				continue;
@@ -413,7 +413,7 @@ emit_decl_type(struct declaration *decl, FILE *out)
 		const struct type *type = decl->_type;
 		fprintf(out, "enum %s { ",
 			type_storage_unparse(type->alias.type->storage));
-		for (const struct scope_object *ev = type->enum_values->objects;
+		for (const struct scope_object *ev = type->_enum.values->objects;
 				ev; ev = ev->lnext) {
 			if (ev->otype == O_SCAN) {
 				continue;

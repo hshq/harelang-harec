@@ -126,6 +126,7 @@ struct incomplete_declaration {
 		struct {
 			struct ast_decl decl;
 			struct scope *enum_values;
+			struct identifiers *enum_aliases;
 		};
 		struct incomplete_enum_field *field;
 	};

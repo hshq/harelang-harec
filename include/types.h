@@ -72,7 +72,8 @@ struct type_enum_value {
 };
 
 struct type_enum {
-	struct type_enum_value *values;
+	struct scope *values;
+	struct identifiers *aliases;
 };
 
 enum variadism {
@@ -156,7 +157,7 @@ struct type {
 	union {
 		struct {
 			struct type_alias alias;
-			struct scope *enum_values;
+			struct type_enum _enum;
 		};
 		struct type_array array;
 		struct type_func func;

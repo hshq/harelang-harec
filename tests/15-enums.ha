@@ -1,4 +1,5 @@
 use rt;
+use testmod;
 
 type implicit_values = enum {
 	ZERO,
@@ -84,10 +85,34 @@ fn interdependent() void = {
 	assert(interdependent2::C == 5);
 };
 
+type alias = with_storage;
+
+type imported_alias = testmod::_enum;
+
+type imported_double_alias = testmod::enum_alias;
+
+fn aliases() void = {
+	assert(size(alias) == size(with_storage));
+	assert(alias::CAFE == with_storage::CAFE);
+	assert(alias::BABE == with_storage::BABE);
+	assert(alias::DEAD == with_storage::DEAD);
+	assert(alias::BEEF == with_storage::BEEF);
+
+	// test with alias of imported enum
+	assert(imported_alias::ONE == testmod::_enum::ONE);
+	assert(imported_alias::TWO == testmod::_enum::TWO);
+	assert(imported_alias::THREE == testmod::_enum::THREE);
+
+	assert(imported_double_alias::ONE == testmod::_enum::ONE);
+	assert(imported_double_alias::TWO == testmod::_enum::TWO);
+	assert(imported_double_alias::THREE == testmod::_enum::THREE);
+};
+
 export fn main() void = {
 	implicit();
 	explicit();
 	storage();
 	reject();
 	interdependent();
+	aliases();
 };
