@@ -3460,7 +3460,7 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 			}
 		} else {
 			if (obj == NULL) {
-				value->constant.ival = 0;
+				value->constant.uval = 0;
 			} else {
 				value->constant.uval = obj->value->constant.uval + 1;
 			}
