@@ -3685,9 +3685,21 @@ scan_decl_finish(struct context *ctx, const struct scope_object *obj,
 	// load this declaration's subunit context
 	ctx->unit->parent = idecl->imports;
 
+	// resolving a declaration that is already in progress -> cycle
+	if (idecl->in_progress) {
+		struct location *loc;
+		if (idecl->type == IDECL_ENUM_FLD) {
+			loc = &idecl->field->type->loc;
+		} else {
+			loc = &idecl->decl.loc;
+		}
+		expect(loc, false, "Circular dependency for '%s'\n",
+			identifier_unparse(&idecl->obj.ident));
+	}
+	idecl->in_progress = true;
+
 	switch (idecl->type) {
 	case IDECL_ENUM_FLD:
-		// TODO handle circular enum dependencies
 		obj = scan_enum_field(ctx, idecl);
 		goto exit;
 	case IDECL_ENUM_TYPE:
@@ -3696,14 +3708,6 @@ scan_decl_finish(struct context *ctx, const struct scope_object *obj,
 	case IDECL_DECL:
 		break;
 	}
-
-	// resolving a declaration that is already in progress -> cycle
-	if (idecl->in_progress) {
-		expect(&idecl->decl.loc, false,
-			"Circular dependency for '%s'\n",
-			identifier_unparse(&idecl->obj.ident));
-	}
-	idecl->in_progress = true;
 
 	switch (idecl->decl.decl_type) {
 	case AST_DECL_CONST:
