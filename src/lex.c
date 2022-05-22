@@ -428,6 +428,19 @@ finalize:
 		}
 	}
 
+	if (isfloat) {
+		switch (out->storage) {
+		case STORAGE_F32:
+		case STORAGE_F64:
+		case STORAGE_FCONST:
+			break;
+		default:
+			out->token = T_ERROR;
+			consume(lexer, -1);
+			return out->token;
+		}
+	}
+
 	errno = 0;
 	switch (out->storage) {
 	case STORAGE_U8:
