@@ -3027,6 +3027,8 @@ check_function(struct context *ctx,
 		};
 		expect(&adecl->loc, fntype->func.result == &builtin_type_void,
 				"%s function must return void", flag);
+		expect(&adecl->loc, (fntype->func.flags & FN_NORETURN) == 0,
+				"%s function must return", flag);
 		expect(&adecl->loc, !decl->exported,
 				"%s function cannot be exported", flag);
 		expect(&adecl->loc, !afndecl->prototype.params,
