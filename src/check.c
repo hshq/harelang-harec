@@ -3017,13 +3017,20 @@ check_function(struct context *ctx,
 	if ((decl->func.flags & FN_INIT)
 			|| (decl->func.flags & FN_FINI)
 			|| (decl->func.flags & FN_TEST)) {
-		const char *flags = "@flags"; // TODO: Unparse flags
+		const char *flag;
+		if (decl->func.flags & FN_INIT) {
+			flag = "@init";
+		} else if (decl->func.flags & FN_FINI) {
+			flag = "@fini";
+		} else {
+			flag = "@test";
+		};
 		expect(&adecl->loc, fntype->func.result == &builtin_type_void,
-				"%s function must return void", flags);
+				"%s function must return void", flag);
 		expect(&adecl->loc, !decl->exported,
-				"%s function cannot be exported", flags);
+				"%s function cannot be exported", flag);
 		expect(&adecl->loc, !afndecl->prototype.params,
-				"%s function cannot have parameters", flags);
+				"%s function cannot have parameters", flag);
 	}
 	if (fntype->func.flags & FN_NORETURN) {
 		expect(&adecl->loc, fntype->func.result == &builtin_type_void,
