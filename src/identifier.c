@@ -117,6 +117,8 @@ identifier_dup(struct identifier *new, const struct identifier *ident)
 	if (ident->ns) {
 		new->ns = xcalloc(1, sizeof(struct identifier));
 		identifier_dup(new->ns, ident->ns);
+	} else {
+		new->ns = NULL;
 	}
 }
 
