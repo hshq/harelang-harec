@@ -88,9 +88,12 @@ module_resolve(struct modcache *cache[],
 		exit(EXIT_FAILURE);
 	}
 
-	lex_init(&lexer, f, path);
+	const char *old = sources[0];
+	sources[0] = path;
+	lex_init(&lexer, f, 0);
 	parse(&lexer, &aunit.subunits);
 	lex_finish(&lexer);
+	sources[0] = old;
 
 	// TODO: Free unused bits
 	struct unit u = {0};

@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <stdint.h>
 
+extern const char **sources;
+
 #define FNV1A_INIT 2166136261u
 
 uint32_t fnv1a(uint32_t hash, unsigned char c);

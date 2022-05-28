@@ -11,24 +11,27 @@
 #include "scope.h"
 #include "type_store.h"
 #include "typedef.h"
+#include "util.h"
 
-void test(struct context *ctx, char *expected, char *input) {
+void test(struct context *ctx, const char *expected, const char *input) {
 	builtin_types_init();
 	ctx->errors = NULL;
 	ctx->next = &ctx->errors;
 
+	sources = (const char *[2]){"<expected>", input};
+
 	const struct type *etype = NULL;
 	if (strlen(expected) != 0) {
-		FILE *ebuf = fmemopen(expected, strlen(expected), "r");
+		FILE *ebuf = fmemopen((char *)expected, strlen(expected), "r");
 		struct lexer elex;
-		lex_init(&elex, ebuf, "<expected>");
+		lex_init(&elex, ebuf, 0);
 		struct ast_type *eatype = parse_type(&elex);
 		etype = type_store_lookup_atype(ctx->store, eatype);
 	}
 
-	FILE *ibuf = fmemopen(input, strlen(input), "r");
+	FILE *ibuf = fmemopen((char *)input, strlen(input), "r");
 	struct lexer ilex;
-	lex_init(&ilex, ibuf, input);
+	lex_init(&ilex, ibuf, 1);
 	struct ast_expression *iaexpr = parse_expression(&ilex);
 	struct expression iexpr = {0};
 	check_expression(ctx, iaexpr, &iexpr, NULL);
@@ -40,7 +43,7 @@ void test(struct context *ctx, char *expected, char *input) {
 
 	struct errors *error = ctx->errors;
 	while (error) {
-		fprintf(stderr, "Error %s:%d:%d: %s\n", error->loc.path,
+		fprintf(stderr, "Error %s:%d:%d: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
 		struct errors *next = error->next;
 		free(error);

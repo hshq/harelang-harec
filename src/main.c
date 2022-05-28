@@ -60,7 +60,9 @@ parse_define(const char *argv_0, const char *in)
 	struct token tok;
 	struct lexer lexer;
 	FILE *f = fmemopen((char *)in, strlen(in), "r");
-	lex_init(&lexer, f, "-D");
+	const char *d = "-D";
+	sources = &d;
+	lex_init(&lexer, f, 0);
 
 	// The syntax for this parameter is:
 	//
@@ -117,7 +119,9 @@ main(int argc, char *argv[])
 		case 'N':
 			unit.ns = xcalloc(1, sizeof(struct identifier));
 			FILE *in = fmemopen(optarg, strlen(optarg), "r");
-			lex_init(&lexer, in, "-N");
+			const char *ns = "-N";
+			sources = &ns;
+			lex_init(&lexer, in, 0);
 			parse_identifier(&lexer, unit.ns, false);
 			lex_finish(&lexer);
 			break;
@@ -139,6 +143,11 @@ main(int argc, char *argv[])
 	struct ast_subunit **next = &aunit.subunits.next;
 	enum stage stage = parse_stage(getenv("HA_STAGE"));
 
+	sources = xcalloc(ninputs + 2, sizeof(char **));
+	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * ninputs);
+	sources[0] = "-D";
+	sources[ninputs + 1] = NULL;
+
 	for (size_t i = 0; i < ninputs; ++i) {
 		FILE *in;
 		const char *path = argv[optind + i];
@@ -154,7 +163,7 @@ main(int argc, char *argv[])
 			return EXIT_FAILURE;
 		}
 
-		lex_init(&lexer, in, path);
+		lex_init(&lexer, in,  i + 1);
 		if (stage == STAGE_LEX) {
 			struct token tok;
 			while (lex(&lexer, &tok) != T_EOF);

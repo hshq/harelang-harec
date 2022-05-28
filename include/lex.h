@@ -139,7 +139,7 @@ enum lexical_token {
 };
 
 struct location {
-	const char *path;
+	int file;
 	int lineno, colno;
 };
 
@@ -171,7 +171,7 @@ struct lexer {
 	bool require_int;
 };
 
-void lex_init(struct lexer *lexer, FILE *f, const char *filename);
+void lex_init(struct lexer *lexer, FILE *f, int fileid);
 void lex_finish(struct lexer *lexer);
 enum lexical_token lex(struct lexer *lexer, struct token *out);
 void unlex(struct lexer *lexer, struct token *in);

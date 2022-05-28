@@ -33,7 +33,7 @@ expect(const struct location *loc, bool constraint, char *fmt, ...)
 		va_start(ap, fmt);
 
 		fprintf(stderr, "Error %s:%d:%d: ",
-			loc->path, loc->lineno, loc->colno);
+			sources[loc->file], loc->lineno, loc->colno);
 		vfprintf(stderr, fmt, ap);
 		fprintf(stderr, "\n");
 		exit(EXIT_FAILURE);
@@ -56,7 +56,7 @@ handle_errors(struct errors *errors)
 {
 	struct errors *error = errors;
 	while (error) {
-		fprintf(stderr, "Error %s:%d:%d: %s\n", error->loc.path,
+		fprintf(stderr, "Error %s:%d:%d: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
 		struct errors *next = error->next;
 		free(error);
@@ -577,11 +577,12 @@ check_expr_assert(struct context *ctx,
 
 		assert(expr->assert.message->type == EXPR_CONSTANT);
 		size_t n = snprintf(NULL, 0, "%s:%d:%d: ",
-			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+			sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
 		size_t s_len = expr->assert.message->constant.string.len;
 		char *s = xcalloc(1, n + s_len + 1);
-		snprintf(s, n + 1, "%s:%d:%d: ",
-			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+		snprintf(s, n + 1, "%s:%d:%d: ", sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
 		memcpy(s+n, expr->assert.message->constant.string.value, s_len);
 		s[n + s_len] = '\0';
 
@@ -589,10 +590,12 @@ check_expr_assert(struct context *ctx,
 		expr->assert.message->constant.string.len = n + s_len;
 	} else {
 		int n = snprintf(NULL, 0, "Assertion failed: %s:%d:%d",
-			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+			sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
 		char *s = xcalloc(1, n + 1);
 		snprintf(s, n, "Assertion failed: %s:%d:%d",
-			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+			sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
 
 		expr->assert.message->type = EXPR_CONSTANT;
 		expr->assert.message->result = &builtin_type_const_str;
@@ -2147,10 +2150,12 @@ check_expr_propagate(struct context *ctx,
 		case_err->value->assert.is_static = false;
 
 		int n = snprintf(NULL, 0, "Assertion failed: error occured at %s:%d:%d",
-			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+			sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
 		char *s = xcalloc(1, n + 1);
 		snprintf(s, n, "Assertion failed: error occured at %s:%d:%d",
-			aexpr->loc.path, aexpr->loc.lineno, aexpr->loc.colno);
+			sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
 
 		case_err->value->assert.message = xcalloc(1, sizeof(struct expression));
 		case_err->value->assert.message->type = EXPR_CONSTANT;
@@ -3178,6 +3183,7 @@ check_declarations(struct context *ctx,
 				struct declarations *decls = *next =
 					xcalloc(1, sizeof(struct declarations));
 				decl->exported = adecl->exported;
+				decl->loc = adecl->loc;
 				decls->decl = decl;
 				next = &decls->next;
 			}
@@ -3196,6 +3202,7 @@ check_declarations(struct context *ctx,
 				struct declarations *decls = *next =
 					xcalloc(1, sizeof(struct declarations));
 				decl->exported = adecl->exported;
+				decl->loc = adecl->loc;
 				decls->decl = decl;
 				next = &decls->next;
 			}
@@ -3219,6 +3226,7 @@ check_declarations(struct context *ctx,
 			struct declarations *decls = *next =
 				xcalloc(1, sizeof(struct declarations));
 			decl->exported = adecl->exported;
+			decl->loc = adecl->loc;
 			decls->decl = decl;
 			next = &decls->next;
 		}
@@ -3908,7 +3916,7 @@ check_internal(struct type_store *ts,
 	// XXX: This duplicates a lot of code with scan_const
 	for (struct define *def = defines; def; def = def->next) {
 		struct location loc = {
-			.path = "-D", .lineno = 1, .colno = 1,
+			.file = 0, .lineno = 1, .colno = 1,
 		};
 		const struct type *type = type_store_lookup_atype(
 				ctx.store, def->type);

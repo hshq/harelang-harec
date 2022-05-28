@@ -136,7 +136,7 @@ static const char *tokens[] = {
 };
 
 void
-lex_init(struct lexer *lexer, FILE *f, const char *filename)
+lex_init(struct lexer *lexer, FILE *f, int fileid)
 {
 	memset(lexer, 0, sizeof(*lexer));
 	lexer->in = f;
@@ -145,7 +145,7 @@ lex_init(struct lexer *lexer, FILE *f, const char *filename)
 	lexer->un.token = T_ERROR;
 	lexer->loc.lineno = 1;
 	lexer->loc.colno = 0;
-	lexer->loc.path = filename;
+	lexer->loc.file = fileid;
 	lexer->c[0] = UINT32_MAX;
 	lexer->c[1] = UINT32_MAX;
 }
@@ -183,9 +183,7 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 		update_lineno(&lexer->loc, c);
 	}
 	if (loc != NULL) {
-		loc->path = lexer->loc.path;
-		loc->lineno = lexer->loc.lineno;
-		loc->colno = lexer->loc.colno;
+		*loc = lexer->loc;
 		for (size_t i = 0; i < 2 && lexer->c[i] != UINT32_MAX; i++) {
 			update_lineno(&lexer->loc, lexer->c[i]);
 		}
@@ -540,7 +538,7 @@ lex_rune(struct lexer *lexer)
 			if (*endptr != '\0') {
 				fprintf(stderr,
 					"Error: invalid hex literal at %s:%d:%d\n",
-					lexer->loc.path, lexer->loc.lineno,
+					sources[lexer->loc.file], lexer->loc.lineno,
 					lexer->loc.colno);
 				exit(EXIT_FAILURE);
 			}
@@ -555,7 +553,7 @@ lex_rune(struct lexer *lexer)
 			if (*endptr != '\0') {
 				fprintf(stderr,
 					"Error: invalid hex literal at %s:%d:%d\n",
-					lexer->loc.path, lexer->loc.lineno,
+					sources[lexer->loc.file], lexer->loc.lineno,
 					lexer->loc.colno);
 				exit(EXIT_FAILURE);
 			}
@@ -574,7 +572,7 @@ lex_rune(struct lexer *lexer)
 			if (*endptr != '\0') {
 				fprintf(stderr,
 					"Error: invalid hex literal at %s:%d:%d\n",
-					lexer->loc.path, lexer->loc.lineno,
+					sources[lexer->loc.file], lexer->loc.lineno,
 					lexer->loc.colno);
 				exit(EXIT_FAILURE);
 			}
@@ -582,7 +580,7 @@ lex_rune(struct lexer *lexer)
 		default:
 			fprintf(stderr,
 				"Error: invalid escape '\\%c' at %s:%d:%d\n",
-				c, lexer->loc.path, lexer->loc.lineno,
+				c, sources[lexer->loc.file], lexer->loc.lineno,
 				lexer->loc.colno);
 			exit(EXIT_FAILURE);
 		}
@@ -1001,7 +999,8 @@ _lex(struct lexer *lexer, struct token *out)
 	default:
 		p[utf8_encode(p, c)] = '\0';
 		fprintf(stderr, "Error: unexpected code point '%s' at %s:%d:%d\n",
-			p, lexer->loc.path, lexer->loc.lineno, lexer->loc.colno);
+			p, sources[lexer->loc.file], lexer->loc.lineno,
+			lexer->loc.colno);
 		exit(EXIT_FAILURE);
 	}
 
@@ -1036,7 +1035,7 @@ token_finish(struct token *tok)
 	}
 	tok->token = 0;
 	tok->storage = 0;
-	tok->loc.path = NULL;
+	tok->loc.file = 0;
 	tok->loc.colno = 0;
 	tok->loc.lineno = 0;
 }

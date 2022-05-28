@@ -201,9 +201,11 @@ static void
 gen_fixed_abort(struct gen_context *ctx,
 	struct location loc, enum fixed_aborts reason)
 {
-	int n = snprintf(NULL, 0, "%s:%d:%d", loc.path, loc.lineno, loc.colno);
+	int n = snprintf(NULL, 0, "%s:%d:%d",
+			sources[loc.file], loc.lineno, loc.colno);
 	char *s = xcalloc(1, n + 1);
-	snprintf(s, n, "%s:%d:%d", loc.path, loc.lineno, loc.colno);
+	snprintf(s, n, "%s:%d:%d",
+			sources[loc.file], loc.lineno, loc.colno);
 	struct expression eloc = {0};
 	eloc.type = EXPR_CONSTANT;
 	eloc.result = &builtin_type_const_str;

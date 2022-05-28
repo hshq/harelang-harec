@@ -81,6 +81,7 @@ enum declaration_type {
 struct declaration {
 	enum declaration_type type;
 	struct identifier ident;
+	struct location loc;
 	char *symbol;
 	bool exported;
 	union {

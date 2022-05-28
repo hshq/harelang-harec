@@ -19,7 +19,7 @@ synassert_msg(bool cond, const char *msg, struct token *tok)
 {
 	if (!cond) {
 		fprintf(stderr, "Syntax error: %s at %s:%d:%d (found '%s')\n", msg,
-			tok->loc.path, tok->loc.lineno, tok->loc.colno,
+			sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
 			token_str(tok));
 		exit(EXIT_FAILURE);
 	}
@@ -35,7 +35,7 @@ synassert(bool cond, struct token *tok, ...)
 		enum lexical_token t = va_arg(ap, enum lexical_token);
 		fprintf(stderr,
 			"Syntax error: unexpected '%s' at %s:%d:%d%s",
-			token_str(tok), tok->loc.path, tok->loc.lineno,
+			token_str(tok), sources[tok->loc.file], tok->loc.lineno,
 			tok->loc.colno, t == T_EOF ? "\n" : ", expected " );
 		while (t != T_EOF) {
 			if (t == T_LITERAL || t == T_NAME) {
@@ -61,24 +61,12 @@ want(struct lexer *lexer, enum lexical_token ltok, struct token *tok)
 		token_finish(out);
 	}
 }
-static struct location
-locdup(const struct location *loc)
-{
-	struct location new_loc = {
-		.lineno = loc->lineno,
-		.colno = loc->colno,
-		.path = strdup(loc->path),
-	};
-	return new_loc;
-}
 
 static struct ast_expression *
 mkexpr(const struct location *loc)
 {
 	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
-	exp->loc.lineno = loc->lineno;
-	exp->loc.colno = loc->colno;
-	exp->loc.path = strdup(loc->path);
+	exp->loc = *loc;
 	return exp;
 }
 
@@ -86,9 +74,7 @@ static struct ast_type *
 mktype(const struct location *loc)
 {
 	struct ast_type *t = xcalloc(1, sizeof(struct ast_type));
-	t->loc.lineno = loc->lineno;
-	t->loc.colno = loc->colno;
-	t->loc.path = strdup(loc->path);
+	t->loc = *loc;
 	return t;
 }
 
@@ -97,9 +83,7 @@ mkfuncparams(const struct location *loc)
 {
 	struct ast_function_parameters *p =
 		xcalloc(1, sizeof(struct ast_function_parameters));
-	p->loc.lineno = loc->lineno;
-	p->loc.colno = loc->colno;
-	p->loc.path = strdup(loc->path);
+	p->loc = *loc;
 	return p;
 }
 
@@ -151,7 +135,7 @@ parse_name_list(struct lexer *lexer, struct ast_imports *name)
 		struct token tok = {0};
 		want(lexer, T_NAME, &tok);
 		name->ident.name = strdup(tok.name);
-		name->loc = locdup(&tok.loc);
+		name->loc = tok.loc;
 		token_finish(&tok);
 
 		switch (lex(lexer, &tok)) {
@@ -2515,9 +2499,7 @@ static void
 parse_decl(struct lexer *lexer, struct ast_decl *decl)
 {
 	struct token tok = {0};
-	decl->loc.lineno = lexer->loc.lineno;
-	decl->loc.colno = lexer->loc.colno;
-	decl->loc.path = strdup(lexer->loc.path);
+	decl->loc = lexer->loc;
 	switch (lex(lexer, &tok)) {
 	case T_CONST:
 	case T_LET:
