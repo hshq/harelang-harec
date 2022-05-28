@@ -26,10 +26,10 @@ rt() {
 				amd64)
 					arch=x86_64
 					;;
-				aarch64)
+				aarch64|riscv64)
 					;;
 				*)
-					printf "unsupported FreeBSD arch %s\n" "$(uname)" >&2
+					printf "unsupported FreeBSD arch %s\n" "$arch" >&2
 					;;
 			esac
 			rtstart=rt/+freebsd/start+$arch.o
@@ -56,7 +56,7 @@ rt() {
 				aarch64|riscv64)
 					;;
 				*)
-					printf "unsupported OpenBSD arch %s\n" "$(uname)" >&2
+					printf "unsupported OpenBSD arch %s\n" "$arch" >&2
 					;;
 			esac
 			rtstart=rt/+openbsd/start+$arch.o
