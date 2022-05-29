@@ -38,6 +38,38 @@ do
 		--sysconfdir=*)
 			SYSCONFDIR=${arg#*=}
 			;;
+		--help)
+			cat >&2 <<'EOF'
+Usage: configure [options...]
+
+Options:
+--help
+--prefix=<path>
+	default: /usr/local
+--bindir=<path>
+	default: (prefix)/bin
+--libdir=<path>
+	default: (prefix)/lib
+--mandir=<path>
+	default: (prefix)/share/man
+--sharedir=<path>
+	default: (prefix)/share
+--sysconfdir=<path>
+	default: /etc if prefix is /usr, otherwise (prefix)/etc
+
+Environment variables:
+AR	(default: "ar")
+AS	(default: "as")
+CC	(default: "cc")
+CFLAGS	(default: "")
+LD	(default: "ld")
+LDFLAGS	(default: "")
+OUTDIR	(default: ".build")
+QBE	(default: "qbe")
+SRCDIR	(default: directory of configure script)
+EOF
+			exit
+			;;
 		*)
 			printf 'Error: unknown configure option %s\n' "$arg" >&2
 			exit 1
