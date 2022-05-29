@@ -3261,7 +3261,8 @@ incomplete_enum_field_create(struct context *ctx, struct scope *imports,
 			etype, f->next);
 	}
 	assert(etype->storage == STORAGE_ENUM);
-	struct incomplete_enum_field *field = xcalloc(1, sizeof(struct ast_type));
+	struct incomplete_enum_field *field =
+		xcalloc(1, sizeof(struct incomplete_enum_field));
 	*field = (struct incomplete_enum_field){
 		.field = f,
 		.type = etype,
