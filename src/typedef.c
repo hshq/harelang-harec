@@ -132,11 +132,11 @@ emit_const(const struct expression *expr, FILE *out)
 			if (ev->type->alias.type->storage == STORAGE_CHAR
 					|| !type_is_signed(ev->type->alias.type)) {
 				if (ev->value->constant.uval == val->uval) {
-					fprintf(out, "%ld", val->uval);
+					fprintf(out, "%" PRIuMAX, val->uval);
 					break;
 				}
 			} else if (ev->value->constant.ival == val->ival) {
-				fprintf(out, "%ld", val->ival);
+				fprintf(out, "%" PRIiMAX, val->ival);
 				break;
 			}
 		}
