@@ -58,4 +58,7 @@ const struct type *type_store_tagged_to_union(
 const struct type *type_store_lookup_tuple(struct type_store *store,
 	struct type_tuple *values, struct location loc);
 
+const struct type *type_store_lookup_enum(struct type_store *store,
+	const struct ast_type *atype, bool exported);
+
 #endif

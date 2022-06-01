@@ -608,6 +608,7 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
+	case STORAGE_ENUM:
 		assert(0); // Invariant
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
@@ -703,21 +704,6 @@ type_init_from_atype(struct type_store *store,
 		} else {
 			type->size = memb.size * type->array.length;
 		}
-		break;
-	case STORAGE_ENUM:
-		mkident(store->check_context, &type->alias.ident, &atype->alias);
-		identifier_dup(&type->alias.name, &atype->alias);
-		type->alias.type =
-			builtin_type_for_storage(atype->_enum.storage, false);
-		if (!type_is_integer(type->alias.type)
-				&& type->alias.type->storage != STORAGE_RUNE) {
-			error(store->check_context, atype->loc,
-				"Enum storage must be an integer or rune");
-			*type = builtin_type_void;
-			return (struct dimensions){0};
-		}
-		type->size = type->alias.type->size;
-		type->align = type->alias.type->size;
 		break;
 	case STORAGE_FUNCTION:
 		type->size = SIZE_UNDEFINED;
@@ -1063,6 +1049,29 @@ type_store_lookup_tuple(struct type_store *store, struct type_tuple *values,
 		type.size += type.size % t->type->align + t->type->size;
 	}
 	type.tuple = *values;
+	return type_store_lookup_type(store, &type);
+}
+
+const struct type *
+type_store_lookup_enum(struct type_store *store, const struct ast_type *atype,
+	bool exported)
+{
+	struct type type = {0};
+	type.storage = STORAGE_ENUM;
+	type.flags = atype->flags;
+	mkident(store->check_context, &type.alias.ident, &atype->alias);
+	identifier_dup(&type.alias.name, &atype->alias);
+	type.alias.exported = exported;
+	type.alias.type =
+		builtin_type_for_storage(atype->_enum.storage, false);
+	if (!type_is_integer(type.alias.type)
+			&& type.alias.type->storage != STORAGE_RUNE) {
+		error(store->check_context, atype->loc,
+			"Enum storage must be an integer or rune");
+		return &builtin_type_void;
+	}
+	type.size = type.alias.type->size;
+	type.align = type.alias.type->size;
 	return type_store_lookup_type(store, &type);
 }
 

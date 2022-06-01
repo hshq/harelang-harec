@@ -3184,11 +3184,12 @@ check_type(struct context *ctx,
 		decl->ident = adecl->ident;
 	}
 	decl->type = DECL_TYPE;
-	const struct type *type =
-		type_store_lookup_atype(ctx->store, adecl->type);
 	if (adecl->type->storage == STORAGE_ENUM) {
-		decl->_type = type;
+		decl->_type =
+			type_store_lookup_enum(ctx->store, adecl->type, exported);
 	} else {
+		const struct type *type =
+			type_store_lookup_atype(ctx->store, adecl->type);
 		struct type _alias = {
 			.storage = STORAGE_ALIAS,
 			.alias = {
@@ -3297,7 +3298,7 @@ incomplete_declaration_create(struct context *ctx, struct location loc,
 
 static void
 incomplete_enum_field_create(struct context *ctx, struct scope *imports,
-		struct scope *enum_scope, struct ast_type *etype,
+		struct scope *enum_scope, const struct type *etype,
 		struct ast_enum_field *f)
 {
 	// We have to process the last field first
@@ -3320,27 +3321,27 @@ incomplete_enum_field_create(struct context *ctx, struct scope *imports,
 		.name = strdup(f->name),
 	};
 	struct identifier name_ns = {
-		.name = etype->alias.name,
-		.ns = etype->alias.ns,
+		.name = etype->alias.name.name,
+		.ns = etype->alias.name.ns,
 	};
 	struct identifier name = {
 		.name = strdup(f->name),
 		.ns = &name_ns,
 	};
 	struct incomplete_declaration *fld =
-		incomplete_declaration_create(ctx, etype->loc, enum_scope,
+		incomplete_declaration_create(ctx, f->loc, enum_scope,
 				&name, &localname);
 	fld->type = IDECL_ENUM_FLD;
 	fld->imports = imports;
 	fld->field = field;
 
 	struct identifier _ident = {0};
-	mkident(ctx, &_ident, &etype->alias);
+	mkident(ctx, &_ident, &etype->alias.name);
 	struct identifier ident = {
 		.name = strdup(f->name),
 		.ns = &_ident,
 	};
-	fld = incomplete_declaration_create(ctx, etype->loc, ctx->scope,
+	fld = incomplete_declaration_create(ctx, f->loc, ctx->scope,
 			&ident, &name);
 	fld->type = IDECL_ENUM_FLD,
 	fld->imports = imports,
@@ -3365,10 +3366,17 @@ incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl 
 		};
 		idecl->imports = imp;
 		if (t->type->storage == STORAGE_ENUM) {
-			scope_push(&idecl->enum_values, SCOPE_ENUM);
-			incomplete_enum_field_create(ctx, imp, idecl->enum_values,
-				t->type, t->type->_enum.values);
-			idecl->type = IDECL_ENUM_TYPE;
+			bool exported = idecl->decl.exported;
+			const struct type *type = type_store_lookup_enum(
+					ctx->store, t->type, exported);
+			if (type->storage == STORAGE_VOID) {
+				return; // error occured
+			}
+			scope_push((struct scope **)&type->_enum.values, SCOPE_ENUM);
+			incomplete_enum_field_create(ctx, imp,
+				type->_enum.values, type, t->type->_enum.values);
+			scope_insert(ctx->scope, O_TYPE, &with_ns,
+				&t->ident, type, NULL);
 		} else {
 			idecl->type = IDECL_DECL;
 		}
@@ -3490,8 +3498,7 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 	assert(ctx->resolving_enum == NULL);
 	assert(idecl->type == IDECL_ENUM_FLD);
 
-	const struct type *type =
-		type_store_lookup_atype(ctx->store, idecl->field->type);
+	const struct type *type = idecl->field->type;
 
 	struct identifier nsident, nsname, localname = {
 		.name = idecl->obj.ident.name
@@ -3522,9 +3529,11 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 		return obj;
 	}
 
+	idecl = (struct incomplete_declaration *)obj;
+	assert(idecl->type == IDECL_ENUM_FLD);
+
 	ctx->resolving_enum = idecl->field->enum_scope;
-	struct expression *value =
-		xcalloc(1, sizeof(struct expression));
+	struct expression *value = xcalloc(1, sizeof(struct expression));
 	value->result = type;
 	if (idecl->field->field->value) { // explicit value
 		struct expression *initializer =
@@ -3587,9 +3596,6 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 	return scope_insert(idecl->field->enum_scope, O_CONST, &name, &localname, type, value);
 }
 
-static const struct scope_object *
-resolve_enum_type(struct context *ctx, const struct scope_object *obj);
-
 const struct scope_object *
 resolve_enum_alias(struct context *ctx, const struct scope_object *obj)
 {
@@ -3602,10 +3608,6 @@ resolve_enum_alias(struct context *ctx, const struct scope_object *obj)
 		switch (idecl->type) {
 		case IDECL_ENUM_FLD:
 			return NULL;
-		case IDECL_ENUM_TYPE:
-			// XXX: does this need to be wrapped?
-			obj = resolve_enum_type(ctx, obj);
-			return obj;
 		case IDECL_DECL:
 			if (idecl->decl.decl_type != AST_DECL_TYPE) {
 				return NULL;
@@ -3673,21 +3675,6 @@ resolve_enum_alias(struct context *ctx, const struct scope_object *obj)
 	return obj;
 }
 
-static const struct scope_object *
-resolve_enum_type(struct context *ctx, const struct scope_object *obj)
-{
-	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
-	assert(idecl->type == IDECL_ENUM_TYPE);
-	struct type *type = (struct type *)type_store_lookup_atype(ctx->store,
-			idecl->decl.type.type);
-	type->_enum.values = idecl->enum_values;
-	type->_enum.aliases = idecl->enum_aliases;
-	type->alias.exported = idecl->decl.exported;
-	type_store_lookup_alias(ctx->store, type);
-	return scope_insert(ctx->scope, O_TYPE,
-		&idecl->obj.ident, &idecl->obj.name, type, NULL);
-}
-
 const struct scope_object *
 resolve_dimensions(struct context *ctx, const struct scope_object *obj)
 {
@@ -3705,10 +3692,11 @@ resolve_dimensions(struct context *ctx, const struct scope_object *obj)
 const struct scope_object *
 resolve_type(struct context *ctx, const struct scope_object *obj)
 {
-	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
-	if (idecl->type == IDECL_ENUM_TYPE) {
-		return resolve_enum_type(ctx, obj);
+	if (obj->otype != O_SCAN) {
+		assert(obj->otype == O_TYPE);
+		return obj;
 	}
+	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
 	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != AST_DECL_TYPE) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
@@ -3825,8 +3813,6 @@ resolve_decl(struct context *ctx, const struct scope_object *obj)
 	switch (idecl->type) {
 	case IDECL_ENUM_FLD:
 		return resolve_enum_field(ctx, obj);
-	case IDECL_ENUM_TYPE:
-		return resolve_enum_type(ctx, obj);
 	case IDECL_DECL:
 		break;
 	}
@@ -4111,7 +4097,10 @@ check_internal(struct type_store *ts,
 	// Perform actual declaration resolution
 	ctx.resolving_enum = NULL;
 	for (const struct scope_object *obj = ctx.scope->objects;
-			obj && obj->otype == O_SCAN; obj = obj->lnext) {
+			obj; obj = obj->lnext) {
+		if (obj->otype != O_SCAN) {
+			continue;
+		}
 		wrap_resolver(&ctx, obj, resolve_decl);
 		assert(ctx.resolving_enum == NULL);
 	}

@@ -105,14 +105,13 @@ struct unit {
 
 enum idecl_type {
 	IDECL_DECL,
-	IDECL_ENUM_TYPE,
 	IDECL_ENUM_FLD,
 };
 
 // Keeps track of enum specific context required for enum field resolution
 struct incomplete_enum_field {
 	struct ast_enum_field *field;
-	struct ast_type *type;
+	const struct type *type;
 	struct scope *enum_scope;
 };
 
@@ -124,11 +123,7 @@ struct incomplete_declaration {
 	enum idecl_type type;
 	bool in_progress;
 	union {
-		struct {
-			struct ast_decl decl;
-			struct scope *enum_values;
-			struct identifiers *enum_aliases;
-		};
+		struct ast_decl decl;
 		struct incomplete_enum_field *field;
 	};
 };
