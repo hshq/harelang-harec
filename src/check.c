@@ -3485,25 +3485,44 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 const struct scope_object *
 resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 {
+	assert(obj->otype == O_SCAN);
 	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
 	assert(ctx->resolving_enum == NULL);
 	assert(idecl->type == IDECL_ENUM_FLD);
 
-	struct identifier localname = {
-		.name = idecl->obj.ident.name
-	};
-	struct identifier ident = idecl->obj.ident, name = idecl->obj.name;
-
-	idecl = (struct incomplete_declaration *)scope_lookup(
-			idecl->field->enum_scope, &localname);
-	if (idecl->obj.otype != O_SCAN) {
-		return &idecl->obj;
-	}
-
-	ctx->resolving_enum = idecl->field->enum_scope;
 	const struct type *type =
 		type_store_lookup_atype(ctx->store, idecl->field->type);
 
+	struct identifier nsident, nsname, localname = {
+		.name = idecl->obj.ident.name
+	};
+	identifier_dup(&nsident, &type->alias.ident);
+	identifier_dup(&nsname, &type->alias.name);
+	struct identifier ident = {
+		.name = localname.name,
+		.ns = &nsident
+	};
+	struct identifier name = {
+		.name = localname.name,
+		.ns = &nsname
+	};
+
+	const struct scope_object *new =
+		scope_lookup(idecl->field->enum_scope, &localname);
+	if (new != obj) {
+		if (new->otype == O_SCAN) {
+			new = wrap_resolver(ctx, new, resolve_enum_field);
+		}
+		assert(new->otype == O_CONST);
+		obj = scope_lookup(ctx->scope, &name);
+		if (obj->otype == O_SCAN) {
+			return scope_insert(ctx->scope, O_CONST, &ident,
+				&name, type, new->value);
+		}
+		return obj;
+	}
+
+	ctx->resolving_enum = idecl->field->enum_scope;
 	struct expression *value =
 		xcalloc(1, sizeof(struct expression));
 	value->result = type;
@@ -3528,15 +3547,11 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 		expect(&idecl->field->field->value->loc, r == EVAL_OK,
 			"Unable to evaluate constant initializer at compile time");
 	} else { // implicit value
-		const struct scope_object *obj = NULL;
+		const struct scope_object *obj = idecl->obj.lnext;
 		// find previous enum value
-		if (idecl->obj.lnext && idecl->obj.lnext->otype == O_SCAN) {
-			obj = scope_lookup(idecl->field->enum_scope,
-					&idecl->obj.lnext->name);
-			if (obj->otype == O_SCAN) {
-				// complete previous value first
-				obj = wrap_resolver(ctx, obj, resolve_enum_field);
-			}
+		if (obj && obj->otype == O_SCAN) {
+			// complete previous value first
+			obj = wrap_resolver(ctx, obj, resolve_enum_field);
 		}
 		value->type = EXPR_CONSTANT;
 		if (type_is_signed(type_dealias(type))) {
@@ -3569,8 +3584,7 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 				&alias_name, obj->type, value);
 	}
 
-	scope_insert(idecl->field->enum_scope, O_CONST, &name, &localname, type, value);
-	return scope_insert(ctx->scope, O_CONST, &ident, &name, type, value);
+	return scope_insert(idecl->field->enum_scope, O_CONST, &name, &localname, type, value);
 }
 
 void
