@@ -3666,12 +3666,28 @@ scan_enum_type(struct context *ctx, struct incomplete_declaration *idecl)
 }
 
 static const struct scope_object *
-scan_type(struct context *ctx, struct ast_type_decl *decl, bool exported,
-		struct dimensions dim)
+scan_type(struct context *ctx, struct incomplete_declaration *idecl,
+		struct dimensions *dim)
 {
+	if (dim) {
+		// the caller is only interested in this type's dimensions
+		*dim = type_store_lookup_dimensions(ctx->store,
+			idecl->decl.type.type);
+		return NULL;
+	}
+
+	// 1. compute type dimensions
+	struct dimensions _dim =
+	type_store_lookup_dimensions(ctx->store,
+		idecl->decl.type.type);
+
+	handle_errors(ctx->errors);
+	idecl->in_progress = false;
+
+	// 2. compute type representation and store it
 	struct identifier ident = {0}, name = {0};
-	mkident(ctx, &ident, &decl->ident);
-	identifier_dup(&name, &decl->ident);
+	identifier_dup(&name, &idecl->decl.type.ident);
+	mkident(ctx, &ident, &name);
 
 	struct type _alias = {
 		.storage = STORAGE_ALIAS,
@@ -3679,18 +3695,18 @@ scan_type(struct context *ctx, struct ast_type_decl *decl, bool exported,
 			.ident = ident,
 			.name = name,
 			.type = NULL,
-			.exported = exported,
+			.exported = idecl->decl.exported,
 		},
-		.size = dim.size,
-		.align = dim.align,
-		.flags = decl->type->flags,
+		.size = _dim.size,
+		.align = _dim.align,
+		.flags = idecl->decl.type.type->flags,
 	};
 
 	const struct type *alias = type_store_lookup_alias(ctx->store, &_alias);
 	const struct scope_object *ret =
-		scope_insert(ctx->scope, O_TYPE, &ident, &decl->ident, alias, NULL);
+		scope_insert(ctx->scope, O_TYPE, &ident, &name, alias, NULL);
 	((struct type *)ret->type)->alias.type =
-		type_store_lookup_atype(ctx->store, decl->type);
+		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
 	return ret;
 }
 
@@ -3813,24 +3829,7 @@ scan_decl_finish(struct context *ctx, const struct scope_object *obj,
 		obj = scan_function(ctx, &idecl->decl.function);
 		break;
 	case AST_DECL_TYPE:
-		if (dim) {
-			// the caller is only interested in this type's dimensions
-			*dim = type_store_lookup_dimensions(ctx->store,
-				idecl->decl.type.type);
-			obj = NULL;
-		} else {
-			// 1. compute type dimensions
-			struct dimensions _dim =
-			type_store_lookup_dimensions(ctx->store,
-				idecl->decl.type.type);
-
-			handle_errors(ctx->errors);
-			idecl->in_progress = false;
-
-			// 2. compute type representation and store it
-			obj = scan_type(ctx, &idecl->decl.type,
-				idecl->decl.exported, _dim);
-		}
+		obj = scan_type(ctx, idecl, dim);
 		break;
 	}
 exit:
