@@ -13,20 +13,27 @@ variables and enum fields.
 First, the constants defined upon harec invocation are checked and put into a
 dedicated scope. Then the imports for each subunit are loaded. This step requires
 the command line defines to already be in place. After the imports of a
-subunit are loaded, all of its declarations are marked incomplete and put into
-the unit scope. Duplicate declarations are caught and reported at this step.
-Special care needs to be taken with enums, by creating a scope for each of them
-and inserting all the fields into it in the correct order.
+subunit are loaded, all of its declarations except enums are marked
+incomplete and put into the unit scope. Duplicate declarations are caught and
+reported at this step. Enum types are treated separately from enum values
+in this algorithm. Enum types never have dependencies and can be completed
+on the spot. Enum values are put into a special scope that is created for each
+enum type and marked incomplete.
 
 At this point the defines can be copied from the dedicated scope into the unit
 scope, shadowing the declarations from the source files.
 
-Next, aliases of enum types are detected and taken care of. A list of aliases
-is build for each declared enum, so that in the process when enum values are
-completed, the same value is declared in enum aliases' namespaces too.
-Additionally, every enum value that is already completed (the ones that were
-imported from another module) gets instantly copied to each enum alias'
-namespace.
+Next, aliases of enum types are detected and taken care of. Because an enum
+alias only depends on the underlying enum type, its entire dependency tree
+is known immediately when it is detected, so it can be completed right away.
+For values of enum aliases we need to cover three possible configurations:
+	(a) An alias to an enum whose values are already completed at this
+	    stage. This happens when the underlying enum was imported from
+	    another module. This is the easiest case to handle, we can just
+	    copy it's values to the alias immediately.
+	(b) An enum alias whose underlying enum is defined in the same unit
+	    this case is handled by the general resolution algorithm described
+	    below.
 
 With everything but the declarations in place, the core part of the algorithm
 is started:

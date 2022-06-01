@@ -73,7 +73,6 @@ struct type_enum_value {
 
 struct type_enum {
 	struct scope *values;
-	struct identifiers *aliases;
 };
 
 enum variadism {

@@ -99,18 +99,25 @@ fn interdependent() void = {
 	assert(interdependent2::C == 5);
 };
 
-type alias = with_storage;
+type e1 = enum { a, b, c, d }, a1 = e1;
+type a2 = e2, e2 = enum u8 { a, b, c, d }; // reverse
 
 type imported_alias = testmod::_enum;
 
 type imported_double_alias = testmod::enum_alias;
 
 fn aliases() void = {
-	assert(size(alias) == size(with_storage));
-	assert(alias::CAFE == with_storage::CAFE);
-	assert(alias::BABE == with_storage::BABE);
-	assert(alias::DEAD == with_storage::DEAD);
-	assert(alias::BEEF == with_storage::BEEF);
+	assert(size(a1) == size(e1));
+	assert(a1::a == e1::a);
+	assert(a1::b == e1::b);
+	assert(a1::c == e1::c);
+	assert(a1::d == e1::d);
+
+	assert(size(a2) == size(e2));
+	assert(a2::a == e2::a);
+	assert(a2::b == e2::b);
+	assert(a2::c == e2::c);
+	assert(a2::d == e2::d);
 
 	// test with alias of imported enum
 	assert(imported_alias::ONE == testmod::_enum::ONE);

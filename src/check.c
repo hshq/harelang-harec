@@ -3281,10 +3281,14 @@ incomplete_declaration_create(struct context *ctx, struct location loc,
 		struct scope *scope, const struct identifier *ident,
 		const struct identifier *name)
 {
+	struct scope *subunit = ctx->unit->parent;
+	ctx->unit->parent = NULL;
 	struct incomplete_declaration *idecl =
 		(struct incomplete_declaration *)scope_lookup(scope, name);
+	ctx->unit->parent = subunit;
+
 	if (idecl) {
-		error(ctx, loc, NULL, "Duplicate global identifier '%s'",
+		expect(&loc, NULL, "Duplicate global identifier '%s'",
 			identifier_unparse(ident));
 		return idecl;
 	}
@@ -3579,20 +3583,6 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 	}
 	ctx->resolving_enum = NULL;
 
-	for (struct identifiers *id = type->_enum.aliases; id; id = id->next) {
-		const struct scope_object *obj = scope_lookup(ctx->scope, &id->ident);
-		if (obj->otype == O_SCAN) {
-			obj = wrap_resolver(ctx, obj, resolve_decl);
-		}
-		struct identifier alias_ident, alias_name = {
-			.name = name.name,
-			.ns = &id->ident,
-		};
-		mkident(ctx, &alias_ident, &alias_name);
-		scope_insert(ctx->scope, O_CONST, &alias_ident,
-				&alias_name, obj->type, value);
-	}
-
 	return scope_insert(idecl->field->enum_scope, O_CONST, &name, &localname, type, value);
 }
 
@@ -3600,8 +3590,8 @@ const struct scope_object *
 resolve_enum_alias(struct context *ctx, const struct scope_object *obj)
 {
 	struct incomplete_declaration *idecl;
-	struct identifier alias, sub;
-	identifier_dup(&alias, &obj->name);
+	struct identifier sub;
+	const struct scope_object *orig = obj;
 	switch (obj->otype) {
 	case O_SCAN:
 		idecl = (struct incomplete_declaration *)obj;
@@ -3654,24 +3644,48 @@ resolve_enum_alias(struct context *ctx, const struct scope_object *obj)
 	}
 	assert(obj->otype == O_TYPE && obj->type->storage == STORAGE_ENUM);
 
-	struct identifiers *new = xcalloc(1, sizeof(struct identifiers));
-	identifier_dup(&new->ident, &alias);
-	new->next = obj->type->_enum.aliases;
-	((struct type *)obj->type)->_enum.aliases = new;
-	const struct type *type = type_dealias(obj->type);
+	// orig->type is (perhaps transitively) an alias of a resolved enum
+	// type, which means its dependency graph is a linear chain of
+	// resolved types ending with that enum, so we can immediately resolve it
+	// There's no need to wrap this call, because the context is already
+	// correct
+	const struct type *type = resolve_type(ctx, orig)->type;
+
 	for (const struct scope_object *val = obj->type->_enum.values->objects;
 			val; val = val->lnext) {
-		if (val->otype == O_SCAN) {
-			continue;
-		}
+		struct identifier ns;
+		identifier_dup(&ns, &orig->name);
 		struct identifier ident, name = {
 			.name = val->name.name,
-			.ns = &alias,
+			.ns = &ns,
 		};
 		mkident(ctx, &ident, &name);
-		scope_insert(ctx->scope, O_CONST, &ident, &name,
+		if (val->otype != O_SCAN) {
+			scope_insert(ctx->scope, O_CONST, &ident, &name,
 				type, val->value);
-	}
+			continue;
+		}
+		struct ast_enum_field *afield =
+			xcalloc(1, sizeof(struct ast_enum_field));
+		*afield = (struct ast_enum_field){
+			.loc = (struct location){0}, // XXX: what to put here?
+			.name = strdup(val->name.name),
+		};
+
+		struct incomplete_enum_field *field =
+			xcalloc(1, sizeof(struct incomplete_enum_field));
+		idecl = (struct incomplete_declaration *)val;
+		*field = (struct incomplete_enum_field){
+			.field = afield,
+			.type = type,
+			.enum_scope = idecl->field->enum_scope,
+		};
+
+		idecl = incomplete_declaration_create(ctx, (struct location){0},
+			ctx->scope, &ident, &name);
+		idecl->type = IDECL_ENUM_FLD;
+		idecl->field = field;
+	};
 	return obj;
 }
 
