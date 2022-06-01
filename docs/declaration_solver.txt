@@ -21,6 +21,13 @@ and inserting all the fields into it in the correct order.
 At this point the defines can be copied from the dedicated scope into the unit
 scope, shadowing the declarations from the source files.
 
+Next, aliases of enum types are detected and taken care of. A list of aliases
+is build for each declared enum, so that in the process when enum values are
+completed, the same value is declared in enum aliases' namespaces too.
+Additionally, every enum value that is already completed (the ones that were
+imported from another module) gets instantly copied to each enum alias'
+namespace.
+
 With everything but the declarations in place, the core part of the algorithm
 is started:
 
