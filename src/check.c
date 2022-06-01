@@ -3587,83 +3587,90 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 	return scope_insert(idecl->field->enum_scope, O_CONST, &name, &localname, type, value);
 }
 
-void
-enum_alias_list(struct context *ctx, const struct scope_object *obj,
-	struct identifiers *ids)
+static const struct scope_object *
+resolve_enum_type(struct context *ctx, const struct scope_object *obj);
+
+const struct scope_object *
+resolve_enum_alias(struct context *ctx, const struct scope_object *obj)
 {
 	struct incomplete_declaration *idecl;
-	const struct type *type;
+	struct identifier alias, sub;
+	identifier_dup(&alias, &obj->name);
 	switch (obj->otype) {
 	case O_SCAN:
 		idecl = (struct incomplete_declaration *)obj;
 		switch (idecl->type) {
 		case IDECL_ENUM_FLD:
-			return;
+			return NULL;
 		case IDECL_ENUM_TYPE:
-			if (!idecl->enum_aliases) {
-				idecl->enum_aliases = ids;
-			} else {
-				struct identifiers *id;
-				for (id = idecl->enum_aliases;
-						id->next; id = id->next);
-				id->next = ids;
-			}
-			return;
+			// XXX: does this need to be wrapped?
+			obj = resolve_enum_type(ctx, obj);
+			return obj;
 		case IDECL_DECL:
 			if (idecl->decl.decl_type != AST_DECL_TYPE) {
-				return;
+				return NULL;
 			}
 			if (idecl->decl.type.type->storage != STORAGE_ALIAS) {
-				return;
+				return NULL;
 			}
-			struct identifiers *new = xcalloc(1, sizeof(struct identifiers));
-			identifier_dup(&new->ident, &idecl->decl.type.ident);			new->next = ids;
-			ids = new;
-
-			struct scope *subunit = ctx->unit->parent;
-			ctx->unit->parent = idecl->imports;
-			obj = scope_lookup(ctx->scope, &idecl->decl.type.type->alias);
-			if (!obj) {
-				struct identifier *ident =
-					&idecl->decl.type.type->alias;
-				error(ctx, idecl->decl.loc, NULL,
-						"Unknown object '%s'",
-						identifier_unparse(ident));
-				return;
-			}
-			ctx->unit->parent = subunit;
-			enum_alias_list(ctx, obj, ids);
+			identifier_dup(&sub, &idecl->decl.type.type->alias);
 			break;
 		}
 		break;
 	case O_TYPE:
-		type = type_dealias(obj->type);
-		if (type->storage != STORAGE_ENUM) {
-			return;
+		if (obj->type->storage == STORAGE_ENUM) {
+			return obj;
 		}
-		for (; ids; ids = ids->next) {
-			const struct scope_object *alias =
-				scope_lookup(ctx->scope, &ids->ident);
-			if (alias->otype == O_SCAN) {
-				alias = wrap_resolver(ctx, alias, resolve_type);
-			}
-			for (obj = type->_enum.values->objects;
-					obj; obj = obj->lnext) {
-				struct identifier ident, name = {
-					.name = obj->name.name,
-					.ns = &ids->ident,
-				};
-				mkident(ctx, &ident, &name);
-				scope_insert(ctx->scope, O_CONST, &ident, &name,
-						alias->type, obj->value);
-			}
+		enum type_storage storage = obj->type->alias.type->storage;
+		if (storage != STORAGE_ALIAS && storage != STORAGE_ENUM) {
+			return NULL;
 		}
+		identifier_dup(&sub, &obj->type->alias.type->alias.name);
 		break;
 	case O_BIND:
 	case O_CONST:
 	case O_DECL:
-		return;
+		return NULL;
 	}
+
+	obj = scope_lookup(ctx->scope, &sub);
+	if (!obj) {
+		// nonexistent secondary types can only happen in incomplete
+		// types, so dereferencing idecl here is safe
+		error(ctx, idecl->decl.loc, NULL,
+			"Unknown object '%s'", identifier_unparse(&sub));
+		return NULL;
+	}
+	if (obj->otype == O_SCAN) {
+		obj = wrap_resolver(ctx, obj, resolve_enum_alias);
+	} else {
+		assert(obj->otype == O_TYPE);
+		obj = resolve_enum_alias(ctx, obj);
+	}
+	if (!obj) {
+		return NULL;
+	}
+	assert(obj->otype == O_TYPE && obj->type->storage == STORAGE_ENUM);
+
+	struct identifiers *new = xcalloc(1, sizeof(struct identifiers));
+	identifier_dup(&new->ident, &alias);
+	new->next = obj->type->_enum.aliases;
+	((struct type *)obj->type)->_enum.aliases = new;
+	const struct type *type = type_dealias(obj->type);
+	for (const struct scope_object *val = obj->type->_enum.values->objects;
+			val; val = val->lnext) {
+		if (val->otype == O_SCAN) {
+			continue;
+		}
+		struct identifier ident, name = {
+			.name = val->name.name,
+			.ns = &alias,
+		};
+		mkident(ctx, &ident, &name);
+		scope_insert(ctx->scope, O_CONST, &ident, &name,
+				type, val->value);
+	}
+	return obj;
 }
 
 static const struct scope_object *
@@ -3703,14 +3710,15 @@ resolve_type(struct context *ctx, const struct scope_object *obj)
 		return resolve_enum_type(ctx, obj);
 	}
 	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != AST_DECL_TYPE) {
-		struct location *loc;
+		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
-			loc = &idecl->field->type->loc;
+			loc = idecl->field->type->loc;
 		} else {
-			loc = &idecl->decl.loc;
+			loc = idecl->decl.loc;
 		}
-		expect(loc, false, "'%s' is not a type",
+		error(ctx, loc, false, "'%s' is not a type",
 				identifier_unparse(&idecl->obj.name));
+		handle_errors(ctx->errors);
 	}
 
 	// 1. compute type dimensions
@@ -3858,14 +3866,15 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 
 	// resolving a declaration that is already in progress -> cycle
 	if (idecl->in_progress) {
-		struct location *loc;
+		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
-			loc = &idecl->field->type->loc;
+			loc = idecl->field->type->loc;
 		} else {
-			loc = &idecl->decl.loc;
+			loc = idecl->decl.loc;
 		}
-		expect(loc, false, "Circular dependency for '%s'\n",
-			identifier_unparse(&idecl->obj.ident));
+		error(ctx, loc, NULL, "Circular dependency for '%s'\n",
+			identifier_unparse(&idecl->obj.name));
+		handle_errors(ctx->errors);
 	}
 	idecl->in_progress = true;
 
@@ -4088,11 +4097,14 @@ check_internal(struct type_store *ts,
 	// Find enum aliases and store them in incomplete enum value declarations
 	for (const struct scope_object *obj = ctx.scope->objects;
 			obj; obj = obj->lnext) {
+		if (obj->otype != O_SCAN) {
+			continue;
+		}
 		struct incomplete_declaration *idecl =
 			(struct incomplete_declaration *)obj;
 		if (idecl->type == IDECL_DECL
 				&& idecl->decl.decl_type == AST_DECL_TYPE) {
-			enum_alias_list(&ctx, obj, NULL);
+			wrap_resolver(&ctx, obj, resolve_enum_alias);
 		}
 	}
 
