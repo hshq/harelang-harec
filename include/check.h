@@ -136,8 +136,20 @@ struct incomplete_declaration {
 void mkident(struct context *ctx, struct identifier *out,
 		const struct identifier *in);
 
-const struct scope_object *scan_decl_finish(struct context *ctx,
-	const struct scope_object *obj, struct dimensions *dim);
+typedef const struct scope_object *(*resolvefn)(struct context *,
+		const struct scope_object *obj);
+
+const struct scope_object *resolve_dimensions(struct context *ctx,
+		const struct scope_object *obj);
+
+const struct scope_object *resolve_type(struct context *ctx,
+		const struct scope_object *obj);
+
+const struct scope_object *resolve_decl(struct context *ctx,
+		const struct scope_object *obj);
+
+const struct scope_object *wrap_resolver(struct context *ctx,
+	const struct scope_object *obj, resolvefn resolver);
 
 struct scope *check(struct type_store *ts,
 	bool is_test,

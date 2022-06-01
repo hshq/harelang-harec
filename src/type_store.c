@@ -645,17 +645,18 @@ type_init_from_atype(struct type_store *store,
 
 		if (obj->otype == O_SCAN) {
 			// an incomplete declaration was encountered
-			struct dimensions dim = {0};
 			struct incomplete_declaration *idecl =
 				(struct incomplete_declaration *)obj;
 			if (size_only && idecl->type == IDECL_DECL) {
-				scan_decl_finish(store->check_context, obj, &dim);
-				type->size = dim.size;
-				type->align = dim.align;
+				obj = wrap_resolver(store->check_context, obj,
+						resolve_dimensions);
+				type->size = obj->type->size;
+				type->align = obj->type->align;
 				break;
 			}
 			// complete it first and then proceed normally
-			obj = scan_decl_finish(store->check_context, obj, NULL);
+			obj = wrap_resolver(store->check_context,
+					obj, resolve_type);
 		}
 
 		if (obj->otype != O_TYPE) {
