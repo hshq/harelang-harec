@@ -3856,7 +3856,7 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 
 	// ensure this declaration wasn't already scanned
 	struct incomplete_declaration *idecl = (struct incomplete_declaration *)obj;
-	obj = scope_lookup(ctx->scope, &idecl->obj.ident);
+	obj = scope_lookup(ctx->scope, &idecl->obj.name);
 	if (obj && obj->otype != O_SCAN) {
 		goto exit;
 	}
