@@ -3712,7 +3712,7 @@ resolve_type(struct context *ctx, const struct scope_object *obj)
 	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != AST_DECL_TYPE) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
-			loc = idecl->field->type->loc;
+			loc = idecl->field->field->loc;
 		} else {
 			loc = idecl->decl.loc;
 		}
@@ -3868,7 +3868,7 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	if (idecl->in_progress) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
-			loc = idecl->field->type->loc;
+			loc = idecl->field->field->loc;
 		} else {
 			loc = idecl->decl.loc;
 		}

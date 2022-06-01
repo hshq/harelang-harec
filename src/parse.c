@@ -433,6 +433,7 @@ parse_enum_type(struct identifier *ident, struct lexer *lexer)
 		*next = xcalloc(1, sizeof(struct ast_enum_field));
 		want(lexer, T_NAME, &tok);
 		(*next)->name = tok.name;
+		(*next)->loc = tok.loc;
 		if (lex(lexer, &tok) == T_EQUAL) {
 			(*next)->value = parse_expression(lexer);
 		} else {
