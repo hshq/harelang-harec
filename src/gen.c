@@ -986,11 +986,95 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 	return result;
 }
 
+static void
+gen_expr_binding_unpack_static(struct gen_context *ctx,
+	const struct expression_binding *binding)
+{
+	assert(binding->object == NULL);
+
+	struct tuple_constant *tupleconst =
+		binding->initializer->constant.tuple;
+
+	for (const struct binding_unpack *unpack = binding->unpack;
+			unpack; unpack = unpack->next) {
+		if (unpack->object == NULL) {
+			goto done;
+		}
+		assert(unpack->object->otype == O_DECL);
+
+		struct declaration decl = {
+			.type = DECL_GLOBAL,
+			.ident = unpack->object->ident,
+			.global = {
+				.type = unpack->object->type,
+				.value = tupleconst->value,
+			},
+		};
+		gen_global_decl(ctx, &decl);
+
+done:
+		tupleconst = tupleconst->next;
+	}
+}
+
+static void
+gen_expr_binding_unpack(struct gen_context *ctx,
+	const struct expression_binding *binding)
+{
+	assert(binding->object == NULL);
+
+	const struct type *type = binding->initializer->result;
+	char *tuple_name = gen_name(ctx, "tupleunpack.%d");
+	struct gen_value tuple_gv = {
+		.kind = GV_TEMP,
+		.type = type,
+		.name = tuple_name,
+	};
+	struct qbe_value tuple_qv = mklval(ctx, &tuple_gv);
+	struct qbe_value sz = constl(type->size);
+	enum qbe_instr alloc = alloc_for_align(type->align);
+	pushprei(ctx->current, &tuple_qv, alloc, &sz, NULL);
+
+	gen_expr_at(ctx, binding->initializer, tuple_gv);
+
+	for (const struct binding_unpack *unpack = binding->unpack;
+			unpack; unpack = unpack->next) {
+		if (unpack->object == NULL) {
+			continue;
+		}
+		assert(unpack->object->otype != O_DECL);
+
+		const struct type *type = unpack->object->type;
+		struct gen_value item_gv = {
+			.kind = GV_TEMP,
+			.type = type,
+			.name = gen_name(ctx, "binding.%d"),
+		};
+		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
+		gb->value = item_gv;
+		gb->object = unpack->object;
+		gb->next = ctx->bindings;
+		ctx->bindings = gb;
+		struct qbe_value item_qv = mklval(ctx, &gb->value);
+		struct qbe_value offs = constl(unpack->offset);
+		pushprei(ctx->current, &item_qv, Q_ADD, &tuple_qv, &offs, NULL);
+	}
+}
+
 static struct gen_value
 gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 {
 	for (const struct expression_binding *binding = &expr->binding;
 			binding; binding = binding->next) {
+		if (binding->unpack) {
+			if (binding->unpack->object->otype == O_DECL) {
+				gen_expr_binding_unpack_static(ctx, binding);
+			} else {
+				gen_expr_binding_unpack(ctx, binding);
+			}
+			continue;
+		}
+
 		if (binding->object->otype == O_DECL) {
 			// static binding
 			struct declaration decl = {

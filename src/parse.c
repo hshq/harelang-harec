@@ -2012,6 +2012,44 @@ parse_match_expression(struct lexer *lexer)
 	return exp;
 }
 
+static void
+parse_binding_unpack(struct lexer *lexer, struct ast_binding_unpack **next)
+{
+	struct token tok = {0};
+
+	bool more = true;
+	while (more) {
+		char *name;
+
+		switch (lex(lexer, &tok)) {
+		case T_NAME:
+			name = tok.name;
+			break;
+		case T_UNDERSCORE:
+			name = NULL;
+			break;
+		default:
+			synassert(false, &tok, T_NAME, T_UNDERSCORE, T_EOF);
+		}
+
+		struct ast_binding_unpack *new = xcalloc(1, sizeof *new);
+		*next = new;
+		next = &new->next;
+
+		new->name = name;
+
+		switch (lex(lexer, &tok)) {
+		case T_COMMA:
+			break;
+		case T_RPAREN:
+			more = false;
+			break;
+		default:
+			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
+		}
+	}
+}
+
 static struct ast_expression *
 parse_binding_list(struct lexer *lexer, bool is_static)
 {
@@ -2036,8 +2074,16 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 
 	bool more = true;
 	while (more) {
-		want(lexer, T_NAME, &tok);
-		binding->name = tok.name;
+		switch (lex(lexer, &tok)) {
+		case T_NAME:
+			binding->name = tok.name;
+			break;
+		case T_LPAREN:
+			parse_binding_unpack(lexer, &binding->unpack);
+			break;
+		default:
+			synassert(false, &tok, T_NAME, T_LPAREN, T_EOF);
+		}
 		binding->initializer = mkexpr(&lexer->loc);
 		binding->flags = flags;
 		binding->is_static = is_static;

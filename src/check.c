@@ -985,6 +985,106 @@ check_expr_binarithm(struct context *ctx,
 }
 
 static void
+check_binding_unpack(struct context *ctx,
+	const struct type *type,
+	const struct ast_expression_binding *abinding,
+	struct expression_binding *binding,
+	const struct ast_expression *aexpr,
+	struct expression *expr)
+{
+	assert(abinding->unpack);
+	const struct ast_binding_unpack *cur = abinding->unpack;
+	binding->unpack = xcalloc(1, sizeof(struct binding_unpack));
+	struct binding_unpack *unpack = binding->unpack;
+
+	struct expression *initializer = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, abinding->initializer, initializer, type);
+	if (initializer->result->storage != STORAGE_TUPLE) {
+		error(ctx, aexpr->loc, expr, "Could not unpack non-tuple type");
+		return;
+	}
+
+	if (!type) {
+		type = type_store_lookup_with_flags(
+			ctx->store, initializer->result, abinding->flags);
+	}
+
+	binding->initializer = lower_implicit_cast(type, initializer);
+
+	if (abinding->is_static) {
+		struct expression *value = xcalloc(1, sizeof(struct expression));
+		enum eval_result r = eval_expr(ctx, binding->initializer, value);
+		if (r != EVAL_OK) {
+			error(ctx, abinding->initializer->loc,
+				expr,
+				"Unable to evaluate static initializer at compile time");
+			return;
+		}
+		// TODO: Free initializer
+		binding->initializer = value;
+		assert(binding->initializer->type == EXPR_CONSTANT);
+	}
+
+	const struct type_tuple *type_tuple = &type->tuple;
+	bool found_binding = false;
+	while (cur) {
+		if (type_tuple->type->storage == STORAGE_NULL) {
+			error(ctx, aexpr->loc, expr,
+				"Null is not a valid type for a binding");
+			return;
+		}
+
+		if (cur->name) {
+			struct identifier ident = {
+				.name = cur->name,
+			};
+
+			if (abinding->is_static) {
+				struct identifier gen = {0};
+
+				// Generate a static declaration identifier
+				int n = snprintf(NULL, 0, "static.%d", ctx->id);
+				gen.name = xcalloc(n + 1, 1);
+				snprintf(gen.name, n + 1, "static.%d", ctx->id);
+				++ctx->id;
+
+				unpack->object = scope_insert(
+					ctx->scope, O_DECL, &gen, &ident,
+					type_tuple->type, NULL);
+			} else {
+				unpack->object = scope_insert(
+					ctx->scope, O_BIND, &ident, &ident,
+					type_tuple->type, NULL);
+			}
+
+			unpack->offset = type_tuple->offset;
+
+			found_binding = true;
+		}
+
+		cur = cur->next;
+		type_tuple = type_tuple->next;
+
+		if (cur && found_binding && cur->name) {
+			unpack->next = xcalloc(1, sizeof(struct binding_unpack));
+			unpack = unpack->next;
+		}
+	}
+
+	if (!found_binding) {
+		error(ctx, aexpr->loc, expr,
+			"Must have at least one non-underscore value when unpacking tuples");
+		return;
+	}
+
+	if (type_tuple) {
+		error(ctx, aexpr->loc, expr,
+			"Fewer bindings than tuple elements were provided when unpacking");
+		return;
+	}
+}
+
+static void
 check_expr_binding(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -1004,6 +1104,12 @@ check_expr_binding(struct context *ctx,
 				ctx->store, abinding->type);
 			type = type_store_lookup_with_flags(ctx->store,
 				type, type->flags | abinding->flags);
+		}
+
+		if (abinding->unpack) {
+			check_binding_unpack(ctx, type, abinding, binding,
+				aexpr, expr);
+			goto done;
 		}
 
 		struct identifier ident = {
@@ -1105,6 +1211,7 @@ check_expr_binding(struct context *ctx,
 			binding->initializer = value;
 		}
 
+done:
 		if (abinding->next) {
 			binding = *next =
 				xcalloc(1, sizeof(struct expression_binding));

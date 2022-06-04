@@ -134,8 +134,15 @@ struct expression_binarithm {
 	struct expression *lvalue, *rvalue;
 };
 
+struct binding_unpack {
+	const struct scope_object *object;
+	size_t offset;
+	struct binding_unpack *next;
+};
+
 struct expression_binding {
 	const struct scope_object *object;
+	struct binding_unpack *unpack;
 	struct expression *initializer;
 	struct expression_binding *next;
 };

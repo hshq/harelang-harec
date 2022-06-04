@@ -154,8 +154,14 @@ struct ast_expression_binarithm {
 	struct ast_expression *lvalue, *rvalue;
 };
 
+struct ast_binding_unpack {
+	char *name;
+	struct ast_binding_unpack *next;
+};
+
 struct ast_expression_binding {
 	char *name;
+	struct ast_binding_unpack *unpack;
 	struct ast_type *type;
 	unsigned int flags;
 	bool is_static;
