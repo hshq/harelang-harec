@@ -129,7 +129,12 @@ emit_const(const struct expression *expr, FILE *out)
 			if (ev->otype == O_SCAN) {
 				continue;
 			}
-			if (ev->type->alias.type->storage == STORAGE_CHAR
+			if (ev->type->alias.type->storage == STORAGE_UINTPTR) {
+				if (ev->value->constant.uval == val->uval) {
+					fprintf(out, "(%" PRIuMAX "): uintptr", val->uval);
+					break;
+				}
+			} else if (ev->type->alias.type->storage == STORAGE_CHAR
 					|| !type_is_signed(ev->type->alias.type)) {
 				if (ev->value->constant.uval == val->uval) {
 					fprintf(out, "%" PRIuMAX, val->uval);

@@ -3472,7 +3472,10 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		handle_errors(ctx->errors);
 		expect(&idecl->field->field->value->loc,
 			type_is_assignable(type->alias.type, initializer->result),
-			"Enum value type is not assignable from initializer type");
+			"Enum value type (%s) is not assignable from initializer type (%s) for value %s",
+			gen_typename(type->alias.type),
+			gen_typename(initializer->result),
+			idecl->obj.ident.name);
 
 		initializer = lower_implicit_cast(type, initializer);
 		enum eval_result r = eval_expr(ctx, initializer, value);
