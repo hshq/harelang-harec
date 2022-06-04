@@ -93,13 +93,13 @@ module_resolve(struct modcache *cache[],
 	lex_init(&lexer, f, 0);
 	parse(&lexer, &aunit.subunits);
 	lex_finish(&lexer);
-	sources[0] = old;
 
 	// TODO: Free unused bits
 	struct unit u = {0};
 	struct scope *scope = check_internal(store,
 			cache, NULL, defines, &aunit, &u, true);
 
+	sources[0] = old;
 	bucket = &cache[hash % MODCACHE_BUCKETS];
 	struct modcache *item = xcalloc(1, sizeof(struct modcache));
 	identifier_dup(&item->ident, ident);
