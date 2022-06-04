@@ -1214,7 +1214,7 @@ check_expr_call(struct context *ctx,
 		}
 	}
 
-	if (param && fntype->func.variadism == VARIADISM_HARE) {
+	if (param && !param->next && fntype->func.variadism == VARIADISM_HARE) {
 		// No variadic arguments, lower to empty slice
 		arg = *next = xcalloc(1, sizeof(struct call_argument));
 		arg->value = xcalloc(1, sizeof(struct expression));
