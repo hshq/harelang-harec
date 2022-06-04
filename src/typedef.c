@@ -123,29 +123,18 @@ emit_const(const struct expression *expr, FILE *out)
 		break;
 	case STORAGE_ENUM:
 		assert(expr->result->storage == STORAGE_ENUM);
-		struct scope_object *ev =
-			type_dealias(expr->result)->_enum.values->objects;
-		for(; ev; ev = ev->lnext) {
-			if (ev->otype == O_SCAN) {
-				continue;
-			}
-			if (ev->type->alias.type->storage == STORAGE_UINTPTR) {
-				if (ev->value->constant.uval == val->uval) {
-					fprintf(out, "(%" PRIuMAX "): uintptr", val->uval);
-					break;
-				}
-			} else if (ev->type->alias.type->storage == STORAGE_CHAR
-					|| !type_is_signed(ev->type->alias.type)) {
-				if (ev->value->constant.uval == val->uval) {
-					fprintf(out, "%" PRIuMAX, val->uval);
-					break;
-				}
-			} else if (ev->value->constant.ival == val->ival) {
-				fprintf(out, "%" PRIiMAX, val->ival);
-				break;
-			}
+		const struct type *t = type_dealias(expr->result);
+		char *ident = identifier_unparse(&t->alias.ident);
+		if (t->alias.type->storage == STORAGE_CHAR) {
+			fprintf(out, "%" PRIuMAX, val->uval);
+		} else if (type_is_signed(t->alias.type)) {
+			fprintf(out, "%" PRIiMAX "%s: %s", val->ival,
+				storage_to_suffix(t->alias.type->storage), ident);
+		} else {
+			fprintf(out, "%" PRIuMAX "%s: %s", val->uval,
+				storage_to_suffix(t->alias.type->storage), ident);
 		}
-		assert(ev);
+		free(ident);
 		break;
 	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:

@@ -1,6 +1,11 @@
 use rt;
 use testmod;
 
+fn _enum() void = {
+	assert(testmod::other::EIGHT == 8);
+	assert(testmod::char_enum::ONE == 1);
+};
+
 fn accept() void = {
 	assert(rt::compile("
 		use testmod;
@@ -80,6 +85,7 @@ fn reject() void = {
 
 
 export fn main() void = {
+	_enum();
 	accept();
 	reject();
 };
