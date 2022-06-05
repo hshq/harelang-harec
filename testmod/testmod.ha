@@ -6,5 +6,5 @@ export type _enum = enum {
 
 export type enum_alias = _enum;
 
-export fn testfunc1() void = void;
-export fn testfunc2() void = void;
+export def val: int = 42;
+export def val2: int = 90;
