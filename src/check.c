@@ -482,9 +482,11 @@ check_expr_append_insert(struct context *ctx,
 	sltype = type_dealias(type_dereference(sltypename));
 
 	if (sltype->storage != STORAGE_SLICE) {
+		char *typename = gen_typename(sltypename);
 		error(ctx, aexpr->append.object->loc, expr,
 			"%s expression must operate on a slice, but got %s",
-			exprtype_name, gen_typename(sltypename));
+			exprtype_name, typename);
+		free(typename);
 		return;
 	}
 	if (sltype->flags & TYPE_CONST) {
@@ -698,9 +700,13 @@ check_expr_assign(struct context *ctx,
 			return;
 		}
 		if (!type_is_assignable(object->result, value->result)) {
+			char *valtypename = gen_typename(value->result);
+			char *objtypename = gen_typename(object->result);
 			error(ctx, aexpr->loc, expr,
 				"rvalue type (%s) is not assignable to lvalue (%s)",
-				gen_typename(value->result), gen_typename(object->result));
+				valtypename, objtypename);
+			free(valtypename);
+			free(objtypename);
 			return;
 		}
 		value = lower_implicit_cast(object->result, value);
@@ -909,10 +915,13 @@ check_expr_binarithm(struct context *ctx,
 	const struct type *p =
 		type_promote(ctx->store, lvalue->result, rvalue->result);
 	if (p == NULL) {
+		char *ltypename = gen_typename(lvalue->result);
+		char *rtypename = gen_typename(rvalue->result);
 		error(ctx, aexpr->loc, expr,
 			"Cannot promote lvalue %s and rvalue %s",
-			gen_typename(lvalue->result),
-			gen_typename(rvalue->result));
+			ltypename, rtypename);
+		free(ltypename);
+		free(rtypename);
 		return;
 	}
 	expr->result = &builtin_type_bool;
@@ -1200,8 +1209,13 @@ check_expr_call(struct context *ctx,
 
 		if (param) {
 			if (!type_is_assignable(ptype, arg->value->result)) {
+				char *argtypename = gen_typename(arg->value->result);
+				char *paramtypename = gen_typename(param->type);
 				error(ctx, aarg->value->loc, expr,
-					"Argument type %s is not assignable to parameter type %s", gen_typename(arg->value->result), gen_typename(param->type));
+					"Argument type %s is not assignable to parameter type %s",
+					argtypename, paramtypename);
+				free(argtypename);
+				free(paramtypename);
 				return;
 			}
 			arg->value = lower_implicit_cast(ptype, arg->value);
@@ -1291,10 +1305,13 @@ check_expr_cast(struct context *ctx,
 		break;
 	case C_CAST:
 		if (!type_is_castable(secondary, value->result)) {
+			char *primarytypename = gen_typename(value->result);
+			char *secondarytypename = gen_typename(secondary);
 			error(ctx, aexpr->cast.type->loc, expr,
 				"Invalid cast from %s to %s",
-				gen_typename(value->result),
-				gen_typename(secondary));
+				primarytypename, secondarytypename);
+			free(primarytypename);
+			free(secondarytypename);
 			return;
 		}
 		if (primary->storage == STORAGE_RCONST) {
@@ -1322,9 +1339,11 @@ check_expr_cast(struct context *ctx,
 			}
 
 			if (max != 0 && value->constant.rune > max) {
+				char *typename = gen_typename(secondary);
 				error(ctx, aexpr->cast.type->loc, expr,
 					"Rune does not fit in %s",
-					gen_typename(secondary));
+					typename);
+				free(typename);
 				return;
 			}
 		}
@@ -1390,9 +1409,13 @@ check_expr_array(struct context *ctx,
 				type = expr->constant.array->value->result;
 			}
 			if (!type_is_assignable(type, value->result)) {
+				char *typename1 = gen_typename(type);
+				char *typename2 = gen_typename(value->result);
 				error(ctx, item->value->loc, expr,
 					"Array members must be of a uniform type, previously seen %s, but now see %s",
-					gen_typename(type), gen_typename(value->result));
+					typename1, typename2);
+				free(typename1);
+				free(typename2);
 				return;
 			}
 			if (!hint) {
@@ -1976,9 +1999,11 @@ check_expr_measure(struct context *ctx,
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
 				|| vstor == STORAGE_STRING;
 		if (!valid) {
+			char *typename = gen_typename(expr->measure.value->result);
 			error(ctx, aexpr->measure.value->loc, expr,
 				"len argument must be of an array, slice, or str type, but got %s",
-				gen_typename(atype));
+				typename);
+			free(typename);
 			return;
 		}
 		if (atype->size == SIZE_UNDEFINED) {
@@ -2026,9 +2051,11 @@ check_expr_propagate(struct context *ctx,
 
 	const struct type *intype = lvalue->result;
 	if (type_dealias(intype)->storage != STORAGE_TAGGED) {
+		char *typename = gen_typename(intype);
 		error(ctx, aexpr->loc, expr,
 			"Cannot use error propagation on non-tagged type %s",
-			gen_typename(intype));
+			typename);
+		free(typename);
 		return;
 	}
 	if (!aexpr->propagate.abort) {
@@ -2228,9 +2255,13 @@ check_expr_return(struct context *ctx,
 	}
 
 	if (!type_is_assignable(ctx->fntype->func.result, rval->result)) {
+		char *rettypename = gen_typename(rval->result);
+		char *fntypename = gen_typename(ctx->fntype->func.result);
 		error(ctx, aexpr->loc, expr,
 			"Return value %s is not assignable to function result type %s",
-			gen_typename(rval->result), gen_typename(ctx->fntype->func.result));
+			rettypename, fntypename);
+		free(rettypename);
+		free(fntypename);
 		return;
 	}
 	if (ctx->fntype->func.result != rval->result) {
@@ -3040,10 +3071,14 @@ check_function(struct context *ctx,
 	// TODO: Pass errors up and deal with them at the end of check
 	handle_errors(ctx->errors);
 
+	char *restypename = gen_typename(body->result);
+	char *fntypename = gen_typename(fntype->func.result);
 	expect(&afndecl->body->loc,
 		body->terminates || type_is_assignable(fntype->func.result, body->result),
 		"Result value %s is not assignable to function result type %s",
-		gen_typename(body->result), gen_typename(fntype->func.result));
+		restypename, fntypename);
+	free(restypename);
+	free(fntypename);
 	if (!body->terminates && fntype->func.result != body->result) {
 		body = lower_implicit_cast(fntype->func.result, body);
 	}
@@ -3107,10 +3142,14 @@ check_global(struct context *ctx,
 	// TODO: Pass errors up and deal with them at the end of check
 	handle_errors(ctx->errors);
 
+	char *typename1 = gen_typename(initializer->result);
+	char *typename2 = gen_typename(type);
 	expect(&adecl->init->loc,
 		type_is_assignable(type, initializer->result),
 		"Initializer type %s is not assignable to constant type %s",
-		gen_typename(initializer->result), gen_typename(type));
+		typename1, typename2);
+	free(typename1);
+	free(typename2);
 
 	bool context = adecl->type
 		&& adecl->type->storage == STORAGE_ARRAY
@@ -3357,9 +3396,13 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 		type = initializer->result;
 	}
 
+	char *typename1 = gen_typename(initializer->result);
+	char *typename2 = gen_typename(type);
 	expect(&decl->init->loc, type_is_assignable(type, initializer->result),
 		"Initializer type %s is not assignable to constant type %s",
-		gen_typename(initializer->result), gen_typename(type));
+		typename1, typename2);
+	free(typename1);
+	free(typename2);
 	initializer = lower_implicit_cast(type, initializer);
 
 	struct expression *value =
@@ -3470,12 +3513,14 @@ scan_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 				initializer, type->alias.type);
 
 		handle_errors(ctx->errors);
+		char *inittypename = gen_typename(initializer->result);
+		char *builtintypename = gen_typename(type->alias.type);
 		expect(&idecl->field->field->value->loc,
 			type_is_assignable(type->alias.type, initializer->result),
 			"Enum value type (%s) is not assignable from initializer type (%s) for value %s",
-			gen_typename(type->alias.type),
-			gen_typename(initializer->result),
-			idecl->obj.ident.name);
+			builtintypename, inittypename, idecl->obj.ident.name);
+		free(inittypename);
+		free(builtintypename);
 
 		initializer = lower_implicit_cast(type, initializer);
 		enum eval_result r = eval_expr(ctx, initializer, value);
@@ -3929,9 +3974,13 @@ check_internal(struct type_store *ts,
 		check_expression(&ctx, def->initializer, initializer, type);
 		// TODO: This could be more detailed
 		expect(&loc, ctx.errors == NULL, "Invalid initializer");
+		char *typename1 = gen_typename(initializer->result);
+		char *typename2 = gen_typename(type);
 		expect(&loc, type_is_assignable(type, initializer->result),
 			"Initializer type %s is not assignable to constant type type %s",
-			gen_typename(initializer->result), gen_typename(type));
+			typename1, typename2);
+		free(typename1);
+		free(typename2);
 		initializer = lower_implicit_cast(type, initializer);
 		struct expression *value =
 			xcalloc(1, sizeof(struct expression));
