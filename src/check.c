@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -46,6 +47,11 @@ gen_typename(const struct type *type)
 	size_t sz = 0;
 	char *ptr = NULL;
 	FILE *f = open_memstream(&ptr, &sz);
+	if (f == NULL) {
+		fprintf(stderr, "Unable to open memstream: %s",
+			strerror(errno));
+		exit(EXIT_FAILURE);
+	}
 	emit_type(type, f);
 	fclose(f);
 	return ptr;
