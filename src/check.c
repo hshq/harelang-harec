@@ -3704,8 +3704,8 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 const struct scope_object *
 resolve_enum_alias(struct context *ctx, const struct scope_object *obj)
 {
-	struct incomplete_declaration *idecl;
 	struct identifier sub;
+	struct incomplete_declaration *idecl = NULL;
 	const struct scope_object *orig = obj;
 	switch (obj->otype) {
 	case O_SCAN:
