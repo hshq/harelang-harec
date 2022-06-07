@@ -2019,14 +2019,12 @@ parse_binding_unpack(struct lexer *lexer, struct ast_binding_unpack **next)
 
 	bool more = true;
 	while (more) {
-		char *name;
-
+		char *name = NULL;
 		switch (lex(lexer, &tok)) {
 		case T_NAME:
 			name = tok.name;
 			break;
 		case T_UNDERSCORE:
-			name = NULL;
 			break;
 		default:
 			synassert(false, &tok, T_NAME, T_UNDERSCORE, T_EOF);
