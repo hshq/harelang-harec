@@ -26,21 +26,6 @@ mkident(struct context *ctx, struct identifier *out, const struct identifier *in
 	}
 }
 
-static void
-expect(const struct location *loc, bool constraint, char *fmt, ...)
-{
-	if (!constraint) {
-		va_list ap;
-		va_start(ap, fmt);
-
-		fprintf(stderr, "Error %s:%d:%d: ",
-			sources[loc->file], loc->lineno, loc->colno);
-		vfprintf(stderr, fmt, ap);
-		fprintf(stderr, "\n");
-		exit(EXIT_FAILURE);
-	}
-}
-
 static char *
 gen_typename(const struct type *type)
 {
@@ -74,8 +59,8 @@ handle_errors(struct errors *errors)
 }
 
 static void
-error(struct context *ctx, const struct location loc, struct expression *expr,
-		char *fmt, ...)
+verror(struct context *ctx, const struct location loc, struct expression *expr,
+		char *fmt, va_list ap)
 {
 	if (expr) {
 		expr->type = EXPR_CONSTANT;
@@ -86,19 +71,42 @@ error(struct context *ctx, const struct location loc, struct expression *expr,
 		expr->loc = loc;
 	}
 
-	va_list ap;
-	va_start(ap, fmt);
-	size_t sz = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
+	va_list copy;
+	va_copy(copy, ap);
+	size_t sz = vsnprintf(NULL, 0, fmt, copy);
+	va_end(copy);
+
 	char *msg = xcalloc(1, sz + 1);
-	va_start(ap, fmt);
 	vsnprintf(msg, sz + 1, fmt, ap);
-	va_end(ap);
 
 	struct errors *next = *ctx->next = xcalloc(1, sizeof(struct errors));
 	next->loc = loc;
 	next->msg = msg;
 	ctx->next = &next->next;
+}
+
+static void
+error(struct context *ctx, const struct location loc, struct expression *expr,
+		char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	verror(ctx, loc, expr, fmt, ap);
+	va_end(ap);
+}
+
+static void
+expect(struct context *ctx, const struct location *loc, bool constraint,
+	char *fmt, ...)
+{
+	if (!constraint) {
+		va_list ap;
+		va_start(ap, fmt);
+		error(ctx, *loc, NULL, fmt, ap);
+		va_end(ap);
+
+		handle_errors(ctx->errors);
+	}
 }
 
 static struct expression *
@@ -3163,7 +3171,7 @@ check_function(struct context *ctx,
 	decl->func.scope = scope_push(&ctx->scope, SCOPE_FUNC);
 	struct ast_function_parameters *params = afndecl->prototype.params;
 	while (params) {
-		expect(&params->loc, params->name,
+		expect(ctx, &params->loc, params->name,
 			"Function parameters must be named");
 		struct identifier ident = {
 			.name = params->name,
@@ -3182,11 +3190,10 @@ check_function(struct context *ctx,
 	struct expression *body = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, afndecl->body, body, fntype->func.result);
 	// TODO: Pass errors up and deal with them at the end of check
-	handle_errors(ctx->errors);
 
 	char *restypename = gen_typename(body->result);
 	char *fntypename = gen_typename(fntype->func.result);
-	expect(&afndecl->body->loc,
+	expect(ctx, &afndecl->body->loc,
 		body->terminates || type_is_assignable(fntype->func.result, body->result),
 		"Result value %s is not assignable to function result type %s",
 		restypename, fntypename);
@@ -3209,17 +3216,17 @@ check_function(struct context *ctx,
 		} else {
 			flag = "@test";
 		};
-		expect(&adecl->loc, fntype->func.result == &builtin_type_void,
+		expect(ctx, &adecl->loc, fntype->func.result == &builtin_type_void,
 				"%s function must return void", flag);
-		expect(&adecl->loc, (fntype->func.flags & FN_NORETURN) == 0,
+		expect(ctx, &adecl->loc, (fntype->func.flags & FN_NORETURN) == 0,
 				"%s function must return", flag);
-		expect(&adecl->loc, !decl->exported,
+		expect(ctx, &adecl->loc, !decl->exported,
 				"%s function cannot be exported", flag);
-		expect(&adecl->loc, !afndecl->prototype.params,
+		expect(ctx, &adecl->loc, !afndecl->prototype.params,
 				"%s function cannot have parameters", flag);
 	}
 	if (fntype->func.flags & FN_NORETURN) {
-		expect(&adecl->loc, fntype->func.result == &builtin_type_void,
+		expect(ctx, &adecl->loc, fntype->func.result == &builtin_type_void,
 				"@noreturn function must return void");
 	};
 
@@ -3253,11 +3260,10 @@ check_global(struct context *ctx,
 		xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, adecl->init, initializer, type);
 	// TODO: Pass errors up and deal with them at the end of check
-	handle_errors(ctx->errors);
 
 	char *typename1 = gen_typename(initializer->result);
 	char *typename2 = gen_typename(type);
-	expect(&adecl->init->loc,
+	expect(ctx, &adecl->init->loc,
 		type_is_assignable(type, initializer->result),
 		"Initializer type %s is not assignable to constant type %s",
 		typename1, typename2);
@@ -3277,7 +3283,7 @@ check_global(struct context *ctx,
 	struct expression *value =
 		xcalloc(1, sizeof(struct expression));
 	enum eval_result r = eval_expr(ctx, initializer, value);
-	expect(&adecl->init->loc, r == EVAL_OK,
+	expect(ctx, &adecl->init->loc, r == EVAL_OK,
 		"Unable to evaluate global initializer at compile time");
 
 	decl->global.value = value;
@@ -3401,7 +3407,7 @@ incomplete_declaration_create(struct context *ctx, struct location loc,
 	ctx->unit->parent = subunit;
 
 	if (idecl) {
-		expect(&loc, NULL, "Duplicate global identifier '%s'",
+		expect(ctx, &loc, NULL, "Duplicate global identifier '%s'",
 			identifier_unparse(ident));
 		return idecl;
 	}
@@ -3507,12 +3513,10 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 
 	const struct type *type = type_store_lookup_atype(
 			ctx->store, decl->type);
-	expect(&decl->type->loc, type != NULL, "Unable to resolve type");
+	expect(ctx, &decl->type->loc, type != NULL, "Unable to resolve type");
 	// TODO: Free the initializer
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
-	handle_errors(ctx->errors);
-
 	bool context = decl->type
 		&& decl->type->storage == STORAGE_ARRAY
 		&& decl->type->array.contextual;
@@ -3523,7 +3527,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 
 	char *typename1 = gen_typename(initializer->result);
 	char *typename2 = gen_typename(type);
-	expect(&decl->init->loc, type_is_assignable(type, initializer->result),
+	expect(ctx, &decl->init->loc, type_is_assignable(type, initializer->result),
 		"Initializer type %s is not assignable to constant type %s",
 		typename1, typename2);
 	free(typename1);
@@ -3533,9 +3537,9 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 	struct expression *value =
 		xcalloc(1, sizeof(struct expression));
 	enum eval_result r = eval_expr(ctx, initializer, value);
-	expect(&decl->init->loc, r == EVAL_OK,
+	expect(ctx, &decl->init->loc, r == EVAL_OK,
 		"Unable to evaluate constant initializer at compile time");
-	expect(&decl->init->loc, type->storage != STORAGE_NULL,
+	expect(ctx, &decl->init->loc, type->storage != STORAGE_NULL,
 		"Null is not a valid type for a constant");
 
 	struct identifier ident = {0};
@@ -3578,24 +3582,23 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 
 	if (decl->type->storage == STORAGE_ARRAY
 			&& decl->type->array.contextual) {
-		expect(&decl->type->loc, decl->init,
+		expect(ctx, &decl->type->loc, decl->init,
 			"Cannot infer array length without an initializer");
 
 		// TODO: Free initialier
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, decl->init, initializer, type);
-		handle_errors(ctx->errors);
-		expect(&decl->init->loc,
+		expect(ctx, &decl->init->loc,
 			initializer->result->storage == STORAGE_ARRAY,
 			"Cannot infer array length from non-array type");
-		expect(&decl->init->loc,
+		expect(ctx, &decl->init->loc,
 			initializer->result->array.members == type->array.members,
 			"Initializer is not assignable to binding type");
 		type = initializer->result;
 	}
 
-	expect(&decl->init->loc, type->storage != STORAGE_NULL,
+	expect(ctx, &decl->init->loc, type->storage != STORAGE_NULL,
 		"Null is not a valid type for a global");
 
 	struct identifier ident = {0};
@@ -3658,10 +3661,9 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 		check_expression(ctx, idecl->field->field->value,
 				initializer, type->alias.type);
 
-		handle_errors(ctx->errors);
 		char *inittypename = gen_typename(initializer->result);
 		char *builtintypename = gen_typename(type->alias.type);
-		expect(&idecl->field->field->value->loc,
+		expect(ctx, &idecl->field->field->value->loc,
 			type_is_assignable(type->alias.type, initializer->result),
 			"Enum value type (%s) is not assignable from initializer type (%s) for value %s",
 			builtintypename, inittypename, idecl->obj.ident.name);
@@ -3670,7 +3672,7 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 
 		initializer = lower_implicit_cast(type, initializer);
 		enum eval_result r = eval_expr(ctx, initializer, value);
-		expect(&idecl->field->field->value->loc, r == EVAL_OK,
+		expect(ctx, &idecl->field->field->value->loc, r == EVAL_OK,
 			"Unable to evaluate constant initializer at compile time");
 	} else { // implicit value
 		const struct scope_object *obj = idecl->obj.lnext;
@@ -4031,7 +4033,7 @@ load_import(struct context *ctx, struct ast_imports *import,
 			};
 			const struct scope_object *obj = scope_lookup(mod, &ident);
 			if (!obj) {
-				expect(&member->loc, false, "Unknown object '%s'",
+				expect(ctx, &member->loc, false, "Unknown object '%s'",
 						identifier_unparse(&ident));
 			}
 			scope_insert(scope, obj->otype, &obj->ident,
@@ -4127,24 +4129,25 @@ check_internal(struct type_store *ts,
 		};
 		const struct type *type = type_store_lookup_atype(
 				ctx.store, def->type);
-		expect(&loc, type != NULL, "Unable to resolve type");
+		expect(&ctx, &loc, type != NULL, "Unable to resolve type");
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(&ctx, def->initializer, initializer, type);
 		// TODO: This could be more detailed
-		expect(&loc, ctx.errors == NULL, "Invalid initializer");
+		expect(&ctx, &loc, ctx.errors == NULL, "Invalid initializer");
 		char *typename1 = gen_typename(initializer->result);
 		char *typename2 = gen_typename(type);
-		expect(&loc, type_is_assignable(type, initializer->result),
+		expect(&ctx, &loc, type_is_assignable(type, initializer->result),
 			"Initializer type %s is not assignable to constant type type %s",
 			typename1, typename2);
 		free(typename1);
 		free(typename2);
+
 		initializer = lower_implicit_cast(type, initializer);
 		struct expression *value =
 			xcalloc(1, sizeof(struct expression));
 		enum eval_result r = eval_expr(&ctx, initializer, value);
-		expect(&loc, r == EVAL_OK,
+		expect(&ctx, &loc, r == EVAL_OK,
 			"Unable to evaluate constant initializer at compile time");
 		scope_insert(def_scope, O_CONST,
 			&def->ident, &def->ident, type, value);
@@ -4255,6 +4258,8 @@ check_internal(struct type_store *ts,
 		fprintf(stderr, "Error: module contains no declarations\n");
 		exit(EXIT_FAILURE);
 	}
+
+	handle_errors(ctx.errors);
 
 	ctx.store->check_context = NULL;
 	ctx.unit->parent = NULL;
