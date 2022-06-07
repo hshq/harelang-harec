@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 #include <string.h>
 #include "ast.h"
 #include "check.h"
@@ -25,28 +26,41 @@ synassert_msg(bool cond, const char *msg, struct token *tok)
 	}
 }
 
+static noreturn void
+vsynerr(struct token *tok, va_list ap)
+{
+	enum lexical_token t = va_arg(ap, enum lexical_token);
+	fprintf(stderr,
+		"Syntax error: unexpected '%s' at %s:%d:%d%s",
+		token_str(tok), sources[tok->loc.file], tok->loc.lineno,
+		tok->loc.colno, t == T_EOF ? "\n" : ", expected " );
+	while (t != T_EOF) {
+		if (t == T_LITERAL || t == T_NAME) {
+			fprintf(stderr, "%s", lexical_token_str(t));
+		} else {
+			fprintf(stderr, "'%s'", lexical_token_str(t));
+		}
+		t = va_arg(ap, enum lexical_token);
+		fprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
+	}
+	exit(EXIT_FAILURE);
+}
+
+static noreturn void
+synerr(struct token *tok, ...)
+{
+	va_list ap;
+	va_start(ap, tok);
+	vsynerr(tok, ap);
+}
+
 static void
 synassert(bool cond, struct token *tok, ...)
 {
 	if (!cond) {
 		va_list ap;
 		va_start(ap, tok);
-
-		enum lexical_token t = va_arg(ap, enum lexical_token);
-		fprintf(stderr,
-			"Syntax error: unexpected '%s' at %s:%d:%d%s",
-			token_str(tok), sources[tok->loc.file], tok->loc.lineno,
-			tok->loc.colno, t == T_EOF ? "\n" : ", expected " );
-		while (t != T_EOF) {
-			if (t == T_LITERAL || t == T_NAME) {
-				fprintf(stderr, "%s", lexical_token_str(t));
-			} else {
-				fprintf(stderr, "'%s'", lexical_token_str(t));
-			}
-			t = va_arg(ap, enum lexical_token);
-			fprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
-		}
-		exit(EXIT_FAILURE);
+		vsynerr(tok, ap);
 	}
 }
 
@@ -159,7 +173,7 @@ parse_name_list(struct lexer *lexer, struct ast_imports *name)
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_RBRACE, T_EQUAL, T_COMMA, T_EOF);
+			synerr(&tok, T_RBRACE, T_EQUAL, T_COMMA, T_EOF);
 			break;
 		}
 	}
@@ -250,7 +264,7 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 			next->name = tok.name; // Assumes ownership
 			break;
 		default:
-			synassert(false, &tok, T_UNDERSCORE, T_NAME, T_EOF);
+			synerr(&tok, T_UNDERSCORE, T_NAME, T_EOF);
 		}
 		want(lexer, T_COLON, NULL);
 		next->type = parse_type(lexer);
@@ -449,7 +463,7 @@ parse_enum_type(struct identifier *ident, struct lexer *lexer)
 		case T_RBRACE:
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+			synerr(&tok, T_COMMA, T_RBRACE, T_EOF);
 		}
 	}
 	return type;
@@ -469,7 +483,7 @@ parse_struct_union_type(struct lexer *lexer)
 		type->storage = STORAGE_UNION;
 		break;
 	default:
-		synassert(false, &tok, T_STRUCT, T_UNION, T_EOF);
+		synerr(&tok, T_STRUCT, T_UNION, T_EOF);
 		break;
 	}
 	want(lexer, T_LBRACE, NULL);
@@ -520,7 +534,7 @@ parse_struct_union_type(struct lexer *lexer)
 			next->type = parse_type(lexer);
 			break;
 		default:
-			synassert(false, &tok, T_NAME, T_STRUCT, T_UNION, T_EOF);
+			synerr(&tok, T_NAME, T_STRUCT, T_UNION, T_EOF);
 		}
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
@@ -534,7 +548,7 @@ parse_struct_union_type(struct lexer *lexer)
 		case T_RBRACE:
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+			synerr(&tok, T_COMMA, T_RBRACE, T_EOF);
 		}
 	}
 	return type;
@@ -561,7 +575,7 @@ parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 		case T_RPAREN:
 			break;
 		default:
-			synassert(false, &tok, T_BOR, T_RPAREN, T_EOF);
+			synerr(&tok, T_BOR, T_RPAREN, T_EOF);
 		}
 	}
 	return type;
@@ -588,7 +602,7 @@ parse_tuple_type(struct lexer *lexer, struct ast_type *first)
 		case T_RPAREN:
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
+			synerr(&tok, T_COMMA, T_RPAREN, T_EOF);
 		}
 	}
 	return type;
@@ -605,7 +619,7 @@ parse_tagged_or_tuple_type(struct lexer *lexer)
 	case T_COMMA:
 		return parse_tuple_type(lexer, type);
 	default:
-		synassert(false, &tok, T_BOR, T_COMMA, T_EOF);
+		synerr(&tok, T_BOR, T_COMMA, T_EOF);
 	}
 	assert(0); // Unreachable
 }
@@ -632,7 +646,7 @@ parse_type(struct lexer *lexer)
 		break;
 	}
 	struct ast_type *type = NULL;
-	bool noreturn = false, nullable = false, unwrap = false;
+	bool _noreturn = false, nullable = false, unwrap = false;
 	switch (lex(lexer, &tok)) {
 	case T_BOOL:
 	case T_CHAR:
@@ -707,14 +721,14 @@ parse_type(struct lexer *lexer)
 		}
 		break;
 	case T_ATTR_NORETURN:
-		noreturn = true;
+		_noreturn = true;
 		want(lexer, T_FN, NULL);
 		// fallthrough
 	case T_FN:
 		type = mktype(&lexer->loc);
 		type->storage = STORAGE_FUNCTION;
 		parse_prototype(lexer, &type->func);
-		if (noreturn) {
+		if (_noreturn) {
 			type->func.flags |= FN_NORETURN;
 		}
 		break;
@@ -774,7 +788,7 @@ parse_constant(struct lexer *lexer)
 		exp->constant.storage = tok.storage;
 		break;
 	default:
-		synassert(false, &tok, T_LITERAL, T_TRUE,
+		synerr(&tok, T_LITERAL, T_TRUE,
 			T_FALSE, T_NULL, T_VOID, T_EOF);
 		break;
 	}
@@ -871,7 +885,7 @@ parse_array_literal(struct lexer *lexer)
 			} else if (tok.token == T_RBRACKET) {
 				unlex(lexer, &tok);
 			} else {
-				synassert(false, &tok, T_COMMA, T_RBRACKET, T_EOF);
+				synerr(&tok, T_COMMA, T_RBRACKET, T_EOF);
 			}
 			break;
 		case T_COMMA:
@@ -881,7 +895,7 @@ parse_array_literal(struct lexer *lexer)
 			unlex(lexer, &tok);
 			break;
 		default:
-			synassert(false, &tok, T_ELLIPSIS, T_COMMA, T_RBRACKET, T_EOF);
+			synerr(&tok, T_ELLIPSIS, T_COMMA, T_RBRACKET, T_EOF);
 		}
 	}
 	return exp;
@@ -967,7 +981,7 @@ parse_struct_literal(struct lexer *lexer, struct identifier ident)
 			next = &(*next)->next;
 			break;
 		default:
-			synassert(false, &tok, T_ELLIPSIS, T_NAME, T_RBRACE,
+			synerr(&tok, T_ELLIPSIS, T_NAME, T_RBRACE,
 				T_STRUCT, T_EOF);
 			break;
 		}
@@ -980,7 +994,7 @@ parse_struct_literal(struct lexer *lexer, struct identifier ident)
 		case T_RBRACE:
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RBRACE, T_EOF);
+			synerr(&tok, T_COMMA, T_RBRACE, T_EOF);
 		}
 	}
 	return exp;
@@ -1017,7 +1031,7 @@ parse_tuple_expression(struct lexer *lexer, struct ast_expression *first)
 			}
 			break;
 		default:
-			synassert(false, &tok, T_RPAREN, T_COMMA, T_EOF);
+			synerr(&tok, T_RPAREN, T_COMMA, T_EOF);
 		}
 	}
 
@@ -1067,11 +1081,11 @@ parse_plain_expression(struct lexer *lexer)
 		case T_COMMA:
 			return parse_tuple_expression(lexer, exp);
 		default:
-			synassert(false, &tok, T_RPAREN, T_COMMA, T_EOF);
+			synerr(&tok, T_RPAREN, T_COMMA, T_EOF);
 		};
 		assert(0); // Unreachable
 	default:
-		synassert(false, &tok, T_LITERAL, T_NAME,
+		synerr(&tok, T_LITERAL, T_NAME,
 			T_LBRACKET, T_STRUCT, T_LPAREN, T_EOF);
 	}
 	assert(0); // Unreachable
@@ -1090,7 +1104,7 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 	case T_ABORT:
 		break;
 	default:
-		synassert(false, &tok, T_ASSERT, T_ABORT, T_EOF);
+		synerr(&tok, T_ASSERT, T_ABORT, T_EOF);
 	}
 
 	switch (tok.token) {
@@ -1144,7 +1158,7 @@ parse_measurement_expression(struct lexer *lexer)
 		exp->measure.value = parse_expression(lexer);
 		break;
 	default:
-		synassert(false, &tok, T_SIZE, T_LEN, T_OFFSET, T_EOF);
+		synerr(&tok, T_SIZE, T_LEN, T_OFFSET, T_EOF);
 	}
 
 	want(lexer, T_RPAREN, NULL);
@@ -1180,7 +1194,7 @@ parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 			unlex(lexer, &tok);
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
+			synerr(&tok, T_COMMA, T_RPAREN, T_EOF);
 		}
 
 		next = &arg->next;
@@ -1218,7 +1232,7 @@ parse_index_slice_expression(struct lexer *lexer, struct ast_expression *lvalue)
 			unlex(lexer, &tok);
 			break;
 		}
-		synassert(false, &tok, T_SLICE, T_RBRACKET, T_EOF);
+		synerr(&tok, T_SLICE, T_RBRACKET, T_EOF);
 		break;
 	}
 
@@ -1277,7 +1291,7 @@ parse_allocation_expression(struct lexer *lexer)
 			// alloc(init)
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RPAREN, T_ELLIPSIS, T_EOF);
+			synerr(&tok, T_COMMA, T_RPAREN, T_ELLIPSIS, T_EOF);
 		}
 		break;
 	case T_FREE:
@@ -1332,7 +1346,7 @@ parse_append_insert(struct lexer *lexer, struct location *loc,
 		want(lexer, T_RPAREN, NULL);
 		break;
 	default:
-		synassert(false, &tok, T_RPAREN, T_COMMA, T_EOF);
+		synerr(&tok, T_RPAREN, T_COMMA, T_EOF);
 	}
 
 	return expr;
@@ -1388,10 +1402,10 @@ parse_static_expression(struct lexer *lexer, bool allowbinding)
 		return parse_slice_mutation(lexer, true);
 	default:
 		if (allowbinding) {
-			synassert(false, &tok, T_LET, T_CONST, T_ABORT,
+			synerr(&tok, T_LET, T_CONST, T_ABORT,
 				T_ASSERT, T_APPEND, T_INSERT, T_DELETE, T_EOF);
 		} else {
-			synassert(false, &tok, T_ABORT, T_ASSERT, T_APPEND,
+			synerr(&tok, T_ABORT, T_ASSERT, T_APPEND,
 				T_INSERT, T_DELETE, T_EOF);
 		}
 	}
@@ -1429,7 +1443,7 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 			exp->access.value = parse_constant(lexer);
 			break;
 		default:
-			synassert(false, &tok, T_NAME, T_LITERAL, T_EOF);
+			synerr(&tok, T_NAME, T_LITERAL, T_EOF);
 		}
 
 		lvalue = exp;
@@ -1816,7 +1830,7 @@ parse_for_expression(struct lexer *lexer)
 	case T_RPAREN:
 		break;
 	default:
-		synassert(false, &tok, T_SEMICOLON, T_RPAREN, T_EOF);
+		synerr(&tok, T_SEMICOLON, T_RPAREN, T_EOF);
 	}
 
 	exp->_for.body = parse_expression(lexer);
@@ -1859,7 +1873,7 @@ parse_case_options(struct lexer *lexer)
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_ARROW, T_EOF);
+			synerr(&tok, T_COMMA, T_ARROW, T_EOF);
 			break;
 		}
 	}
@@ -1919,7 +1933,7 @@ parse_switch_expression(struct lexer *lexer)
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_CASE, T_RBRACE, T_EOF);
+			synerr(&tok, T_CASE, T_RBRACE, T_EOF);
 		}
 
 		next_case = &_case->next;
@@ -2004,7 +2018,7 @@ parse_match_expression(struct lexer *lexer)
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_CASE, T_RBRACE, T_EOF);
+			synerr(&tok, T_CASE, T_RBRACE, T_EOF);
 		}
 
 		next_case = &_case->next;
@@ -2027,7 +2041,7 @@ parse_binding_unpack(struct lexer *lexer, struct ast_binding_unpack **next)
 		case T_UNDERSCORE:
 			break;
 		default:
-			synassert(false, &tok, T_NAME, T_UNDERSCORE, T_EOF);
+			synerr(&tok, T_NAME, T_UNDERSCORE, T_EOF);
 		}
 
 		struct ast_binding_unpack *new = xcalloc(1, sizeof *new);
@@ -2043,7 +2057,7 @@ parse_binding_unpack(struct lexer *lexer, struct ast_binding_unpack **next)
 			more = false;
 			break;
 		default:
-			synassert(false, &tok, T_COMMA, T_RPAREN, T_EOF);
+			synerr(&tok, T_COMMA, T_RPAREN, T_EOF);
 		}
 	}
 }
@@ -2064,7 +2078,7 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 		// no-op
 		break;
 	default:
-		synassert(false, &tok, T_LET, T_CONST, T_EOF);
+		synerr(&tok, T_LET, T_CONST, T_EOF);
 	}
 
 	struct ast_expression_binding *binding = &exp->binding;
@@ -2080,7 +2094,7 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 			parse_binding_unpack(lexer, &binding->unpack);
 			break;
 		default:
-			synassert(false, &tok, T_NAME, T_LPAREN, T_EOF);
+			synerr(&tok, T_NAME, T_LPAREN, T_EOF);
 		}
 		binding->initializer = mkexpr(&lexer->loc);
 		binding->flags = flags;
@@ -2097,7 +2111,7 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 			binding->initializer = parse_expression(lexer);
 			break;
 		default:
-			synassert(false, &tok, T_COLON, T_EQUAL, T_EOF);
+			synerr(&tok, T_COLON, T_EQUAL, T_EOF);
 		}
 
 		switch (lex(lexer, &tok)) {
@@ -2197,7 +2211,7 @@ parse_control_expression(struct lexer *lexer)
 		}
 		break;
 	default:
-		synassert(false, &tok,
+		synerr(&tok,
 			T_BREAK, T_CONTINUE, T_RETURN, T_YIELD, T_EOF);
 	}
 	return exp;
@@ -2221,7 +2235,7 @@ parse_compound_expression(struct lexer *lexer)
 	case T_LBRACE:
 		break; // no-op
 	default:
-		synassert(false, &tok, T_LBRACE, T_LABEL, T_EOF);
+		synerr(&tok, T_LBRACE, T_LABEL, T_EOF);
 		break;
 	};
 
@@ -2496,7 +2510,7 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 {
 	struct token tok = {0};
 	bool more = true;
-	bool noreturn = false;
+	bool _noreturn = false;
 	while (more) {
 		switch (lex(lexer, &tok)) {
 		case T_ATTR_FINI:
@@ -2512,7 +2526,7 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 			decl->flags |= FN_TEST;
 			break;
 		case T_ATTR_NORETURN:
-			noreturn = true;
+			_noreturn = true;
 			break;
 		default:
 			more = false;
@@ -2523,7 +2537,7 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 	want(lexer, T_FN, NULL);
 	parse_identifier(lexer, &decl->ident, false);
 	parse_prototype(lexer, &decl->prototype);
-	if (noreturn) {
+	if (_noreturn) {
 		decl->prototype.flags |= FN_NORETURN;
 	}
 
@@ -2536,7 +2550,7 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 		decl->body = NULL; // Prototype
 		break;
 	default:
-		synassert(false, &tok, T_EQUAL, T_SEMICOLON, T_EOF);
+		synerr(&tok, T_EQUAL, T_SEMICOLON, T_EOF);
 	}
 }
 
