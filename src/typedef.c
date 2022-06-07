@@ -127,6 +127,8 @@ emit_const(const struct expression *expr, FILE *out)
 		char *ident = identifier_unparse(&t->alias.ident);
 		if (t->alias.type->storage == STORAGE_CHAR) {
 			fprintf(out, "%" PRIuMAX, val->uval);
+		} else if (t->alias.type->storage == STORAGE_UINTPTR) {
+			fprintf(out, "%" PRIuMAX ": uintptr", val->uval);
 		} else if (type_is_signed(t->alias.type)) {
 			fprintf(out, "%" PRIiMAX "%s: %s", val->ival,
 				storage_to_suffix(t->alias.type->storage), ident);
