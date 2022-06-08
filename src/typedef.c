@@ -324,7 +324,7 @@ emit_type(const struct type *type, FILE *out)
 }
 
 static void
-emit_exported_type(const struct type *type, FILE *out)
+emit_exported_type(const struct type *type, FILE *out, const char *ident)
 {
 	if (!emit_type(type, out)) {
 		// XXX: Hack
@@ -332,7 +332,7 @@ emit_exported_type(const struct type *type, FILE *out)
 		_type->alias.exported = true;
 		fprintf(stderr, "Cannot use unexported type ");
 		emit_type(type, stderr);
-		fprintf(stderr, " in exported declaration\n");
+		fprintf(stderr, " in exported declaration '%s'\n", ident);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -342,8 +342,8 @@ emit_decl_const(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	fprintf(out, "export def %s: ", ident);
+	emit_exported_type(decl->constant.type, out, ident);
 	free(ident);
-	emit_exported_type(decl->constant.type, out);
 	fprintf(out, " = ");
 	emit_const(decl->constant.value, out);
 	fprintf(out, ";\n");
@@ -366,21 +366,21 @@ emit_decl_func(struct declaration *decl, FILE *out)
 			param; param = param->next) {
 		fprintf(out, "_: ");
 		if (param->next) {
-			emit_exported_type(param->type, out);
+			emit_exported_type(param->type, out, ident);
 			fprintf(out, ", ");
 		} else if (fntype->func.variadism == VARIADISM_HARE) {
-			emit_exported_type(param->type->array.members, out);
+			emit_exported_type(param->type->array.members, out, ident);
 			fprintf(out, "...");
 		} else if (fntype->func.variadism == VARIADISM_C) {
-			emit_exported_type(param->type, out);
+			emit_exported_type(param->type, out, ident);
 			fprintf(out, ", ...");
 		} else {
-			emit_exported_type(param->type, out);
+			emit_exported_type(param->type, out, ident);
 		}
 	}
 
 	fprintf(out, ") ");
-	emit_exported_type(fntype->func.result, out);
+	emit_exported_type(fntype->func.result, out, ident);
 	fprintf(out, ";\n");
 	free(ident);
 }
@@ -394,8 +394,9 @@ emit_decl_global(struct declaration *decl, FILE *out)
 		fprintf(out, "@symbol(\"%s\") ", decl->symbol);
 	}
 	fprintf(out, "%s: ", ident);
-	emit_exported_type(decl->global.type, out);
+	emit_exported_type(decl->global.type, out, ident);
 	fprintf(out, ";\n");
+	free(ident);
 }
 
 static void
@@ -420,10 +421,11 @@ emit_decl_type(struct declaration *decl, FILE *out)
 		}
 		fprintf(out, "}");
 	} else {
-		emit_exported_type(decl->_type->alias.type, out);
+		emit_exported_type(decl->_type->alias.type, out, ident);
 	}
 	fprintf(out, "; // size: %zd, align: %zd, id: %u\n",
 		decl->_type->size, decl->_type->align, decl->_type->id);
+	free(ident);
 }
 
 void
