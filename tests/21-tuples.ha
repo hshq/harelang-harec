@@ -56,6 +56,7 @@ fn unpacking_addone() int = {
 	return unpacking_global;
 };
 
+type tuple_alias = (int, int);
 fn unpacking() void = {
 	const (a, b, c) = (42, 8, 12);
 	assert(a == 42);
@@ -86,6 +87,11 @@ fn unpacking() void = {
 	assert(c == 3);
 
 	const (a, b, _) = (1, 2, 3);
+	assert(a == 1);
+	assert(b == 2);
+
+	const t: tuple_alias = (1, 2);
+	const (a, b) = t;
 	assert(a == 1);
 	assert(b == 2);
 
