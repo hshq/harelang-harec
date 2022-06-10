@@ -1034,6 +1034,11 @@ check_binding_unpack(struct context *ctx,
 		assert(binding->initializer->type == EXPR_CONSTANT);
 	}
 
+	if (type->storage != STORAGE_TUPLE) {
+		error(ctx, abinding->initializer->loc, expr,
+			"Unable to unpack tuple with non-tuple type specifier");
+		return;
+	}
 	const struct type_tuple *type_tuple = &type->tuple;
 	bool found_binding = false;
 	while (cur) {

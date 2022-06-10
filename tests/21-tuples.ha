@@ -139,6 +139,11 @@ fn unpacking() void = {
 			static let (a, _) = (2, getval());
 		};
 	") != 0);
+	assert(rt::compile("
+		export fn main() void = {
+			let (a, b): int = (2, 3);
+		};
+	") != 0);
 };
 
 // Regression tests for miscellaneous compiler bugs
