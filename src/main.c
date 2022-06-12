@@ -64,13 +64,6 @@ parse_define(const char *argv_0, const char *in)
 	sources = &d;
 	lex_init(&lexer, f, 0);
 
-	// The syntax for this parameter is:
-	//
-	// -D ident:type=value
-	//
-	// :type is lexed as a label unless we disable it here.
-	lexer.disable_labels = true;
-
 	parse_identifier(&lexer, &def->ident, false);
 	if (lex(&lexer, &tok) != T_COLON) {
 		lex_finish(&lexer);

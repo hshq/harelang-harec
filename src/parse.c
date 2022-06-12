@@ -2164,7 +2164,8 @@ parse_control_expression(struct lexer *lexer)
 		exp->type = tok.token == T_BREAK ? EXPR_BREAK : EXPR_CONTINUE;
 		exp->control.label = NULL;
 		switch (lex(lexer, &tok)) {
-		case T_LABEL:
+		case T_COLON:
+			want(lexer, T_NAME, &tok);
 			exp->control.label = tok.name;
 			break;
 		default:
@@ -2193,7 +2194,8 @@ parse_control_expression(struct lexer *lexer)
 		case T_SEMICOLON:
 			unlex(lexer, &tok);
 			break;
-		case T_LABEL:
+		case T_COLON:
+			want(lexer, T_NAME, &tok);
 			exp->control.label = tok.name;
 			switch (lex(lexer, &tok)) {
 			case T_COMMA:
@@ -2228,14 +2230,15 @@ parse_compound_expression(struct lexer *lexer)
 
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
-	case T_LABEL:
+	case T_COLON:
+		want(lexer, T_NAME, &tok);
 		exp->compound.label = tok.name;
 		want(lexer, T_LBRACE, &tok);
 		break;
 	case T_LBRACE:
 		break; // no-op
 	default:
-		synerr(&tok, T_LBRACE, T_LABEL, T_EOF);
+		synerr(&tok, T_LBRACE, T_COLON, T_EOF);
 		break;
 	};
 
@@ -2291,11 +2294,11 @@ parse_expression(struct lexer *lexer)
 	case T_YIELD:
 	case T_DEFER:
 	case T_FOR:
-	case T_LABEL:
 	case T_IF:
 	case T_LBRACE:
 	case T_MATCH:
 	case T_SWITCH:
+	case T_COLON:
 		switch (tok.token) {
 		case T_BREAK:
 		case T_CONTINUE:
@@ -2315,7 +2318,7 @@ parse_expression(struct lexer *lexer)
 			value = parse_if_expression(lexer);
 			break;
 		case T_LBRACE:
-		case T_LABEL:
+		case T_COLON:
 			unlex(lexer, &tok);
 			value = parse_compound_expression(lexer);
 			value = parse_cast_expression(lexer, value);

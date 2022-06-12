@@ -787,22 +787,6 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 	return out->token;
 }
 
-static enum lexical_token
-lex_label(struct lexer *lexer, struct token *out)
-{
-	uint32_t c;
-	while ((c = next(lexer, NULL, true)) != UTF8_INVALID) {
-		if (c > 0x7F || (!isalnum(c) && c != '_')) {
-			push(lexer, c, true);
-			break;
-		}
-	}
-	out->token = T_LABEL;
-	out->name = strdup(lexer->buf);
-	consume(lexer, -1);
-	return out->token;
-}
-
 static enum lexical_token _lex(struct lexer *lexer, struct token *out);
 
 static enum lexical_token
@@ -876,10 +860,6 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			break;
 		default:
 			push(lexer, c, false);
-			if (!lexer->disable_labels && c <= 0x7F
-					&& (isalpha(c) || c == '_')) {
-				return lex_label(lexer, out);
-			}
 			out->token = T_COLON;
 			break;
 		}
@@ -1018,7 +998,6 @@ token_finish(struct token *tok)
 {
 	switch (tok->token) {
 	case T_NAME:
-	case T_LABEL:
 		free(tok->name);
 		break;
 	case T_LITERAL:
@@ -1046,8 +1025,6 @@ lexical_token_str(enum lexical_token tok)
 	switch (tok) {
 	case T_NAME:
 		return "name";
-	case T_LABEL:
-		return "label";
 	case T_LITERAL:
 		return "literal";
 	case T_EOF:
@@ -1141,9 +1118,6 @@ token_str(const struct token *tok)
 	switch (tok->token) {
 	case T_NAME:
 		snprintf(buf, sizeof(buf), "name %s", tok->name);
-		return buf;
-	case T_LABEL:
-		snprintf(buf, sizeof(buf), ":%s", tok->name);
 		return buf;
 	case T_LITERAL:
 		switch (tok->storage) {

@@ -129,7 +129,6 @@ enum lexical_token {
 	T_LAST_OPERATOR = T_BXOREQ,
 
 	// Tokens with additional information
-	T_LABEL,
 	T_LITERAL,
 	T_NAME,
 
@@ -167,7 +166,6 @@ struct lexer {
 	uint32_t c[2];
 	struct token un;
 	struct location loc;
-	bool disable_labels;
 	bool require_int;
 };
 
