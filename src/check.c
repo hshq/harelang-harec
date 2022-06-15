@@ -102,7 +102,7 @@ expect(struct context *ctx, const struct location *loc, bool constraint,
 	if (!constraint) {
 		va_list ap;
 		va_start(ap, fmt);
-		error(ctx, *loc, NULL, fmt, ap);
+		verror(ctx, *loc, NULL, fmt, ap);
 		va_end(ap);
 
 		handle_errors(ctx->errors);
