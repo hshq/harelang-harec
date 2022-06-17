@@ -283,6 +283,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 	uint32_t c = next(lexer, &out->loc, true);
 	assert(c != UTF8_INVALID && c <= 0x7F && isdigit(c));
 
+	bool started = false;
 	int base = 10;
 	const char *basechrs = "0123456789";
 	if (c == '0') {
@@ -303,9 +304,12 @@ lex_literal(struct lexer *lexer, struct token *out)
 			consume(lexer, 2);
 			break;
 		default:
+			started = true;
 			push(lexer, c, true);
 			break;
 		}
+	} else {
+		started = true;
 	}
 
 	char *suff = NULL;
@@ -315,6 +319,10 @@ lex_literal(struct lexer *lexer, struct token *out)
 		if (!strchr(basechrs, c)) {
 			switch (c) {
 			case '.':
+				if (!started) {
+					push(lexer, c, true);
+					goto finalize;
+				}
 				if (lexer->require_int) {
 					push(lexer, '.', true);
 					goto finalize;
@@ -333,6 +341,10 @@ lex_literal(struct lexer *lexer, struct token *out)
 				isfloat = true;
 				break;
 			case 'e':
+				if (!started) {
+					push(lexer, c, true);
+					goto finalize;
+				}
 				if (exp || suff) {
 					push(lexer, c, true);
 					goto finalize;
@@ -351,7 +363,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 			case 'u':
 			case 'f':
 			case 'z':
-				if (suff) {
+				if (suff || !started) {
 					push(lexer, c, true);
 					goto finalize;
 				}
@@ -363,9 +375,15 @@ lex_literal(struct lexer *lexer, struct token *out)
 				goto finalize;
 			}
 		}
+		started = true;
 	}
 
 finalize:
+	if (!started) {
+		out->token = T_ERROR;
+		consume(lexer, -1);
+		return out->token;
+	}
 	lexer->require_int = false;
 	out->token = T_LITERAL;
 	if (isfloat) {
