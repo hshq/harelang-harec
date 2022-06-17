@@ -3206,16 +3206,21 @@ check_function(struct context *ctx,
 	decl->func.body = body;
 
 	// TODO: Add function name to errors
-	if ((decl->func.flags & FN_INIT)
-			|| (decl->func.flags & FN_FINI)
-			|| (decl->func.flags & FN_TEST)) {
+	if (decl->func.flags != 0) {
 		const char *flag;
-		if (decl->func.flags & FN_INIT) {
+		switch (decl->func.flags) {
+		case FN_INIT:
 			flag = "@init";
-		} else if (decl->func.flags & FN_FINI) {
+			break;
+		case FN_FINI:
 			flag = "@fini";
-		} else {
+			break;
+		case FN_TEST:
 			flag = "@test";
+			break;
+		default:
+			expect(ctx, &adecl->loc, 0,
+				"Only one of @init, @fini, or @test may be used in a function declaration");
 		};
 		expect(ctx, &adecl->loc, fntype->func.result == &builtin_type_void,
 				"%s function must return void", flag);
