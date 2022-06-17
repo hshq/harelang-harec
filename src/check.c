@@ -33,7 +33,7 @@ gen_typename(const struct type *type)
 	char *ptr = NULL;
 	FILE *f = open_memstream(&ptr, &sz);
 	if (f == NULL) {
-		fprintf(stderr, "Unable to open memstream: %s",
+		fprintf(stderr, "Unable to open memstream: %s\n",
 			strerror(errno));
 		exit(EXIT_FAILURE);
 	}
