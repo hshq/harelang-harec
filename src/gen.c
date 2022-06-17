@@ -831,14 +831,14 @@ gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
 	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
 	push(&ctx->current->body, &lvalid);
 
-	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
+	struct qbe_value rtmemmove = mkrtfunc(ctx, "rt.memmove");
 	struct qbe_value optr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value vptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &optr, Q_LOADL, &qobj, NULL);
 	pushi(ctx->current, &vptr, Q_LOADL, &qval, NULL);
 	tmp = constl(expr->assign.object->result->array.members->size);
 	pushi(ctx->current, &olen, Q_MUL, &olen, &tmp, NULL);
-	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &optr, &vptr, &olen, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &rtmemmove, &optr, &vptr, &olen, NULL);
 
 	return gv_void;
 }
