@@ -2,7 +2,7 @@
 export fn compile(src: const str) int = {
 	let status = 0;
 	let pipefd = [-1, -1];
-	pipe2(&pipefd, 0);
+	assert(pipe2(&pipefd, 0) == 0);
 
 	const child = fork();
 	if (child == 0) {
