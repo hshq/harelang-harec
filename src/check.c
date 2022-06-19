@@ -3686,6 +3686,8 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 		if (obj && obj->otype == O_SCAN) {
 			// complete previous value first
 			obj = wrap_resolver(ctx, obj, resolve_enum_field);
+		} else {
+			obj = NULL;
 		}
 		value->type = EXPR_CONSTANT;
 		if (type_is_signed(type_dealias(type))) {

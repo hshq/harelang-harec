@@ -129,6 +129,26 @@ fn aliases() void = {
 	assert(imported_double_alias::THREE == testmod::_enum::THREE);
 };
 
+// Force T2 to be resolved before T1
+type t1 = enum {
+	I1 = t2::T1,
+	I2 = t2::T2,
+};
+
+type t2 = enum {
+	T1,
+	T2 = 1,
+	T3,
+};
+
+export fn resolution_order() void = {
+	assert(t2::T1 == 0);
+	assert(t2::T2 == 1);
+	assert(t2::T3 == 2);
+	assert(t1::I1 == 0);
+	assert(t1::I2 == 1);
+};
+
 export fn main() void = {
 	implicit();
 	explicit();
@@ -136,4 +156,5 @@ export fn main() void = {
 	reject();
 	interdependent();
 	aliases();
+	resolution_order();
 };
