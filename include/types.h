@@ -62,15 +62,6 @@ struct type_array {
 	bool expandable;
 };
 
-struct type_enum_value {
-	char *name;
-	struct type_enum_value *next;
-	union {
-		int64_t ival;
-		uint64_t uval;
-	};
-};
-
 struct type_enum {
 	struct scope *values;
 };
