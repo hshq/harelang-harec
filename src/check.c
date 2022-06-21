@@ -146,12 +146,7 @@ check_expr_access(struct context *ctx,
 	const struct scope_object *obj = NULL;
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
-		if (ctx->resolving_enum) {
-			obj = scope_lookup(ctx->resolving_enum, &aexpr->access.ident);
-		}
-		if (!obj) {
-			obj = scope_lookup(ctx->scope, &aexpr->access.ident);
-		}
+		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
 		if (!obj) {
 			char buf[1024];
 			identifier_unparse_static(&aexpr->access.ident,
@@ -3504,6 +3499,7 @@ incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl 
 			scope_push((struct scope **)&type->_enum.values, SCOPE_ENUM);
 			incomplete_enum_field_create(ctx, imp,
 				type->_enum.values, type, t->type->_enum.values);
+			type->_enum.values->parent = ctx->unit;
 			scope_insert(ctx->scope, O_TYPE, &with_ns,
 				&t->ident, type, NULL);
 		} else {
@@ -3621,7 +3617,6 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 {
 	assert(obj->otype == O_SCAN);
 	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
-	assert(ctx->resolving_enum == NULL);
 	assert(idecl->type == IDECL_ENUM_FLD);
 
 	const struct type *type = idecl->field->type;
@@ -3658,7 +3653,7 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 	idecl = (struct incomplete_declaration *)obj;
 	assert(idecl->type == IDECL_ENUM_FLD);
 
-	ctx->resolving_enum = idecl->field->enum_scope;
+	ctx->scope = idecl->field->enum_scope;
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 	value->result = type;
 	if (idecl->field->field->value) { // explicit value
@@ -3704,7 +3699,6 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 			}
 		}
 	}
-	ctx->resolving_enum = NULL;
 
 	return scope_insert(idecl->field->enum_scope, O_CONST, &name, &localname, type, value);
 }
@@ -3972,8 +3966,7 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	resolvefn resolver)
 {
 	// save current subunit and enum context
-	struct scope *enum_scope = ctx->resolving_enum;
-	ctx->resolving_enum = NULL;
+	struct scope *scope = ctx->scope;
 	struct scope *subunit = ctx->unit->parent;
 	ctx->unit->parent = NULL;
 
@@ -3985,6 +3978,7 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	}
 
 	// load this declaration's subunit context
+	ctx->scope = ctx->unit;
 	ctx->unit->parent = idecl->imports;
 
 	// resolving a declaration that is already in progress -> cycle
@@ -4005,7 +3999,7 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 exit:
 	// load stored context
 	ctx->unit->parent = subunit;
-	ctx->resolving_enum = enum_scope;
+	ctx->scope = scope;
 	idecl->in_progress = false;
 	return obj;
 }
@@ -4233,14 +4227,12 @@ check_internal(struct type_store *ts,
 	}
 
 	// Perform actual declaration resolution
-	ctx.resolving_enum = NULL;
 	for (const struct scope_object *obj = ctx.scope->objects;
 			obj; obj = obj->lnext) {
 		if (obj->otype != O_SCAN) {
 			continue;
 		}
 		wrap_resolver(&ctx, obj, resolve_decl);
-		assert(ctx.resolving_enum == NULL);
 	}
 
 	handle_errors(ctx.errors);

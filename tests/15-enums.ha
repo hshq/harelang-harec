@@ -129,16 +129,19 @@ fn aliases() void = {
 	assert(imported_double_alias::THREE == testmod::_enum::THREE);
 };
 
-// Force T2 to be resolved before T1
+// Force T2 to be resolved before t2::T3 and t2::T3 before t2::T1
 type t1 = enum {
 	I1 = t2::T1,
-	I2 = t2::T2,
+	I2 = t2::T3,
+	I3 = T2: int,
 };
+
+def T2: uint = 0;
 
 type t2 = enum {
 	T1,
 	T2 = 1,
-	T3,
+	T3 = T2 + 1,
 };
 
 export fn resolution_order() void = {
@@ -146,7 +149,9 @@ export fn resolution_order() void = {
 	assert(t2::T2 == 1);
 	assert(t2::T3 == 2);
 	assert(t1::I1 == 0);
-	assert(t1::I2 == 1);
+	assert(t1::I2 == 2);
+	assert(t1::I3 == 0);
+	assert(T2 == 0);
 };
 
 export fn main() void = {

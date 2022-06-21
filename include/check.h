@@ -41,7 +41,6 @@ struct context {
 	bool is_test;
 	struct scope *unit;
 	struct scope *scope;
-	struct scope *resolving_enum;
 	bool deferring;
 	int id;
 	struct errors *errors;
