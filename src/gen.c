@@ -430,9 +430,11 @@ gen_alloc_slice_at(struct gen_context *ctx,
 
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
 	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value zero = constl(0);
 	pushi(ctx->current, &data, Q_COPY, &zero, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &size, &bnonzero, &bzero, NULL);
+	pushi(ctx->current, &cmpres, Q_CNEL, &size, &zero, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bnonzero, &bzero, NULL);
 	push(&ctx->current->body, &lnonzero);
 	pushi(ctx->current, &data, Q_CALL, &rtfunc, &size, NULL);
 
