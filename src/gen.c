@@ -3538,14 +3538,15 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			break;
 		case STORAGE_I32:
 		case STORAGE_U32:
-		case STORAGE_INT:
+		case STORAGE_INT: // XXX: arch
 		case STORAGE_UINT:
 			item->type = QD_VALUE;
 			item->value = constw((uint32_t)constant->uval);
 			break;
 		case STORAGE_U64:
 		case STORAGE_I64:
-		case STORAGE_SIZE:
+		case STORAGE_SIZE: // XXX: arch
+		case STORAGE_UINTPTR:
 			item->type = QD_VALUE;
 			item->value = constl((uint64_t)constant->uval);
 			break;

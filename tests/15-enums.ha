@@ -46,6 +46,13 @@ type rune_storage = enum rune {
 	BAR = '1',
 };
 
+type uintptr_storage = enum uintptr {
+	FOO = 0,
+	BAR = 1,
+};
+
+let global_uintptr: uintptr_storage = uintptr_storage::FOO;
+
 fn storage() void = {
 	assert(size(explicit_values) == size(int));
 	assert(size(with_storage) == 2);
