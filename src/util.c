@@ -63,7 +63,7 @@ void *
 xcalloc(size_t n, size_t s)
 {
 	void *p = calloc(n, s);
-	if (!p) {
+	if (!p && s) {
 		abort();
 	}
 	return p;
@@ -73,7 +73,7 @@ void *
 xrealloc(void *p, size_t s)
 {
 	p = realloc(p, s);
-	if (!p) {
+	if (!p && s) {
 		abort();
 	}
 	return p;
