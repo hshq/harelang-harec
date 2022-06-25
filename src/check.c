@@ -3207,7 +3207,7 @@ check_function(struct context *ctx,
 
 	// TODO: Add function name to errors
 	if (decl->func.flags != 0) {
-		const char *flag;
+		const char *flag = NULL;
 		switch (decl->func.flags) {
 		case FN_INIT:
 			flag = "@init";
