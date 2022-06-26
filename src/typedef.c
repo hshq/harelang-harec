@@ -63,7 +63,7 @@ emit_const(const struct expression *expr, FILE *out)
 	assert(!val->object);
 	switch (type_dealias(expr->result)->storage) {
 	case STORAGE_BOOL:
-		fprintf(out, "%s", val->bval ? "false" : "true");
+		fprintf(out, "%s", val->bval ? "true" : "false");
 		break;
 	case STORAGE_F32:
 	case STORAGE_F64:
