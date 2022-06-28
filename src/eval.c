@@ -17,9 +17,6 @@ eval_access(struct context *ctx, struct expression *in, struct expression *out)
 	struct expression tmp = {0};
 	enum eval_result r;
 
-	out->type = EXPR_CONSTANT;
-	out->result = in->result;
-
 	switch (in->access.type) {
 	case ACCESS_IDENTIFIER:
 		return EVAL_INVALID; // &ident handled in eval_unarithm
@@ -328,8 +325,6 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		}
 		break;
 	}
-	out->type = EXPR_CONSTANT;
-	out->result = in->result;
 	if (type_is_float(in->result)) {
 		out->constant.fval = ftrunc(in->result, fval);
 	} else if (type_is_signed(in->result)) {
@@ -345,8 +340,6 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 enum eval_result
 eval_const(struct context *ctx, struct expression *in, struct expression *out)
 {
-	out->type = EXPR_CONSTANT;
-	out->result = in->result;
 	enum type_storage storage = type_dealias(out->result)->storage;
 	if (storage == STORAGE_ENUM) {
 		storage = type_dealias(out->result)->alias.type->storage;
@@ -449,14 +442,12 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	// The STORAGE_ARRAY exception is to make sure we handle expandable
 	// arrays at this point.
 	if (to->storage == from->storage && to->storage != STORAGE_ARRAY) {
-		*out = val;
+		out->constant = val.constant;
 		return EVAL_OK;
 	}
 
 	// XXX: We should also be able to handle expressions which use
 	// symbols/identifiers
-	out->type = EXPR_CONSTANT;
-	out->result = in->result;
 
 	const struct type *subtype;
 	switch (to->storage) {
@@ -554,8 +545,6 @@ enum eval_result
 eval_measurement(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_MEASURE);
-	out->type = EXPR_CONSTANT;
-	out->result = &builtin_type_size;
 	struct expression obj = {0};
 	enum eval_result res;
 	switch (in->measure.op) {
@@ -721,7 +710,6 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 	assert(in->type == EXPR_STRUCT);
 	assert(type_dealias(in->result)->storage != STORAGE_UNION); // TODO
 	const struct type *type = type_dealias(in->result);
-	out->type = EXPR_CONSTANT;
 
 	size_t n = count_struct_fields(type);
 	assert(n > 0);
@@ -756,7 +744,6 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 	}
 
 	out->constant._struct = fields[0];
-	out->result = in->result;
 	free(fields);
 	return EVAL_OK;
 }
@@ -766,8 +753,6 @@ eval_tuple(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_TUPLE);
 	const struct type *type = type_dealias(in->result);
-	out->type = EXPR_CONSTANT;
-
 
 	struct tuple_constant *out_tuple_start, *out_tuple;
 	out_tuple_start = out_tuple = xcalloc(1, sizeof(struct tuple_constant));
@@ -790,7 +775,6 @@ eval_tuple(struct context *ctx, struct expression *in, struct expression *out)
 	}
 
 	out->constant.tuple = out_tuple_start;
-	out->result = in->result;
 	return EVAL_OK;
 }
 
@@ -798,8 +782,6 @@ eval_tuple(struct context *ctx, struct expression *in, struct expression *out)
 static enum eval_result
 eval_unarithm(struct context *ctx, struct expression *in, struct expression *out)
 {
-	out->type = EXPR_CONSTANT;
-
 	if (in->unarithm.op == UN_ADDRESS) {
 		assert(in->unarithm.operand->type == EXPR_ACCESS);
 		// TODO other access types
@@ -807,8 +789,6 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		if (in->unarithm.operand->access.object->otype != O_DECL) {
 			return EVAL_INVALID;
 		}
-		out->result = type_store_lookup_pointer(
-			ctx->store, in->unarithm.operand->result, 0);
 		out->constant.object = in->unarithm.operand->access.object;
 		out->constant.ival = 0;
 		return EVAL_OK;
@@ -820,7 +800,6 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		return r;
 	}
 
-	out->result = lvalue.result;
 	switch (in->unarithm.op) {
 	case UN_ADDRESS:
 		assert(0); // handled above
@@ -850,6 +829,9 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 enum eval_result
 eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 {
+	out->result = in->result;
+	out->type = EXPR_CONSTANT;
+
 	switch (in->type) {
 	case EXPR_ACCESS:
 		return eval_access(ctx, in, out);

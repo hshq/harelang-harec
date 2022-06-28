@@ -1,3 +1,5 @@
+use testmod;
+
 fn error() bool = {
 	abort();
 };
@@ -91,11 +93,13 @@ fn sar_shr() void = {
 def FLOAT: f64 = 6.0 * 7.0;
 def I8: i8 = 127 * 2;
 def U8: u8 = 128 * 2;
+def ALIAS: testmod::enum_alias = 1: testmod::_enum: testmod::enum_alias + 1: testmod::enum_alias;
 
 fn eval() void = {
 	assert(FLOAT == 42.0);
 	assert(I8 == 126);
 	assert(U8 == 0);
+	assert(ALIAS == 2);
 };
 
 export fn main() void = {
