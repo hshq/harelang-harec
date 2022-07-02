@@ -151,7 +151,7 @@ type t2 = enum {
 	T3 = T2 + 1,
 };
 
-export fn resolution_order() void = {
+fn resolution_order() void = {
 	assert(t2::T1 == 0);
 	assert(t2::T2 == 1);
 	assert(t2::T3 == 2);
