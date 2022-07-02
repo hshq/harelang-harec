@@ -121,10 +121,9 @@ emit_const(const struct expression *expr, FILE *out)
 		};
 		fprintf(out, "\"");
 		break;
-	case STORAGE_ENUM:
-		assert(expr->result->storage == STORAGE_ENUM);
+	case STORAGE_ENUM: {
 		const struct type *t = type_dealias(expr->result);
-		char *ident = identifier_unparse(&t->alias.ident);
+		char *ident = identifier_unparse(&expr->result->alias.ident);
 		if (t->alias.type->storage == STORAGE_CHAR) {
 			fprintf(out, "%" PRIuMAX, val->uval);
 		} else if (t->alias.type->storage == STORAGE_UINTPTR) {
@@ -138,6 +137,7 @@ emit_const(const struct expression *expr, FILE *out)
 		}
 		free(ident);
 		break;
+	}
 	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:

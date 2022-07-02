@@ -17,3 +17,4 @@ export type enum_alias = _enum;
 
 export def val: int = 42;
 export def val2: int = 90;
+export def val3: enum_alias = 1: enum_alias;
