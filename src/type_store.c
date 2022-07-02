@@ -866,8 +866,7 @@ lookup_atype_with_dimensions(struct type_store *store, const struct type **type,
 static const struct type *
 lookup_atype(struct type_store *store, const struct ast_type *atype)
 {
-	struct type temp = {0};
-	const struct type *type = &temp;
+	const struct type *type = NULL;
 	lookup_atype_with_dimensions(store, &type, atype);
 	return type;
 }
