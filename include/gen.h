@@ -28,6 +28,7 @@ enum gen_value_kind {
 
 struct gen_value {
 	enum gen_value_kind kind;
+	bool threadlocal;
 	const struct type *type;
 	union {
 		char *name;

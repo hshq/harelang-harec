@@ -360,6 +360,7 @@ struct ast_expression {
 
 struct ast_global_decl {
 	char *symbol;
+	bool threadlocal;
 	struct identifier ident;
 	struct ast_type *type;
 	struct ast_expression *init;

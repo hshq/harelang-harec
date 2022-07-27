@@ -3275,6 +3275,7 @@ check_global(struct context *ctx,
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_GLOBAL;
 	decl->global.type = type;
+	decl->global.threadlocal = adecl->threadlocal;
 
 	if (adecl->symbol) {
 		decl->symbol = strdup(adecl->symbol);
@@ -3616,7 +3617,7 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 		expect(ctx, &decl->type->loc, decl->init,
 			"Cannot infer array length without an initializer");
 
-		// TODO: Free initialier
+		// TODO: Free initializer
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, decl->init, initializer, type);
@@ -3638,7 +3639,10 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 	} else {
 		mkident(ctx, &ident, &decl->ident);
 	}
-	return scope_insert(ctx->unit, O_DECL, &ident, &decl->ident, type, NULL);
+	struct scope_object *global = scope_insert(ctx->unit, O_DECL,
+			&ident, &decl->ident, type, NULL);
+	global->threadlocal = decl->threadlocal;
+	return global;
 }
 
 const struct scope_object *
@@ -4079,8 +4083,10 @@ load_import(struct context *ctx, struct ast_imports *import,
 				expect(ctx, &member->loc, false, "Unknown object '%s'",
 						identifier_unparse(&ident));
 			}
-			scope_insert(scope, obj->otype, &obj->ident,
-				&name, obj->type, obj->value);
+			struct scope_object *new = scope_insert(
+					scope, obj->otype, &obj->ident,
+					&name, obj->type, obj->value);
+			new->threadlocal = obj->threadlocal;
 			if (obj->otype != O_TYPE
 					|| type_dealias(obj->type)->storage
 						!= STORAGE_ENUM) {
@@ -4110,10 +4116,12 @@ load_import(struct context *ctx, struct ast_imports *import,
 				continue;
 			}
 
+			struct scope_object *new;
 			if (!(import->mode & AST_IMPORT_ALIAS)
 					&& import->ident.ns != NULL) {
-				scope_insert(scope, obj->otype, &obj->ident,
+				new = scope_insert(scope, obj->otype, &obj->ident,
 					&obj->name, obj->type, obj->value);
+				new->threadlocal = obj->threadlocal;
 			}
 
 			struct identifier ns, name = {
@@ -4128,8 +4136,9 @@ load_import(struct context *ctx, struct ast_imports *import,
 				};
 				name.ns = &ns;
 			};
-			scope_insert(scope, obj->otype, &obj->ident,
+			new = scope_insert(scope, obj->otype, &obj->ident,
 				&name, obj->type, obj->value);
+			new->threadlocal = obj->threadlocal;
 		}
 	}
 }

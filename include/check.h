@@ -68,6 +68,7 @@ struct function_decl {
 struct global_decl {
 	const struct type *type;
 	struct expression *value; // EXPR_CONSTANT
+	bool threadlocal;
 };
 
 enum declaration_type {
