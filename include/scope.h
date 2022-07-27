@@ -18,6 +18,7 @@ struct scope_object {
 	// name is the name of the object within this scope (for lookups)
 	// ident is the global identifier (these may be different in some cases)
 	struct identifier name, ident;
+	bool threadlocal;
 
 	const struct type *type;
 	struct expression *value; // For O_CONST
@@ -82,12 +83,12 @@ void scope_object_init(struct scope_object *obj, enum object_type otype,
 
 void scope_insert_from_object(struct scope *scope, struct scope_object *object);
 
-const struct scope_object *scope_insert(
+struct scope_object *scope_insert(
 	struct scope *scope, enum object_type otype,
 	const struct identifier *ident, const struct identifier *name,
 	const struct type *type, struct expression *value);
 
-const struct scope_object *scope_lookup(struct scope *scope,
+struct scope_object *scope_lookup(struct scope *scope,
 	const struct identifier *ident);
 
 #endif

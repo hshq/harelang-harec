@@ -119,6 +119,9 @@ emit_value(struct qbe_value *val, FILE *out)
 		emit_const(val, out);
 		break;
 	case QV_GLOBAL:
+		if (val->threadlocal) {
+			fprintf(out, "thread ");
+		}
 		fprintf(out, "$%s", val->name);
 		break;
 	case QV_LABEL:
@@ -310,6 +313,12 @@ emit_data(struct qbe_def *def, FILE *out)
 				def->data.section, def->data.secflags);
 	} else if (def->data.section) {
 		fprintf(out, "section \"%s\"", def->data.section);
+	} else if (def->data.threadlocal) {
+		if (is_zeroes(&def->data.items)) {
+			fprintf(out, "section \".tbss\" \"awT\"");
+		} else {
+			fprintf(out, "section \".tdata\" \"awT\"");
+		}
 	} else if (is_zeroes(&def->data.items)) {
 		fprintf(out, "section \".bss.%s\"", def->name);
 	} else {

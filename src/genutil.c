@@ -28,6 +28,7 @@ mkqval(struct gen_context *ctx, struct gen_value *value)
 	case GV_GLOBAL:
 		qval.kind = QV_GLOBAL;
 		qval.name = value->name;
+		qval.threadlocal = value->threadlocal;
 		break;
 	case GV_TEMP:
 		qval.kind = QV_TEMPORARY;

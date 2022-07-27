@@ -397,6 +397,9 @@ emit_decl_global(struct declaration *decl, FILE *out)
 	if (decl->symbol) {
 		fprintf(out, "@symbol(\"%s\") ", decl->symbol);
 	}
+	if (decl->global.threadlocal) {
+		fprintf(out, "@threadlocal ");
+	}
 	fprintf(out, "%s: ", ident);
 	emit_exported_type(decl->global.type, out, ident);
 	fprintf(out, ";\n");

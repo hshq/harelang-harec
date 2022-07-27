@@ -116,7 +116,7 @@ scope_insert_from_object(struct scope *scope, struct scope_object *object)
 	*bucket = object;
 }
 
-const struct scope_object *
+struct scope_object *
 scope_insert(struct scope *scope, enum object_type otype,
 	const struct identifier *ident, const struct identifier *name,
 	const struct type *type, struct expression *value)
@@ -127,7 +127,7 @@ scope_insert(struct scope *scope, enum object_type otype,
 	return o;
 }
 
-const struct scope_object *
+struct scope_object *
 scope_lookup(struct scope *scope, const struct identifier *ident)
 {
 	uint32_t hash = name_hash(FNV1A_INIT, ident);

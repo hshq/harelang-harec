@@ -246,6 +246,7 @@ gen_access_ident(struct gen_context *ctx, const struct expression *expr)
 			.kind = GV_GLOBAL,
 			.type = obj->type,
 			.name = ident_to_sym(&obj->ident),
+			.threadlocal = obj->threadlocal,
 		};
 	case O_CONST:
 	case O_TYPE:
@@ -3692,6 +3693,7 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 	struct qbe_def *qdef = xcalloc(1, sizeof(struct qbe_def));
 	qdef->kind = Q_DATA;
 	qdef->data.align = ALIGN_UNDEFINED;
+	qdef->data.threadlocal = global->threadlocal;
 	qdef->exported = decl->exported;
 	qdef->name = ident_to_sym(&decl->ident);
 	gen_data_item(ctx, global->value, &qdef->data.items);

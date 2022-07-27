@@ -22,6 +22,7 @@ static const char *tokens[] = {
 	[T_ATTR_OFFSET] = "@offset",
 	[T_ATTR_SYMBOL] = "@symbol",
 	[T_ATTR_TEST] = "@test",
+	[T_ATTR_THREADLOCAL] = "@threadlocal",
 	[T_UNDERSCORE] = "_",
 	[T_ABORT] = "abort",
 	[T_ALLOC] = "alloc",
