@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -10,6 +11,26 @@
 #include "type_store.h"
 #include "types.h"
 #include "util.h"
+
+static void
+error(struct context *ctx, const struct location loc, char *fmt, ...)
+{
+	va_list ap, copy;
+	va_start(ap, fmt);
+
+	va_copy(copy, ap);
+	size_t sz = vsnprintf(NULL, 0, fmt, copy);
+	va_end(copy);
+
+	char *msg = xcalloc(1, sz + 1);
+	vsnprintf(msg, sz + 1, fmt, ap);
+	va_end(ap);
+
+	struct errors *next = *ctx->next = xcalloc(1, sizeof(struct errors));
+	next->loc = loc;
+	next->msg = msg;
+	ctx->next = &next->next;
+}
 
 static enum eval_result
 eval_access(struct context *ctx, struct expression *in, struct expression *out)
@@ -32,7 +53,7 @@ eval_access(struct context *ctx, struct expression *in, struct expression *out)
 		}
 		for (size_t i = tmp.constant.uval; i > 0; --i) {
 			if (array == NULL) {
-				// out of bounds
+				error(ctx, in->loc, "slice or array access out of bounds");
 				return EVAL_INVALID;
 			}
 			array = array->next;
@@ -182,12 +203,14 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_signed(lvalue.result)) {
 			uintmax_t r = itrunc(rvalue.result, irval);
 			if (r == 0) {
+				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
 			ival = itrunc(lvalue.result, ilval) / r;
 		} else {
 			uintmax_t r = itrunc(rvalue.result, urval);
 			if (r == 0) {
+				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
 			uval = itrunc(lvalue.result, ulval) / r;
@@ -212,12 +235,14 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		if (type_is_signed(lvalue.result)) {
 			uintmax_t r = itrunc(rvalue.result, irval);
 			if (r == 0) {
+				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
 			ival = itrunc(lvalue.result, ilval) % itrunc(rvalue.result, irval);
 		} else {
 			uintmax_t r = itrunc(rvalue.result, urval);
 			if (r == 0) {
+				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
 			uval = itrunc(lvalue.result, ulval) % itrunc(rvalue.result, urval);
@@ -448,6 +473,7 @@ eval_type_assertion(struct context *ctx, struct expression *in,
 		out->constant = val.constant.tagged.value->constant;
 		return EVAL_OK;
 	} else {
+		error(ctx, in->loc, "type assertion failed");
 		return EVAL_INVALID;
 	}
 }
@@ -925,7 +951,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_VAEND:
 	case EXPR_VASTART:
 	case EXPR_YIELD:
-		// Excluded from translation-compatible subset
+		error(ctx, in->loc, "unvailable at translation time");
 		return EVAL_INVALID;
 	}
 	assert(0); // Unreachable
