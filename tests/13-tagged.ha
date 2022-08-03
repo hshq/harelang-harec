@@ -237,6 +237,12 @@ fn reject() void = {
 	) as exited != EXIT_SUCCESS);
 };
 
+def val1: integer = 8u8;
+
+fn translation() void = {
+	assert(val1 as u8 == 8u8);
+};
+
 export fn main() void = {
 	measurements();
 	storage();
@@ -248,4 +254,5 @@ export fn main() void = {
 	castout();
 	assertions();
 	reject();
+	translation();
 };

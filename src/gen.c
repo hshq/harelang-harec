@@ -1864,6 +1864,26 @@ gen_const_struct_at(struct gen_context *ctx,
 }
 
 static void
+gen_const_tagged_at(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value out)
+{
+	struct qbe_value qout = mklval(ctx, &out);
+	const struct type *subtype = expr->constant.tagged.tag;
+	struct qbe_value id = constw(subtype->id);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+	pushi(ctx->current, NULL, store, &id, &qout, NULL);
+	if (subtype->size == 0) {
+		return;
+	}
+
+	struct gen_value storage = mkgtemp(ctx, subtype, ".%d");
+	struct qbe_value qstor = mklval(ctx, &storage);
+	struct qbe_value offs = constl(expr->result->align);
+	pushi(ctx->current, &qstor, Q_ADD, &qout, &offs, NULL);
+	gen_expr_at(ctx, expr->constant.tagged.value, storage);
+}
+
+static void
 gen_expr_const_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
@@ -1881,6 +1901,9 @@ gen_expr_const_at(struct gen_context *ctx,
 		break;
 	case STORAGE_STRUCT:
 		gen_const_struct_at(ctx, expr, out);
+		break;
+	case STORAGE_TAGGED:
+		gen_const_tagged_at(ctx, expr, out);
 		break;
 	default:
 		abort(); // Invariant
