@@ -370,9 +370,13 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 			in->constant.string.value,
 			in->constant.string.len);
 		break;
+	case STORAGE_TAGGED:
+		out->constant.tagged.tag = in->constant.tagged.tag;
+		out->constant.tagged.value = xcalloc(sizeof(struct expression), 1);
+		return eval_expr(ctx, in->constant.tagged.value,
+				out->constant.tagged.value);
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 		assert(0); // TODO
 	case STORAGE_BOOL:

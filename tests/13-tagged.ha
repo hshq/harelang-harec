@@ -238,9 +238,11 @@ fn reject() void = {
 };
 
 def val1: integer = 8u8;
+def val2: integer = val1;
 
 fn translation() void = {
 	assert(val1 as u8 == 8u8);
+	assert(val2 as u8 == 8u8);
 };
 
 export fn main() void = {
