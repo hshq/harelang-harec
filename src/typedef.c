@@ -138,17 +138,21 @@ emit_const(const struct expression *expr, FILE *out)
 		free(ident);
 		break;
 	}
-	case STORAGE_ALIAS:
+	case STORAGE_TAGGED:
+		emit_const(expr->constant.tagged.value, out);
+		fprintf(out, ": ");
+		emit_type(expr->constant.tagged.tag, out);
+		break;
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 	case STORAGE_STRUCT:
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
 		assert(0); // TODO
+	case STORAGE_ALIAS:
 	case STORAGE_CHAR:
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
-	case STORAGE_TAGGED:
 	case STORAGE_VALIST:
 		assert(0); // Invariant
 	}
