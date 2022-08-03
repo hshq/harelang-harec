@@ -238,11 +238,25 @@ fn reject() void = {
 };
 
 def val1: integer = 8u8;
+def val1val: u8 = val1 as u8;
+def val1type: bool = val1 is u8;
 def val2: integer = val1;
+def val2val: u8 = val2 as u8;
+def val2type: bool = val2 is u8;
+def val3: integer = 8u8: u16;
+def val3val: u16 = val3 as u16;
+def val3type: bool = val3 is u16;
 
 fn translation() void = {
 	assert(val1 as u8 == 8u8);
+	assert(val1val == 8u8);
+	assert(val1type == true);
 	assert(val2 as u8 == 8u8);
+	assert(val2val == 8u8);
+	assert(val2type == true);
+	assert(val3 as u16 == 8u16);
+	assert(val3val == 8u16);
+	assert(val3type == true);
 };
 
 export fn main() void = {

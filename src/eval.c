@@ -433,6 +433,44 @@ eval_expand_array(struct context *ctx,
 }
 
 enum eval_result
+eval_type_assertion(struct context *ctx, struct expression *in,
+		struct expression *out)
+{
+	struct expression val = {0};
+	enum eval_result r = eval_expr(ctx, in->cast.value, &val);
+	if (r != EVAL_OK) {
+		return r;
+	}
+
+	const struct type *from = type_dealias(in->cast.value->result);
+	assert(from->storage == STORAGE_TAGGED);
+	if (val.constant.tagged.tag == in->cast.secondary) {
+		out->constant = val.constant.tagged.value->constant;
+		return EVAL_OK;
+	} else {
+		return EVAL_INVALID;
+	}
+}
+
+enum eval_result
+eval_type_test(struct context *ctx, struct expression *in,
+		struct expression *out)
+{
+	struct expression val = {0};
+	enum eval_result r = eval_expr(ctx, in->cast.value, &val);
+	if (r != EVAL_OK) {
+		return r;
+	}
+
+	const struct type *from = type_dealias(in->cast.value->result);
+	assert(from->storage == STORAGE_TAGGED);
+
+	out->constant.bval = val.constant.tagged.tag == in->cast.secondary;
+
+	return EVAL_OK;
+}
+
+enum eval_result
 eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 {
 	struct expression val = {0};
@@ -842,7 +880,16 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_BINARITHM:
 		return eval_binarithm(ctx, in, out);
 	case EXPR_CAST:
-		return eval_cast(ctx, in, out);
+		switch (in->cast.kind) {
+		case C_CAST:
+			return eval_cast(ctx, in, out);
+		case C_ASSERTION:
+			return eval_type_assertion(ctx, in, out);
+		case C_TEST:
+			return eval_type_test(ctx, in, out);
+		default:
+			assert(0); // Unreacheable
+		}
 	case EXPR_CONSTANT:
 		return eval_const(ctx, in, out);
 	case EXPR_MEASURE:
