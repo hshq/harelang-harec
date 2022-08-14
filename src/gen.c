@@ -2003,10 +2003,13 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 
 	struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
+	struct qbe_value startend_oob = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
 	pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlen, NULL);
 	pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlen, NULL);
 	pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
+	pushi(ctx->current, &startend_oob, Q_CULEL, &qstart, &qend, NULL);
+	pushi(ctx->current, &valid, Q_AND, &valid, &startend_oob, NULL);
 
 	struct qbe_statement linvalid, lvalid;
 	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
@@ -2869,10 +2872,13 @@ gen_expr_slice_at(struct gen_context *ctx,
 	if (check_bounds) {
 		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value startend_oob = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
 		pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlength, NULL);
 		pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
 		pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
+		pushi(ctx->current, &startend_oob, Q_CULEL, &qstart, &qend, NULL);
+		pushi(ctx->current, &valid, Q_AND, &valid, &startend_oob, NULL);
 
 		struct qbe_statement linvalid, lvalid;
 		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
