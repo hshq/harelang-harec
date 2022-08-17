@@ -14,6 +14,7 @@ export type char_enum = enum char {
 };
 
 export type enum_alias = _enum;
+export type error_enum = !_enum;
 
 export def val: int = 42;
 export def val2: int = 90;

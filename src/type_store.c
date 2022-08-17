@@ -678,6 +678,7 @@ type_init_from_atype(struct type_store *store,
 		identifier_dup(&type->alias.ident, &obj->ident);
 		identifier_dup(&type->alias.name, &obj->name);
 		type->alias.type = obj->type->alias.type;
+		type->alias.exported = obj->type->alias.exported;
 		type->size = obj->type->size;
 		type->align = obj->type->align;
 		break;
