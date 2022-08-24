@@ -333,7 +333,8 @@ check_expr_alloc_init(struct context *ctx,
 		assert(htype->array.members == atype->array.members);
 		objtype = hint;
 	}
-	expr->result = type_store_lookup_pointer(ctx->store, objtype, ptrflags);
+	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
+			objtype, ptrflags);
 	if (expr->result->size == 0 || expr->result->size == SIZE_UNDEFINED) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot allocate object of zero or undefined size");
@@ -386,7 +387,8 @@ check_expr_alloc_slice(struct context *ctx,
 	}
 
 	const struct type *membtype = type_dealias(objtype)->array.members;
-	expr->result = type_store_lookup_slice(ctx->store, membtype);
+	expr->result = type_store_lookup_slice(ctx->store,
+		aexpr->alloc.init->loc, membtype);
 
 	if (objtype->storage == STORAGE_ARRAY
 			&& objtype->array.expandable) {
@@ -424,7 +426,8 @@ check_expr_alloc_copy(struct context *ctx,
 
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 	result = type_dealias(expr->alloc.init->result);
-	expr->result = type_store_lookup_slice(ctx->store, result->array.members);
+	expr->result = type_store_lookup_slice(ctx->store,
+			aexpr->alloc.init->loc, result->array.members);
 }
 
 static void
@@ -1258,8 +1261,8 @@ lower_vaargs(struct context *ctx,
 	}
 
 	// XXX: This error handling is minimum-effort and bad
-	const struct type *hint = type_store_lookup_array(
-		ctx->store, type, SIZE_UNDEFINED, false);
+	const struct type *hint = type_store_lookup_array(ctx->store,
+			val.loc, type, SIZE_UNDEFINED, false);
 	check_expression(ctx, &val, vaargs, hint);
 	if (vaargs->result->storage != STORAGE_ARRAY
 			|| vaargs->result->array.members != type) {
@@ -1561,7 +1564,8 @@ check_expr_array(struct context *ctx,
 		error(ctx, aexpr->loc, expr, "Cannot infer array type from context, try casting it to the desired type");
 		return;
 	}
-	expr->result = type_store_lookup_array(ctx->store, type, len, expand);
+	expr->result = type_store_lookup_array(ctx->store, aexpr->loc,
+			type, len, expand);
 }
 
 static void
@@ -2457,7 +2461,7 @@ check_expr_slice(struct context *ctx,
 	if (dtype->storage == STORAGE_SLICE) {
 		expr->result = atype;
 	} else {
-		expr->result = type_store_lookup_slice(ctx->store,
+		expr->result = type_store_lookup_slice(ctx->store, aexpr->loc,
 			dtype->array.members);
 	}
 }
@@ -2842,8 +2846,12 @@ check_expr_tuple(struct context *ctx,
 			return;
 		}
 	} else {
-		expr->result = type_store_lookup_tuple(ctx->store, &result,
-				aexpr->loc);
+		expr->result = type_store_lookup_tuple(ctx->store,
+				aexpr->loc, &result);
+		if (expr->result == &builtin_type_void) {
+			// an error occured
+			return;
+		}
 	}
 
 	ttuple = &type_dealias(expr->result)->tuple;
@@ -2924,7 +2932,7 @@ check_expr_unarithm(struct context *ctx,
 		break;
 	case UN_ADDRESS:
 		expr->result = type_store_lookup_pointer(
-			ctx->store, operand->result, 0);
+			ctx->store, aexpr->loc, operand->result, 0);
 		break;
 	case UN_DEREF:
 		if (type_dealias(operand->result)->storage != STORAGE_POINTER) {
@@ -3183,7 +3191,8 @@ check_function(struct context *ctx,
 				ctx->store, params->type);
 		if (fntype->func.variadism == VARIADISM_HARE
 				&& !params->next) {
-			type = type_store_lookup_slice(ctx->store, type);
+			type = type_store_lookup_slice(ctx->store,
+				params->loc, type);
 		}
 		scope_insert(decl->func.scope, O_BIND,
 			&ident, &ident, type, NULL);

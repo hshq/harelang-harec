@@ -37,13 +37,14 @@ const struct type *type_store_lookup_with_flags(struct type_store *store,
 	const struct type *type, unsigned int flags);
 
 const struct type *type_store_lookup_pointer(struct type_store *store,
-	const struct type *referent, unsigned int ptrflags);
+	struct location loc, const struct type *referent, unsigned int ptrflags);
 
 const struct type *type_store_lookup_array(struct type_store *store,
-	const struct type *members, size_t len, bool expandable);
+	struct location loc, const struct type *members, size_t len,
+	bool expandable);
 
 const struct type *type_store_lookup_slice(struct type_store *store,
-	const struct type *members);
+	struct location loc, const struct type *members);
 
 const struct type *type_store_lookup_alias(struct type_store *store,
 	const struct type *secondary);
@@ -56,7 +57,7 @@ const struct type *type_store_tagged_to_union(
 	struct type_store *store, const struct type *tagged);
 
 const struct type *type_store_lookup_tuple(struct type_store *store,
-	struct type_tuple *values, struct location loc);
+	 struct location loc, struct type_tuple *values);
 
 const struct type *type_store_lookup_enum(struct type_store *store,
 	const struct ast_type *atype, bool exported);

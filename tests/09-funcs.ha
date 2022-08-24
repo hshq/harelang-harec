@@ -69,10 +69,26 @@ fn cvaargs() void = {
 	cvafn(3, 1, 2, 3);
 };
 
+fn reject() void = {
+	let failures: [_]str = [
+		// parameter of size 0
+		"fn f(x: void) void = void;",
+		// parameter of undefined size
+		"fn f(x: [*]int) void = void;",
+		// return value of undefined size
+		"fn f(x: int) [*]int = void;",
+	];
+
+	for (let i = 0z; i < len(failures); i += 1) {
+		assert(rt::compile(failures[i]) != 0);
+	};
+};
+
 export fn main() void = {
 	assert(simple() == 69);
 	pointers();
 	vaargs();
 	cvaargs();
 	assert(x == 1337);
+	reject();
 };

@@ -177,6 +177,10 @@ fn invariants() void = {
 	"fn test() void = { let x: struct { y: int } = struct { y: int = 10 }; x.z; };",
 	// Untyped field for unnamed struct:
 	"fn test() void = { let x = struct { x = 10 }; };",
+	// Members of undefined size before last
+	"type s = struct { x: [*]int, a: str };",
+	// Members of size 0
+	"type s = struct { x: void, a: str };"
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		assert(rt::compile(failures[i]) != 0);

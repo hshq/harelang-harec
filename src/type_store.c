@@ -147,7 +147,8 @@ builtin_for_type(const struct type *type)
 static struct struct_field *
 struct_insert_field(struct type_store *store, struct struct_field **fields,
 	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
-	const struct ast_struct_union_type *atype, bool *ccompat, bool size_only)
+	const struct ast_struct_union_type *atype, bool *ccompat, bool size_only,
+	bool last)
 {
 	while (*fields && (!atype->name || !(*fields)->name || strcmp((*fields)->name, atype->name) < 0)) {
 		fields = &(*fields)->next;
@@ -174,13 +175,16 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	}
 	if (dim.size == 0) {
 		error(store->check_context, atype->type->loc,
-			"Struct field size cannot be zero");
-		return NULL;
-	} else if (dim.align == 0) {
-		error(store->check_context, atype->type->loc,
-			"Struct field alignment cannot be zero");
+			"Type of size 0 is not a valid struct/union member");
 		return NULL;
 	}
+	if (!last && dim.size == SIZE_UNDEFINED) {
+		error(store->check_context, atype->type->loc,
+			"Type of undefined size is not a valid struct/union member");
+		return NULL;
+	}
+	assert(dim.align != ALIGN_UNDEFINED);
+	assert(dim.align != 0);
 
 	if (atype->offset) {
 		*ccompat = false;
@@ -284,7 +288,8 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	assert(storage == STORAGE_STRUCT || storage == STORAGE_UNION);
 	while (atype) {
 		struct struct_field *field = struct_insert_field(store, fields,
-			storage, size, &usize, align, atype, ccompat, size_only);
+			storage, size, &usize, align, atype, ccompat, size_only,
+			atype->next == NULL);
 		if (field == NULL) {
 			return;
 		}
@@ -577,31 +582,35 @@ tuple_init_from_atype(struct type_store *store,
 	struct dimensions dim = {0};
 	while (atuple) {
 		struct dimensions memb = {0};
+		size_t offset = 0;
 		if (type) {
 			memb = lookup_atype_with_dimensions(store, &cur->type, atuple->type);
-			if (memb.size == 0 || memb.align == 0) {
-				error(store->check_context, atuple->type->loc,
-					"Tuple member types must have nonzero size and alignment");
-				return dim;
-			}
-			cur->offset = dim.size % memb.align + dim.size;
 		} else {
 			memb = lookup_atype_with_dimensions(store, NULL, atuple->type);
-			if (memb.size == 0 || memb.align == 0) {
-				error(store->check_context, atuple->type->loc,
-					"Tuple member types must have nonzero size and alignment");
-				return dim;
-			}
 		}
+		if (memb.size == 0) {
+			error(store->check_context, atype->loc,
+				"Type of size 0 is not a valid tuple member");
+			return (struct dimensions){0};
+		}
+		if (memb.size == SIZE_UNDEFINED) {
+			error(store->check_context, atype->loc,
+				"Type of undefined size is not a valid tuple member");
+			return (struct dimensions){0};
+		}
+		offset = dim.size % memb.align + dim.size;
 		dim.size += dim.size % memb.align + memb.size;
 		if (dim.align < memb.align) {
 			dim.align = memb.align;
 		}
 
 		atuple = atuple->next;
-		if (atuple && type) {
-			cur->next = xcalloc(1, sizeof(struct type_tuple));
-			cur = cur->next;
+		if (type) {
+			cur->offset = offset;
+			if (atuple) {
+				cur->next = xcalloc(1, sizeof(struct type_tuple));
+				cur = cur->next;
+			}
 		}
 	}
 	if (type) {
@@ -637,6 +646,7 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
 	case STORAGE_ENUM:
+	case STORAGE_NULL:
 		assert(0); // Invariant
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
@@ -720,9 +730,17 @@ type_init_from_atype(struct type_store *store,
 			memb = lookup_atype_with_dimensions(store,
 				&type->array.members, atype->array.members);
 		}
-		if (memb.size == SIZE_UNDEFINED) {
+		// XXX: I'm not sure these checks are *exactly* right, we might
+		// still be letting some invalid stuff through
+		if (type->array.length != SIZE_UNDEFINED && memb.size == 0) {
 			error(store->check_context, atype->loc,
-				"Array member must have defined size");
+				"Type of size 0 is not a valid array member");
+			*type = builtin_type_void;
+			return (struct dimensions){0};
+		}
+		if (type->array.length != SIZE_UNDEFINED && memb.size == SIZE_UNDEFINED) {
+			error(store->check_context, atype->loc,
+				"Type of undefined size is not a valid array member");
 			*type = builtin_type_void;
 			return (struct dimensions){0};
 		}
@@ -749,10 +767,22 @@ type_init_from_atype(struct type_store *store,
 				aparam; aparam = aparam->next) {
 			param = *next = xcalloc(1, sizeof(struct type_func_param));
 			param->type = lookup_atype(store, aparam->type);
+			if (param->type->size == 0) {
+				error(store->check_context, atype->loc,
+					"Function parameter types must have nonzero size");
+				*type = builtin_type_void;
+				return (struct dimensions){0};
+			}
+			if (param->type->size == SIZE_UNDEFINED) {
+				error(store->check_context, atype->loc,
+					"Function parameter types must have defined size");
+				*type = builtin_type_void;
+				return (struct dimensions){0};
+			}
 			if (atype->func.variadism == VARIADISM_HARE
 					&& !aparam->next) {
 				param->type = type_store_lookup_slice(
-					store, param->type);
+					store, aparam->loc, param->type);
 			}
 			next = &param->next;
 		}
@@ -815,11 +845,6 @@ type_init_from_atype(struct type_store *store,
 			tuple_init_from_atype(store, type, atype);
 		}
 		break;
-	case STORAGE_NULL:
-		error(store->check_context, atype->loc,
-			"Type null used in invalid context");
-		*type = builtin_type_void;
-		return (struct dimensions){0};
 	}
 	return (struct dimensions){ .size = type->size, .align = type->align };
 }
@@ -931,10 +956,16 @@ type_store_lookup_with_flags(struct type_store *store,
 }
 
 const struct type *
-type_store_lookup_pointer(struct type_store *store,
+type_store_lookup_pointer(struct type_store *store, struct location loc,
 	const struct type *referent, unsigned int ptrflags)
 {
+	if (referent->storage == STORAGE_NULL) {
+		error(store->check_context, loc,
+			"Null type not allowed in this context");
+		return &builtin_type_void;
+	}
 	referent = lower_const(referent, NULL);
+
 	struct type ptr = {
 		.storage = STORAGE_POINTER,
 		.pointer = {
@@ -948,10 +979,30 @@ type_store_lookup_pointer(struct type_store *store,
 }
 
 const struct type *
-type_store_lookup_array(struct type_store *store,
+type_store_lookup_array(struct type_store *store, struct location loc,
 	const struct type *members, size_t len, bool expandable)
 {
+	if (members->storage == STORAGE_NULL) {
+		error(store->check_context, loc,
+			"Null type not allowed in this context");
+		return &builtin_type_void;
+	}
 	members = lower_const(members, NULL);
+	// XXX: I'm not sure these checks are *exactly* right, we might still
+	// be letting some invalid stuff pass
+	if (len != SIZE_UNDEFINED && members->size == 0) {
+		error(store->check_context, loc,
+			"Type of size 0 is not a valid array member");
+		return &builtin_type_void;
+	}
+	if (len != SIZE_UNDEFINED && members->size == SIZE_UNDEFINED) {
+		error(store->check_context, loc,
+			"Type of undefined size is not a valid member of a bounded array");
+		return &builtin_type_void;
+	}
+	assert(members->align != 0);
+	assert(members->align != ALIGN_UNDEFINED);
+
 	struct type array = {
 		.storage = STORAGE_ARRAY,
 		.array = {
@@ -968,9 +1019,28 @@ type_store_lookup_array(struct type_store *store,
 }
 
 const struct type *
-type_store_lookup_slice(struct type_store *store, const struct type *members)
+type_store_lookup_slice(struct type_store *store, struct location loc,
+	const struct type *members)
 {
+	if (members->storage == STORAGE_NULL) {
+		error(store->check_context, loc,
+			"Null type not allowed in this context");
+		return &builtin_type_void;
+	}
 	members = lower_const(members, NULL);
+	if (members->size == 0) {
+		error(store->check_context, loc,
+			"Type of size 0 is not a valid slice member");
+		return &builtin_type_void;
+	}
+	if (members->size == SIZE_UNDEFINED) {
+		error(store->check_context, loc,
+			"Type of undefined size is not a valid slice member");
+		return &builtin_type_void;
+	}
+	assert(members->align != 0);
+	assert(members->align != ALIGN_UNDEFINED);
+
 	struct type slice = {
 		.storage = STORAGE_SLICE,
 		.array = {
@@ -1070,21 +1140,34 @@ type_store_tagged_to_union(struct type_store *store, const struct type *tagged)
 }
 
 const struct type *
-type_store_lookup_tuple(struct type_store *store, struct type_tuple *values,
-		struct location loc)
+type_store_lookup_tuple(struct type_store *store, struct location loc,
+		struct type_tuple *values)
 {
 	struct type type = {
 		.storage = STORAGE_TUPLE,
 	};
 	for (struct type_tuple *t = values; t; t = t->next) {
+		if (t->type->storage == STORAGE_NULL) {
+			error(store->check_context, loc,
+				"Null type not allowed in this context");
+			return &builtin_type_void;
+		}
 		t->type = lower_const(t->type, NULL);
+		if (t->type->size == 0) {
+			error(store->check_context, loc,
+				"Type of size 0 is not a valid tuple member");
+			return &builtin_type_void;
+		}
+		if (t->type->size == SIZE_UNDEFINED) {
+			error(store->check_context, loc,
+				"Type of undefined size is not a valid tuple member");
+			return &builtin_type_void;
+		}
+		assert(t->type->align != 0);
+		assert(t->type->align != ALIGN_UNDEFINED);
+
 		if (t->type->align > type.align) {
 			type.align = t->type->align;
-		}
-		if (t->type->size == 0 || t->type->align == 0) {
-			error(store->check_context, loc,
-				"Tuple values must have nonzero size and alignment");
-			break;
 		}
 		t->offset = type.size % t->type->align + type.size;
 		type.size += type.size % t->type->align + t->type->size;
@@ -1181,9 +1264,9 @@ type_store_reduce_result(struct type_store *store, struct location loc,
 			}
 			if ((it->pointer.flags & PTR_NULLABLE)
 					|| (jt->pointer.flags & PTR_NULLABLE)) {
-				it = type_store_lookup_pointer(store,
+				it = type_store_lookup_pointer(store, loc,
 					it->pointer.referent, PTR_NULLABLE);
-				jt = type_store_lookup_pointer(store,
+				jt = type_store_lookup_pointer(store, loc,
 					jt->pointer.referent, PTR_NULLABLE);
 				if (it == jt) {
 					dropped = true;
@@ -1214,7 +1297,7 @@ type_store_reduce_result(struct type_store *store, struct location loc,
 
 	if (null != NULL && ptr != NULL) {
 		*null = (*null)->next;
-		ptr->type = type_store_lookup_pointer(store,
+		ptr->type = type_store_lookup_pointer(store, loc,
 			ptr->type->pointer.referent, PTR_NULLABLE);
 	}
 
