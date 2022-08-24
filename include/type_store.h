@@ -20,7 +20,7 @@ struct type_store {
 
 // Applies the type reduction algorithm to the given tagged union.
 const struct type *type_store_reduce_result(struct type_store *store,
-		struct type_tagged_union *in);
+		struct location loc, struct type_tagged_union *in);
 
 struct ast_type;
 
@@ -49,7 +49,7 @@ const struct type *type_store_lookup_alias(struct type_store *store,
 	const struct type *secondary);
 
 const struct type *type_store_lookup_tagged(struct type_store *store,
-	struct type_tagged_union *tags);
+	struct location loc, struct type_tagged_union *tags);
 
 // Returns a (non-tagged) union of the members of a tagged union type
 const struct type *type_store_tagged_to_union(

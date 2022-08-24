@@ -1604,7 +1604,8 @@ check_expr_compound(struct context *ctx,
 	}
 
 	expr->terminates = lexpr->terminates && lexpr->type != EXPR_YIELD;
-	expr->result = type_store_reduce_result(ctx->store, scope->results);
+	expr->result = type_store_reduce_result(ctx->store, aexpr->loc,
+			scope->results);
 
 	for (struct yield *yield = scope->yields; yield;) {
 		struct expression *lowered = lower_implicit_cast(
@@ -1916,7 +1917,8 @@ check_expr_if(struct context *ctx,
 				.next = &_tags,
 			};
 			expr->result =
-				type_store_reduce_result(ctx->store, &tags);
+				type_store_reduce_result(ctx->store, aexpr->loc,
+						&tags);
 			if (expr->result == NULL) {
 				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
@@ -2064,7 +2066,7 @@ check_expr_match(struct context *ctx,
 			expr->result = hint;
 		} else {
 			expr->result = type_store_reduce_result(
-				ctx->store, &result_type);
+				ctx->store, aexpr->loc, &result_type);
 			if (expr->result == NULL) {
 				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
@@ -2233,7 +2235,7 @@ check_expr_propagate(struct context *ctx,
 	const struct type *return_type;
 	if (return_tagged.next) {
 		return_type = type_store_lookup_tagged(
-			ctx->store, &return_tagged);
+			ctx->store, aexpr->loc, &return_tagged);
 	} else {
 		return_type = return_tagged.type;
 	}
@@ -2243,7 +2245,7 @@ check_expr_propagate(struct context *ctx,
 		result_type = &builtin_type_void;
 	} else if (result_tagged.next) {
 		result_type = type_store_lookup_tagged(
-			ctx->store, &result_tagged);
+			ctx->store, aexpr->loc, &result_tagged);
 	} else {
 		result_type = result_tagged.type;
 	}
@@ -2740,7 +2742,7 @@ check_expr_switch(struct context *ctx,
 			expr->result = hint;
 		} else {
 			expr->result = type_store_reduce_result(
-				ctx->store, &result_type);
+				ctx->store, aexpr->loc, &result_type);
 			if (expr->result == NULL) {
 				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");

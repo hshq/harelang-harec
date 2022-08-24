@@ -305,6 +305,33 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	}
 }
 
+static bool
+enforce_tagged_invariants(struct type_store *store, struct location loc,
+		const struct type *type)
+{
+	int i;
+	const struct type_tagged_union *tu;
+	for (i = 0, tu = &type->tagged; tu; i++, tu = tu->next) {
+		if (tu->type->storage == STORAGE_NULL) {
+			error(store->check_context, loc,
+				"Null type not allowed in this context");
+			return false;
+		}
+		if (tu->type->size == SIZE_UNDEFINED) {
+			error(store->check_context, loc,
+				"Type of undefined size is not a valid tagged union member");
+			return false;
+		}
+		assert(tu->type->align != ALIGN_UNDEFINED);
+	}
+	if (i <= 1) {
+		error(store->check_context, loc,
+			"Tagged unions must have at least two distinct members");
+		return false;
+	}
+	return true;
+}
+
 static size_t
 sum_tagged_memb(struct type_store *store,
 		const struct type_tagged_union *u)
@@ -404,8 +431,7 @@ collect_atagged_memb(struct type_store *store,
 		size_t *i)
 {
 	for (; atu; atu = atu->next) {
-		const struct type *type =
-			lookup_atype(store, atu->type);
+		const struct type *type = lookup_atype(store, atu->type);
 		if (type->storage == STORAGE_TAGGED) {
 			collect_tagged_memb(store, ta, &type->tagged, i);
 			continue;
@@ -428,7 +454,7 @@ tagged_cmp(const void *ptr_a, const void *ptr_b)
 		: (*a)->type->id > (*b)->type->id ? 1 : 0;
 }
 
-static size_t
+static void
 tagged_init(struct type_store *store, struct type *type,
 		struct type_tagged_union **tu, size_t nmemb)
 {
@@ -468,7 +494,6 @@ tagged_init(struct type_store *store, struct type *type,
 	}
 	type->size += builtin_type_uint.size % type->align
 		+ builtin_type_uint.align;
-	return nmemb;
 }
 
 static void
@@ -480,12 +505,10 @@ tagged_init_from_atype(struct type_store *store,
 		xcalloc(nmemb, sizeof(struct type_tagged_union *));
 	size_t i = 0;
 	collect_atagged_memb(store, tu, &atype->tagged_union, &i);
-	nmemb = tagged_init(store, type, tu, nmemb);
-
-	if (nmemb <= 1) {
-		error(store->check_context, atype->loc,
-			"Cannot create tagged union with a single member");
-	}
+	tagged_init(store, type, tu, nmemb);
+	if (!enforce_tagged_invariants(store, atype->loc, type)) {
+		*type = builtin_type_void;
+	};
 }
 
 static struct dimensions
@@ -511,6 +534,11 @@ _tagged_size(struct type_store *store, const struct ast_tagged_union_type *u)
 			memb = _tagged_size(store, &atype->tagged_union);
 		} else {
 			memb = lookup_atype_with_dimensions(store, NULL, atype);
+		}
+		if (memb.size == SIZE_UNDEFINED) {
+			error(store->check_context, atype->loc,
+				"Type of undefined size is not a valid tagged union member");
+			return (struct dimensions){0};
 		}
 		if (dim.size < memb.size) {
 			dim.size = memb.size;
@@ -978,9 +1006,10 @@ type_store_lookup_alias(struct type_store *store, const struct type *type)
 }
 
 
-const struct type *
-type_store_lookup_tagged(struct type_store *store,
-		struct type_tagged_union *tags)
+// Sorts members by id and deduplicates entries. Does not enforce usual tagged
+// union invariants. The returned type is not a singleton.
+static const struct type *
+lookup_tagged(struct type_store *store, struct type_tagged_union *tags)
 {
 	struct type type = {
 		.storage = STORAGE_TAGGED,
@@ -991,7 +1020,20 @@ type_store_lookup_tagged(struct type_store *store,
 	size_t i = 0;
 	collect_tagged_memb(store, tu, tags, &i);
 	tagged_init(store, &type, tu, nmemb);
-	return type_store_lookup_type(store, &type);
+	struct type *ret = xcalloc(1, sizeof(struct type));
+	*ret = type;
+	return ret;
+}
+
+const struct type *
+type_store_lookup_tagged(struct type_store *store, struct location loc,
+		struct type_tagged_union *tags)
+{
+	const struct type *type = lookup_tagged(store, tags);
+	if (!enforce_tagged_invariants(store, loc, type)) {
+		return &builtin_type_void;
+	}
+	return type_store_lookup_type(store, type);
 }
 
 const struct type *
@@ -1008,7 +1050,6 @@ type_store_tagged_to_union(struct type_store *store, const struct type *tagged)
 		if (tu->type->size == 0) {
 			continue;
 		}
-		assert(tu->type->size != SIZE_UNDEFINED);
 
 		if (tu->type->size > type.size) {
 			type.size = tu->type->size;
@@ -1085,7 +1126,8 @@ type_store_lookup_enum(struct type_store *store, const struct ast_type *atype,
 // - If the resulting union only has one type, return that type
 // - Otherwise, return a tagged union of all the selected types
 const struct type *
-type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
+type_store_reduce_result(struct type_store *store, struct location loc,
+		struct type_tagged_union *in)
 {
 	if (!in) {
 		return &builtin_type_void;
@@ -1093,7 +1135,7 @@ type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 		return in->type;
 	}
 
-	const struct type *type = type_store_lookup_tagged(store, in);
+	const struct type *type = lookup_tagged(store, in);
 	struct type_tagged_union _in = type->tagged;
 	in = &_in;
 
@@ -1179,5 +1221,5 @@ type_store_reduce_result(struct type_store *store, struct type_tagged_union *in)
 	if (in->next == NULL) {
 		return in->type;
 	}
-	return type_store_lookup_tagged(store, in);
+	return type_store_lookup_tagged(store, loc, in);
 }

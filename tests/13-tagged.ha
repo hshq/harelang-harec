@@ -221,6 +221,20 @@ fn reject() void = {
 			let b = a as (u8 | u16);
 		};"
 	) != 0);
+
+	// cannot have members of undefined size
+	assert(rt::compile(
+		"fn test() (void | [*]int) = {
+			void;
+		};"
+	) != 0);
+
+	// cannot have <2 members
+	assert(rt::compile(
+		"fn test() (void | void) = {
+			void;
+		};"
+	) != 0);
 };
 
 export fn main() void = {
