@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 use testmod;
 
 type implicit_values = enum {
@@ -68,21 +68,21 @@ fn storage() void = {
 
 fn reject() void = {
 	// enum type definition used outside type declaration
-	assert(rt::compile("export let a: enum { A, B } = 0;") != 0);
-	assert(rt::compile("export let a: int = 0: enum{A, B}: int;") != 0);
+	assert(compile("export let a: enum { A, B } = 0;") as exited != EXIT_SUCCESS);
+	assert(compile("export let a: int = 0: enum{A, B}: int;") as exited != EXIT_SUCCESS);
 
 	// enum circular dependencies
-	assert(rt::compile("type a = enum { A = B, B = A };") != 0);
-	assert(rt::compile("type a = enum { A = b::B },
-				b = enum { B = a::A };") != 0);
-	assert(rt::compile("
+	assert(compile("type a = enum { A = B, B = A };") as exited != EXIT_SUCCESS);
+	assert(compile("type a = enum { A = b::B },
+				b = enum { B = a::A };") as exited != EXIT_SUCCESS);
+	assert(compile("
 		def a: int = e::VAL1;
 		type e = enum { VAL1 = a };
-	") != 0);
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
 		def a: int = e::VAL1;
 		type e = enum { VAL1 = VAL2, VAL2 = a };
-	") != 0);
+	") as exited != EXIT_SUCCESS);
 };
 
 type interdependent1 = enum {

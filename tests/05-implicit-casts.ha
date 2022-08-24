@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 type subtype = struct {
 	foo: int,
@@ -44,7 +44,7 @@ fn rules() void = {
 
 	// Implementation-defined precision
 	if (size(int) == 8) {
-		assert(rt::compile("fn test() void = { let i: int = 42i64; };") == 0);
+		assert(compile("fn test() void = { let i: int = 42i64; };") as exited == EXIT_SUCCESS);
 	};
 	let i: int = 42i;
 	i = 42i32;
@@ -52,7 +52,7 @@ fn rules() void = {
 	i = 42i8;
 
 	if (size(uint) == 8) {
-		assert(rt::compile("fn test() void = { let u: uint = 42u64; };") == 0);
+		assert(compile("fn test() void = { let u: uint = 42u64; };") as exited == EXIT_SUCCESS);
 	};
 	let u: uint = 42u;
 	u = 42u32;
@@ -60,20 +60,20 @@ fn rules() void = {
 	u = 42u8;
 
 	// Precision loss (should fail)
-	assert(rt::compile("fn test() void = { let _i8: i8 = 42i16; };") != 0);
-	assert(rt::compile("fn test() void = { let _i8: i8 = 42i32; };") != 0);
-	assert(rt::compile("fn test() void = { let _i8: i8 = 42i64; };") != 0);
-	assert(rt::compile("fn test() void = { let _i8: i8 = 42i; };") != 0);
-	assert(rt::compile("fn test() void = { let _i16: i16 = 42i32; };") != 0);
-	assert(rt::compile("fn test() void = { let _i16: i16 = 42i64; };") != 0);
-	assert(rt::compile("fn test() void = { let _i32: i32 = 42i64; };") != 0);
-	assert(rt::compile("fn test() void = { let _u8: u8 = 42u16; };") != 0);
-	assert(rt::compile("fn test() void = { let _u8: u8 = 42u32; };") != 0);
-	assert(rt::compile("fn test() void = { let _u8: u8 = 42u64; };") != 0);
-	assert(rt::compile("fn test() void = { let _u8: u8 = 42u; };") != 0);
-	assert(rt::compile("fn test() void = { let _u16: u16 = 42u32; };") != 0);
-	assert(rt::compile("fn test() void = { let _u16: u16 = 42u64; };") != 0);
-	assert(rt::compile("fn test() void = { let _u32: u32 = 42u64; };") != 0);
+	assert(compile("fn test() void = { let _i8: i8 = 42i16; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _i8: i8 = 42i32; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _i8: i8 = 42i64; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _i8: i8 = 42i; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _i16: i16 = 42i32; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _i16: i16 = 42i64; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _i32: i32 = 42i64; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _u8: u8 = 42u16; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _u8: u8 = 42u32; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _u8: u8 = 42u64; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _u8: u8 = 42u; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _u16: u16 = 42u32; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _u16: u16 = 42u64; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _u32: u32 = 42u64; };") as exited != EXIT_SUCCESS);
 
 	// Pointer conversions
 	let cchr: *const char = "hello world";
@@ -87,12 +87,12 @@ fn rules() void = {
 	let sptr: *struct { foo: int } = &super3 { ... };
 
 	// Invalid pointer conversions
-	assert(rt::compile(
+	assert(compile(
 		"fn test() void = { let x: nullable *int = null; let y: *int = x; };"
-	) != 0);
-	assert(rt::compile(
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
 		"fn test() void = { let x: int = 10; let y: *int = &x; let y: *uint = x; };"
-	) != 0);
+	) as exited != EXIT_SUCCESS);
 
 	// Non-const from const (copy)
 	const j = 10;

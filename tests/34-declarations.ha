@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 // interdependent constants
 def A1: int = -1;
@@ -206,16 +206,16 @@ fn sz() void = {
 
 fn reject() void = {
 	// TODO: figure out a better way to test these
-	assert(rt::compile("type a = b; type b = a;") != 0);
-	assert(rt::compile("type a = [20]a;") != 0);
-	assert(rt::compile("type a = b; type b = a;") != 0);
-	assert(rt::compile("type a = [20]a;") != 0);
-	assert(rt::compile("type a = unknown;") != 0);
-	assert(rt::compile("def x: int = 6; type a = x;") != 0);
-	assert(rt::compile("type a = int; type a = str;") != 0);
-	assert(rt::compile("def a: int = b; def b: int = a;") != 0);
-	assert(rt::compile("def x: size = size(t); type t = [x]int;") != 0);
-	assert(rt::compile("def a: int = 12; type t = (int |(...a | a));") != 0);
+	assert(compile("type a = b; type b = a;") as exited != EXIT_SUCCESS);
+	assert(compile("type a = [20]a;") as exited != EXIT_SUCCESS);
+	assert(compile("type a = b; type b = a;") as exited != EXIT_SUCCESS);
+	assert(compile("type a = [20]a;") as exited != EXIT_SUCCESS);
+	assert(compile("type a = unknown;") as exited != EXIT_SUCCESS);
+	assert(compile("def x: int = 6; type a = x;") as exited != EXIT_SUCCESS);
+	assert(compile("type a = int; type a = str;") as exited != EXIT_SUCCESS);
+	assert(compile("def a: int = b; def b: int = a;") as exited != EXIT_SUCCESS);
+	assert(compile("def x: size = size(t); type t = [x]int;") as exited != EXIT_SUCCESS);
+	assert(compile("def a: int = 12; type t = (int |(...a | a));") as exited != EXIT_SUCCESS);
 };
 
 // Types t_0 to t_9 form a complete directed graph on 10 vertices.

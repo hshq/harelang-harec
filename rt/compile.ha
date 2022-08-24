@@ -1,5 +1,8 @@
+export type exited = int, signaled = int;
+export type exit_status = (exited | signaled);
+
 // Runs the Hare compiler and returns the exit status.
-export fn compile(src: const str) int = {
+export fn compile(src: const str) exit_status = {
 	let status = 0;
 	let pipefd = [-1, -1];
 	assert(pipe2(&pipefd, 0) == 0);
@@ -38,7 +41,7 @@ export fn compile(src: const str) int = {
 		wait4(child, &status, 0, null);
 	};
 
-	return if (wifexited(status)) wexitstatus(status)
-		else if (wifsignaled(status)) wtermsig(status)
+	return if (wifexited(status)) wexitstatus(status): exited
+		else if (wifsignaled(status)) wtermsig(status): signaled
 		else abort();
 };

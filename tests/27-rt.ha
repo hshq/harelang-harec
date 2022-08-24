@@ -7,12 +7,12 @@ fn compile() void = {
 		fn test() void = {
 			void;
 		};"
-	) == 0);
+	) as rt::exited == rt::EXIT_SUCCESS);
 	assert(rt::compile("
 		fn test() void = {
 			let a: int = [1, 2, 3];
 		};"
-	) != 0);
+	) as rt::exited != rt::EXIT_SUCCESS);
 };
 
 export fn main() void = {

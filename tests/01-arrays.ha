@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 fn indexing() void = {
 	let x = [1, 2, 3];
@@ -50,7 +50,7 @@ fn assignment() void = {
 	assert(y[0] == 1 && y[1] == 2 && y[2] == 3);
 	assert(z[0] == 1 && z[1] == 2 && z[2] == 3);
 
-	assert(rt::compile("
+	assert(compile("
 		export fn main() void = {
 			let a: [3]uint = [1u,2u,3u];
 			let b: uint = 0;
@@ -58,15 +58,15 @@ fn assignment() void = {
 			let ptr: *[3]uint = &a;
 			ptr = &b;
 		};
-	") != 0);
+	") as exited != EXIT_SUCCESS);
 
-	assert(rt::compile(`
+	assert(compile(`
 		export fn main() void = {
 			let a: *[*]uint = &[1u,2u,3u];
 			let b: [3]str = ["a", "b", "c"];
 			a = &b;
 		};
-	`) != 0);
+	`) as exited != EXIT_SUCCESS);
 };
 
 fn param(x: [3]int) void = {

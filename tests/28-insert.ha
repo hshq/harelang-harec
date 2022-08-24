@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 fn basics() void = {
 	let x: []int = alloc([1, 2, 5]);
@@ -62,26 +62,26 @@ fn typehints() void = {
 };
 
 fn reject() void = {
-	assert(rt::compile("
+	assert(compile("
 		let x: []u8 = [0u8];
 		let y: int = 42;
 		insert(x[1], y);
-	") != 0); // object member type != value type
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS); // object member type != value type
+	assert(compile("
 		let x: []u8 = [0u8];
 		let y = 42u8;
 		insert(x[1], y...);
-	") != 0); // value is not an array or a slice
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS); // value is not an array or a slice
+	assert(compile("
 		let x: []u8 = [0u8];
 		let y: []int = [42];
 		insert(x[1], y...);
-	") != 0); // object member type != value member type
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS); // object member type != value member type
+	assert(compile("
 		let x: []u8 = [0u8];
 		let y: []int = [42];
 		insert(x[1], [y...], 3);
-	") != 0); // insert expression doesn't have a length parameter
+	") as exited != EXIT_SUCCESS); // insert expression doesn't have a length parameter
 };
 
 export fn main() void = {

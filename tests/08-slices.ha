@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 fn from_array() void = {
 	let src = [1, 2, 3];
@@ -55,12 +55,12 @@ fn measurements() void = {
 fn indexing() void = {
 	let x = [1, 3, 3, 7];
 	assert(x[0] == 1 && x[1] == 3 && x[2] == 3 && x[3] == 7);
-	assert(rt::compile(
+	assert(compile(
 		"fn test() void = { let x: []int = [1, 2, 3]; x[\"hello\"]; };"
-	) != 0, "non-numeric index");
-	assert(rt::compile(
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
 		"fn test() void = { let x = 10; x[10]; };"
-	) != 0, "indexing non-array, non-slice object");
+	) as exited != EXIT_SUCCESS);
 };
 
 fn zero3(s: []int) void = {
@@ -90,9 +90,9 @@ fn assignment() void = {
 	assert(z[0] == 1 && z[1] == 42 && z[2] == 69 && z[3] == 1337 && z[4] == 5);
 	z[2..5] = y;
 	assert(z[0] == 1 && z[1] == 42 && z[2] == 0 && z[3] == 0 && z[4] == 0);
-	assert(rt::compile(
+	assert(compile(
 		"export fn main() void = { let a: []int = [1]; a[..] += a; };"
-	) != 0, "binop slice assignment");
+	) as exited != EXIT_SUCCESS);
 };
 
 fn assert_slice_eq(actual: []int, expected: []int) void = {
@@ -124,12 +124,12 @@ fn slicing() void = {
 	assert_slice_eq(p[1..], [2, 3, 4, 5]);
 	assert_slice_eq(p[5..], []);
 
-	assert(rt::compile(
+	assert(compile(
 		"fn test() void = { let x = \"test\"; x[1..3]; };"
-	) != 0, "slicing non-array, non-slice object");
-	assert(rt::compile(
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
 		"fn test() void = { let x = [1, 2, 3]; x[\"hi\"..]; };"
-	) != 0, "slicing object with non-array, non-slice range");
+	) as exited != EXIT_SUCCESS);
 };
 
 type tree = struct {
@@ -138,7 +138,7 @@ type tree = struct {
 };
 
 fn sum_tree(t: tree) u64 = {
- 	let sum = t.value;
+	let sum = t.value;
 	for (let i = 0z; i < len(t.children); i += 1) {
 		sum += sum_tree(t.children[i]);
 	};

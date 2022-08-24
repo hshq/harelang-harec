@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exit, exited, EXIT_SUCCESS};
 
 fn simple() int = return 69;
 
@@ -43,7 +43,7 @@ let x: int = 42;
 };
 
 @fini fn fini() void = {
-	rt::exit(42); // Magic number
+	exit(42); // Magic number
 };
 
 @fini fn fini() void = {
@@ -80,7 +80,7 @@ fn reject() void = {
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
-		assert(rt::compile(failures[i]) != 0);
+		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
 	};
 };
 

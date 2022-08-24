@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 fn storage() void = {
 	let x: (int, size) = (42, 1337);
@@ -112,38 +112,38 @@ fn unpacking() void = {
 		unpacking_addone(), unpacking_addone());
 	assert(a == 1 && b == 2 && d == 4);
 
-	assert(rt::compile("
+	assert(compile("
 		export fn main() void = {
 			let (_, _) = (1, 2);
 		};
-	") != 0);
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
 		export fn main() void = {
 			let (x, y) = (1, 2, 3);
 		};
-	") != 0);
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
 		export fn main() void = {
 			let (x, y) = 5;
 		};
-	") != 0);
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
 		fn getval() int = 5;
 		export fn main() void = {
 			static let (a, b) = (2, getval());
 		};
-	") != 0);
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
 		fn getval() int = 5;
 		export fn main() void = {
 			static let (a, _) = (2, getval());
 		};
-	") != 0);
-	assert(rt::compile("
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
 		export fn main() void = {
 			let (a, b): int = (2, 3);
 		};
-	") != 0);
+	") as exited != EXIT_SUCCESS);
 };
 
 // Regression tests for miscellaneous compiler bugs

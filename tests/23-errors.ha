@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 type err_int = !int;
 
@@ -29,37 +29,43 @@ fn propagate() void = {
 };
 
 fn cannotignore() void = {
-	assert(rt::compile("type error = void!;
+	assert(compile("
+		type error = !void;
 
-export fn main() int = {
-	error;
-	return 42;
-};") != 0);
+		export fn main() int = {
+			error;
+			return 42;
+		};
+	") as exited != EXIT_SUCCESS);
 	err_if_false(true)!;
 };
 
 fn void_assignability() void = {
-	assert(rt::compile(`type err = !void;
+	assert(compile(`
+		type err = !void;
 
-fn reterr() (int | err) = {
-	return err;
-};
+		fn reterr() (int | err) = {
+			return err;
+		};
 
-fn properr() void = {
-	reterr()?;
-};
+		fn properr() void = {
+			reterr()?;
+		};
 
-export fn main() void = void;`) != 0); // error types cannot be assigned to void
+		export fn main() void = void;
+	`) as exited != EXIT_SUCCESS); // error types cannot be assigned to void
 
-	assert(rt::compile(`fn disallow_1() void = {
-	return "I am illegal";
-};
+	assert(compile(`
+		fn disallow_1() void = {
+			return "I am illegal";
+		};
 
-fn disallow_2() void = {
-	return 12;
-};
+		fn disallow_2() void = {
+			return 12;
+		};
 
-export fn main() void = void;`) != 0); // non-void types cannot be assigned to void
+		export fn main() void = void;
+	`) as exited != EXIT_SUCCESS); // non-void types cannot be assigned to void
 };
 
 export fn main() void = {

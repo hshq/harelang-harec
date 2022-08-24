@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 fn scope() void = {
 	let x = 0;
@@ -9,7 +9,7 @@ fn scope() void = {
 			break;
 		};
 	};
-	assert(rt::compile("fn test() void = { for (true) { let x = 10; }; x; };") != 0);
+	assert(compile("fn test() void = { for (true) { let x = 10; }; x; };") as exited != EXIT_SUCCESS);
 	// To make sure that the afterthought is part of the loop's scope
 	for (let i = 0; true; (if (true) { break; })) true;
 };
@@ -91,10 +91,10 @@ fn label() void = {
 		};
 	};
 	assert(i == 8);
-	assert(rt::compile("fn test() void = { :foo for (true) { break :bar; }; };") != 0);
-	assert(rt::compile("fn test() void = { for (true) { break :bar; }; };") != 0);
-	assert(rt::compile("fn test() void = { break :bar; };") != 0);
-	assert(rt::compile("fn test() void = { :foo for (true) { :foo for (true) void; } ; };") != 0);
+	assert(compile("fn test() void = { :foo for (true) { break :bar; }; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { for (true) { break :bar; }; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { break :bar; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { :foo for (true) { :foo for (true) void; } ; };") as exited != EXIT_SUCCESS);
 };
 
 type abool = bool;

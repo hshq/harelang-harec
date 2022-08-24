@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 type my_enum = enum u8 {
 	FOO,
@@ -34,61 +34,61 @@ fn assignment() void = {
 	let rtu3: (rune | u64 | void) = void;
 
 	i = 127;
-	assert(rt::compile("export fn main() void = { let i = 0i8; i = 128; };") != 0);
+	assert(compile("export fn main() void = { let i = 0i8; i = 128; };") as exited != EXIT_SUCCESS);
 	u = 18446744073709551615;
-	assert(rt::compile("export fn main() void = { let u = 0u32; u = 4294967296; };") != 0);
-	assert(rt::compile("export fn main() void = { let f = 0.0f64; f = 0; };") != 0);
-	assert(rt::compile("export fn main() void = { let r = 'a'; r = 0; };") != 0);
+	assert(compile("export fn main() void = { let u = 0u32; u = 4294967296; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let f = 0.0f64; f = 0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let r = 'a'; r = 0; };") as exited != EXIT_SUCCESS);
 	e = 0;
-	assert(rt::compile("type my_enum = enum u8 { FOO }; export fn main() void = { let e: my_enum = my_enum::FOO; e = 256; };") != 0);
-	assert(rt::compile("export fn main() void = { let p: nullable *void = null; p = 0; };") != 0);
-	assert(rt::compile("export fn main() void = { let b = false; b = 0; };") != 0);
-	assert(rt::compile("export fn main() void = { let n = null; n = 0; };") != 0);
-	assert(rt::compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0; };") != 0);
-	assert(rt::compile("export fn main() void = { let t = (0, 1); t = 0; };") != 0);
-	assert(rt::compile("export fn main() void = { let a = [0, 1]; a = 0; };") != 0);
-	assert(rt::compile("export fn main() void = { let s = \"\"; s = 0; };") != 0);
+	assert(compile("type my_enum = enum u8 { FOO }; export fn main() void = { let e: my_enum = my_enum::FOO; e = 256; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let p: nullable *void = null; p = 0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let b = false; b = 0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let n = null; n = 0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let t = (0, 1); t = 0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let a = [0, 1]; a = 0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let s = \"\"; s = 0; };") as exited != EXIT_SUCCESS);
 	itu1 = 0;
 	itu2 = 0;
 	itu3 = 0;
-	assert(rt::compile("export fn main() void = { let itu4: (u32 | u64 | void) = void; itu4 = 0; };") != 0);
-	assert(rt::compile("export fn main() void = { let itu5: (str | void) = void; itu5 = 0; };") != 0);
+	assert(compile("export fn main() void = { let itu4: (u32 | u64 | void) = void; itu4 = 0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let itu5: (str | void) = void; itu5 = 0; };") as exited != EXIT_SUCCESS);
 
-	assert(rt::compile("export fn main() void = { let i = 0i8; i = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let u = 0u8; u = 0.0; };") != 0);
+	assert(compile("export fn main() void = { let i = 0i8; i = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let u = 0u8; u = 0.0; };") as exited != EXIT_SUCCESS);
 	f = 0.0;
-	assert(rt::compile("export fn main() void = { let r = 'a'; r = 0.0; };") != 0);
-	assert(rt::compile("type my_enum = enum u8 { FOO }; export fn main() void = { let e: my_enum = my_enum::FOO; e = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let p: nullable *void = null; p = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let b = false; b = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let n = null; n = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let t = (0, 1); t = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let a = [0, 1]; a = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let s = ""; s = 0.0; };") != 0);
+	assert(compile("export fn main() void = { let r = 'a'; r = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("type my_enum = enum u8 { FOO }; export fn main() void = { let e: my_enum = my_enum::FOO; e = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let p: nullable *void = null; p = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let b = false; b = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let n = null; n = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let t = (0, 1); t = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let a = [0, 1]; a = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let s = ""; s = 0.0; };") as exited != EXIT_SUCCESS);
 	ftu1 = 0.0;
 	ftu2 = 0.0;
 	ftu3 = 0.0;
-	assert(rt::compile("type my_f32 = f32; export fn main() void = { let ftu4: (f32 | my_f32 | void) = void; ftu4 = 0.0; };") != 0);
-	assert(rt::compile("export fn main() void = { let ftu5: (str | void) = void; ftu5 = 0.0; };") != 0);
+	assert(compile("type my_f32 = f32; export fn main() void = { let ftu4: (f32 | my_f32 | void) = void; ftu4 = 0.0; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let ftu5: (str | void) = void; ftu5 = 0.0; };") as exited != EXIT_SUCCESS);
 
 	i = 'a';
 	u = 'a';
-	assert(rt::compile("export fn main() void = { let f = 0.0f64; f = 'a'; };") != 0);
+	assert(compile("export fn main() void = { let f = 0.0f64; f = 'a'; };") as exited != EXIT_SUCCESS);
 	r = 'a';
 	e = 'a';
-	assert(rt::compile("export fn main() void = { let p: nullable *void = null; p = 'a'; };") != 0);
-	assert(rt::compile("export fn main() void = { let b = false; b = 'a'; };") != 0);
-	assert(rt::compile("export fn main() void = { let n = null; n = 'a'; };") != 0);
-	assert(rt::compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 'a'; };") != 0);
-	assert(rt::compile("export fn main() void = { let t = (0, 1); t = 'a'; };") != 0);
-	assert(rt::compile("export fn main() void = { let a = [0, 1]; a = 'a'; };") != 0);
-	assert(rt::compile("export fn main() void = { let s = ""; s = 'a'; };") != 0);
+	assert(compile("export fn main() void = { let p: nullable *void = null; p = 'a'; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let b = false; b = 'a'; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let n = null; n = 'a'; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 'a'; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let t = (0, 1); t = 'a'; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let a = [0, 1]; a = 'a'; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let s = ""; s = 'a'; };") as exited != EXIT_SUCCESS);
 	rtu1 = 'a';
 	rtu2 = 'a';
 	rtu3 = 'a';
-	assert(rt::compile("export fn main() void = { let rtu4: (u32 | u64 | void) = void; rtu4 = 'a'; };") != 0);
-	assert(rt::compile("export fn main() void = { let rtu5: (str | void) = void; rtu5 = 'a'; };") != 0);
+	assert(compile("export fn main() void = { let rtu4: (u32 | u64 | void) = void; rtu4 = 'a'; };") as exited != EXIT_SUCCESS);
+	assert(compile("export fn main() void = { let rtu5: (str | void) = void; rtu5 = 'a'; };") as exited != EXIT_SUCCESS);
 };
 
 fn aggregates() void = {

@@ -1,4 +1,4 @@
-use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 let x: int = 42, y: int = 69;
 
@@ -58,8 +58,8 @@ fn storage() void = {
 };
 
 fn invariants() void = {
-	assert(rt::compile("fn test() int; let x: int = test();") != 0);
-	assert(rt::compile("const a: u8 = 2; const b: u8 = a + 5;") != 0);
+	assert(compile("fn test() int; let x: int = test();") as exited != EXIT_SUCCESS);
+	assert(compile("const a: u8 = 2; const b: u8 = a + 5;") as exited != EXIT_SUCCESS);
 };
 
 fn counter() int = {
