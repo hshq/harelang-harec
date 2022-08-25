@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "types.h"
+#include "utf8.h"
+
+#define C_EOF UTF8_INVALID
 
 // Keep sorted
 enum lexical_token {

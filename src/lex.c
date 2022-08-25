@@ -2,11 +2,13 @@
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 #include <string.h>
 #include "lex.h"
 #include "utf8.h"
@@ -135,6 +137,21 @@ static const char *tokens[] = {
 	[T_BXOREQ] = "^=",
 };
 
+static noreturn void
+error(struct location *loc, char *fmt, ...)
+{
+	fprintf(stderr, "Syntax error at %s:%d:%d: ", sources[loc->file],
+			loc->lineno, loc->colno);
+
+	va_list ap;
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	fputc('\n', stderr);
+	exit(EXIT_FAILURE);
+}
+
 void
 lex_init(struct lexer *lexer, FILE *f, int fileid)
 {
@@ -181,6 +198,9 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 	} else {
 		c = utf8_get(lexer->in);
 		update_lineno(&lexer->loc, c);
+		if (c == UTF8_INVALID && !feof(lexer->in)) {
+			error(&lexer->loc, "Invalid UTF-8 sequence encountered");
+		}
 	}
 	if (loc != NULL) {
 		*loc = lexer->loc;
@@ -188,7 +208,7 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 			update_lineno(&lexer->loc, lexer->c[i]);
 		}
 	}
-	if (c == UTF8_INVALID || !buffer) {
+	if (c == C_EOF || !buffer) {
 		return c;
 	}
 	if (lexer->buflen + utf8_cpsize(c) >= lexer->bufsz) {
@@ -213,7 +233,7 @@ static uint32_t
 wgetc(struct lexer *lexer, struct location *loc)
 {
 	uint32_t c;
-	while ((c = next(lexer, loc, false)) != UTF8_INVALID && isharespace(c)) ;
+	while ((c = next(lexer, loc, false)) != C_EOF && isharespace(c)) ;
 	return c;
 }
 
@@ -252,8 +272,8 @@ static uint32_t
 lex_name(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, true);
-	assert(c != UTF8_INVALID && c <= 0x7F && (isalpha(c) || c == '_' || c == '@'));
-	while ((c = next(lexer, NULL, true)) != UTF8_INVALID) {
+	assert(c != C_EOF && c <= 0x7F && (isalpha(c) || c == '_' || c == '@'));
+	while ((c = next(lexer, NULL, true)) != C_EOF) {
 		if (c > 0x7F || (!isalnum(c) && c != '_')) {
 			push(lexer, c, true);
 			break;
@@ -264,9 +284,7 @@ lex_name(struct lexer *lexer, struct token *out)
 			sizeof(tokens[0]), cmp_keyword);
 	if (!token) {
 		if (lexer->buf[0] == '@') {
-			out->token = T_ERROR;
-			consume(lexer, -1);
-			return out->token;
+			error(&out->loc, "Unknown attribute %s", lexer->buf);
 		}
 		out->token = T_NAME;
 		out->name = strdup(lexer->buf);
@@ -281,7 +299,7 @@ static uint32_t
 lex_literal(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, true);
-	assert(c != UTF8_INVALID && c <= 0x7F && isdigit(c));
+	assert(c != C_EOF && c <= 0x7F && isdigit(c));
 
 	bool started = false;
 	int base = 10;
@@ -315,7 +333,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 	char *suff = NULL;
 	char *exp = NULL;
 	bool isfloat = false;
-	while ((c = next(lexer, NULL, true)) != UTF8_INVALID) {
+	while ((c = next(lexer, NULL, true)) != C_EOF) {
 		if (!strchr(basechrs, c)) {
 			switch (c) {
 			case '.':
@@ -418,16 +436,18 @@ finalize:
 			}
 		}
 		if (!isvalid) {
-			out->token = T_ERROR;
-			consume(lexer, -1);
-			return out->token;
+			error(&out->loc, "Invalid numeric suffix");
 		}
 	}
 
 	intmax_t exponent = 0;
 	if (exp) {
 		char *endptr = NULL;
+		errno = 0;
 		exponent = strtoimax(exp, &endptr, 10);
+		if (errno == ERANGE) {
+			error(&out->loc, "Numerical exponent overflow");
+		}
 		// integers can't have negative exponents
 		if (exponent < 0 && !suff) {
 			out->storage = STORAGE_FCONST;
@@ -438,9 +458,7 @@ finalize:
 			|| s == STORAGE_F64
 			|| s == STORAGE_FCONST;
 		if (endptr == exp || !valid) {
-			out->token = T_ERROR;
-			consume(lexer, -1);
-			return out->token;
+			error(&out->loc, "Integers cannot have negative exponents");
 		}
 	}
 
@@ -451,9 +469,7 @@ finalize:
 		case STORAGE_FCONST:
 			break;
 		default:
-			out->token = T_ERROR;
-			consume(lexer, -1);
-			return out->token;
+			error(&out->loc, "Unexpected decimal point in integer literal");
 		}
 	}
 
@@ -508,7 +524,7 @@ finalize:
 		assert(0);
 	}
 	if (errno == ERANGE && !isfloat) {
-		out->token = T_ERROR;
+		error(&out->loc, "Integer literal overflow");
 	}
 	consume(lexer, -1);
 	return out->token;
@@ -520,7 +536,7 @@ lex_rune(struct lexer *lexer)
 	char buf[9];
 	char *endptr;
 	uint32_t c = next(lexer, NULL, false);
-	assert(c != UTF8_INVALID);
+	assert(c != C_EOF);
 
 	switch (c) {
 	case '\\':
@@ -554,11 +570,7 @@ lex_rune(struct lexer *lexer)
 			buf[2] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				fprintf(stderr,
-					"Error: invalid hex literal at %s:%d:%d\n",
-					sources[lexer->loc.file], lexer->loc.lineno,
-					lexer->loc.colno);
-				exit(EXIT_FAILURE);
+				error(&lexer->loc, "Invalid hex literal");
 			}
 			return c;
 		case 'u':
@@ -569,11 +581,7 @@ lex_rune(struct lexer *lexer)
 			buf[4] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				fprintf(stderr,
-					"Error: invalid hex literal at %s:%d:%d\n",
-					sources[lexer->loc.file], lexer->loc.lineno,
-					lexer->loc.colno);
-				exit(EXIT_FAILURE);
+				error(&lexer->loc, "Invalid hex literal");
 			}
 			return c;
 		case 'U':
@@ -588,19 +596,13 @@ lex_rune(struct lexer *lexer)
 			buf[8] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				fprintf(stderr,
-					"Error: invalid hex literal at %s:%d:%d\n",
-					sources[lexer->loc.file], lexer->loc.lineno,
-					lexer->loc.colno);
-				exit(EXIT_FAILURE);
+				error(&lexer->loc, "Invalid hex literal");
 			}
 			return c;
+		case C_EOF:
+			error(&lexer->loc, "Unexpected end of file");
 		default:
-			fprintf(stderr,
-				"Error: invalid escape '\\%c' at %s:%d:%d\n",
-				c, sources[lexer->loc.file], lexer->loc.lineno,
-				lexer->loc.colno);
-			exit(EXIT_FAILURE);
+			error(&lexer->loc, "Invalid escape '\\%c'", c);
 		}
 		assert(0);
 	default:
@@ -614,36 +616,34 @@ lex_string(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, false);
 	uint32_t delim;
-	assert(c != UTF8_INVALID);
 
 	switch (c) {
 	case '"':
 	case '`':
 		delim = c;
-		while ((c = next(lexer, NULL, false)) != UTF8_INVALID) {
-			if (c == delim) {
-				char *buf = xcalloc(lexer->buflen + 1, 1);
-				memcpy(buf, lexer->buf, lexer->buflen);
-				out->token = T_LITERAL;
-				out->storage = STORAGE_STRING;
-				out->string.len = lexer->buflen;
-				out->string.value = buf;
-				consume(lexer, -1);
-				return out->token;
-			} else {
-				push(lexer, c, false);
-				if (delim == '"') {
-					push(lexer, lex_rune(lexer), false);
-				}
-				next(lexer, NULL, true);
+		while ((c = next(lexer, NULL, false)) != delim) {
+			if (c == C_EOF) {
+				error(&lexer->loc, "Unexpected end of file");
 			}
+			push(lexer, c, false);
+			if (delim == '"') {
+				push(lexer, lex_rune(lexer), false);
+			}
+			next(lexer, NULL, true);
 		}
-		assert(0); // Invariant
+		char *buf = xcalloc(lexer->buflen + 1, 1);
+		memcpy(buf, lexer->buf, lexer->buflen);
+		out->token = T_LITERAL;
+		out->storage = STORAGE_STRING;
+		out->string.len = lexer->buflen;
+		out->string.value = buf;
+		consume(lexer, -1);
+		return out->token;
 	case '\'':
 		c = next(lexer, NULL, false);
 		switch (c) {
 		case '\'':
-			assert(0); // Invariant
+			error(&out->loc, "Expected rune before trailing single quote");
 		case '\\':
 			push(lexer, c, false);
 			out->rune = lex_rune(lexer);
@@ -651,8 +651,9 @@ lex_string(struct lexer *lexer, struct token *out)
 		default:
 			out->rune = c;
 		}
-		c = next(lexer, NULL, false);
-		assert(c == '\'');
+		if (next(lexer, NULL, false) != '\'') {
+			error(&out->loc, "Expected trailing single quote");
+		}
 		out->token = T_LITERAL;
 		out->storage = STORAGE_RCONST;
 		return out->token;
@@ -665,7 +666,7 @@ lex_string(struct lexer *lexer, struct token *out)
 static enum lexical_token
 lex3(struct lexer *lexer, struct token *out, uint32_t c)
 {
-	assert(c != UTF8_INVALID);
+	assert(c != C_EOF);
 
 	switch (c) {
 	case '.':
@@ -810,7 +811,7 @@ static enum lexical_token _lex(struct lexer *lexer, struct token *out);
 static enum lexical_token
 lex2(struct lexer *lexer, struct token *out, uint32_t c)
 {
-	assert(c != UTF8_INVALID);
+	assert(c != C_EOF);
 
 	switch (c) {
 	case '*':
@@ -841,7 +842,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			out->token = T_DIVEQ;
 			break;
 		case '/':
-			while ((c = next(lexer, NULL, false)) != UTF8_INVALID && c != '\n') ;
+			while ((c = next(lexer, NULL, false)) != C_EOF && c != '\n') ;
 			return _lex(lexer, out);
 		default:
 			push(lexer, c, false);
@@ -924,7 +925,7 @@ _lex(struct lexer *lexer, struct token *out)
 	}
 
 	uint32_t c = wgetc(lexer, &out->loc);
-	if (c == UTF8_INVALID) {
+	if (c == C_EOF) {
 		out->token = T_EOF;
 		return out->token;
 	}
