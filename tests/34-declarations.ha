@@ -216,6 +216,7 @@ fn reject() void = {
 	assert(compile("def a: int = b; def b: int = a;") as exited != EXIT_SUCCESS);
 	assert(compile("def x: size = size(t); type t = [x]int;") as exited != EXIT_SUCCESS);
 	assert(compile("def a: int = 12; type t = (int |(...a | a));") as exited != EXIT_SUCCESS);
+	assert(compile("def a: int = 12; type t = (int |(...a | a));") as exited != EXIT_SUCCESS);
 };
 
 // Types t_0 to t_9 form a complete directed graph on 10 vertices.

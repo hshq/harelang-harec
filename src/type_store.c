@@ -362,6 +362,13 @@ tagged_or_atagged_member(struct type_store *store,
 	while (_atype->storage == STORAGE_ALIAS && _atype->unwrap) {
 		const struct scope_object *obj = scope_lookup(
 			store->check_context->scope, &_atype->alias);
+		if (!obj) {
+			error(store->check_context, _atype->loc,
+				"Unknown object '%s'",
+				identifier_unparse(&_atype->alias));
+			*type = &builtin_type_void;
+			return;
+		}
 		if (obj->otype != O_SCAN) {
 			if (obj->otype == O_TYPE) {
 				*type = type_dealias(obj->type);
