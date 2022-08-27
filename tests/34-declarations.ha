@@ -205,18 +205,34 @@ fn sz() void = {
 };
 
 fn reject() void = {
-	// TODO: figure out a better way to test these
-	assert(compile("type a = b; type b = a;") as exited != EXIT_SUCCESS);
-	assert(compile("type a = [20]a;") as exited != EXIT_SUCCESS);
-	assert(compile("type a = b; type b = a;") as exited != EXIT_SUCCESS);
-	assert(compile("type a = [20]a;") as exited != EXIT_SUCCESS);
-	assert(compile("type a = unknown;") as exited != EXIT_SUCCESS);
-	assert(compile("def x: int = 6; type a = x;") as exited != EXIT_SUCCESS);
-	assert(compile("type a = int; type a = str;") as exited != EXIT_SUCCESS);
-	assert(compile("def a: int = b; def b: int = a;") as exited != EXIT_SUCCESS);
-	assert(compile("def x: size = size(t); type t = [x]int;") as exited != EXIT_SUCCESS);
-	assert(compile("def a: int = 12; type t = (int |(...a | a));") as exited != EXIT_SUCCESS);
-	assert(compile("def a: int = 12; type t = (int |(...a | a));") as exited != EXIT_SUCCESS);
+	let failures = [
+		"type a = b; type b = a;",
+		"type a = [20]a;",
+		"type a = b; type b = a;",
+		"type a = [20]a;",
+		"type a = unknown;",
+		"def x: int = 6; type a = x;",
+		"type a = int; type a = str;",
+		"def a: int = b; def b: int = a;",
+		"def x: size = size(t); type t = [x]int;",
+		"def a: int = 12; type t = (int |(...a | a));",
+		"type a = (...unknown | int);",
+
+		// usage of non-type aliases
+		"let a: int = 4; type x = a;",
+		"let a: int = 4; type x = *a;",
+		"let a: int = 4; type x = []a;",
+		"let a: int = 4; type x = [3]a;",
+		"let a: int = 4; type x = (str, a);",
+		"let a: int = 4; type x = (str | a);",
+		"let a: int = 4; type x = struct { y: str, z: a};",
+		"let a: int = 4; type x = union { y: str, z: a};",
+		"let a: int = 4; fn x(y: str, z: a) void = { void; };",
+	];
+
+	for (let i = 0z; i < len(failures); i += 1) {
+		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+	};
 };
 
 // Types t_0 to t_9 form a complete directed graph on 10 vertices.

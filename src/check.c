@@ -3825,7 +3825,19 @@ resolve_enum_alias(struct context *ctx, const struct scope_object *obj)
 const struct scope_object *
 resolve_dimensions(struct context *ctx, const struct scope_object *obj)
 {
+	assert(obj->otype == O_SCAN);
 	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
+	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != AST_DECL_TYPE) {
+		struct location loc;
+		if (idecl->type == IDECL_ENUM_FLD) {
+			loc = idecl->field->field->loc;
+		} else {
+			loc = idecl->decl.loc;
+		}
+		error(ctx, loc, false, "'%s' is not a type",
+				identifier_unparse(&idecl->obj.name));
+		handle_errors(ctx->errors);
+	}
 	struct dimensions dim = type_store_lookup_dimensions(ctx->store,
 			idecl->decl.type.type);
 	((struct scope_object *)obj)->type = xcalloc(1, sizeof(struct type));
