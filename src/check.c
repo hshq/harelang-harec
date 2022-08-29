@@ -373,6 +373,7 @@ check_expr_alloc_slice(struct context *ctx,
 
 	struct expression cap = {0};
 	if (expr->alloc.init->type == EXPR_CONSTANT
+			&& expr->alloc.cap->type == EXPR_CONSTANT
 			&& eval_expr(ctx, expr->alloc.cap, &cap) == EVAL_OK) {
 		uintmax_t len = 0;
 		for (struct array_constant *c = expr->alloc.init->constant.array;
