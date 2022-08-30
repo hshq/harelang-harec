@@ -111,44 +111,64 @@ fn unpacking() void = {
 	let (a, b, _, d) = (unpacking_addone(), unpacking_addone(),
 		unpacking_addone(), unpacking_addone());
 	assert(a == 1 && b == 2 && d == 4);
-
-	assert(compile("
-		export fn main() void = {
-			let (_, _) = (1, 2);
-		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
-		export fn main() void = {
-			let (x, y) = (1, 2, 3);
-		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
-		export fn main() void = {
-			let (x, y) = 5;
-		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
-		fn getval() int = 5;
-		export fn main() void = {
-			static let (a, b) = (2, getval());
-		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
-		fn getval() int = 5;
-		export fn main() void = {
-			static let (a, _) = (2, getval());
-		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
-		export fn main() void = {
-			let (a, b): int = (2, 3);
-		};
-	") as exited != EXIT_SUCCESS);
 };
 
 // Regression tests for miscellaneous compiler bugs
 fn regression() void = {
 	let a: (((int | void), int) | void) = (void, 0);
+};
+
+fn reject() void = {
+	let tests = [
+		// no name in unpack
+		"fn t() void = { let (_, _) = (1, 2); };",
+		// unpack of non-tuple type
+		"fn t() void = { let (x, y) = 5; };",
+		"fn t() void = { let (a, b): int = (2, 3); };",
+		// static unpack
+		"fn getval() int = 5; fn t() void = { static let (a, b) = (2, getval()); };",
+		"fn getval() int = 5; fn t() void = { static let (a, _) = (2, getval()); };",
+
+		// member count mismatch
+		"fn t() void = { let a: (u8, u8, u8) = (2, 3); };",
+		"fn t() void = { let a: (u8, u8) = (2, 3); let b: (u8, u8, u8) = a; };",
+		"fn t() void = { let a: (u8, u8) = (2, 3, 4); };",
+		"fn t() void = { let a: (u8, u8, u8) = (2, 3, 4); let b: (u8, u8) = a; };",
+		"fn t() void = { let (x, y) = (1, 2, 3); };",
+		// empty tuple
+		"fn t() void = { let a: (() | void) = void; };",
+		"fn t() void = { let a = () };",
+		"fn t() void = { let () = () };",
+		// one member
+		"fn t() void = { let a: ((int) | void) = void; };",
+		"fn t() void = { let a = (4u); a.0; };",
+		"fn t() void = { let (a) = (4u); a.0; };",
+		"fn t() void = { let (a) = 4u; a.0; };",
+		// zero-sized member
+		"fn t() void = { let a: ((void, int) | void) = void; };",
+		"fn t() void = { let a = (void, 2); };",
+		"fn t() void = { let (a, b) = (void, 2); };",
+		"fn t() void = { let (_, b) = (void, 2); };",
+		// member of undefined size
+		"fn t() void = { let a: (([*]int, int) | void) = void; };",
+		"fn t() void = { let a = (t, 2); };",
+		"fn t() void = { let (a, b) = (t, 2); };",
+		"fn t() void = { let (_, b) = (t, 2); };",
+		// null type member
+		"fn t() void = { let a: ((null, int) | void) = void; };",
+		"fn t() void = { let a = (null, 2); };",
+		"fn t() void = { let (a, b) = (null, 2); };",
+		"fn t() void = { let (_, b) = (null, 2); };",
+		// invalid field access
+		"fn t() void = { let a = (0, 1, 2); a.3; };",
+		"fn t() void = { let a = (0, 1, 2); a.-1; };",
+		"fn t() void = { let a = (0, 1, 2).3; };",
+		"fn t() void = { let a = (0, 1, 2).-1; };",
+	];
+
+	for (let i = 0z; i < len(tests); i += 1) {
+		assert(compile(tests[i]) as exited != EXIT_SUCCESS);
+	};
 };
 
 export fn main() void = {
@@ -159,4 +179,5 @@ export fn main() void = {
 	eval_expr_access();
 	unpacking();
 	regression();
+	reject();
 };
