@@ -1040,7 +1040,7 @@ check_binding_unpack(struct context *ctx,
 	}
 	const struct type_tuple *type_tuple = &type->tuple;
 	bool found_binding = false;
-	while (cur) {
+	while (cur && type_tuple) {
 		if (type_tuple->type->storage == STORAGE_NULL) {
 			error(ctx, aexpr->loc, expr,
 				"Null is not a valid type for a binding");
@@ -1093,6 +1093,11 @@ check_binding_unpack(struct context *ctx,
 	if (type_tuple) {
 		error(ctx, aexpr->loc, expr,
 			"Fewer bindings than tuple elements were provided when unpacking");
+		return;
+	}
+	if (cur) {
+		error(ctx, aexpr->loc, expr,
+			"More bindings than tuple elements were provided when unpacking");
 		return;
 	}
 }

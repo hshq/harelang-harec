@@ -135,6 +135,9 @@ fn reject() void = {
 		"fn t() void = { let a: (u8, u8) = (2, 3, 4); };",
 		"fn t() void = { let a: (u8, u8, u8) = (2, 3, 4); let b: (u8, u8) = a; };",
 		"fn t() void = { let (x, y) = (1, 2, 3); };",
+		"fn t() void = { let (x, y, z) = (1, 2); };",
+		"fn t() void = { let (x, y, _) = (1, 2); };",
+		"fn t() void = { let (x, _, _) = (1, 2); };",
 		// empty tuple
 		"fn t() void = { let a: (() | void) = void; };",
 		"fn t() void = { let a = () };",
