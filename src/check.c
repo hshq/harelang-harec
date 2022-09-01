@@ -337,7 +337,7 @@ check_expr_alloc_init(struct context *ctx,
 			return;
 		}
 		assert(htype->array.members == atype->array.members);
-		objtype = hint;
+		objtype = htype;
 	}
 	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
 			objtype, ptrflags);

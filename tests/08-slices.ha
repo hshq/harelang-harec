@@ -35,6 +35,9 @@ fn storage() void = {
 	for (let i = 0z; i < len(expected); i += 1) {
 		assert(x[i] == expected[i]);
 	};
+
+	let x: *[1]u8 = alloc([0...]);
+	free(x);
 };
 
 fn casting() void = {
