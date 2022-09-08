@@ -208,8 +208,6 @@ fn reject() void = {
 	let failures = [
 		"type a = b; type b = a;",
 		"type a = [20]a;",
-		"type a = b; type b = a;",
-		"type a = [20]a;",
 		"type a = unknown;",
 		"def x: int = 6; type a = x;",
 		"type a = int; type a = str;",
