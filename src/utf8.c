@@ -59,9 +59,15 @@ utf8_decode(const char **char_str)
 	cp = **s & mask;
 	++*s;
 	while (--size) {
-		cp <<= 6;
-		cp |= **s & 0x3f;
+		uint8_t c = **s;
+
 		++*s;
+
+		if ((c >> 6) != 0x02)
+			return UTF8_INVALID;
+
+		cp <<= 6;
+		cp |= c & 0x3f;
 	}
 	return cp;
 }
