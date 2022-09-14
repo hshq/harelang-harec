@@ -2669,6 +2669,7 @@ check_expr_switch(struct context *ctx,
 		error(ctx, aexpr->loc, expr,
 			"Cannot switch on %s type",
 			type_storage_unparse(type_dealias(type)->storage));
+		return;
 	}
 
 	struct type_tagged_union result_type = {0};
