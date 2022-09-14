@@ -1445,7 +1445,7 @@ check_expr_cast(struct context *ctx,
 			free(secondarytypename);
 			return;
 		}
-		if (primary->storage == STORAGE_RCONST) {
+		if (value->result->storage == STORAGE_RCONST) {
 			uint32_t max = 0;
 			switch (secondary->storage) {
 			case STORAGE_RUNE:

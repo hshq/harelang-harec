@@ -889,6 +889,9 @@ bool
 type_is_castable(const struct type *to, const struct type *from)
 {
 	if (to->storage == STORAGE_VOID) {
+		if (type_is_constant(from)) {
+			lower_const(from, NULL);
+		};
 		return true;
 	}
 
