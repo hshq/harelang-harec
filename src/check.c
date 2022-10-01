@@ -20,7 +20,7 @@ void
 mkident(struct context *ctx, struct identifier *out, const struct identifier *in)
 {
 	identifier_dup(out, in);
-	if (ctx->ns) {
+	if (ctx->ns && !in->ns) {
 		out->ns = xcalloc(1, sizeof(struct identifier));
 		identifier_dup(out->ns, ctx->ns);
 	}
