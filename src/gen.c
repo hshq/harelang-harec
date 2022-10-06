@@ -795,6 +795,10 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 		msg = gen_expr(ctx, expr->assert.message);
 	}
 
+	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
+		gen_defers(ctx, scope);
+	}
+
 	struct qbe_value qmsg = mkqval(ctx, &msg);
 	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qmsg, NULL);
 
