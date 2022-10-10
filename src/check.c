@@ -3870,7 +3870,7 @@ resolve_type(struct context *ctx, const struct scope_object *obj)
 		} else {
 			loc = idecl->decl.loc;
 		}
-		error(ctx, loc, false, "'%s' is not a type",
+		error(ctx, loc, NULL, "'%s' is not a type",
 				identifier_unparse(&idecl->obj.name));
 		handle_errors(ctx->errors);
 	}
