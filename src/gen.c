@@ -441,7 +441,8 @@ gen_alloc_slice_at(struct gen_context *ctx,
 
 	struct qbe_statement linvalid;
 	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	pushi(ctx->current, NULL, Q_JNZ, &data, &bzero, &binvalid, NULL);
+	pushi(ctx->current, &cmpres, Q_CNEL, &size, &zero, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bzero, &binvalid, NULL);
 	push(&ctx->current->body, &linvalid);
 	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
 	push(&ctx->current->body, &lzero);
@@ -511,10 +512,13 @@ gen_expr_alloc_init_with(struct gen_context *ctx,
 
 	if (!(type_dealias(expr->result)->pointer.flags & PTR_NULLABLE)) {
 		struct qbe_statement linvalid, lvalid;
+		struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value zero = constl(0);
 		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
 		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
 
-		pushi(ctx->current, NULL, Q_JNZ, &qresult, &bvalid, &binvalid, NULL);
+		pushi(ctx->current, &cmpres, Q_CNEL, &qresult, &zero, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bvalid, &binvalid, NULL);
 		push(&ctx->current->body, &linvalid);
 		gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
 		push(&ctx->current->body, &lvalid);
@@ -600,10 +604,12 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
 	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
 
+	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value newdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value zero = constl(0);
 	pushi(ctx->current, &newdata, Q_COPY, &zero, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &length, &balloc, &bvalid, NULL);
+	pushi(ctx->current, &cmpres, Q_CNEL, &length, &zero, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &balloc, &bvalid, NULL);
 	push(&ctx->current->body, &lalloc);
 
 	const struct type *result = type_dealias(expr->result);
@@ -615,7 +621,8 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
 	pushi(ctx->current, &newdata, Q_CALL, &rtfunc, &sz, NULL);
 
-	pushi(ctx->current, NULL, Q_JNZ, &newdata, &bvalid, &binvalid, NULL);
+	pushi(ctx->current, &cmpres, Q_CNEL, &newdata, &zero, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bvalid, &binvalid, NULL);
 	push(&ctx->current->body, &linvalid);
 	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
 	push(&ctx->current->body, &lvalid);
@@ -1540,13 +1547,13 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 
 		struct gen_value val = gen_expr(ctx, expr->cast.value);
 		struct qbe_value qval = mkqval(ctx, &val);
+		struct qbe_value zero = constl(0);
+		enum qbe_instr compare = want_null ? Q_CEQL : Q_CNEL;
 		if (expr->cast.kind == C_TEST) {
 			struct gen_value out =
 				mkgtemp(ctx, &builtin_type_bool, ".%d");
 			struct qbe_value qout = mkqval(ctx, &out);
-			struct qbe_value zero = constl(0);
 
-			enum qbe_instr compare = want_null? Q_CEQL : Q_CNEL;
 			pushi(ctx->current, &qout, compare, &qval, &zero, NULL);
 			return out;
 		} else if (expr->cast.kind == C_ASSERTION) {
@@ -1556,13 +1563,10 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 			struct qbe_value bpassed =
 				mklabel(ctx, &passedl, "passed.%d");
 
-			if (want_null) {
-				pushi(ctx->current, NULL, Q_JNZ, &qval,
-					&bfailed, &bpassed, NULL);
-			} else {
-				pushi(ctx->current, NULL, Q_JNZ, &qval,
-					&bpassed, &bfailed, NULL);
-			}
+			struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
+			pushi(ctx->current, &cmpres, compare, &qval, &zero, NULL);
+			pushi(ctx->current, NULL, Q_JNZ, &cmpres,
+				&bpassed, &bfailed, NULL);
 			push(&ctx->current->body, &failedl);
 			gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
 
@@ -2581,6 +2585,7 @@ gen_match_with_nullable(struct gen_context *ctx,
 	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
 	struct gen_value object = gen_expr(ctx, expr->match.value);
 	struct qbe_value qobject = mkqval(ctx, &object);
+	struct qbe_value zero = constl(0);
 
 	struct gen_value bval;
 	const struct match_case *_default = NULL;
@@ -2592,16 +2597,18 @@ gen_match_with_nullable(struct gen_context *ctx,
 		}
 
 		struct qbe_statement lmatch, lnext;
+		struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
 		struct qbe_value bnext = mklabel(ctx, &lnext, "next.%d");
 
+		enum qbe_instr compare;
 		if (_case->type->storage == STORAGE_NULL) {
-			pushi(ctx->current, NULL, Q_JNZ,
-				&qobject, &bnext, &bmatch, NULL);
+			compare = Q_CEQL;
 		} else {
-			pushi(ctx->current, NULL, Q_JNZ,
-				&qobject, &bmatch, &bnext, NULL);
+			compare = Q_CNEL;
 		}
+		pushi(ctx->current, &cmpres, compare, &qobject, &zero, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bmatch, &bnext, NULL);
 
 		push(&ctx->current->body, &lmatch);
 
