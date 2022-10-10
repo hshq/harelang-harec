@@ -377,9 +377,14 @@ lex_literal(struct lexer *lexer, struct token *out)
 				};
 				exp = &lexer->buf[lexer->buflen - 1];
 				break;
+			case 'f':
+				if (base != 10) {
+					push(lexer, c, true);
+					goto finalize;
+				}
+				// Fallthrough
 			case 'i':
 			case 'u':
-			case 'f':
 			case 'z':
 				if (suff || !started) {
 					push(lexer, c, true);
