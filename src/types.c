@@ -982,7 +982,7 @@ type_is_castable(const struct type *to, const struct type *from)
 }
 
 void
-builtin_types_init()
+builtin_types_init(void)
 {
 	struct type *builtins[] = {
 		&builtin_type_bool, &builtin_type_char, &builtin_type_f32,
