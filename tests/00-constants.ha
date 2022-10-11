@@ -87,8 +87,13 @@ fn assignment() void = {
 	rtu1 = 'a';
 	rtu2 = 'a';
 	rtu3 = 'a';
+	assert(rtu3 is rune);
 	assert(compile("export fn main() void = { let rtu4: (u32 | u64 | void) = void; rtu4 = 'a'; };") as exited != EXIT_SUCCESS);
 	assert(compile("export fn main() void = { let rtu5: (str | void) = void; rtu5 = 'a'; };") as exited != EXIT_SUCCESS);
+
+	let u2: uint = 'a';
+	let u2: uintptr = 'a';
+	let z: size = 'a';
 };
 
 fn aggregates() void = {

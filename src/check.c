@@ -1452,6 +1452,12 @@ check_expr_cast(struct context *ctx,
 			case STORAGE_U64:
 			case STORAGE_I64:
 			case STORAGE_U32:
+			case STORAGE_UINT:
+			case STORAGE_SIZE:
+			case STORAGE_UINTPTR:
+				break;
+			case STORAGE_I32:
+				max = INT32_MAX;
 				break;
 			case STORAGE_U16:
 				max = UINT16_MAX;
