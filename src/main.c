@@ -19,7 +19,7 @@ static void
 usage(const char *argv_0)
 {
 	fprintf(stderr,
-		"Usage: %s [-a arch] [-D ident:type=value] [-o output] [-T] [-t typedefs] [-N namespace] [input.ha...]\n",
+		"Usage: %s [-a arch] [-D ident:type=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
 		argv_0);
 }
 
