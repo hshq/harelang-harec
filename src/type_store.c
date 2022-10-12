@@ -11,7 +11,7 @@
 #include "util.h"
 
 // XXX: This needs to be updated on updates to type_flags (types.h)
-const unsigned int typeflags[] = {
+static const unsigned int typeflags[] = {
 	0,
 	TYPE_CONST,
 	TYPE_ERROR,
