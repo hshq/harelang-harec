@@ -8,6 +8,7 @@
 #include "scope.h"
 #include "typedef.h"
 #include "type_store.h"
+#include "types.h"
 #include "util.h"
 
 // XXX: This needs to be updated on updates to type_flags (types.h)
@@ -795,8 +796,8 @@ type_init_from_atype(struct type_store *store,
 		}
 		break;
 	case STORAGE_POINTER:
-		type->size = 8; // XXX: ARCH
-		type->align = 8;
+		type->size = builtin_type_uintptr.size;
+		type->align = builtin_type_uintptr.align;
 		if (size_only) {
 			break;
 		}
@@ -805,8 +806,9 @@ type_init_from_atype(struct type_store *store,
 			store, atype->pointer.referent);
 		break;
 	case STORAGE_SLICE:
-		type->size = 24; // XXX: ARCH
-		type->align = 8;
+		type->size = builtin_type_uintptr.size
+			+ 2 * builtin_type_size.size;
+		type->align = builtin_type_uintptr.align;
 		if (size_only) {
 			break;
 		}
@@ -979,8 +981,8 @@ type_store_lookup_pointer(struct type_store *store, struct location loc,
 			.referent = referent,
 			.flags = ptrflags,
 		},
-		.size = 8, // XXX: ARCH
-		.align = 8,
+		.size = builtin_type_uintptr.size,
+		.align = builtin_type_uintptr.align,
 	};
 	return type_store_lookup_type(store, &ptr);
 }
@@ -1054,8 +1056,8 @@ type_store_lookup_slice(struct type_store *store, struct location loc,
 			.members = members,
 			.length = SIZE_UNDEFINED,
 		},
-		.size = 24, // XXX: ARCH
-		.align = 8,
+		.size = builtin_type_uintptr.size + 2 * builtin_type_size.size,
+		.align = builtin_type_uintptr.align,
 	};
 	return type_store_lookup_type(store, &slice);
 }

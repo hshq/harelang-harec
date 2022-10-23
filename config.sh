@@ -4,6 +4,7 @@ AR=${AR:-ar}
 AS=${AS:-as}
 CC=${CC:-cc}
 CFLAGS=${CFLAGS:-}
+DEFAULT_TARGET=
 LDFLAGS=${LDFLAGS:-}
 LD=${LD:-ld}
 QBE=${QBE:-qbe}
@@ -38,6 +39,9 @@ do
 		--sysconfdir=*)
 			SYSCONFDIR=${arg#*=}
 			;;
+		--target=*)
+			DEFAULT_TARGET=${arg#*=}
+			;;
 		--help)
 			cat >&2 <<'EOF'
 Usage: configure [options...]
@@ -56,6 +60,8 @@ Options:
 	default: (prefix)/share
 --sysconfdir=<path>
 	default: /etc if prefix is /usr, otherwise (prefix)/etc
+--target=<arch>
+	default: (current arch)
 
 Environment variables:
 AR	(default: "ar")
@@ -176,6 +182,28 @@ run_configure() {
 			echo no
 		fi
 	done
+
+	if [ -z "$DEFAULT_TARGET" ]
+	then
+		printf "Detecting machine architecture... "
+		arch="$(uname -m)"
+		case "$arch" in
+			x86_64|amd64)
+				DEFAULT_TARGET=x86_64
+				;;
+			aarch64|arm64)
+				DEFAULT_TARGET=aarch64
+				;;
+			riscv64)
+				DEFAULT_TARGET=riscv64
+				;;
+			*)
+				printf "Error: unsupported or unrecognized architecture %s\n" "$arch"
+				;;
+		esac
+		printf '%s\n' "$DEFAULT_TARGET"
+	fi
+	append_cflags -DDEFAULT_TARGET="\\\"$DEFAULT_TARGET\\\""
 
 	printf "Checking for qbe... "
 	if $QBE -h > /dev/null 2>&1

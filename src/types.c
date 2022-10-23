@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "expr.h"
 #include "scope.h"
@@ -982,8 +983,105 @@ type_is_castable(const struct type *to, const struct type *from)
 }
 
 void
-builtin_types_init(void)
+builtin_types_init(const char *target)
 {
+	if (strcmp(target, "aarch64") == 0) {
+		builtin_type_bool.size = 4;
+		builtin_type_bool.align = 4;
+		builtin_type_int.size = 4;
+		builtin_type_int.align = 4;
+		builtin_type_uint.size = 4;
+		builtin_type_uint.align = 4;
+		builtin_type_uintptr.size = 8;
+		builtin_type_uintptr.align = 8;
+		builtin_type_null.size = 8;
+		builtin_type_null.align = 8;
+		builtin_type_size.size = 8;
+		builtin_type_size.align = 8;
+		builtin_type_const_bool.size = 4;
+		builtin_type_const_bool.align = 4;
+		builtin_type_const_int.size = 4;
+		builtin_type_const_int.align = 4;
+		builtin_type_const_uint.size = 4;
+		builtin_type_const_uint.align = 4;
+		builtin_type_const_uintptr.size = 8;
+		builtin_type_const_uintptr.align = 8;
+		builtin_type_const_size.size = 8;
+		builtin_type_const_size.align = 8;
+		builtin_type_ptr_const_char.size = 8;
+		builtin_type_ptr_const_char.align = 8;
+		builtin_type_str.size = 24;
+		builtin_type_str.align = 8;
+		builtin_type_const_str.size = 24;
+		builtin_type_const_str.align = 8;
+		builtin_type_valist.size = 32;
+		builtin_type_valist.align = 8;
+	} else if (strcmp(target, "riscv64") == 0) {
+		builtin_type_bool.size = 4;
+		builtin_type_bool.align = 4;
+		builtin_type_int.size = 4;
+		builtin_type_int.align = 4;
+		builtin_type_uint.size = 4;
+		builtin_type_uint.align = 4;
+		builtin_type_uintptr.size = 8;
+		builtin_type_uintptr.align = 8;
+		builtin_type_null.size = 8;
+		builtin_type_null.align = 8;
+		builtin_type_size.size = 8;
+		builtin_type_size.align = 8;
+		builtin_type_const_bool.size = 4;
+		builtin_type_const_bool.align = 4;
+		builtin_type_const_int.size = 4;
+		builtin_type_const_int.align = 4;
+		builtin_type_const_uint.size = 4;
+		builtin_type_const_uint.align = 4;
+		builtin_type_const_uintptr.size = 8;
+		builtin_type_const_uintptr.align = 8;
+		builtin_type_const_size.size = 8;
+		builtin_type_const_size.align = 8;
+		builtin_type_ptr_const_char.size = 8;
+		builtin_type_ptr_const_char.align = 8;
+		builtin_type_str.size = 24;
+		builtin_type_str.align = 8;
+		builtin_type_const_str.size = 24;
+		builtin_type_const_str.align = 8;
+		builtin_type_valist.size = 8;
+		builtin_type_valist.align = 8;
+	} else if (strcmp(target, "x86_64") == 0) {
+		builtin_type_bool.size = 4;
+		builtin_type_bool.align = 4;
+		builtin_type_int.size = 4;
+		builtin_type_int.align = 4;
+		builtin_type_uint.size = 4;
+		builtin_type_uint.align = 4;
+		builtin_type_uintptr.size = 8;
+		builtin_type_uintptr.align = 8;
+		builtin_type_null.size = 8;
+		builtin_type_null.align = 8;
+		builtin_type_size.size = 8;
+		builtin_type_size.align = 8;
+		builtin_type_const_bool.size = 4;
+		builtin_type_const_bool.align = 4;
+		builtin_type_const_int.size = 4;
+		builtin_type_const_int.align = 4;
+		builtin_type_const_uint.size = 4;
+		builtin_type_const_uint.align = 4;
+		builtin_type_const_uintptr.size = 8;
+		builtin_type_const_uintptr.align = 8;
+		builtin_type_const_size.size = 8;
+		builtin_type_const_size.align = 8;
+		builtin_type_ptr_const_char.size = 8;
+		builtin_type_ptr_const_char.align = 8;
+		builtin_type_str.size = 24;
+		builtin_type_str.align = 8;
+		builtin_type_const_str.size = 24;
+		builtin_type_const_str.align = 8;
+		builtin_type_valist.size = 24;
+		builtin_type_valist.align = 8;
+	} else {
+		fprintf(stderr, "Unsupported or unrecognized target: %s", target);
+		exit(EXIT_FAILURE);
+	}
 	struct type *builtins[] = {
 		&builtin_type_bool, &builtin_type_char, &builtin_type_f32,
 		&builtin_type_f64, &builtin_type_i8, &builtin_type_i16,
@@ -1012,8 +1110,6 @@ builtin_types_init(void)
 // Built-in type singletons
 struct type builtin_type_bool = {
 	.storage = STORAGE_BOOL,
-	.size = 4, // XXX: ARCH
-	.align = 4,
 },
 builtin_type_char = {
 	.storage = STORAGE_CHAR,
@@ -1052,8 +1148,6 @@ builtin_type_i64 = {
 },
 builtin_type_int = {
 	.storage = STORAGE_INT,
-	.size = 4, // XXX: ARCH
-	.align = 4,
 },
 builtin_type_u8 = {
 	.storage = STORAGE_U8,
@@ -1077,18 +1171,12 @@ builtin_type_u64 = {
 },
 builtin_type_uint = {
 	.storage = STORAGE_UINT,
-	.size = 4,
-	.align = 4,
 },
 builtin_type_uintptr = {
 	.storage = STORAGE_UINTPTR,
-	.size = 8, // XXX: ARCH
-	.align = 8,
 },
 builtin_type_null = {
 	.storage = STORAGE_NULL,
-	.size = 8, // XXX: ARCH
-	.align = 8,
 },
 builtin_type_rune = {
 	.storage = STORAGE_RUNE,
@@ -1097,8 +1185,6 @@ builtin_type_rune = {
 },
 builtin_type_size = {
 	.storage = STORAGE_SIZE,
-	.size = 8, // XXX: ARCH
-	.align = 8,
 },
 builtin_type_void = {
 	.storage = STORAGE_VOID,
@@ -1108,8 +1194,6 @@ builtin_type_void = {
 builtin_type_const_bool = {
 	.storage = STORAGE_BOOL,
 	.flags = TYPE_CONST,
-	.size = 4, // XXX: ARCH
-	.align = 4,
 },
 builtin_type_const_char = {
 	.storage = STORAGE_CHAR,
@@ -1156,8 +1240,6 @@ builtin_type_const_i64 = {
 builtin_type_const_int = {
 	.storage = STORAGE_INT,
 	.flags = TYPE_CONST,
-	.size = 4, // XXX: ARCH
-	.align = 4,
 },
 builtin_type_const_u8 = {
 	.storage = STORAGE_U8,
@@ -1186,14 +1268,10 @@ builtin_type_const_u64 = {
 builtin_type_const_uint = {
 	.storage = STORAGE_UINT,
 	.flags = TYPE_CONST,
-	.size = 4,
-	.align = 4,
 },
 builtin_type_const_uintptr = {
 	.storage = STORAGE_UINTPTR,
 	.flags = TYPE_CONST,
-	.size = 8, // XXX: ARCH
-	.align = 8,
 },
 builtin_type_const_rune = {
 	.storage = STORAGE_RUNE,
@@ -1204,8 +1282,6 @@ builtin_type_const_rune = {
 builtin_type_const_size = {
 	.storage = STORAGE_SIZE,
 	.flags = TYPE_CONST,
-	.size = 8, // XXX: ARCH
-	.align = 8,
 },
 builtin_type_const_void = {
 	.storage = STORAGE_VOID,
@@ -1217,25 +1293,17 @@ builtin_type_const_void = {
 // Others
 struct type builtin_type_ptr_const_char = {
 	.storage = STORAGE_POINTER,
-	.size = 8, // XXX: ARCH
-	.align = 8,
 	.pointer = {
 		.referent = &builtin_type_const_char,
 	},
 },
 builtin_type_str = {
 	.storage = STORAGE_STRING,
-	.size = 24, // XXX: ARCH
-	.align = 8,
 },
 builtin_type_const_str = {
 	.storage = STORAGE_STRING,
 	.flags = TYPE_CONST,
-	.size = 24, // XXX: ARCH
-	.align = 8,
 },
 builtin_type_valist = {
 	.storage = STORAGE_VALIST,
-	.size = 32, // XXX: ARCH
-	.align = 8,
 };

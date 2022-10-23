@@ -194,7 +194,7 @@ const struct type *type_create_const(enum type_storage storage,
 const struct type *lower_const(const struct type *old, const struct type *new);
 void const_refer(const struct type *type, const struct type **ref);
 
-void builtin_types_init(void);
+void builtin_types_init(const char *target);
 
 // Built-in type singletons
 extern struct type

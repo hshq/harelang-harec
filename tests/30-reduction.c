@@ -11,10 +11,14 @@
 #include "scope.h"
 #include "type_store.h"
 #include "typedef.h"
+#include "types.h"
 #include "util.h"
 
 void test(struct context *ctx, const char *expected, const char *input) {
-	builtin_types_init();
+	// The target is irrelevant here, since it's only used to compute the
+	// sizes of types, which isn't tested here or depended on.
+	builtin_types_init("x86_64");
+
 	ctx->errors = NULL;
 	ctx->next = &ctx->errors;
 

@@ -19,7 +19,7 @@ static void
 usage(const char *argv_0)
 {
 	fprintf(stderr,
-		"Usage: %s [-D ident:type=value] [-o output] [-T] [-t typedefs] [-N namespace] [input.ha...]\n",
+		"Usage: %s [-a arch] [-D ident:type=value] [-o output] [-T] [-t typedefs] [-N namespace] [input.ha...]\n",
 		argv_0);
 }
 
@@ -87,6 +87,7 @@ int
 main(int argc, char *argv[])
 {
 	char *output = NULL, *typedefs = NULL;
+	char *target = DEFAULT_TARGET;
 	bool is_test = false;
 	struct unit unit = {0};
 	struct lexer lexer;
@@ -95,6 +96,9 @@ main(int argc, char *argv[])
 	int c;
 	while ((c = getopt(argc, argv, "D:ho:Tt:N:")) != -1) {
 		switch (c) {
+		case 'a':
+			target = optarg;
+			break;
 		case 'D':
 			def = parse_define(argv[0], optarg);
 			def->next = defines;
@@ -124,6 +128,8 @@ main(int argc, char *argv[])
 			return EXIT_FAILURE;
 		}
 	}
+
+	builtin_types_init(target);
 
 	size_t ninputs = argc - optind;
 	if (ninputs == 0) {
@@ -176,7 +182,6 @@ main(int argc, char *argv[])
 	}
 
 	static struct type_store ts = {0};
-	builtin_types_init();
 	check(&ts, is_test, defines, &aunit, &unit);
 	if (stage == STAGE_CHECK) {
 		return EXIT_SUCCESS;
