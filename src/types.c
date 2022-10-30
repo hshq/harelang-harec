@@ -458,11 +458,7 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 		struct type _tustripped;
 		const struct type *tustripped =
 			strip_flags(tu->type, &_tustripped);
-		// XXX: Kind of stupid
-		if (tu->type->id == subtype->id
-				|| tu->type->id == stripped->id
-				|| tustripped->id == subtype->id
-				|| tustripped->id == stripped->id) {
+		if (tustripped->id == stripped->id) {
 			return tu->type;
 		}
 
