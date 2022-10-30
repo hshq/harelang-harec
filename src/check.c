@@ -2328,7 +2328,7 @@ check_expr_propagate(struct context *ctx,
 		case_err->value->assert.message->type = EXPR_CONSTANT;
 		case_err->value->assert.message->result = &builtin_type_const_str;
 		case_err->value->assert.message->constant.string.value = s;
-		case_err->value->assert.message->constant.string.len = n - 1;
+		case_err->value->assert.message->constant.string.len = n;
 	} else {
 		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
 			error(ctx, aexpr->loc, expr,
