@@ -30,6 +30,7 @@ rt() {
 					;;
 				*)
 					printf "unsupported FreeBSD arch %s\n" "$arch" >&2
+					exit 1
 					;;
 			esac
 			rtstart=rt/+freebsd/start+$arch.o
@@ -57,6 +58,7 @@ rt() {
 					;;
 				*)
 					printf "unsupported OpenBSD arch %s\n" "$arch" >&2
+					exit 1
 					;;
 			esac
 			rtstart=rt/+openbsd/start+$arch.o
