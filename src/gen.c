@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include "asan.h"
 #include "check.h"
 #include "expr.h"
 #include "gen.h"
@@ -39,7 +40,14 @@ gen_defers(struct gen_context *ctx, struct gen_scope *scope)
 	}
 	for (struct gen_defer *defer = scope->defers; defer;
 			defer = defer->next) {
-		gen_expr(ctx, defer->expr);
+		switch (defer->type) {
+		case DEFER_EXPR:
+			gen_expr(ctx, defer->expr);
+			break;
+		case DEFER_REDZONE:
+			gen_asan_redzone_cleanup(ctx, &defer->redzone);
+			break;
+		};
 	}
 	ctx->deferring = false;
 }
@@ -193,6 +201,9 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 	struct qbe_value qobj = mkqval(ctx, &object),
 		qval = mkqval(ctx, &value);
 	enum qbe_instr qi = load_for_type(ctx, object.type);
+	if (object.kind == GV_TEMP) {
+		gen_asan_loadcheck(ctx, qi, &qobj);
+	}
 	pushi(ctx->current, &qval, qi, &qobj, NULL);
 	return value;
 }
@@ -1106,9 +1117,7 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		ctx->bindings = gb;
 
 		struct qbe_value qv = mklval(ctx, &gb->value);
-		struct qbe_value sz = constl(type->size);
-		enum qbe_instr alloc = alloc_for_align(type->align);
-		pushprei(ctx->current, &qv, alloc, &sz, NULL);
+		gen_asan_redzone(ctx, &qv, type);
 		gen_expr_at(ctx, binding->initializer, gb->value);
 	}
 	return gv_void;
@@ -2000,6 +2009,7 @@ static struct gen_value
 gen_expr_defer(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_defer *defer = xcalloc(1, sizeof(struct gen_defer));
+	defer->type = DEFER_EXPR;
 	defer->expr = expr->defer.deferred;
 	defer->next = ctx->scope->defers;
 	ctx->scope->defers = defer;
@@ -3235,6 +3245,16 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	mklabel(ctx, &start_label, "start.%d");
 	push(&qdef->func.prelude, &start_label);
 
+	struct qbe_statement lsan_error_load8 = {0};
+	if (ctx->flags & GEN_SANITIZE_ADDRESS) {
+		const struct qbe_value zero = constl(0);
+		ctx->san_addr = mkqtmp(ctx, ctx->arch.ptr, "s.addr.%d");
+		pushprei(ctx->current, &ctx->san_addr, Q_COPY, &zero, NULL);
+
+		ctx->san_error_load8 = mklabel(ctx,
+				&lsan_error_load8, "san.load8.%d");
+	}
+
 	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
 		qdef->func.returns = qtype_lookup(
 			ctx, fntype->func.result, false);
@@ -3256,7 +3276,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 		struct gen_binding *gb =
 			xcalloc(1, sizeof(struct gen_binding));
-		gb->value.kind = GV_TEMP;
+		gb->value.kind = GV_PARAM;
 		gb->value.type = type;
 		gb->object = obj;
 		if (type_is_aggregate(type)) {
@@ -3296,6 +3316,13 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		struct qbe_value qret = mkqval(ctx, &ret);
 		pushi(ctx->current, NULL, Q_RET, &qret, NULL);
 	} else {
+		pushi(ctx->current, NULL, Q_RET, NULL);
+	}
+
+	if (ctx->flags & GEN_SANITIZE_ADDRESS) {
+		push(&qdef->func.body, &lsan_error_load8);
+		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.san_error_load8");
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &ctx->san_addr, NULL);
 		pushi(ctx->current, NULL, Q_RET, NULL);
 	}
 
@@ -3717,12 +3744,17 @@ gen_decl(struct gen_context *ctx, const struct declaration *decl)
 }
 
 void
-gen(const struct unit *unit, struct type_store *store, struct qbe_program *out)
-{
+gen(
+	const struct unit *unit,
+	struct type_store *store,
+	struct qbe_program *out,
+	enum gen_flag flags
+) {
 	struct gen_context ctx = {
 		.out = out,
 		.store = store,
 		.ns = unit->ns,
+		.flags = flags,
 		.arch = {
 			.ptr = &qbe_long,
 			.sz = &qbe_long,

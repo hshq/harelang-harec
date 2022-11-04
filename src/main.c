@@ -19,7 +19,7 @@ static void
 usage(const char *argv_0)
 {
 	fprintf(stderr,
-		"Usage: %s [-a arch] [-D ident:type=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
+		"Usage: %s [-a arch] [-D ident:type=value] [-o output] [-T] [-t typedefs] [-N namespace] [-S sanitize] input.ha...\n",
 		argv_0);
 }
 
@@ -92,9 +92,10 @@ main(int argc, char *argv[])
 	struct unit unit = {0};
 	struct lexer lexer;
 	struct define *defines = NULL, *def;
+	enum gen_flag gen_flags = 0;
 
 	int c;
-	while ((c = getopt(argc, argv, "D:ho:Tt:N:")) != -1) {
+	while ((c = getopt(argc, argv, "D:ho:Tt:N:S:")) != -1) {
 		switch (c) {
 		case 'a':
 			target = optarg;
@@ -121,6 +122,14 @@ main(int argc, char *argv[])
 			lex_init(&lexer, in, 0);
 			parse_identifier(&lexer, unit.ns, false);
 			lex_finish(&lexer);
+			break;
+		case 'S':
+			if (strcmp(optarg, "addr") == 0) {
+				gen_flags |= GEN_SANITIZE_ADDRESS;
+			} else {
+				usage(argv[0]);
+				return EXIT_FAILURE;
+			}
 			break;
 		case 'h':
 		default:
@@ -199,7 +208,7 @@ main(int argc, char *argv[])
 	}
 
 	struct qbe_program prog = {0};
-	gen(&unit, &ts, &prog);
+	gen(&unit, &ts, &prog, gen_flags);
 	if (stage == STAGE_GEN) {
 		return EXIT_SUCCESS;
 	}

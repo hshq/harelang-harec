@@ -5,6 +5,7 @@ eval ". $srcdir/config.sh"
 
 harec() {
 	headers \
+		"asan.h" \
 		"ast.h" \
 		"check.h" \
 		"emit.h" \
@@ -23,6 +24,7 @@ harec() {
 		"utf8.h" \
 		"util.h"
 	genrules harec \
+		src/asan.c \
 		src/check.c \
 		src/emit.c \
 		src/eval.c \

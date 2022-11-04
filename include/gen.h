@@ -7,6 +7,10 @@
 #include "types.h"
 #include "scope.h"
 
+enum gen_flag {
+	GEN_SANITIZE_ADDRESS = 1 << 0,
+};
+
 enum fixed_aborts {
 	ABORT_OOB = 0,
 	ABORT_TYPE_ASSERTION = 1,
@@ -24,6 +28,7 @@ enum gen_value_kind {
 	GV_CONST,
 	GV_GLOBAL,
 	GV_TEMP,
+	GV_PARAM,
 };
 
 struct gen_value {
@@ -45,8 +50,22 @@ struct gen_binding {
 	struct gen_binding *next;
 };
 
+struct gen_redzone {
+	struct qbe_value base;
+	size_t typesz;
+};
+
+enum defer_type {
+	DEFER_EXPR,
+	DEFER_REDZONE,
+};
+
 struct gen_defer {
-	const struct expression *expr;
+	enum defer_type type;
+	union {
+		const struct expression *expr;
+		struct gen_redzone redzone;
+	};
 	struct gen_defer *next;
 };
 
@@ -66,6 +85,7 @@ struct gen_context {
 	struct gen_arch arch;
 	struct type_store *store;
 	struct identifier *ns;
+	enum gen_flag flags;
 
 	uint64_t id;
 
@@ -74,13 +94,17 @@ struct gen_context {
 	struct gen_binding *bindings;
 	struct gen_scope *scope;
 	bool deferring;
+
+	struct qbe_value san_error_load8;
+	struct qbe_value san_addr;
 };
 
 struct unit;
 
 void gen(const struct unit *unit,
 		struct type_store *store,
-		struct qbe_program *out);
+		struct qbe_program *out,
+		enum gen_flag flags);
 
 // genutil.c
 char *gen_name(struct gen_context *ctx, const char *fmt);

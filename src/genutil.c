@@ -31,6 +31,7 @@ mkqval(struct gen_context *ctx, struct gen_value *value)
 		qval.threadlocal = value->threadlocal;
 		break;
 	case GV_TEMP:
+	case GV_PARAM:
 		qval.kind = QV_TEMPORARY;
 		qval.name = value->name;
 		break;
