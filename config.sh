@@ -14,6 +14,13 @@ then
 	LD="${LD:-ld} -nopie"
 fi
 
+checkprog=/dev/null
+
+if [ `uname -s` = "Darwin" ]
+then
+	checkprog="$outdir"/check
+fi
+
 for arg
 do
 	case "$arg" in
@@ -144,7 +151,7 @@ test_cflags() {
 			werror="-Werror"
 			;;
 	esac
-	if $CC $werror "$@" -o /dev/null "$outdir"/check.c >/dev/null 2>&1
+	if $CC $werror "$@" -o $checkprog "$outdir"/check.c >/dev/null 2>&1
 	then
 		append_cflags "$@"
 	else

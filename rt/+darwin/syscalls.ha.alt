@@ -1,0 +1,65 @@
+
+export fn write(fd: int, buf: *const void, count: size) size =
+	c_write(fd, buf, count): size;
+@symbol("write") fn c_write(fildes: int, buf: *const void, nbyte: size) i64;
+
+export @symbol("close") fn close(fildes: int) int;
+
+export @symbol("dup2") fn dup2(fildes: int, fildes2: int) int;
+
+export @symbol("getpid") fn getpid() int;
+
+export def EXIT_SUCCESS: int = 0;
+export def EXIT_FAILURE: int = 1;
+
+export @noreturn fn exit(status: int) void = c_exit(status);
+@symbol("exit") @noreturn fn c_exit(status: int) void;
+// export @symbol("exit") @noreturn fn exit(status: int) void;
+
+// export fn fork() int = c_fork(): int;
+// @symbol("fork") fn c_fork() pid_t;
+// type pid_t = uint;
+export @symbol("fork") fn fork() int;
+
+export @symbol("execve") fn execve(path: *const char,
+	argv: *[*]nullable *const char, envp: *[*]nullable *const char) int;
+
+// export @symbol("wait4") fn wait4(pid: pid_t,
+// 	stat_loc: *int, options: int, rusage: nullable *void) pid_t;
+export @symbol("wait4") fn wait4(pid: int,
+	stat_loc: *int, options: int, rusage: nullable *void) void;
+
+export fn wifexited(status: int) bool = wtermsig(status) == 0;
+export fn wexitstatus(status: int) int = (status & 0xff00) >> 8;
+
+export fn wtermsig(status: int) int = status & 0x7f;
+export fn wifsignaled(status: int) bool =
+	wtermsig(status) != 0o177 && wtermsig(status) != 0 && status != 0x13;
+
+export @symbol("kill") fn kill(pid: int, sig: int) int;
+
+export fn pipe2(pipefd: *[2]int, flags: int) int = c_pipe(pipefd);
+@symbol("pipe") fn c_pipe(fildes: *[2]int) int;
+
+export def MAP_SHARED:        uint = 0x0001;
+export def MAP_PRIVATE:       uint = 0x0002;
+export def MAP_FIXED:         uint = 0x0010;
+export def MAP_HASSEMAPHORE:  uint = 0x0200;
+export def MAP_FILE:          uint = 0x0000;
+export def MAP_ANON:          uint = 0x1000;
+
+def PROT_NONE:  uint = 0x00;
+def PROT_READ:  uint = 0x01;
+def PROT_WRITE: uint = 0x02;
+def PROT_EXEC:  uint = 0x04;
+
+// @symbol("mmap") fn c_mmap(addr: nullable *void, length: size,
+// 	prot: int, flags: int, fd: int, off: off_t) *void;
+// type off_t = i64;
+export @symbol("mmap") fn mmap(addr: nullable *void, length: size,
+	prot: uint, flags: uint, fd: int, off: size) *void;
+
+export @symbol("munmap") fn munmap(addr: *void, length: size) int;
+
+export def SIGABRT: int	= 6;
+export def SIGCHLD: int	= 20;

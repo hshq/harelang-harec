@@ -6,7 +6,7 @@ testmod.a: harec $(testmod_srcs)
 	@mkdir -p $(HARECACHE)/testmod
 	@./harec -Ntestmod  -t$(HARECACHE)/testmod/testmod.td -o $@.ssa $(testmod_srcs)
 	@$(QBE) -o $@.s $@.ssa
-	@$(AS) -g -o $@.o $@.s
+	@$(AS) -o $@.o $@.s
 	@$(AR) -csr $@ $@.o $(testmod_objs)
 	@rm $@.o $@.s $@.ssa
 

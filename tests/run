@@ -8,7 +8,7 @@ nfail=0
 
 for f in ./tests/*
 do
-	if [ -x "$f" ] && [ "$f" != "./tests/run" ]
+	if [ -x "$f" ] && [ "$f" != "./tests/run" ] && [ -f "$f" ]
 	then
 		ntests=$((ntests+1))
 		name="$(basename "$f")"

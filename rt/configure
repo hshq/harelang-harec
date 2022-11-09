@@ -3,81 +3,40 @@ all="$all rt"
 
 rt() {
 	arch=$(uname -m)
-	case $(uname) in
+	os_name=$(uname -s)
+	platform=$(echo $os_name | tr '[:upper:]' '[:lower:]')
+
+	if [ "$arch" == "amd64" ] # for FreeBSD|OpenBSD
+	then
+		arch=x86_64
+	fi
+
+	case $os_name in
 		Linux)
-			rtstart=rt/+linux/start+$arch.o
-			cat <<-EOF
-			rtstart=rt/+linux/start+$arch.o
-
-			libhart_srcs=\
-				rt/+linux/errno.ha \
-				rt/+linux/segmalloc.ha \
-				rt/+linux/syscallno+$arch.ha \
-				rt/+linux/syscalls.ha \
-
-			libhart_objs=\
-				rt/+linux/syscall+$arch.o
-
-			rt: libhart.a rt/+linux/start+$arch.o
-			EOF
-			;;
-		FreeBSD)
-			case $arch in
-				amd64)
-					arch=x86_64
-					;;
-				aarch64|riscv64)
-					;;
-				*)
-					printf "unsupported FreeBSD arch %s\n" "$arch" >&2
-					;;
-			esac
-			rtstart=rt/+freebsd/start+$arch.o
-			cat <<-EOF
-			rtstart=rt/+freebsd/start+$arch.o
-
-			libhart_srcs=\
-				rt/+freebsd/errno.ha \
-				rt/+freebsd/segmalloc.ha \
-				rt/+freebsd/syscallno.ha \
-				rt/+freebsd/syscalls.ha \
-
-			libhart_objs=\
-				rt/+freebsd/syscall+$arch.o
-
-			rt: libhart.a rt/+freebsd/start+$arch.o
-			EOF
-			;;
-		OpenBSD)
-			case $arch in
-				amd64)
-					arch=x86_64
-					;;
-				aarch64|riscv64)
-					;;
-				*)
-					printf "unsupported OpenBSD arch %s\n" "$arch" >&2
-					;;
-			esac
-			rtstart=rt/+openbsd/start+$arch.o
-			cat <<-EOF
-			rtstart=rt/+openbsd/start+$arch.o
-
-			libhart_srcs=\
-				rt/+openbsd/errno.ha \
-				rt/+openbsd/segmalloc.ha \
-				rt/+openbsd/syscallno.ha \
-				rt/+openbsd/syscalls.ha \
-
-			libhart_objs=\
-				rt/+openbsd/syscall+$arch.o
-
-			rt: libhart.a rt/+openbsd/start+$arch.o
-			EOF
-			;;
-		*)
-			printf "rt not supported for %s\n" "$(uname)" >&2
-			exit 1
+			syscallno=+$arch
 			;;
 	esac
+
+	if [ ! -f "$(dirname $0)/rt/+$platform/start+$arch.s" ]
+	then
+		printf "unsupported $os_name arch %s\n" "$arch" >&2
+		# printf "$(dirname $0)/rt/+$platform/start+$arch.s" >&2
+		exit 1
+	fi
+
+	rtstart=rt/+$platform/start+$arch.o
+	cat <<-EOF
+	rtstart=rt/+$platform/start+$arch.o
+
+	libhart_srcs=\
+		rt/+$platform/errno.ha \
+		rt/+$platform/segmalloc.ha \
+		rt/+$platform/syscallno$syscallno.ha \
+		rt/+$platform/syscalls.ha \
+
+	libhart_objs=\
+		rt/+$platform/syscall+$arch.o
+
+	rt: libhart.a rt/+$platform/start+$arch.o
+	EOF
 }
