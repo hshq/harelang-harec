@@ -8,6 +8,7 @@ POSIX-compatible systems.
 <dl>
   <dt>Linux (x86_64)</dt><dd><a href="https://builds.sr.ht/~sircmpwn/harec/commits/master/alpine.yml"><img src="https://builds.sr.ht/~sircmpwn/harec/commits/master/alpine.yml.svg" alt="Build status for Linux" /></a></dd>
   <dt>FreeBSD (x86_64)</dt><dd><a href="https://builds.sr.ht/~sircmpwn/harec/commits/master/freebsd.yml"><img src="https://builds.sr.ht/~sircmpwn/harec/commits/master/freebsd.yml.svg" alt="Build status for FreeBSD" /></a></dd>
+  <dt>Darwin (x86_64)</dt><dd><a href="https://builds.sr.ht/~sircmpwn/harec/commits/master/darwin.yml"><img src="https://builds.sr.ht/~sircmpwn/harec/commits/master/darwin.yml.svg" alt="Build status for Darwin" /></a></dd>
 </dl>
 
 ## Building
