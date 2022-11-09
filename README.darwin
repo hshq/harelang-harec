@@ -1,0 +1,12 @@
+
+# install:
+export HAREC_SRC="..."
+
+$HAREC_SRC/configure --help
+
+AS="as -g" \
+LD="$HAREC_SRC/rt/+darwin/ld.sh" \
+QBE="$HAREC_SRC/rt/+darwin/qbe.sh" \
+$HAREC_SRC/configure
+
+make clean && make check && make install
