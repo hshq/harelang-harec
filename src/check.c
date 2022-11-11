@@ -206,6 +206,12 @@ check_expr_access(struct context *ctx,
 				type_storage_unparse(atype->storage));
 			return;
 		}
+		if (atype->storage == STORAGE_SLICE
+				&& atype->array.members->storage == STORAGE_VOID) {
+			error(ctx, aexpr->access.array->loc, expr,
+				"Cannot use index into slice of void");
+			return;
+		}
 		if (!type_is_integer(itype)) {
 			error(ctx, aexpr->access.index->loc, expr,
 				"Cannot use non-integer %s type as slice/array index",

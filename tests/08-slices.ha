@@ -61,6 +61,9 @@ fn indexing() void = {
 	assert(compile(
 		"fn test() void = { let x = 10; x[10]; };"
 	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = { let s: []u8 = []; let ss = s: []void; ss[0] = ss[1]; };"
+	) as exited != EXIT_SUCCESS);
 };
 
 fn zero3(s: []int) void = {
