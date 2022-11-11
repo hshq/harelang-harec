@@ -1,6 +1,6 @@
 
 # install:
-export HAREC_SRC="..."
+export HAREC_SRC=".."
 
 # $HAREC_SRC/configure --help
 

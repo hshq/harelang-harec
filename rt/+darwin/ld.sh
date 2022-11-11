@@ -5,7 +5,6 @@ LDFLAGS="-e _start \
 	-L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
 
 args=
-# echo $*
 hasVal=
 for o in $*; do
 	case $o in
@@ -24,5 +23,4 @@ for o in $*; do
 	esac
 done
 
-# echo $args
 /usr/bin/ld $LDFLAGS $args
