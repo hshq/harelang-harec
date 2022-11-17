@@ -1,11 +1,28 @@
 use rt::{compile, exited, EXIT_SUCCESS};
 
+// globals without type hint
+def NOHINT = 1234z;
+let nohint = 12z;
+const nohintconst = 123z;
+// with type defined afterwards
+const nhval = nh {
+	field = 1,
+};
+type nh = struct {
+	field: int,
+};
+
 let x: int = 42, y: int = 69;
 
 fn write() void = {
 	assert(x == 42 && y == 69);
 	x = 1337;
 	assert(x == 1337);
+	
+	assert(nohint == 12);
+	assert(nohintconst == 123);
+	assert(NOHINT == 1234);
+	assert(nhval.field == 1);	
 };
 
 let ar: [3]int = [1, 2, 3];
