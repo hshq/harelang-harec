@@ -1,0 +1,21 @@
+image: netbsd/9.x
+sources:
+- https://git.sr.ht/~sircmpwn/harec
+- git://c9x.me/qbe.git
+packages:
+- binutils
+tasks:
+- qbe: |
+    cd qbe
+    make PREFIX=/usr
+    sudo make install PREFIX=/usr
+- prepare: |
+    mkdir harec/build
+    cd harec/build
+    ../configure
+- build: |
+    cd harec/build
+    make -j2
+- tests: |
+    cd harec/build
+    make check
