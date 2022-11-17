@@ -115,6 +115,12 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 	if (to == expr->result || expr->terminates) {
 		return expr;
 	}
+	
+	if (type_dealias(to)->storage == STORAGE_SLICE &&
+		expr->result->storage == STORAGE_ARRAY &&
+		expr->result->array.expandable) {
+		return expr;
+	}
 
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		const struct type *interim =

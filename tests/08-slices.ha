@@ -168,6 +168,24 @@ fn recursive_structure() void = {
 	assert(sum_tree(t) == 134, "recursive structure using slices");
 };
 
+fn expandable() void = {
+	let s: [6]u16 = [0...];
+	
+	s[2..2] = [1...];
+	assert(s[2] == 0);
+	
+	s[1..3] = [1...];
+	assert(s[0] == 0);
+	assert(s[1] == 1);
+	assert(s[2] == 1);
+	assert(s[3] == 0);
+	
+	s[4..] = [123...];
+	assert(s[3] == 0);
+	assert(s[4] == 123);
+	assert(s[5] == 123);
+};
+
 export fn main() void = {
 	from_array();
 	storage();
@@ -176,4 +194,5 @@ export fn main() void = {
 	assignment();
 	slicing();
 	recursive_structure();
+	expandable();
 };
