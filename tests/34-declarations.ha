@@ -1,5 +1,7 @@
 use rt::{compile, exited, EXIT_SUCCESS};
 
+def ARR: [3]u8 = [1, 2, 3];
+
 // interdependent constants
 def A1: int = -1;
 def A2: int = A1 + 2;
@@ -10,6 +12,7 @@ def B2: int = B1 + 2;
 def B1: int = -1;
 
 fn constants() void = {
+	assert(ARR[0] == 1 && ARR[1] == 2 && ARR[2] == 3);
 	assert(A1 == -1 && B1 == -1);
 	assert(A2 == 1 && B2 == 1);
 	assert(len(B3) == 3);

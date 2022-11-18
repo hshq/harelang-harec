@@ -143,7 +143,25 @@ emit_const(const struct expression *expr, FILE *out)
 		fprintf(out, ": ");
 		emit_type(expr->constant.tagged.tag, out);
 		break;
-	case STORAGE_ARRAY:
+	case STORAGE_ARRAY: {
+		fprintf(out, "[");
+		const struct type *t = type_dealias(expr->result);
+		struct array_constant *item = val->array;
+		if (t->array.expandable) {
+			emit_const(item->value, out);
+			fprintf(out, "...");
+		} else {
+			for (size_t i = 0; i < t->array.length; i += 1) {
+				if (i > 0) {
+					fprintf(out, ",");
+				}
+				emit_const(item->value, out);
+				item = item->next;
+			};
+		}
+		fprintf(out, "]");
+		break;
+	}
 	case STORAGE_SLICE:
 	case STORAGE_STRUCT:
 	case STORAGE_TUPLE:
