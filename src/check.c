@@ -3236,6 +3236,7 @@ check_function(struct context *ctx,
 	struct expression *body = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, afndecl->body, body, fntype->func.result);
 	// TODO: Pass errors up and deal with them at the end of check
+	handle_errors(ctx->errors);
 
 	char *restypename = gen_typename(body->result);
 	char *fntypename = gen_typename(fntype->func.result);
