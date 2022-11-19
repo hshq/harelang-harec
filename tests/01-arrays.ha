@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, exited, EXIT_SUCCESS, EXIT_FAILURE};
 
 fn indexing() void = {
 	let x = [1, 2, 3];
@@ -133,6 +133,14 @@ fn eval_access() void = {
 	static assert([1, 2][0] == 1 && [1, 2][1] == 2);
 };
 
+fn reject() void = {
+	// unbounded arrays of values of undefined size
+	assert(compile("fn f() void = { let x = null: *[*][*]int; };")
+		as exited == EXIT_FAILURE);
+	assert(compile("fn f() void = { let x = null: *[*]fn ()int; };")
+		as exited == EXIT_FAILURE);
+};
+
 export fn main() void = {
 	indexing();
 	measurements();
@@ -145,4 +153,5 @@ export fn main() void = {
 	extype();
 	eval_array();
 	eval_access();
+	reject();
 };
