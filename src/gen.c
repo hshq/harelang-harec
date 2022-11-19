@@ -3590,6 +3590,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		switch (type->alias.type->storage) {
 		case STORAGE_I8:
 		case STORAGE_U8:
+		case STORAGE_CHAR:
 			item->type = QD_VALUE;
 			item->value = constw((uint8_t)constant->uval);
 			item->value.type = &qbe_byte;

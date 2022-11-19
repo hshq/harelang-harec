@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include "ast.h"
 #include "check.h"
@@ -154,6 +155,13 @@ main(int argc, char *argv[])
 			in = stdin;
 		} else {
 			in = fopen(path, "r");
+			struct stat buf;
+			if (in && fstat(fileno(in), &buf) == 0
+				&& S_ISDIR(buf.st_mode) != 0) {
+				fprintf(stderr, "Unable to open %s for reading: Is a directory\n",
+					path);
+				return EXIT_FAILURE;
+			}
 		}
 
 		if (!in) {
