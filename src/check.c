@@ -4195,19 +4195,12 @@ check_internal(struct type_store *ts,
 	// sub-scopes for each declaration, expression-list, etc.
 
 	// Put defines into a temporary scope (-D on the command line)
-	struct scope *def_scope = NULL;
-	scope_push(&def_scope, SCOPE_UNIT);
-	ctx.unit = def_scope;
+	ctx.scope = NULL;
+	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 	for (struct ast_global_decl *def = defines; def; def = def->next) {
 		scan_const(&ctx, def);
 	}
-	ctx.unit = NULL;
-
-	struct scopes *subunit_scopes = NULL;
-	struct scopes **next = &subunit_scopes;
-	struct scope *su_scope = NULL;
-	struct identifiers **inext = &unit->imports;
-
+	struct scope *def_scope = ctx.scope;
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 
@@ -4216,6 +4209,9 @@ check_internal(struct type_store *ts,
 	// A scope gets us:
 	//  a) duplicate detection for free
 	//  b) a way to find declaration's definition when it's refered to
+	struct scopes *subunit_scopes = NULL, **next = &subunit_scopes;
+	struct scope *su_scope = NULL;
+	struct identifiers **inext = &unit->imports;
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
 		su_scope = NULL;

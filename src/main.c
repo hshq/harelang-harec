@@ -92,7 +92,7 @@ main(int argc, char *argv[])
 	bool is_test = false;
 	struct unit unit = {0};
 	struct lexer lexer;
-	struct ast_global_decl *defines = NULL, *def;
+	struct ast_global_decl *defines = NULL, **next_def = &defines;
 
 	int c;
 	while ((c = getopt(argc, argv, "D:ho:Tt:N:")) != -1) {
@@ -101,9 +101,8 @@ main(int argc, char *argv[])
 			target = optarg;
 			break;
 		case 'D':
-			def = parse_define(argv[0], optarg);
-			def->next = defines;
-			defines = def;
+			*next_def = parse_define(argv[0], optarg);
+			next_def = &(*next_def)->next;
 			break;
 		case 'o':
 			output = optarg;
