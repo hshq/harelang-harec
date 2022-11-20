@@ -4075,12 +4075,12 @@ exit:
 }
 
 static void
-load_import(struct context *ctx, struct ast_imports *import,
-	struct type_store *ts, struct scope *scope)
+load_import(struct context *ctx, struct ast_global_decl *defines,
+	struct ast_imports *import, struct type_store *ts, struct scope *scope)
 {
 	struct context *old_ctx = ctx->store->check_context;
 	struct scope *mod = module_resolve(ctx->modcache,
-			ctx->defines, &import->ident, ts);
+			defines, &import->ident, ts);
 	ctx->store->check_context = old_ctx;
 
 	struct identifier _ident = {0};
@@ -4172,7 +4172,7 @@ struct scope *
 check_internal(struct type_store *ts,
 	struct modcache **cache,
 	bool is_test,
-	struct define *defines,
+	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
 	bool scan_only)
@@ -4182,7 +4182,6 @@ check_internal(struct type_store *ts,
 	ctx.is_test = is_test;
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
-	ctx.defines = defines;
 	ctx.next = &ctx.errors;
 	ctx.modcache = cache;
 
@@ -4195,40 +4194,15 @@ check_internal(struct type_store *ts,
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
 
+	// Put defines into a temporary scope (-D on the command line)
 	struct scope *def_scope = NULL;
 	scope_push(&def_scope, SCOPE_UNIT);
-
-	// Put defines into a temporary scope (-D on the command line)
-	// XXX: This duplicates a lot of code with scan_const
-	for (struct define *def = defines; def; def = def->next) {
-		struct location loc = {
-			.file = 0, .lineno = 1, .colno = 1,
-		};
-		const struct type *type = type_store_lookup_atype(
-				ctx.store, def->type);
-		expect(&ctx, &loc, type != NULL, "Unable to resolve type");
-		struct expression *initializer =
-			xcalloc(1, sizeof(struct expression));
-		check_expression(&ctx, def->initializer, initializer, type);
-		// TODO: This could be more detailed
-		expect(&ctx, &loc, ctx.errors == NULL, "Invalid initializer");
-		char *typename1 = gen_typename(initializer->result);
-		char *typename2 = gen_typename(type);
-		expect(&ctx, &loc, type_is_assignable(type, initializer->result),
-			"Initializer type %s is not assignable to constant type type %s",
-			typename1, typename2);
-		free(typename1);
-		free(typename2);
-
-		initializer = lower_implicit_cast(type, initializer);
-		struct expression *value =
-			xcalloc(1, sizeof(struct expression));
-		enum eval_result r = eval_expr(&ctx, initializer, value);
-		expect(&ctx, &loc, r == EVAL_OK,
-			"Unable to evaluate constant initializer at compile time");
-		scope_insert(def_scope, O_CONST,
-			&def->ident, &def->ident, type, value);
+	ctx.unit = def_scope;
+	for (struct ast_global_decl *def = defines; def; def = def->next) {
+		scan_const(&ctx, def);
 	}
+	ctx.unit = NULL;
+
 	struct scopes *subunit_scopes = NULL;
 	struct scopes **next = &subunit_scopes;
 	struct scope *su_scope = NULL;
@@ -4248,7 +4222,7 @@ check_internal(struct type_store *ts,
 		scope_push(&su_scope, SCOPE_SUBUNIT);
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
-			load_import(&ctx, imports, ts, su_scope);
+			load_import(&ctx, defines, imports, ts, su_scope);
 
 			bool found = false;
 			for (struct identifiers *uimports = unit->imports;
@@ -4339,7 +4313,7 @@ check_internal(struct type_store *ts,
 struct scope *
 check(struct type_store *ts,
 	bool is_test,
-	struct define *defines,
+	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit)
 {

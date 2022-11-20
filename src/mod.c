@@ -64,7 +64,7 @@ open_typedefs(struct identifier *ident)
 
 struct scope *
 module_resolve(struct modcache *cache[],
-	struct define *defines,
+	struct ast_global_decl *defines,
 	struct identifier *ident,
 	struct type_store *store)
 {
