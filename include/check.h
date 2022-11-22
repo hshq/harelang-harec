@@ -19,13 +19,6 @@ struct modcache {
 struct ast_expression;
 struct ast_unit;
 
-struct define {
-	struct identifier ident;
-	struct ast_type *type;
-	struct ast_expression *initializer;
-	struct define *next;
-};
-
 struct errors {
 	struct location loc;
 	char *msg;
@@ -34,7 +27,6 @@ struct errors {
 
 struct context {
 	struct modcache **modcache;
-	struct define *defines;
 	struct type_store *store;
 	const struct type *fntype;
 	struct identifier *ns;
@@ -148,14 +140,14 @@ const struct scope_object *wrap_resolver(struct context *ctx,
 
 struct scope *check(struct type_store *ts,
 	bool is_test,
-	struct define *defines,
+	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 
 struct scope *check_internal(struct type_store *ts,
 	struct modcache **cache,
 	bool is_test,
-	struct define *defines,
+	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
 	bool scan_only);

@@ -746,7 +746,7 @@ type_init_from_atype(struct type_store *store,
 			*type = builtin_type_void;
 			return (struct dimensions){0};
 		}
-		if (type->array.length != SIZE_UNDEFINED && memb.size == SIZE_UNDEFINED) {
+		if (memb.size == SIZE_UNDEFINED) {
 			error(store->check_context, atype->loc,
 				"Type of undefined size is not a valid array member");
 			*type = builtin_type_void;
@@ -1004,7 +1004,7 @@ type_store_lookup_array(struct type_store *store, struct location loc,
 			"Type of size 0 is not a valid array member");
 		return &builtin_type_void;
 	}
-	if (len != SIZE_UNDEFINED && members->size == SIZE_UNDEFINED) {
+	if (members->size == SIZE_UNDEFINED) {
 		error(store->check_context, loc,
 			"Type of undefined size is not a valid member of a bounded array");
 		return &builtin_type_void;

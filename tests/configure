@@ -8,6 +8,11 @@ then
 	rtscript="rt/hare+openbsd.sc"
 fi
 
+if [ `uname -s` = "NetBSD" ]
+then
+	rtscript="rt/hare+netbsd.sc"
+fi
+
 tests() {
 	# harec tests
 	for t in \

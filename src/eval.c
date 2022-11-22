@@ -951,7 +951,7 @@ eval_expr(struct context *ctx, struct expression *in, struct expression *out)
 	case EXPR_VAEND:
 	case EXPR_VASTART:
 	case EXPR_YIELD:
-		error(ctx, in->loc, "unvailable at translation time");
+		error(ctx, in->loc, "unavailable at translation time");
 		return EVAL_INVALID;
 	}
 	assert(0); // Unreachable

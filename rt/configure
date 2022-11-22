@@ -15,6 +15,12 @@ rt() {
 		Linux)
 			syscallno=+$arch
 			;;
+		OpenBSD)
+			if [ "$arch" == "arm64" ] # for OpenBSD
+			then
+				arch=aarch64
+			fi
+			;;
 	esac
 
 	if [ ! -f "$(dirname $0)/rt/+$platform/start+$arch.s" ]

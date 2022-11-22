@@ -2443,10 +2443,13 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 			}
 		}
 		parse_identifier(lexer, &i->ident, false);
-		want(lexer, T_COLON, NULL);
-		i->type = parse_type(lexer);
-		if (mode == T_CONST) {
-			i->type->flags |= TYPE_CONST;
+		if (lex(lexer, &tok) == T_COLON) {
+			i->type = parse_type(lexer);
+			if (mode == T_CONST) {
+				i->type->flags |= TYPE_CONST;
+			}
+		} else {
+			unlex(lexer, &tok);
 		}
 
 		if (mode == T_DEF) {

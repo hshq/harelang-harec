@@ -115,6 +115,12 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 	if (to == expr->result || expr->terminates) {
 		return expr;
 	}
+	
+	if (type_dealias(to)->storage == STORAGE_SLICE &&
+		expr->result->storage == STORAGE_ARRAY &&
+		expr->result->array.expandable) {
+		return expr;
+	}
 
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		const struct type *interim =
@@ -2543,8 +2549,15 @@ check_expr_struct(struct context *ctx,
 			return;
 		}
 
-		// Do we want globals without type hints?
-		assert(obj->otype != O_SCAN);
+		if (obj->otype == O_SCAN) {
+			// resolve the unknown type
+			obj = wrap_resolver(ctx, obj, resolve_type);
+			if (!obj) {
+				error(ctx, aexpr->loc, expr,
+					"Unknown type");
+				return;
+			}
+		}
 
 		if (obj->otype != O_TYPE) {
 			error(ctx, aexpr->loc, expr,
@@ -3154,8 +3167,10 @@ static struct declaration *
 check_const(struct context *ctx,
 	const struct ast_global_decl *adecl)
 {
-	const struct type *type = type_store_lookup_atype(
-			ctx->store, adecl->type);
+	const struct type *type = NULL;
+	if (adecl->type) {
+		type = type_store_lookup_atype(ctx->store, adecl->type);
+	}
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	const struct scope_object *obj = scope_lookup(
 			ctx->unit, &adecl->ident);
@@ -3221,6 +3236,7 @@ check_function(struct context *ctx,
 	struct expression *body = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, afndecl->body, body, fntype->func.result);
 	// TODO: Pass errors up and deal with them at the end of check
+	handle_errors(ctx->errors);
 
 	char *restypename = gen_typename(body->result);
 	char *fntypename = gen_typename(fntype->func.result);
@@ -3275,8 +3291,10 @@ static struct declaration *
 check_global(struct context *ctx,
 	const struct ast_global_decl *adecl)
 {
-	const struct type *type = type_store_lookup_atype(
-			ctx->store, adecl->type);
+	const struct type *type = NULL;
+	if (adecl->type) {
+		type = type_store_lookup_atype(ctx->store, adecl->type);
+	}
 
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_GLOBAL;
@@ -3298,19 +3316,21 @@ check_global(struct context *ctx,
 	check_expression(ctx, adecl->init, initializer, type);
 	// TODO: Pass errors up and deal with them at the end of check
 
-	char *typename1 = gen_typename(initializer->result);
-	char *typename2 = gen_typename(type);
-	expect(ctx, &adecl->init->loc,
-		type_is_assignable(type, initializer->result),
-		"Initializer type %s is not assignable to constant type %s",
-		typename1, typename2);
-	free(typename1);
-	free(typename2);
+	if (type) {
+		char *typename1 = gen_typename(initializer->result);
+		char *typename2 = gen_typename(type);
+		expect(ctx, &adecl->init->loc,
+			type_is_assignable(type, initializer->result),
+			"Initializer type %s is not assignable to constant type %s",
+			typename1, typename2);
+		free(typename1);
+		free(typename2);
+	}
 
 	bool context = adecl->type
 		&& adecl->type->storage == STORAGE_ARRAY
 		&& adecl->type->array.contextual;
-	if (context) {
+	if (context || !type) {
 		// XXX: Do we need to do anything more here
 		type = initializer->result;
 	}
@@ -3324,6 +3344,8 @@ check_global(struct context *ctx,
 		"Unable to evaluate global initializer at compile time");
 
 	decl->global.value = value;
+
+	free(initializer);
 
 	return decl;
 }
@@ -3532,16 +3554,17 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 {
 	assert(!decl->symbol); // Invariant
 
-	const struct type *type = type_store_lookup_atype(
-			ctx->store, decl->type);
-	expect(ctx, &decl->type->loc, type != NULL, "Unable to resolve type");
-	// TODO: Free the initializer
+	const struct type *type = NULL;
+	if (decl->type) {
+		type = type_store_lookup_atype(ctx->store, decl->type);
+		expect(ctx, &decl->type->loc, type != NULL, "Unable to resolve type");
+	}
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
 	bool context = decl->type
 		&& decl->type->storage == STORAGE_ARRAY
 		&& decl->type->array.contextual;
-	if (context) {
+	if (context || !decl->type) {
 		// XXX: Do we need to do anything more here
 		type = initializer->result;
 	}
@@ -3562,6 +3585,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 		"Unable to evaluate constant initializer at compile time");
 	expect(ctx, &decl->init->loc, type->storage != STORAGE_NULL,
 		"Null is not a valid type for a constant");
+	free(initializer);
 
 	struct identifier ident = {0};
 	mkident(ctx, &ident, &decl->ident);
@@ -3598,25 +3622,34 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 const struct scope_object *
 scan_global(struct context *ctx, const struct ast_global_decl *decl)
 {
-	const struct type *type = type_store_lookup_atype(
-			ctx->store, decl->type);
+	const struct type *type = NULL;
+	if (decl->type) {
+		type = type_store_lookup_atype(ctx->store, decl->type);
+		if (decl->type->storage == STORAGE_ARRAY
+				&& decl->type->array.contextual) {
+			expect(ctx, &decl->type->loc, decl->init,
+				"Cannot infer array length without an initializer");
 
-	if (decl->type->storage == STORAGE_ARRAY
-			&& decl->type->array.contextual) {
-		expect(ctx, &decl->type->loc, decl->init,
-			"Cannot infer array length without an initializer");
-
-		// TODO: Free initializer
+			struct expression *initializer =
+				xcalloc(1, sizeof(struct expression));
+			check_expression(ctx, decl->init, initializer, type);
+			expect(ctx, &decl->init->loc,
+				initializer->result->storage == STORAGE_ARRAY,
+				"Cannot infer array length from non-array type");
+			expect(ctx, &decl->init->loc,
+				initializer->result->array.members == type->array.members,
+				"Initializer is not assignable to binding type");
+			type = initializer->result;
+			free(initializer);
+		}
+	} else {
+		// the type is set by the expression
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, decl->init, initializer, type);
-		expect(ctx, &decl->init->loc,
-			initializer->result->storage == STORAGE_ARRAY,
-			"Cannot infer array length from non-array type");
-		expect(ctx, &decl->init->loc,
-			initializer->result->array.members == type->array.members,
-			"Initializer is not assignable to binding type");
 		type = initializer->result;
+		assert(type);
+		free(initializer);
 	}
 
 	expect(ctx, &decl->init->loc, type->storage != STORAGE_NULL,
@@ -4042,12 +4075,12 @@ exit:
 }
 
 static void
-load_import(struct context *ctx, struct ast_imports *import,
-	struct type_store *ts, struct scope *scope)
+load_import(struct context *ctx, struct ast_global_decl *defines,
+	struct ast_imports *import, struct type_store *ts, struct scope *scope)
 {
 	struct context *old_ctx = ctx->store->check_context;
 	struct scope *mod = module_resolve(ctx->modcache,
-			ctx->defines, &import->ident, ts);
+			defines, &import->ident, ts);
 	ctx->store->check_context = old_ctx;
 
 	struct identifier _ident = {0};
@@ -4139,7 +4172,7 @@ struct scope *
 check_internal(struct type_store *ts,
 	struct modcache **cache,
 	bool is_test,
-	struct define *defines,
+	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
 	bool scan_only)
@@ -4149,7 +4182,6 @@ check_internal(struct type_store *ts,
 	ctx.is_test = is_test;
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
-	ctx.defines = defines;
 	ctx.next = &ctx.errors;
 	ctx.modcache = cache;
 
@@ -4162,45 +4194,13 @@ check_internal(struct type_store *ts,
 	// Further down the call frame, subsequent functions will create
 	// sub-scopes for each declaration, expression-list, etc.
 
-	struct scope *def_scope = NULL;
-	scope_push(&def_scope, SCOPE_UNIT);
-
 	// Put defines into a temporary scope (-D on the command line)
-	// XXX: This duplicates a lot of code with scan_const
-	for (struct define *def = defines; def; def = def->next) {
-		struct location loc = {
-			.file = 0, .lineno = 1, .colno = 1,
-		};
-		const struct type *type = type_store_lookup_atype(
-				ctx.store, def->type);
-		expect(&ctx, &loc, type != NULL, "Unable to resolve type");
-		struct expression *initializer =
-			xcalloc(1, sizeof(struct expression));
-		check_expression(&ctx, def->initializer, initializer, type);
-		// TODO: This could be more detailed
-		expect(&ctx, &loc, ctx.errors == NULL, "Invalid initializer");
-		char *typename1 = gen_typename(initializer->result);
-		char *typename2 = gen_typename(type);
-		expect(&ctx, &loc, type_is_assignable(type, initializer->result),
-			"Initializer type %s is not assignable to constant type type %s",
-			typename1, typename2);
-		free(typename1);
-		free(typename2);
-
-		initializer = lower_implicit_cast(type, initializer);
-		struct expression *value =
-			xcalloc(1, sizeof(struct expression));
-		enum eval_result r = eval_expr(&ctx, initializer, value);
-		expect(&ctx, &loc, r == EVAL_OK,
-			"Unable to evaluate constant initializer at compile time");
-		scope_insert(def_scope, O_CONST,
-			&def->ident, &def->ident, type, value);
+	ctx.scope = NULL;
+	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
+	for (struct ast_global_decl *def = defines; def; def = def->next) {
+		scan_const(&ctx, def);
 	}
-	struct scopes *subunit_scopes = NULL;
-	struct scopes **next = &subunit_scopes;
-	struct scope *su_scope = NULL;
-	struct identifiers **inext = &unit->imports;
-
+	struct scope *def_scope = ctx.scope;
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 
@@ -4209,13 +4209,16 @@ check_internal(struct type_store *ts,
 	// A scope gets us:
 	//  a) duplicate detection for free
 	//  b) a way to find declaration's definition when it's refered to
+	struct scopes *subunit_scopes = NULL, **next = &subunit_scopes;
+	struct scope *su_scope = NULL;
+	struct identifiers **inext = &unit->imports;
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
 		su_scope = NULL;
 		scope_push(&su_scope, SCOPE_SUBUNIT);
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
-			load_import(&ctx, imports, ts, su_scope);
+			load_import(&ctx, defines, imports, ts, su_scope);
 
 			bool found = false;
 			for (struct identifiers *uimports = unit->imports;
@@ -4306,7 +4309,7 @@ check_internal(struct type_store *ts,
 struct scope *
 check(struct type_store *ts,
 	bool is_test,
-	struct define *defines,
+	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit)
 {

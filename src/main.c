@@ -53,10 +53,10 @@ parse_stage(const char *s)
 	}
 }
 
-static struct define *
+static struct ast_global_decl *
 parse_define(const char *argv_0, const char *in)
 {
-	struct define *def = xcalloc(1, sizeof(struct define));
+	struct ast_global_decl *def = xcalloc(1, sizeof(struct ast_global_decl));
 
 	struct token tok;
 	struct lexer lexer;
@@ -78,7 +78,7 @@ parse_define(const char *argv_0, const char *in)
 		usage(argv_0);
 		exit(EXIT_FAILURE);
 	}
-	def->initializer = parse_expression(&lexer);
+	def->init = parse_expression(&lexer);
 
 	lex_finish(&lexer);
 	return def;
@@ -92,7 +92,7 @@ main(int argc, char *argv[])
 	bool is_test = false;
 	struct unit unit = {0};
 	struct lexer lexer;
-	struct define *defines = NULL, *def;
+	struct ast_global_decl *defines = NULL, **next_def = &defines;
 
 	int c;
 	while ((c = getopt(argc, argv, "D:ho:Tt:N:")) != -1) {
@@ -101,9 +101,8 @@ main(int argc, char *argv[])
 			target = optarg;
 			break;
 		case 'D':
-			def = parse_define(argv[0], optarg);
-			def->next = defines;
-			defines = def;
+			*next_def = parse_define(argv[0], optarg);
+			next_def = &(*next_def)->next;
 			break;
 		case 'o':
 			output = optarg;

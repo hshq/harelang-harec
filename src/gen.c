@@ -818,8 +818,66 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 }
 
 static struct gen_value
+gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expression *expr)
+{
+	struct gen_value obj = gen_expr(ctx, expr->assign.object);
+	struct qbe_value qobj = mkqval(ctx, &obj);
+	
+	// get the length of the copy
+	struct qbe_value step = constl(ctx->arch.ptr->size);
+	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value olen = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	pushi(ctx->current, &ptr, Q_ADD, &qobj, &step, NULL);
+	pushi(ctx->current, &olen, Q_LOADL, &ptr, NULL);
+	
+	// check if there is anything to do
+	struct qbe_statement lzero, lnonzero;
+	struct qbe_value bzero = mklabel(ctx, &lzero, ".%d");
+	struct qbe_value bnonzero = mklabel(ctx, &lnonzero, ".%d");
+	
+	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
+	struct qbe_value zero = constl(0);
+	pushi(ctx->current, &cmpres, Q_CNEL, &olen, &zero, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bnonzero, &bzero, NULL);
+	push(&ctx->current->body, &lnonzero);
+	
+	// get the destination
+	struct qbe_value odata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &odata, Q_LOADL, &qobj, NULL);
+	
+	// get the source
+	struct gen_value val = gen_expr(ctx, expr->assign.value);
+	struct qbe_value qval = mkqval(ctx, &val);
+	struct qbe_value vdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &vdata, Q_LOADL, &qval, NULL);
+	
+	// copy the first item
+	const struct type *sltype = expr->assign.object->result->array.members;
+	enum qbe_instr store = store_for_type(ctx, sltype);
+	pushi(ctx->current, NULL, store, &vdata, &odata, NULL);
+	
+	// perform the copy minus the first element
+	struct qbe_value isize = constl(sltype->size);
+	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &next, Q_ADD, &odata, &isize, NULL);
+	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
+	struct qbe_value one = constl(1);
+	pushi(ctx->current, &olen, Q_SUB, &olen, &one, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &next, &odata, &olen, NULL);
+	
+	push(&ctx->current->body, &lzero);
+	
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
 {
+	const struct type *vtype = type_dealias(expr->assign.value->result);
+	if (vtype->storage == STORAGE_ARRAY && vtype->array.expandable) {
+		return gen_expr_assign_slice_expandable(ctx, expr);
+	}
+
 	struct gen_value obj = gen_expr(ctx, expr->assign.object);
 	struct gen_value val = gen_expr(ctx, expr->assign.value);
 	struct qbe_value qobj = mkqval(ctx, &obj);
