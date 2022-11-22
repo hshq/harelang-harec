@@ -80,6 +80,32 @@ rt() {
 			rt: libhart.a rt/+openbsd/start+$arch.o
 			EOF
 			;;
+		NetBSD)
+			case $arch in
+				amd64)
+					arch=x86_64
+					;;
+				*)
+					printf "unsupported NetBSD arch %s\n" "$arch" >&2
+					exit 1
+					;;
+			esac
+			rtstart=rt/+netbsd/start+$arch.o
+			cat <<-EOF
+			rtstart=rt/+netbsd/start+$arch.o
+
+			libhart_srcs=\
+				rt/+netbsd/errno.ha \
+				rt/+netbsd/segmalloc.ha \
+				rt/+netbsd/syscallno.ha \
+				rt/+netbsd/syscalls.ha \
+
+			libhart_objs=\
+				rt/+netbsd/syscall+$arch.o
+
+			rt: libhart.a rt/+netbsd/start+$arch.o
+			EOF
+			;;
 		*)
 			printf "rt not supported for %s\n" "$(uname)" >&2
 			exit 1
