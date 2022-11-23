@@ -333,12 +333,12 @@ check_expr_alloc_init(struct context *ctx,
 	if (type_dealias(objtype)->storage == STORAGE_ARRAY
 			&& type_dealias(objtype)->array.expandable) {
 		const struct type *atype = type_dealias(objtype);
-		if (!hint) {
+		if (!inithint) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot infer expandable array length without type hint");
 			return;
 		}
-		const struct type *htype = type_dereference(hint);
+		const struct type *htype = type_dealias(type_dereference(inithint));
 		if (htype->storage != STORAGE_ARRAY) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot assign expandable array from non-array type");
