@@ -62,6 +62,15 @@ fn array() void = {
 	free(aa);
 	let aa: nullable *aarray = alloc([0...]: aarray);
 	free(aa);
+
+	let x: *[24]int = alloc([1, 2...]);
+
+	assert(len(x) == 24);
+	assert(x[0] == 1);
+	for (let i = 1z; i < len(x); i += 1) {
+		assert(x[i] == 2);
+	};
+	free(x);
 };
 
 fn slice() void = {
