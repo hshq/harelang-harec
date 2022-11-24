@@ -2462,6 +2462,10 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 	do {
 		struct qbe_statement lsubtype;
 		struct qbe_value bsubtype = mklabel(ctx, &lsubtype, "subtype.%d");
+
+		if (type_dealias(subtype)->storage != STORAGE_TAGGED) {
+			break;
+		}
 		test = tagged_select_subtype(subtype, type);
 		if (!test) {
 			break;
@@ -2472,7 +2476,7 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		pushi(ctx->current, NULL, Q_JNZ, &qmatch, &bsubtype, &bnext, NULL);
 		push(&ctx->current->body, &lsubtype);
 
-		if (test->id != type->id && type_dealias(test)-> id != type->id) {
+		if (test->id != type->id && type_dealias(test)->id != type->id) {
 			struct qbe_value offs = constl(subtype->align);
 			pushi(ctx->current, &subval, Q_ADD, &subval, &offs, NULL);
 			pushi(ctx->current, &temp, Q_LOADUW, &subval, NULL);
