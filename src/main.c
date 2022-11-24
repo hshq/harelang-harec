@@ -20,7 +20,7 @@ static void
 usage(const char *argv_0)
 {
 	fprintf(stderr,
-		"Usage: %s [-a arch] [-D ident:type=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
+		"Usage: %s [-a arch] [-D ident[:type]=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
 		argv_0);
 }
 
@@ -66,14 +66,13 @@ parse_define(const char *argv_0, const char *in)
 	lex_init(&lexer, f, 0);
 
 	parse_identifier(&lexer, &def->ident, false);
-	if (lex(&lexer, &tok) != T_COLON) {
-		lex_finish(&lexer);
-		usage(argv_0);
-		exit(EXIT_FAILURE);
+	def->type = NULL;
+	if (lex(&lexer, &tok) == T_COLON) {
+		def->type = parse_type(&lexer);
+		lex(&lexer, &tok);
 	}
-	def->type = parse_type(&lexer);
 
-	if (lex(&lexer, &tok) != T_EQUAL) {
+	if (tok.token != T_EQUAL) {
 		lex_finish(&lexer);
 		usage(argv_0);
 		exit(EXIT_FAILURE);

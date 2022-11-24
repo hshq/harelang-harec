@@ -3332,7 +3332,7 @@ check_global(struct context *ctx,
 		&& adecl->type->array.contextual;
 	if (context || !type) {
 		// XXX: Do we need to do anything more here
-		type = initializer->result;
+		type = lower_const(initializer->result, NULL);
 	}
 
 	initializer = lower_implicit_cast(type, initializer);
@@ -3566,7 +3566,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 		&& decl->type->array.contextual;
 	if (context || !decl->type) {
 		// XXX: Do we need to do anything more here
-		type = initializer->result;
+		type = lower_const(initializer->result, NULL);
 	}
 
 	char *typename1 = gen_typename(initializer->result);
@@ -3647,7 +3647,7 @@ scan_global(struct context *ctx, const struct ast_global_decl *decl)
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, decl->init, initializer, type);
-		type = initializer->result;
+		type = lower_const(initializer->result, NULL);
 		assert(type);
 		free(initializer);
 	}

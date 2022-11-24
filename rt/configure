@@ -6,7 +6,7 @@ rt() {
 	os_name=$(uname -s)
 	platform=$(echo $os_name | tr '[:upper:]' '[:lower:]')
 
-	if [ "$arch" == "amd64" ] # for FreeBSD|OpenBSD
+	if [ "$arch" == "amd64" ] # for FreeBSD|OpenBSD|NetBSD
 	then
 		arch=x86_64
 	fi
