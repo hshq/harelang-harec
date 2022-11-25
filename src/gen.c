@@ -808,7 +808,23 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	struct qbe_value qmsg = mkqval(ctx, &msg);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qmsg, NULL);
+
+	int n = snprintf(NULL, 0, "%s:%d:%d",
+			sources[expr->loc.file], expr->loc.lineno,
+			expr->loc.colno);
+	char *s = xcalloc(1, n + 1);
+	snprintf(s, n, "%s:%d:%d",
+			sources[expr->loc.file], expr->loc.lineno,
+			expr->loc.colno);
+	struct expression eloc = {0};
+	eloc.type = EXPR_CONSTANT;
+	eloc.result = &builtin_type_const_str;
+	eloc.constant.string.value = s;
+	eloc.constant.string.len = n - 1;
+	struct gen_value loc_msg = gen_expr(ctx, &eloc);
+	struct qbe_value loc_qmsg = mkqval(ctx, &loc_msg);
+
+	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &loc_qmsg, &qmsg, NULL);
 
 	if (expr->assert.cond) {
 		push(&ctx->current->body, &passedl);
