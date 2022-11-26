@@ -1,9 +1,6 @@
-export @noreturn @symbol("rt.abort") fn _abort(loc: str, msg: str) void = {
+export @noreturn @symbol("rt.abort") fn _abort(msg: str) void = {
 	const prefix = "Abort: ";
-	const sep = ": ";
 	write(2, constchar(prefix), len(prefix));
-	write(2, constchar(loc), len(loc));
-	write(2, constchar(sep), len(sep));
 	write(2, constchar(msg), len(msg));
 	write(2, constchar("\n"), 1);
 	kill(getpid(), SIGABRT);
@@ -19,5 +16,12 @@ const reasons: [_]str = [
 ];
 
 export @noreturn fn abort_fixed(loc: str, i: int) void = {
-	_abort(loc, reasons[i]);
+	const prefix = "Abort: ";
+	const sep = ": ";
+	write(2, constchar(prefix), len(prefix));
+	write(2, constchar(loc), len(loc));
+	write(2, constchar(sep), len(sep));
+	write(2, constchar(reasons[i]), len(reasons[i]));
+	write(2, constchar("\n"), 1);
+	kill(getpid(), SIGABRT);
 };

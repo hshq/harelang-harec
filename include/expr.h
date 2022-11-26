@@ -347,7 +347,7 @@ struct expression {
 	const struct type *result;
 	enum expr_type type;
 	bool terminates;
-	struct location loc; // For aborts
+	struct location loc; // For fixed aborts
 	union {
 		struct expression_access access;
 		struct expression_alloc alloc;

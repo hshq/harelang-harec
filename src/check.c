@@ -601,11 +601,33 @@ check_expr_assert(struct context *ctx,
 				"Assertion message must be string");
 			return;
 		}
+
+		assert(expr->assert.message->type == EXPR_CONSTANT);
+		size_t n = snprintf(NULL, 0, "%s:%d:%d: ",
+			sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
+		size_t s_len = expr->assert.message->constant.string.len;
+		char *s = xcalloc(1, n + s_len + 1);
+		snprintf(s, n + 1, "%s:%d:%d: ", sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
+		memcpy(s+n, expr->assert.message->constant.string.value, s_len);
+		s[n + s_len] = '\0';
+
+		expr->assert.message->constant.string.value = s;
+		expr->assert.message->constant.string.len = n + s_len;
 	} else {
+		int n = snprintf(NULL, 0, "Assertion failed: %s:%d:%d",
+			sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
+		char *s = xcalloc(1, n + 1);
+		snprintf(s, n, "Assertion failed: %s:%d:%d",
+			sources[aexpr->loc.file],
+			aexpr->loc.lineno, aexpr->loc.colno);
+
 		expr->assert.message->type = EXPR_CONSTANT;
 		expr->assert.message->result = &builtin_type_const_str;
-		expr->assert.message->constant.string.value = "Assertion failed";
-		expr->assert.message->constant.string.len = 16;
+		expr->assert.message->constant.string.value = s;
+		expr->assert.message->constant.string.len = n - 1;
 	}
 
 	if (expr->assert.is_static) {
