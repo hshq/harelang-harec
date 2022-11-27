@@ -69,9 +69,7 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 {
 	if (expr) {
 		expr->type = EXPR_CONSTANT;
-		// TODO: We should have a separate type for errors, to avoid
-		// spurious errors
-		expr->result = &builtin_type_void;
+		expr->result = &builtin_type_error;
 		expr->terminates = false;
 		expr->loc = loc;
 	}
@@ -848,6 +846,8 @@ type_promote(struct type_store *store,
 			return b;
 		}
 		return NULL;
+	case STORAGE_ERROR:
+		return b;
 	// Cannot be promoted
 	case STORAGE_BOOL:
 	case STORAGE_FUNCTION:
@@ -1711,6 +1711,7 @@ check_expr_constant(struct context *ctx,
 		break;
 	case STORAGE_CHAR:
 	case STORAGE_ENUM:
+	case STORAGE_ERROR:
 	case STORAGE_UINTPTR:
 	case STORAGE_ALIAS:
 	case STORAGE_FUNCTION:
@@ -2879,7 +2880,7 @@ check_expr_tuple(struct context *ctx,
 	} else {
 		expr->result = type_store_lookup_tuple(ctx->store,
 				aexpr->loc, &result);
-		if (expr->result == &builtin_type_void) {
+		if (expr->result == &builtin_type_error) {
 			// an error occured
 			return;
 		}
@@ -3033,7 +3034,7 @@ check_expr_vaend(struct context *ctx,
 			"Expected vaend operand to be valist");
 		return;
 	}
-	expr->result = &builtin_type_void;
+	expr->result = &builtin_type_error;
 }
 
 void

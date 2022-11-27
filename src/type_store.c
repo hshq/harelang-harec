@@ -79,6 +79,8 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return is_const ? &builtin_type_const_bool : &builtin_type_bool;
 	case STORAGE_CHAR:
 		return is_const ? &builtin_type_const_char : &builtin_type_char;
+	case STORAGE_ERROR:
+		return &builtin_type_error;
 	case STORAGE_F32:
 		return is_const ? &builtin_type_const_f32 : &builtin_type_f32;
 	case STORAGE_F64:
@@ -367,7 +369,7 @@ tagged_or_atagged_member(struct type_store *store,
 			error(store->check_context, _atype->loc,
 				"Unknown object '%s'",
 				identifier_unparse(&_atype->alias));
-			*type = &builtin_type_void;
+			*type = &builtin_type_error;
 			return;
 		}
 		if (obj->otype != O_SCAN) {
@@ -378,7 +380,7 @@ tagged_or_atagged_member(struct type_store *store,
 				error(store->check_context, _atype->loc,
 					"Object '%s' is not a type",
 					identifier_unparse(&obj->ident));
-				*type = &builtin_type_void;
+				*type = &builtin_type_error;
 				return;
 			}
 		}
@@ -389,7 +391,7 @@ tagged_or_atagged_member(struct type_store *store,
 			error(store->check_context, _atype->loc,
 				"Object '%s' is not a type",
 				identifier_unparse(&obj->ident));
-			*type = &builtin_type_void;
+			*type = &builtin_type_error;
 			return;
 		}
 		_atype = idecl->decl.type.type;
@@ -520,7 +522,7 @@ tagged_init_from_atype(struct type_store *store,
 	collect_atagged_memb(store, tu, &atype->tagged_union, &i);
 	tagged_init(store, type, tu, nmemb);
 	if (!enforce_tagged_invariants(store, atype->loc, type)) {
-		*type = builtin_type_void;
+		*type = builtin_type_error;
 	};
 }
 
@@ -646,10 +648,10 @@ type_init_from_atype(struct type_store *store,
 	type->storage = atype->storage;
 	type->flags = atype->flags;
 
-	// TODO: Use a dedicated error type instead of void for errors
 	const struct scope_object *obj = NULL;
 	const struct type *builtin;
 	switch (type->storage) {
+	case STORAGE_ERROR:
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
@@ -686,7 +688,7 @@ type_init_from_atype(struct type_store *store,
 			error(store->check_context, atype->loc,
 				"Unresolvable identifier '%s'",
 				identifier_unparse(&atype->alias));
-			*type = builtin_type_void;
+			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
 
@@ -709,7 +711,7 @@ type_init_from_atype(struct type_store *store,
 			error(store->check_context, atype->loc,
 				"Object '%s' is not a type",
 				identifier_unparse(&obj->ident));
-			*type = builtin_type_void;
+			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
 
@@ -742,13 +744,13 @@ type_init_from_atype(struct type_store *store,
 		if (type->array.length != SIZE_UNDEFINED && memb.size == 0) {
 			error(store->check_context, atype->loc,
 				"Type of size 0 is not a valid array member");
-			*type = builtin_type_void;
+			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
 		if (memb.size == SIZE_UNDEFINED) {
 			error(store->check_context, atype->loc,
 				"Type of undefined size is not a valid array member");
-			*type = builtin_type_void;
+			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
 
@@ -777,13 +779,13 @@ type_init_from_atype(struct type_store *store,
 			if (param->type->size == 0) {
 				error(store->check_context, atype->loc,
 					"Function parameter types must have nonzero size");
-				*type = builtin_type_void;
+				*type = builtin_type_error;
 				return (struct dimensions){0};
 			}
 			if (param->type->size == SIZE_UNDEFINED) {
 				error(store->check_context, atype->loc,
 					"Function parameter types must have defined size");
-				*type = builtin_type_void;
+				*type = builtin_type_error;
 				return (struct dimensions){0};
 			}
 			if (atype->func.variadism == VARIADISM_HARE
@@ -970,7 +972,7 @@ type_store_lookup_pointer(struct type_store *store, struct location loc,
 	if (referent->storage == STORAGE_NULL) {
 		error(store->check_context, loc,
 			"Null type not allowed in this context");
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	referent = lower_const(referent, NULL);
 
@@ -993,7 +995,7 @@ type_store_lookup_array(struct type_store *store, struct location loc,
 	if (members->storage == STORAGE_NULL) {
 		error(store->check_context, loc,
 			"Null type not allowed in this context");
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	members = lower_const(members, NULL);
 	// XXX: I'm not sure these checks are *exactly* right, we might still
@@ -1001,12 +1003,12 @@ type_store_lookup_array(struct type_store *store, struct location loc,
 	if (len != SIZE_UNDEFINED && members->size == 0) {
 		error(store->check_context, loc,
 			"Type of size 0 is not a valid array member");
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	if (members->size == SIZE_UNDEFINED) {
 		error(store->check_context, loc,
 			"Type of undefined size is not a valid member of a bounded array");
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	assert(members->align != 0);
 	assert(members->align != ALIGN_UNDEFINED);
@@ -1033,18 +1035,18 @@ type_store_lookup_slice(struct type_store *store, struct location loc,
 	if (members->storage == STORAGE_NULL) {
 		error(store->check_context, loc,
 			"Null type not allowed in this context");
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	members = lower_const(members, NULL);
 	if (members->size == 0) {
 		error(store->check_context, loc,
 			"Type of size 0 is not a valid slice member");
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	if (members->size == SIZE_UNDEFINED) {
 		error(store->check_context, loc,
 			"Type of undefined size is not a valid slice member");
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	assert(members->align != 0);
 	assert(members->align != ALIGN_UNDEFINED);
@@ -1109,7 +1111,7 @@ type_store_lookup_tagged(struct type_store *store, struct location loc,
 {
 	const struct type *type = lookup_tagged(store, tags);
 	if (!enforce_tagged_invariants(store, loc, type)) {
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	return type_store_lookup_type(store, type);
 }
@@ -1158,18 +1160,18 @@ type_store_lookup_tuple(struct type_store *store, struct location loc,
 		if (t->type->storage == STORAGE_NULL) {
 			error(store->check_context, loc,
 				"Null type not allowed in this context");
-			return &builtin_type_void;
+			return &builtin_type_error;
 		}
 		t->type = lower_const(t->type, NULL);
 		if (t->type->size == 0) {
 			error(store->check_context, loc,
 				"Type of size 0 is not a valid tuple member");
-			return &builtin_type_void;
+			return &builtin_type_error;
 		}
 		if (t->type->size == SIZE_UNDEFINED) {
 			error(store->check_context, loc,
 				"Type of undefined size is not a valid tuple member");
-			return &builtin_type_void;
+			return &builtin_type_error;
 		}
 		assert(t->type->align != 0);
 		assert(t->type->align != ALIGN_UNDEFINED);
@@ -1200,7 +1202,7 @@ type_store_lookup_enum(struct type_store *store, const struct ast_type *atype,
 			&& type.alias.type->storage != STORAGE_RUNE) {
 		error(store->check_context, atype->loc,
 			"Enum storage must be an integer or rune");
-		return &builtin_type_void;
+		return &builtin_type_error;
 	}
 	type.size = type.alias.type->size;
 	type.align = type.alias.type->size;

@@ -1801,6 +1801,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		break;
 	case STORAGE_ALIAS:
 	case STORAGE_BOOL:
+	case STORAGE_ERROR:
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
@@ -3756,6 +3757,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case STORAGE_UNION:
 	case STORAGE_ALIAS:
+	case STORAGE_ERROR:
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:

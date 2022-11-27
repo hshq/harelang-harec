@@ -134,6 +134,7 @@ itrunc(const struct type *type, uintmax_t val)
 		return itrunc(type_dealias(type), val);
 	case STORAGE_ENUM:
 		return itrunc(type->alias.type, val);
+	case STORAGE_ERROR:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
@@ -406,6 +407,7 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 		assert(0); // TODO
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
+	case STORAGE_ERROR:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
@@ -602,6 +604,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
 		assert(0); // Invariant
+	case STORAGE_ERROR:
 	case STORAGE_VOID:
 		break; // no-op
 	}
@@ -662,6 +665,7 @@ constant_default(struct context *ctx, struct expression *v)
 {
 	struct expression b = {0};
 	switch (type_dealias(v->result)->storage) {
+	case STORAGE_ERROR:
 	case STORAGE_POINTER:
 	case STORAGE_I16:
 	case STORAGE_I32:

@@ -119,6 +119,8 @@ type_storage_unparse(enum type_storage storage)
 		return "f32";
 	case STORAGE_F64:
 		return "f64";
+	case STORAGE_ERROR:
+		return "invalid";
 	case STORAGE_FCONST:
 		return "fconst";
 	case STORAGE_FUNCTION:
@@ -202,6 +204,7 @@ type_is_integer(const struct type *type)
 		return false;
 	case STORAGE_CHAR:
 	case STORAGE_ENUM:
+	case STORAGE_ERROR:
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -243,6 +246,7 @@ type_is_numeric(const struct type *type)
 	case STORAGE_NULL:
 	case STORAGE_VALIST:
 		return false;
+	case STORAGE_ERROR:
 	case STORAGE_ENUM:
 	case STORAGE_I8:
 	case STORAGE_I16:
@@ -272,7 +276,8 @@ type_is_float(const struct type *type)
 {
 	type = type_dealias(type);
 	return type->storage == STORAGE_F32 || type->storage == STORAGE_F64
-		|| type->storage == STORAGE_FCONST;
+		|| type->storage == STORAGE_FCONST
+		|| type->storage == STORAGE_ERROR;
 }
 
 bool
@@ -286,6 +291,7 @@ type_is_signed(const struct type *type)
 	case STORAGE_VOID:
 	case STORAGE_ARRAY:
 	case STORAGE_ENUM:
+	case STORAGE_ERROR: // XXX?
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
@@ -343,6 +349,7 @@ type_hash(const struct type *type)
 	switch (type->storage) {
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
+	case STORAGE_ERROR:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_I8:
@@ -855,6 +862,8 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
 		return false;
+	case STORAGE_ERROR:
+		return true;
 	}
 
 	assert(0); // Unreachable
@@ -970,6 +979,8 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
 		return false;
+	case STORAGE_ERROR:
+		return true;
 	case STORAGE_TAGGED:
 	case STORAGE_ALIAS:
 		assert(0); // Handled above
@@ -1067,24 +1078,24 @@ builtin_types_init(const char *target)
 		exit(EXIT_FAILURE);
 	}
 	struct type *builtins[] = {
-		&builtin_type_bool, &builtin_type_char, &builtin_type_f32,
-		&builtin_type_f64, &builtin_type_i8, &builtin_type_i16,
-		&builtin_type_i32, &builtin_type_i64, &builtin_type_int,
-		&builtin_type_u8, &builtin_type_u16, &builtin_type_u32,
-		&builtin_type_u64, &builtin_type_uint, &builtin_type_uintptr,
-		&builtin_type_null, &builtin_type_rune, &builtin_type_size,
-		&builtin_type_void, &builtin_type_const_bool,
-		&builtin_type_const_char, &builtin_type_const_f32,
-		&builtin_type_const_f64, &builtin_type_const_i8,
-		&builtin_type_const_i16, &builtin_type_const_i32,
-		&builtin_type_const_i64, &builtin_type_const_int,
-		&builtin_type_const_u8, &builtin_type_const_u16,
-		&builtin_type_const_u32, &builtin_type_const_u64,
-		&builtin_type_const_uint, &builtin_type_const_uintptr,
-		&builtin_type_const_rune, &builtin_type_const_size,
-		&builtin_type_const_void, &builtin_type_ptr_const_char,
-		&builtin_type_str, &builtin_type_const_str,
-		&builtin_type_valist,
+		&builtin_type_bool, &builtin_type_char, &builtin_type_error,
+		&builtin_type_f32, &builtin_type_f64, &builtin_type_i8,
+		&builtin_type_i16, &builtin_type_i32, &builtin_type_i64,
+		&builtin_type_int, &builtin_type_u8, &builtin_type_u16,
+		&builtin_type_u32, &builtin_type_u64, &builtin_type_uint,
+		&builtin_type_uintptr, &builtin_type_null, &builtin_type_rune,
+		&builtin_type_size, &builtin_type_void,
+		&builtin_type_const_bool, &builtin_type_const_char,
+		&builtin_type_const_f32, &builtin_type_const_f64,
+		&builtin_type_const_i8, &builtin_type_const_i16,
+		&builtin_type_const_i32, &builtin_type_const_i64,
+		&builtin_type_const_int, &builtin_type_const_u8,
+		&builtin_type_const_u16, &builtin_type_const_u32,
+		&builtin_type_const_u64, &builtin_type_const_uint,
+		&builtin_type_const_uintptr, &builtin_type_const_rune,
+		&builtin_type_const_size, &builtin_type_const_void,
+		&builtin_type_ptr_const_char, &builtin_type_str,
+		&builtin_type_const_str, &builtin_type_valist,
 	};
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
 		builtins[i]->id = type_hash(builtins[i]);
@@ -1099,6 +1110,11 @@ struct type builtin_type_bool = {
 },
 builtin_type_char = {
 	.storage = STORAGE_CHAR,
+	.size = 1,
+	.align = 1,
+},
+builtin_type_error = {
+	.storage = STORAGE_ERROR,
 	.size = 1,
 	.align = 1,
 },
