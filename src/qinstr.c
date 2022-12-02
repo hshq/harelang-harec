@@ -29,6 +29,7 @@ store_for_type(struct gen_context *ctx, const struct type *type)
 	case STORAGE_CHAR:
 	case STORAGE_I8:
 	case STORAGE_U8:
+	case STORAGE_BOOL:
 		return Q_STOREB;
 	case STORAGE_I16:
 	case STORAGE_U16:
@@ -39,7 +40,6 @@ store_for_type(struct gen_context *ctx, const struct type *type)
 	case STORAGE_UINT:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
-	case STORAGE_BOOL:
 		return Q_STOREW;
 	case STORAGE_I64:
 	case STORAGE_U64:
@@ -94,6 +94,7 @@ load_for_type(struct gen_context *ctx, const struct type *type)
 		return Q_LOADSB;
 	case STORAGE_CHAR:
 	case STORAGE_U8:
+	case STORAGE_BOOL:
 		return Q_LOADUB;
 	case STORAGE_I16:
 		return Q_LOADSH;
@@ -103,7 +104,6 @@ load_for_type(struct gen_context *ctx, const struct type *type)
 	case STORAGE_UINT:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
-	case STORAGE_BOOL:
 		return Q_LOADUW;
 	case STORAGE_I32:
 	case STORAGE_INT:

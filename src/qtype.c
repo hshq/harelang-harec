@@ -199,6 +199,7 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_U8:
 	case STORAGE_I8:
 	case STORAGE_CHAR:
+	case STORAGE_BOOL:
 		return xtype ? &qbe_byte : &qbe_word;
 	case STORAGE_I16:
 	case STORAGE_U16:
@@ -208,7 +209,6 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_INT:
 	case STORAGE_UINT:
 	case STORAGE_RUNE:
-	case STORAGE_BOOL:
 		return &qbe_word;
 	case STORAGE_U64:
 	case STORAGE_I64:

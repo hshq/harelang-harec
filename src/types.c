@@ -982,8 +982,6 @@ void
 builtin_types_init(const char *target)
 {
 	if (strcmp(target, "aarch64") == 0) {
-		builtin_type_bool.size = 4;
-		builtin_type_bool.align = 4;
 		builtin_type_int.size = 4;
 		builtin_type_int.align = 4;
 		builtin_type_uint.size = 4;
@@ -994,8 +992,6 @@ builtin_types_init(const char *target)
 		builtin_type_null.align = 8;
 		builtin_type_size.size = 8;
 		builtin_type_size.align = 8;
-		builtin_type_const_bool.size = 4;
-		builtin_type_const_bool.align = 4;
 		builtin_type_const_int.size = 4;
 		builtin_type_const_int.align = 4;
 		builtin_type_const_uint.size = 4;
@@ -1013,8 +1009,6 @@ builtin_types_init(const char *target)
 		builtin_type_valist.size = 32;
 		builtin_type_valist.align = 8;
 	} else if (strcmp(target, "riscv64") == 0) {
-		builtin_type_bool.size = 4;
-		builtin_type_bool.align = 4;
 		builtin_type_int.size = 4;
 		builtin_type_int.align = 4;
 		builtin_type_uint.size = 4;
@@ -1025,8 +1019,6 @@ builtin_types_init(const char *target)
 		builtin_type_null.align = 8;
 		builtin_type_size.size = 8;
 		builtin_type_size.align = 8;
-		builtin_type_const_bool.size = 4;
-		builtin_type_const_bool.align = 4;
 		builtin_type_const_int.size = 4;
 		builtin_type_const_int.align = 4;
 		builtin_type_const_uint.size = 4;
@@ -1044,8 +1036,6 @@ builtin_types_init(const char *target)
 		builtin_type_valist.size = 8;
 		builtin_type_valist.align = 8;
 	} else if (strcmp(target, "x86_64") == 0) {
-		builtin_type_bool.size = 4;
-		builtin_type_bool.align = 4;
 		builtin_type_int.size = 4;
 		builtin_type_int.align = 4;
 		builtin_type_uint.size = 4;
@@ -1056,8 +1046,6 @@ builtin_types_init(const char *target)
 		builtin_type_null.align = 8;
 		builtin_type_size.size = 8;
 		builtin_type_size.align = 8;
-		builtin_type_const_bool.size = 4;
-		builtin_type_const_bool.align = 4;
 		builtin_type_const_int.size = 4;
 		builtin_type_const_int.align = 4;
 		builtin_type_const_uint.size = 4;
@@ -1106,6 +1094,8 @@ builtin_types_init(const char *target)
 // Built-in type singletons
 struct type builtin_type_bool = {
 	.storage = STORAGE_BOOL,
+	.size = 1,
+	.align = 1,
 },
 builtin_type_char = {
 	.storage = STORAGE_CHAR,
@@ -1190,6 +1180,8 @@ builtin_type_void = {
 builtin_type_const_bool = {
 	.storage = STORAGE_BOOL,
 	.flags = TYPE_CONST,
+	.size = 1,
+	.align = 1,
 },
 builtin_type_const_char = {
 	.storage = STORAGE_CHAR,

@@ -3510,15 +3510,16 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		item->value = constw((uint8_t)constant->uval);
 		item->value.type = &qbe_byte;
 		break;
+	case STORAGE_BOOL:
+		item->type = QD_VALUE;
+		item->value = constw(constant->bval ? 1 : 0);
+		item->value.type = &qbe_byte;
+		break;
 	case STORAGE_I16:
 	case STORAGE_U16:
 		item->type = QD_VALUE;
 		item->value = constw((uint16_t)constant->uval);
 		item->value.type = &qbe_half;
-		break;
-	case STORAGE_BOOL:
-		item->type = QD_VALUE;
-		item->value = constw(constant->bval ? 1 : 0);
 		break;
 	case STORAGE_I32:
 	case STORAGE_U32:

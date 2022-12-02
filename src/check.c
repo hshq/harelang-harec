@@ -2345,8 +2345,13 @@ check_expr_propagate(struct context *ctx,
 		case_err->value->assert.message->constant.string.len = n;
 	} else {
 		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
+			char *res = gen_typename(ctx->fntype->func.result);
+			char *ret = gen_typename(return_type);
 			error(ctx, aexpr->loc, expr,
-				"Error type is not assignable to function result type");
+				"Error type %s is not assignable to function result type %s",
+				ret, res);
+			free(res);
+			free(ret);
 			return;
 		}
 
