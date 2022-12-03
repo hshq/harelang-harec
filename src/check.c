@@ -3922,25 +3922,34 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	return ret;
 }
 
+static struct incomplete_declaration *
+scan_const(struct context *ctx, struct scope *imports, bool exported,
+		struct location loc, struct ast_global_decl *decl)
+{
+
+	struct identifier with_ns = {0};
+	mkident(ctx, &with_ns, &decl->ident, NULL);
+	struct incomplete_declaration *idecl =
+		incomplete_declaration_create(ctx, loc,
+				ctx->scope, &with_ns, &decl->ident);
+	idecl->type = IDECL_DECL;
+	idecl->decl = (struct ast_decl){
+		.decl_type = AST_DECL_CONST,
+		.loc = loc,
+		.constant = *decl,
+		.exported = exported,
+	};
+	idecl->imports = imports;
+	return idecl;
+}
+
 static void
 scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 {
 	switch (decl->decl_type) {
 	case AST_DECL_CONST:
 		for (struct ast_global_decl *g = &decl->constant; g; g = g->next) {
-			struct identifier with_ns = {0};
-			mkident(ctx, &with_ns, &g->ident, NULL);
-			struct incomplete_declaration *idecl =
-				incomplete_declaration_create(ctx, decl->loc,
-						ctx->scope, &with_ns, &g->ident);
-			idecl->type = IDECL_DECL;
-			idecl->decl = (struct ast_decl){
-				.decl_type = AST_DECL_CONST,
-				.loc = decl->loc,
-				.constant = *g,
-				.exported = decl->exported,
-			};
-			idecl->imports = imports;
+			scan_const(ctx, imports, decl->exported, decl->loc, g);
 		}
 		break;
 	case AST_DECL_GLOBAL:
