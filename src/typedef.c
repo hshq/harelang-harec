@@ -437,9 +437,7 @@ emit_decl_type(struct declaration *decl, FILE *out)
 			type_storage_unparse(type->alias.type->storage));
 		for (const struct scope_object *ev = type->_enum.values->objects;
 				ev; ev = ev->lnext) {
-			if (ev->otype == O_SCAN) {
-				continue;
-			}
+			assert(ev->otype != O_SCAN);
 			fprintf(out, "%s = ", ev->name.name);
 			emit_const(ev->value, out);
 			fprintf(out, ", ");

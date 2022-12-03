@@ -695,15 +695,14 @@ type_init_from_atype(struct type_store *store,
 			struct incomplete_declaration *idecl =
 				(struct incomplete_declaration *)obj;
 			if (size_only && idecl->type == IDECL_DECL) {
-				obj = wrap_resolver(store->check_context, obj,
+				wrap_resolver(store->check_context, obj,
 						resolve_dimensions);
 				type->size = obj->type->size;
 				type->align = obj->type->align;
 				break;
 			}
 			// complete it first and then proceed normally
-			obj = wrap_resolver(store->check_context,
-					obj, resolve_type);
+			wrap_resolver(store->check_context, obj, resolve_type);
 		}
 
 		if (obj->otype != O_TYPE) {
