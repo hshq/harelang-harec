@@ -3551,8 +3551,10 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 }
 
 const struct scope_object *
-resolve_const(struct context *ctx, const struct ast_global_decl *decl)
+resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 {
+	const struct ast_global_decl *decl = &idecl->decl.global;
+
 	assert(!decl->symbol); // Invariant
 
 	const struct type *type = NULL;
@@ -3588,15 +3590,15 @@ resolve_const(struct context *ctx, const struct ast_global_decl *decl)
 		"Null is not a valid type for a constant");
 	free(initializer);
 
-	struct identifier ident = {0};
-	mkident(ctx, &ident, &decl->ident, NULL);
-	return scope_insert(ctx->unit, O_CONST, &ident,
-			&decl->ident, type, value);
+	return scope_insert(ctx->unit, O_CONST, &idecl->obj.ident,
+			&idecl->obj.name, type, value);
 }
 
 const struct scope_object *
-resolve_function(struct context *ctx, const struct ast_function_decl *decl)
+resolve_function(struct context *ctx, struct incomplete_declaration *idecl)
 {
+	const struct ast_function_decl *decl = &idecl->decl.function;
+
 	const struct ast_type fn_atype = {
 		.storage = STORAGE_FUNCTION,
 		.flags = TYPE_CONST,
@@ -3605,18 +3607,15 @@ resolve_function(struct context *ctx, const struct ast_function_decl *decl)
 	const struct type *fntype = type_store_lookup_atype(
 			ctx->store, &fn_atype);
 
-	if (!decl->flags) {
-		struct identifier ident = {0};
-		mkident(ctx, &ident, &decl->ident, decl->symbol);
-		return scope_insert(ctx->unit, O_DECL, &ident,
-				&decl->ident, fntype, NULL);
-	}
-	return NULL;
+	return scope_insert(ctx->unit, O_DECL, &idecl->obj.ident,
+			&idecl->obj.name, fntype, NULL);
 }
 
 const struct scope_object *
-resolve_global(struct context *ctx, const struct ast_global_decl *decl)
+resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 {
+	const struct ast_global_decl *decl = &idecl->decl.global;
+
 	const struct type *type = NULL;
 	if (decl->type) {
 		type = type_store_lookup_atype(ctx->store, decl->type);
@@ -3650,10 +3649,8 @@ resolve_global(struct context *ctx, const struct ast_global_decl *decl)
 	expect(ctx, &decl->init->loc, type->storage != STORAGE_NULL,
 		"Null is not a valid type for a global");
 
-	struct identifier ident = {0};
-	mkident(ctx, &ident, &decl->ident, decl->symbol);
 	struct scope_object *global = scope_insert(ctx->unit, O_DECL,
-			&ident, &decl->ident, type, NULL);
+			&idecl->obj.ident, &idecl->obj.name, type, NULL);
 	global->threadlocal = decl->threadlocal;
 	return global;
 }
@@ -3665,18 +3662,8 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 
 	const struct type *type = idecl->field->type;
 
-	struct identifier nsident, nsname, localname = {
+	struct identifier localname = {
 		.name = idecl->obj.ident.name
-	};
-	identifier_dup(&nsident, &type->alias.ident);
-	identifier_dup(&nsname, &type->alias.name);
-	struct identifier ident = {
-		.name = localname.name,
-		.ns = &nsident
-	};
-	struct identifier name = {
-		.name = localname.name,
-		.ns = &nsname
 	};
 
 	const struct scope_object *new =
@@ -3686,10 +3673,11 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 			new = wrap_resolver(ctx, new, resolve_enum_field);
 		}
 		assert(new->otype == O_CONST);
-		const struct scope_object *obj = scope_lookup(ctx->scope, &name);
+		const struct scope_object *obj = scope_lookup(ctx->scope,
+				&idecl->obj.name);
 		if (obj->otype == O_SCAN) {
-			return scope_insert(ctx->scope, O_CONST, &ident,
-				&name, type, new->value);
+			return scope_insert(ctx->scope, O_CONST, &obj->ident,
+				&obj->name, type, new->value);
 		}
 		return obj;
 	}
@@ -3741,7 +3729,8 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 	}
 
-	return scope_insert(idecl->field->enum_scope, O_CONST, &name, &localname, type, value);
+	return scope_insert(idecl->field->enum_scope, O_CONST,
+			&idecl->obj.ident, &idecl->obj.name, type, value);
 }
 
 const struct type *
@@ -3897,15 +3886,11 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	idecl->in_progress = false;
 
 	// 2. compute type representation and store it
-	struct identifier ident = {0}, name = {0};
-	identifier_dup(&name, &idecl->decl.type.ident);
-	mkident(ctx, &ident, &name, NULL);
-
 	struct type _alias = {
 		.storage = STORAGE_ALIAS,
 		.alias = {
-			.ident = ident,
-			.name = name,
+			.ident = idecl->obj.ident,
+			.name = idecl->obj.name,
 			.type = NULL,
 			.exported = idecl->decl.exported,
 		},
@@ -3916,7 +3901,8 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 
 	const struct type *alias = type_store_lookup_alias(ctx->store, &_alias);
 	const struct scope_object *ret =
-		scope_insert(ctx->scope, O_TYPE, &ident, &name, alias, NULL);
+		scope_insert(ctx->scope, O_TYPE, &idecl->obj.ident,
+				&idecl->obj.name, alias, NULL);
 	((struct type *)ret->type)->alias.type =
 		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
 	return ret;
@@ -4006,11 +3992,11 @@ resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 
 	switch (idecl->decl.decl_type) {
 	case AST_DECL_CONST:
-		return resolve_const(ctx, &idecl->decl.constant);
+		return resolve_const(ctx, idecl);
 	case AST_DECL_GLOBAL:
-		return resolve_global(ctx, &idecl->decl.global);
+		return resolve_global(ctx, idecl);
 	case AST_DECL_FUNC:
-		return resolve_function(ctx, &idecl->decl.function);
+		return resolve_function(ctx, idecl);
 	case AST_DECL_TYPE:
 		return resolve_type(ctx, idecl);
 	}
@@ -4154,6 +4140,12 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 	}
 }
 
+static const struct location defineloc = {
+	.file = 0,
+	.lineno = 1,
+	.colno = 1,
+};
+
 struct scope *
 check_internal(struct type_store *ts,
 	struct modcache **cache,
@@ -4184,7 +4176,9 @@ check_internal(struct type_store *ts,
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 	for (struct ast_global_decl *def = defines; def; def = def->next) {
-		resolve_const(&ctx, def);
+		struct incomplete_declaration *idecl =
+			scan_const(&ctx, NULL, false , defineloc, def);
+		resolve_const(&ctx, idecl);
 	}
 	struct scope *def_scope = ctx.scope;
 	ctx.scope = NULL;
@@ -4238,6 +4232,9 @@ check_internal(struct type_store *ts,
 	// XXX: shadowed declarations are not checked for consistency
 	for (const struct scope_object *obj = def_scope->objects;
 			obj; obj = obj->lnext) {
+		if (obj->otype == O_SCAN) {
+			continue;
+		}
 		scope_insert(ctx.unit, O_CONST, &obj->ident, &obj->name,
 			obj->type, obj->value);
 	}
