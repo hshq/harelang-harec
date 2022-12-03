@@ -3479,7 +3479,7 @@ incomplete_declaration_create(struct context *ctx, struct location loc,
 }
 
 static void
-incomplete_enum_field_create(struct context *ctx, struct scope *imports,
+scan_enum_field(struct context *ctx, struct scope *imports,
 		struct scope *enum_scope, const struct type *etype,
 		struct ast_enum_field *f)
 {
@@ -3487,7 +3487,7 @@ incomplete_enum_field_create(struct context *ctx, struct scope *imports,
 	// This way, objects in enum_scope will have lnext pointing to
 	// the previous element, which is important for implicit enum values.
 	if (f->next) {
-		incomplete_enum_field_create(ctx, imports, enum_scope,
+		scan_enum_field(ctx, imports, enum_scope,
 			etype, f->next);
 	}
 	assert(etype->storage == STORAGE_ENUM);
@@ -3515,7 +3515,7 @@ incomplete_enum_field_create(struct context *ctx, struct scope *imports,
 }
 
 static void
-incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl *decl)
+scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 {
 	for (struct ast_type_decl *t = &decl->type; t; t = t->next) {
 		struct identifier with_ns = {0};
@@ -3538,7 +3538,7 @@ incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl 
 				return; // error occured
 			}
 			scope_push((struct scope **)&type->_enum.values, SCOPE_ENUM);
-			incomplete_enum_field_create(ctx, imp,
+			scan_enum_field(ctx, imp,
 				type->_enum.values, type, t->type->_enum.values);
 			type->_enum.values->parent = ctx->unit;
 			scope_insert(ctx->scope, O_TYPE, &with_ns,
@@ -3550,7 +3550,7 @@ incomplete_types_create(struct context *ctx, struct scope *imp, struct ast_decl 
 }
 
 const struct scope_object *
-scan_const(struct context *ctx, const struct ast_global_decl *decl)
+resolve_const(struct context *ctx, const struct ast_global_decl *decl)
 {
 	assert(!decl->symbol); // Invariant
 
@@ -3594,7 +3594,7 @@ scan_const(struct context *ctx, const struct ast_global_decl *decl)
 }
 
 const struct scope_object *
-scan_function(struct context *ctx, const struct ast_function_decl *decl)
+resolve_function(struct context *ctx, const struct ast_function_decl *decl)
 {
 	const struct ast_type fn_atype = {
 		.storage = STORAGE_FUNCTION,
@@ -3620,7 +3620,7 @@ scan_function(struct context *ctx, const struct ast_function_decl *decl)
 }
 
 const struct scope_object *
-scan_global(struct context *ctx, const struct ast_global_decl *decl)
+resolve_global(struct context *ctx, const struct ast_global_decl *decl)
 {
 	const struct type *type = NULL;
 	if (decl->type) {
@@ -3944,7 +3944,7 @@ resolve_type(struct context *ctx, const struct scope_object *obj)
 }
 
 static void
-scan_decl_start(struct context *ctx, struct scope *imports, struct ast_decl *decl)
+scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 {
 	switch (decl->decl_type) {
 	case AST_DECL_CONST:
@@ -3983,7 +3983,7 @@ scan_decl_start(struct context *ctx, struct scope *imports, struct ast_decl *dec
 		break;
 	case AST_DECL_FUNC:
 		if (decl->function.flags) {
-			scan_function(ctx, &decl->function);
+			resolve_function(ctx, &decl->function);
 			return;
 		}
 		struct ast_function_decl *func = &decl->function;
@@ -4002,7 +4002,7 @@ scan_decl_start(struct context *ctx, struct scope *imports, struct ast_decl *dec
 		idecl->imports = imports;
 		break;
 	case AST_DECL_TYPE:
-		incomplete_types_create(ctx, imports, decl);
+		scan_types(ctx, imports, decl);
 		break;
 	}
 }
@@ -4020,11 +4020,11 @@ resolve_decl(struct context *ctx, const struct scope_object *obj)
 
 	switch (idecl->decl.decl_type) {
 	case AST_DECL_CONST:
-		return scan_const(ctx, &idecl->decl.constant);
+		return resolve_const(ctx, &idecl->decl.constant);
 	case AST_DECL_GLOBAL:
-		return scan_global(ctx, &idecl->decl.global);
+		return resolve_global(ctx, &idecl->decl.global);
 	case AST_DECL_FUNC:
-		return scan_function(ctx, &idecl->decl.function);
+		return resolve_function(ctx, &idecl->decl.function);
 	case AST_DECL_TYPE:
 		return resolve_type(ctx, obj);
 	}
@@ -4198,7 +4198,7 @@ check_internal(struct type_store *ts,
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 	for (struct ast_global_decl *def = defines; def; def = def->next) {
-		scan_const(&ctx, def);
+		resolve_const(&ctx, def);
 	}
 	struct scope *def_scope = ctx.scope;
 	ctx.scope = NULL;
@@ -4237,7 +4237,7 @@ check_internal(struct type_store *ts,
 		}
 
 		for (struct ast_decls *d = su->decls; d; d = d->next) {
-			scan_decl_start(&ctx, su_scope, &d->decl);
+			scan_decl(&ctx, su_scope, &d->decl);
 		};
 
 		*next = xcalloc(1, sizeof(struct scopes));
