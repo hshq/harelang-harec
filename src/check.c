@@ -3962,7 +3962,6 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 		break;
 	case AST_DECL_FUNC:
 		if (decl->function.flags) {
-			resolve_function(ctx, &decl->function);
 			return;
 		}
 		struct ast_function_decl *func = &decl->function;
