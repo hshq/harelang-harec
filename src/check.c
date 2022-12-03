@@ -3659,10 +3659,8 @@ resolve_global(struct context *ctx, const struct ast_global_decl *decl)
 }
 
 const struct scope_object *
-resolve_enum_field(struct context *ctx, const struct scope_object *obj)
+resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	assert(obj->otype == O_SCAN);
-	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
 	assert(idecl->type == IDECL_ENUM_FLD);
 
 	const struct type *type = idecl->field->type;
@@ -3683,21 +3681,18 @@ resolve_enum_field(struct context *ctx, const struct scope_object *obj)
 
 	const struct scope_object *new =
 		scope_lookup(idecl->field->enum_scope, &localname);
-	if (new != obj) {
+	if (new != &idecl->obj) {
 		if (new->otype == O_SCAN) {
 			new = wrap_resolver(ctx, new, resolve_enum_field);
 		}
 		assert(new->otype == O_CONST);
-		obj = scope_lookup(ctx->scope, &name);
+		const struct scope_object *obj = scope_lookup(ctx->scope, &name);
 		if (obj->otype == O_SCAN) {
 			return scope_insert(ctx->scope, O_CONST, &ident,
 				&name, type, new->value);
 		}
 		return obj;
 	}
-
-	idecl = (struct incomplete_declaration *)obj;
-	assert(idecl->type == IDECL_ENUM_FLD);
 
 	ctx->scope = idecl->field->enum_scope;
 	struct expression *value = xcalloc(1, sizeof(struct expression));
@@ -3856,10 +3851,8 @@ scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
 }
 
 const struct scope_object *
-resolve_dimensions(struct context *ctx, const struct scope_object *obj)
+resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	assert(obj->otype == O_SCAN);
-	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
 	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != AST_DECL_TYPE) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
@@ -3873,8 +3866,8 @@ resolve_dimensions(struct context *ctx, const struct scope_object *obj)
 	}
 	struct dimensions dim = type_store_lookup_dimensions(ctx->store,
 			idecl->decl.type.type);
-	((struct scope_object *)obj)->type = xcalloc(1, sizeof(struct type));
-	*(struct type *)obj->type = (struct type){
+	((struct scope_object *)&idecl->obj)->type = xcalloc(1, sizeof(struct type));
+	*(struct type *)idecl->obj.type = (struct type){
 		.size = dim.size,
 		.align = dim.align,
 	};
@@ -3882,13 +3875,8 @@ resolve_dimensions(struct context *ctx, const struct scope_object *obj)
 }
 
 const struct scope_object *
-resolve_type(struct context *ctx, const struct scope_object *obj)
+resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	if (obj->otype != O_SCAN) {
-		assert(obj->otype == O_TYPE);
-		return obj;
-	}
-	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
 	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != AST_DECL_TYPE) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
@@ -3999,12 +3987,11 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 }
 
 const struct scope_object *
-resolve_decl(struct context *ctx, const struct scope_object *obj)
+resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	struct incomplete_declaration *idecl = (struct incomplete_declaration*)obj;
 	switch (idecl->type) {
 	case IDECL_ENUM_FLD:
-		return resolve_enum_field(ctx, obj);
+		return resolve_enum_field(ctx, idecl);
 	case IDECL_DECL:
 		break;
 	}
@@ -4017,7 +4004,7 @@ resolve_decl(struct context *ctx, const struct scope_object *obj)
 	case AST_DECL_FUNC:
 		return resolve_function(ctx, &idecl->decl.function);
 	case AST_DECL_TYPE:
-		return resolve_type(ctx, obj);
+		return resolve_type(ctx, idecl);
 	}
 	abort();
 }
@@ -4056,7 +4043,7 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	}
 	idecl->in_progress = true;
 
-	obj = resolver(ctx, &idecl->obj);
+	obj = resolver(ctx, idecl);
 exit:
 	// load stored context
 	ctx->unit->parent = subunit;

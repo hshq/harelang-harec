@@ -124,16 +124,16 @@ void mkident(struct context *ctx, struct identifier *out,
 		const struct identifier *in, const char *symbol);
 
 typedef const struct scope_object *(*resolvefn)(struct context *,
-		const struct scope_object *obj);
+		struct incomplete_declaration *idecl);
 
 const struct scope_object *resolve_dimensions(struct context *ctx,
-		const struct scope_object *obj);
+		struct incomplete_declaration *idecl);
 
 const struct scope_object *resolve_type(struct context *ctx,
-		const struct scope_object *obj);
+		struct incomplete_declaration *idecl);
 
 const struct scope_object *resolve_decl(struct context *ctx,
-		const struct scope_object *obj);
+		struct incomplete_declaration *idecl);
 
 const struct scope_object *wrap_resolver(struct context *ctx,
 	const struct scope_object *obj, resolvefn resolver);
