@@ -121,7 +121,7 @@ struct incomplete_declaration {
 };
 
 void mkident(struct context *ctx, struct identifier *out,
-		const struct identifier *in);
+		const struct identifier *in, const char *symbol);
 
 typedef const struct scope_object *(*resolvefn)(struct context *,
 		const struct scope_object *obj);

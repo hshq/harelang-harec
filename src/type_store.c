@@ -1192,7 +1192,7 @@ type_store_lookup_enum(struct type_store *store, const struct ast_type *atype,
 	struct type type = {0};
 	type.storage = STORAGE_ENUM;
 	type.flags = atype->flags;
-	mkident(store->check_context, &type.alias.ident, &atype->alias);
+	mkident(store->check_context, &type.alias.ident, &atype->alias, NULL);
 	identifier_dup(&type.alias.name, &atype->alias);
 	type.alias.exported = exported;
 	type.alias.type =

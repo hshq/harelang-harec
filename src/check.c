@@ -17,8 +17,13 @@
 #include "util.h"
 
 void
-mkident(struct context *ctx, struct identifier *out, const struct identifier *in)
+mkident(struct context *ctx, struct identifier *out, const struct identifier *in,
+		const char *symbol)
 {
+	if (symbol) {
+		out->name = strdup(symbol);
+		return;
+	}
 	identifier_dup(out, in);
 	if (ctx->ns && !in->ns) {
 		out->ns = xcalloc(1, sizeof(struct identifier));
@@ -3177,7 +3182,7 @@ check_const(struct context *ctx,
 	decl->type = DECL_CONST;
 	decl->constant.type = type;
 	decl->constant.value = obj->value;
-	mkident(ctx, &decl->ident, &adecl->ident);
+	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 	return decl;
 }
 
@@ -3207,7 +3212,7 @@ check_function(struct context *ctx,
 	if (afndecl->symbol) {
 		decl->symbol = strdup(afndecl->symbol);
 	}
-	mkident(ctx, &decl->ident, &afndecl->ident);
+	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
 
 	if (!adecl->function.body) {
 		return decl; // Prototype
@@ -3304,7 +3309,7 @@ check_global(struct context *ctx,
 	if (adecl->symbol) {
 		decl->symbol = strdup(adecl->symbol);
 	}
-	mkident(ctx, &decl->ident, &adecl->ident);
+	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 
 	if (!adecl->init) {
 		return decl; // Forward declaration
@@ -3356,11 +3361,7 @@ check_type(struct context *ctx,
 	bool exported)
 {
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	if (!adecl->ident.ns) {
-		mkident(ctx, &decl->ident, &adecl->ident);
-	} else {
-		decl->ident = adecl->ident;
-	}
+	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 	decl->type = DECL_TYPE;
 	if (adecl->type->storage == STORAGE_ENUM) {
 		decl->_type =
@@ -3519,7 +3520,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 {
 	for (struct ast_type_decl *t = &decl->type; t; t = t->next) {
 		struct identifier with_ns = {0};
-		mkident(ctx, &with_ns, &t->ident);
+		mkident(ctx, &with_ns, &t->ident, NULL);
 		struct incomplete_declaration *idecl =
 			incomplete_declaration_create(ctx, decl->loc, ctx->scope,
 					&with_ns, &t->ident);
@@ -3588,7 +3589,7 @@ resolve_const(struct context *ctx, const struct ast_global_decl *decl)
 	free(initializer);
 
 	struct identifier ident = {0};
-	mkident(ctx, &ident, &decl->ident);
+	mkident(ctx, &ident, &decl->ident, NULL);
 	return scope_insert(ctx->unit, O_CONST, &ident,
 			&decl->ident, type, value);
 }
@@ -3606,13 +3607,7 @@ resolve_function(struct context *ctx, const struct ast_function_decl *decl)
 
 	if (!decl->flags) {
 		struct identifier ident = {0};
-		if (decl->symbol) {
-			ident.name = strdup(decl->symbol);
-		} else if (!decl->ident.ns) {
-			mkident(ctx, &ident, &decl->ident);
-		} else {
-			ident = decl->ident;
-		}
+		mkident(ctx, &ident, &decl->ident, decl->symbol);
 		return scope_insert(ctx->unit, O_DECL, &ident,
 				&decl->ident, fntype, NULL);
 	}
@@ -3656,11 +3651,7 @@ resolve_global(struct context *ctx, const struct ast_global_decl *decl)
 		"Null is not a valid type for a global");
 
 	struct identifier ident = {0};
-	if (decl->symbol) {
-		ident.name = strdup(decl->symbol);
-	} else {
-		mkident(ctx, &ident, &decl->ident);
-	}
+	mkident(ctx, &ident, &decl->ident, decl->symbol);
 	struct scope_object *global = scope_insert(ctx->unit, O_DECL,
 			&ident, &decl->ident, type, NULL);
 	global->threadlocal = decl->threadlocal;
@@ -3920,7 +3911,7 @@ resolve_type(struct context *ctx, const struct scope_object *obj)
 	// 2. compute type representation and store it
 	struct identifier ident = {0}, name = {0};
 	identifier_dup(&name, &idecl->decl.type.ident);
-	mkident(ctx, &ident, &name);
+	mkident(ctx, &ident, &name, NULL);
 
 	struct type _alias = {
 		.storage = STORAGE_ALIAS,
@@ -3950,7 +3941,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 	case AST_DECL_CONST:
 		for (struct ast_global_decl *g = &decl->constant; g; g = g->next) {
 			struct identifier with_ns = {0};
-			mkident(ctx, &with_ns, &g->ident);
+			mkident(ctx, &with_ns, &g->ident, NULL);
 			struct incomplete_declaration *idecl =
 				incomplete_declaration_create(ctx, decl->loc,
 						ctx->scope, &with_ns, &g->ident);
@@ -3967,7 +3958,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 	case AST_DECL_GLOBAL:
 		for (struct ast_global_decl *g = &decl->global; g; g = g->next) {
 			struct identifier with_ns = {0};
-			mkident(ctx, &with_ns, &g->ident);
+			mkident(ctx, &with_ns, &g->ident, g->symbol);
 			struct incomplete_declaration *idecl =
 				incomplete_declaration_create(ctx, decl->loc,
 						ctx->scope, &with_ns, &g->ident);
@@ -3988,7 +3979,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 		}
 		struct ast_function_decl *func = &decl->function;
 		struct identifier with_ns = {0};
-		mkident(ctx, &with_ns, &func->ident);
+		mkident(ctx, &with_ns, &func->ident, func->symbol);
 		struct incomplete_declaration *idecl =
 			incomplete_declaration_create(ctx, decl->loc,
 					ctx->scope, &with_ns, &func->ident);
