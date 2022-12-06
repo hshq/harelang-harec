@@ -109,11 +109,11 @@ itrunc(const struct type *type, uintmax_t val)
 	case STORAGE_U64:
 		return (uint64_t)val;
 	case STORAGE_I8:
-		return (int8_t)((val >> 24) | (val & 0x7F));
+		return (int8_t)val;
 	case STORAGE_I16:
-		return (int16_t)((val >> 16) | (val & 0x7FF));
+		return (int16_t)val;
 	case STORAGE_I32:
-		return (int32_t)((val >> 8) | (val & 0x7FFFF));
+		return (int32_t)val;
 	case STORAGE_I64:
 		return (int64_t)val;
 	case STORAGE_INT:
