@@ -47,6 +47,7 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_ALLOC4] = "alloc4",
 	[Q_ALLOC8] = "alloc8",
 	[Q_AND] = "and",
+	[Q_BLIT] = "blit",
 	[Q_CALL] = "call",
 	[Q_CAST] = "cast",
 	[Q_CEQD] = "ceqd",

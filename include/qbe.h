@@ -72,6 +72,7 @@ enum qbe_instr {
 	Q_ALLOC4,
 	Q_ALLOC8,
 	Q_AND,
+	Q_BLIT,
 	Q_CALL,
 	Q_CAST,
 	Q_CEQD,

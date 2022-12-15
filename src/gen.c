@@ -101,34 +101,10 @@ gen_copy_aligned(struct gen_context *ctx,
 		gen_copy_memcpy(ctx, dest, src);
 		return;
 	}
-	enum qbe_instr load, store;
-	assert(dest.type->align && (dest.type->align & (dest.type->align - 1)) == 0);
-	switch (dest.type->align) {
-	case 1: load = Q_LOADUB, store = Q_STOREB; break;
-	case 2: load = Q_LOADUH, store = Q_STOREH; break;
-	case 4: load = Q_LOADUW, store = Q_STOREW; break;
-	default:
-		assert(dest.type->align == 8);
-		load = Q_LOADL, store = Q_STOREL;
-		break;
-	}
-	struct qbe_value temp = {
-		.kind = QV_TEMPORARY,
-		.type = ctx->arch.ptr,
-		.name = gen_name(ctx, ".%d"),
-	};
-	struct qbe_value destp = mkcopy(ctx, &dest, ".%d");
-	struct qbe_value srcp = mkcopy(ctx, &src, ".%d");
-	struct qbe_value align = constl(dest.type->align);
-	for (size_t offset = 0; offset < dest.type->size;
-			offset += dest.type->align) {
-		pushi(ctx->current, &temp, load, &srcp, NULL);
-		pushi(ctx->current, NULL, store, &temp, &destp, NULL);
-		if (offset + dest.type->align < dest.type->size) {
-			pushi(ctx->current, &srcp, Q_ADD, &srcp, &align, NULL);
-			pushi(ctx->current, &destp, Q_ADD, &destp, &align, NULL);
-		}
-	}
+	struct qbe_value srcv = mkqval(ctx, &src);
+	struct qbe_value destv = mkqval(ctx, &dest);
+	struct qbe_value size = constl(dest.type->size);
+	pushi(ctx->current, NULL, Q_BLIT, &srcv, &destv, &size, NULL);
 }
 
 static void
