@@ -691,8 +691,6 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 			assert(valtype->array.length != SIZE_UNDEFINED);
 			appendlen = constl(valtype->array.length);
 		} else {
-			value = gen_expr(ctx, expr->append.value);
-			qvalue = mkqval(ctx, &value);
 			appendlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 			struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 			offs = constl(builtin_type_size.size);
@@ -2315,8 +2313,6 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 			assert(valtype->array.length != SIZE_UNDEFINED);
 			appendlen = constl(valtype->array.length);
 		} else {
-			value = gen_expr(ctx, expr->append.value);
-			qvalue = mkqval(ctx, &value);
 			appendlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 			struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 			offs = constl(builtin_type_size.size);
