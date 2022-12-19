@@ -205,9 +205,8 @@ gen_autoderef(struct gen_context *ctx, struct gen_value val)
 }
 
 static struct gen_value
-gen_access_ident(struct gen_context *ctx, const struct expression *expr)
+gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 {
-	const struct scope_object *obj = expr->access.object;
 	switch (obj->otype) {
 	case O_BIND:
 		for (const struct gen_binding *gb = ctx->bindings;
@@ -334,7 +333,7 @@ gen_expr_access_addr(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value addr;
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
-		addr = gen_access_ident(ctx, expr);
+		addr = gen_access_ident(ctx, expr->access.object);
 		break;
 	case ACCESS_INDEX:
 		addr = gen_access_index(ctx, expr);
@@ -2030,6 +2029,13 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	default:
 		// Moving right along
 		break;
+	}
+
+	if (expr->constant.object != NULL) {
+		assert(expr->constant.ival == 0);
+		val = gen_access_ident(ctx, expr->constant.object);
+		val.type = expr->result;
+		return val;
 	}
 
 	const struct qbe_type *qtype = qtype_lookup(ctx, expr->result, false);
