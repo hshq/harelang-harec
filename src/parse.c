@@ -852,6 +852,8 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
 		assert(0); // Handled in a different nonterminal
+	case STORAGE_ERROR:
+		assert(0); // Invariant
 	}
 	return exp;
 }

@@ -101,34 +101,10 @@ gen_copy_aligned(struct gen_context *ctx,
 		gen_copy_memcpy(ctx, dest, src);
 		return;
 	}
-	enum qbe_instr load, store;
-	assert(dest.type->align && (dest.type->align & (dest.type->align - 1)) == 0);
-	switch (dest.type->align) {
-	case 1: load = Q_LOADUB, store = Q_STOREB; break;
-	case 2: load = Q_LOADUH, store = Q_STOREH; break;
-	case 4: load = Q_LOADUW, store = Q_STOREW; break;
-	default:
-		assert(dest.type->align == 8);
-		load = Q_LOADL, store = Q_STOREL;
-		break;
-	}
-	struct qbe_value temp = {
-		.kind = QV_TEMPORARY,
-		.type = ctx->arch.ptr,
-		.name = gen_name(ctx, ".%d"),
-	};
-	struct qbe_value destp = mkcopy(ctx, &dest, ".%d");
-	struct qbe_value srcp = mkcopy(ctx, &src, ".%d");
-	struct qbe_value align = constl(dest.type->align);
-	for (size_t offset = 0; offset < dest.type->size;
-			offset += dest.type->align) {
-		pushi(ctx->current, &temp, load, &srcp, NULL);
-		pushi(ctx->current, NULL, store, &temp, &destp, NULL);
-		if (offset + dest.type->align < dest.type->size) {
-			pushi(ctx->current, &srcp, Q_ADD, &srcp, &align, NULL);
-			pushi(ctx->current, &destp, Q_ADD, &destp, &align, NULL);
-		}
-	}
+	struct qbe_value srcv = mkqval(ctx, &src);
+	struct qbe_value destv = mkqval(ctx, &dest);
+	struct qbe_value size = constl(dest.type->size);
+	pushi(ctx->current, NULL, Q_BLIT, &srcv, &destv, &size, NULL);
 }
 
 static void
@@ -691,8 +667,6 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 			assert(valtype->array.length != SIZE_UNDEFINED);
 			appendlen = constl(valtype->array.length);
 		} else {
-			value = gen_expr(ctx, expr->append.value);
-			qvalue = mkqval(ctx, &value);
 			appendlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 			struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 			offs = constl(builtin_type_size.size);
@@ -1803,6 +1777,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		break;
 	case STORAGE_ALIAS:
 	case STORAGE_BOOL:
+	case STORAGE_ERROR:
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
@@ -1859,16 +1834,37 @@ gen_const_array_at(struct gen_context *ctx,
 
 	size_t n = 0;
 	const struct type *atype = type_dealias(expr->result);
+	size_t msize = atype->array.members->size;
 	struct gen_value item = mkgtemp(ctx, atype->array.members, "item.%d");
 	for (const struct array_constant *ac = aexpr; ac; ac = ac->next) {
-		struct qbe_value offs = constl(n * atype->array.members->size);
+		struct qbe_value offs = constl(n * msize);
 		struct qbe_value ptr = mklval(ctx, &item);
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
 		gen_expr_at(ctx, ac->value, item);
 		++n;
 	}
-
 	assert(n == atype->array.length);
+	if (!atype->array.expandable || n == 0) {
+		return;
+	}
+	assert(out.type);
+	const struct type_array arr = type_dealias(out.type)->array;
+	if (arr.length <= n) {
+		return;
+	}
+
+	// last copied element
+	struct qbe_value lsize = constl((n - 1) * msize);
+	struct qbe_value last = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &last, Q_ADD, &base, &lsize, NULL);
+	// start from the elements already copied
+	struct qbe_value nsize = constl(n * msize);
+	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &next, Q_ADD, &base, &nsize, NULL);
+
+	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
+	struct qbe_value qlen = constl((arr.length - n) * msize);
+	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &next, &last, &qlen, NULL);
 }
 
 static void
@@ -2294,8 +2290,6 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 			assert(valtype->array.length != SIZE_UNDEFINED);
 			appendlen = constl(valtype->array.length);
 		} else {
-			value = gen_expr(ctx, expr->append.value);
-			qvalue = mkqval(ctx, &value);
 			appendlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 			struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 			offs = constl(builtin_type_size.size);
@@ -2441,6 +2435,10 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 	do {
 		struct qbe_statement lsubtype;
 		struct qbe_value bsubtype = mklabel(ctx, &lsubtype, "subtype.%d");
+
+		if (type_dealias(subtype)->storage != STORAGE_TAGGED) {
+			break;
+		}
 		test = tagged_select_subtype(subtype, type);
 		if (!test) {
 			break;
@@ -2451,7 +2449,7 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		pushi(ctx->current, NULL, Q_JNZ, &qmatch, &bsubtype, &bnext, NULL);
 		push(&ctx->current->body, &lsubtype);
 
-		if (test->id != type->id && type_dealias(test)-> id != type->id) {
+		if (test->id != type->id && type_dealias(test)->id != type->id) {
 			struct qbe_value offs = constl(subtype->align);
 			pushi(ctx->current, &subval, Q_ADD, &subval, &offs, NULL);
 			pushi(ctx->current, &temp, Q_LOADUW, &subval, NULL);
@@ -3485,15 +3483,16 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		item->value = constw((uint8_t)constant->uval);
 		item->value.type = &qbe_byte;
 		break;
+	case STORAGE_BOOL:
+		item->type = QD_VALUE;
+		item->value = constw(constant->bval ? 1 : 0);
+		item->value.type = &qbe_byte;
+		break;
 	case STORAGE_I16:
 	case STORAGE_U16:
 		item->type = QD_VALUE;
 		item->value = constw((uint16_t)constant->uval);
 		item->value.type = &qbe_half;
-		break;
-	case STORAGE_BOOL:
-		item->type = QD_VALUE;
-		item->value = constw(constant->bval ? 1 : 0);
 		break;
 	case STORAGE_I32:
 	case STORAGE_U32:
@@ -3734,6 +3733,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case STORAGE_UNION:
 	case STORAGE_ALIAS:
+	case STORAGE_ERROR:
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:

@@ -1181,6 +1181,7 @@ token_str(const struct token *tok)
 		case STORAGE_BOOL:
 		case STORAGE_CHAR:
 		case STORAGE_ENUM:
+		case STORAGE_ERROR:
 		case STORAGE_FUNCTION:
 		case STORAGE_POINTER:
 		case STORAGE_NULL:

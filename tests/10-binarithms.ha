@@ -94,11 +94,21 @@ def FLOAT: f64 = 6.0 * 7.0;
 def I8: i8 = 127 * 2;
 def U8: u8 = 128 * 2;
 def ALIAS: testmod::enum_alias = 1: testmod::_enum: testmod::enum_alias + 1: testmod::enum_alias;
+let a: i8 = 3i8 - (-128i8);
+let b: i8 = 3i8 + (-128i8);
+def A: i8 = 3i8 - (-128i8);
+def B: i8 = 3i8 + (-128i8);
+def I32: i32 = 3 - (-2147483648i32);
 
 fn eval() void = {
 	assert(FLOAT == 42.0);
-	assert(I8 == 126);
+	assert(I8 == -2i8);
 	assert(U8 == 0);
+	assert(a == -125i8);
+	assert(b == -125i8);
+	assert(A == -125i8);
+	assert(B == -125i8);
+	assert(I32 == -2147483645i32);
 	assert(ALIAS == 2);
 };
 

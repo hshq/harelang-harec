@@ -169,6 +169,7 @@ emit_const(const struct expression *expr, FILE *out)
 		assert(0); // TODO
 	case STORAGE_ALIAS:
 	case STORAGE_CHAR:
+	case STORAGE_ERROR:
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
 	case STORAGE_VALIST:
@@ -235,6 +236,7 @@ emit_type(const struct type *type, FILE *out)
 	switch (type->storage) {
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
+	case STORAGE_ERROR:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
@@ -437,9 +439,7 @@ emit_decl_type(struct declaration *decl, FILE *out)
 			type_storage_unparse(type->alias.type->storage));
 		for (const struct scope_object *ev = type->_enum.values->objects;
 				ev; ev = ev->lnext) {
-			if (ev->otype == O_SCAN) {
-				continue;
-			}
+			assert(ev->otype != O_SCAN);
 			fprintf(out, "%s = ", ev->name.name);
 			emit_const(ev->value, out);
 			fprintf(out, ", ");

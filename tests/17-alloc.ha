@@ -53,6 +53,26 @@ fn double_alloc() void = {
 type aslice = []int;
 type aarray = [3]int;
 
+fn array() void = {
+	let aa: *aarray = alloc([0...]);
+	free(aa);
+	let aa: nullable *aarray = alloc([0...]);
+	free(aa);
+	let aa: *aarray = alloc([0...]: aarray);
+	free(aa);
+	let aa: nullable *aarray = alloc([0...]: aarray);
+	free(aa);
+
+	let x: *[24]int = alloc([1, 2...]);
+
+	assert(len(x) == 24);
+	assert(x[0] == 1);
+	for (let i = 1z; i < len(x); i += 1) {
+		assert(x[i] == 2);
+	};
+	free(x);
+};
+
 fn slice() void = {
 	let x: aslice = alloc([1, 2, 3]: aarray, 10);
 	assert(len(x) == 3);
@@ -131,5 +151,6 @@ export fn main() void = {
 	allocation();
 	double_pointer();
 	double_alloc();
+	array();
 	slice();
 };

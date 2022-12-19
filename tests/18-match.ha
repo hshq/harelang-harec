@@ -8,6 +8,8 @@ type unsigned = (u8 | u16 | u32 | u64 | uint | size);
 type integer = (...signed | ...unsigned);
 type align_4 = (void | int);
 type align_8 = (void | int | i64);
+type aint = int;
+type bint = aint;
 
 fn tagged() void = {
 	let cases: [3](int | uint | str) = [10i, 10u, "hello"];
@@ -186,6 +188,14 @@ fn transitivity() void = {
 		abort();
 	};
 	assert(visit);
+	
+	let z: (bint | void) = 10;
+	match (z) {
+	case aint =>
+		void;
+	case void =>
+		abort();
+	};
 };
 
 fn numeric() void = {
