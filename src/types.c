@@ -41,6 +41,18 @@ type_dealias(const struct type *type)
 	return type;
 }
 
+bool
+type_is_complete(const struct type *type)
+{
+	while (type->storage == STORAGE_ALIAS) {
+		if (type->alias.type == NULL) {
+			return false;
+		}
+		type = type->alias.type;
+	}
+	return true;
+}
+
 const struct struct_field *
 type_get_field(const struct type *type, const char *name)
 {

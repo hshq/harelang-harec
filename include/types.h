@@ -116,13 +116,14 @@ struct struct_field {
 };
 
 struct type_struct_union {
+	struct struct_field *fields;
 	// c_compat is false if explicit offsets are used, or if the type is a
 	// union. The latter is actually still C-compatible, but this is an
 	// implementation detail which changes the way the QBE IL is generated,
 	// and in the case of unions, the altered behavior for explicit-offset
 	// structs is also correct for all cases of unions.
 	bool c_compat;
-	struct struct_field *fields;
+	bool packed;
 };
 
 struct type_tuple {
@@ -190,6 +191,7 @@ uint32_t type_hash(const struct type *type);
 const struct type *promote_const(const struct type *a, const struct type *b);
 bool type_is_assignable(const struct type *to, const struct type *from);
 bool type_is_castable(const struct type *to, const struct type *from);
+bool type_is_complete(const struct type *type);
 
 const struct type *type_create_const(enum type_storage storage,
 	intmax_t min, intmax_t max);

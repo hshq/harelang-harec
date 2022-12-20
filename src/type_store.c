@@ -150,16 +150,17 @@ builtin_for_type(const struct type *type)
 static struct struct_field *
 struct_insert_field(struct type_store *store, struct struct_field **fields,
 	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
-	const struct ast_struct_union_type *atype, bool *ccompat, bool size_only,
-	bool last)
+	const struct ast_struct_union_type *atype,
+	const struct ast_struct_union_field *afield,
+	bool *ccompat, bool size_only, bool last)
 {
-	while (*fields && (!atype->name || !(*fields)->name || strcmp((*fields)->name, atype->name) < 0)) {
+	while (*fields && (!afield->name || !(*fields)->name || strcmp((*fields)->name, afield->name) < 0)) {
 		fields = &(*fields)->next;
 	}
 	struct struct_field *field = *fields;
-	if (field != NULL && atype->name && field->name && strcmp(field->name, atype->name) == 0) {
-		error(store->check_context, atype->type->loc,
-			"Duplicate struct/union member '%s'", atype->name);
+	if (field != NULL && afield->name && field->name && strcmp(field->name, afield->name) == 0) {
+		error(store->check_context, afield->type->loc,
+			"Duplicate struct/union member '%s'", afield->name);
 		return NULL;
 	}
 	// XXX: leaks if size_only
@@ -167,32 +168,32 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	(*fields)->next = field;
 	field = *fields;
 
-	if (atype->name) {
-		field->name = strdup(atype->name);
+	if (afield->name) {
+		field->name = strdup(afield->name);
 	}
 	struct dimensions dim = {0};
 	if (size_only) {
-		dim = lookup_atype_with_dimensions(store, NULL, atype->type);
+		dim = lookup_atype_with_dimensions(store, NULL, afield->type);
 	} else {
-		dim = lookup_atype_with_dimensions(store, &field->type, atype->type);
+		dim = lookup_atype_with_dimensions(store, &field->type, afield->type);
 	}
 	if (dim.size == 0) {
-		error(store->check_context, atype->type->loc,
+		error(store->check_context, afield->type->loc,
 			"Type of size 0 is not a valid struct/union member");
 		return NULL;
 	}
 	if (!last && dim.size == SIZE_UNDEFINED) {
-		error(store->check_context, atype->type->loc,
+		error(store->check_context, afield->type->loc,
 			"Type of undefined size is not a valid struct/union member");
 		return NULL;
 	}
 	assert(dim.align != ALIGN_UNDEFINED);
 	assert(dim.align != 0);
 
-	if (atype->offset) {
+	if (afield->offset) {
 		*ccompat = false;
 		struct expression in, out;
-		check_expression(store->check_context, atype->offset, &in, NULL);
+		check_expression(store->check_context, afield->offset, &in, NULL);
 		field->offset = 0;
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
 		if (r != EVAL_OK) {
@@ -207,6 +208,8 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		} else {
 			field->offset = (size_t)out.constant.uval;
 		}
+	} else if (atype->packed) {
+		field->offset = *size;
 	} else {
 		size_t offs = *size;
 		if (offs % dim.align) {
@@ -232,13 +235,13 @@ static const struct type *type_store_lookup_type(struct type_store *store, const
 
 void
 shift_fields(struct type_store *store,
-	const struct ast_struct_union_type *atype, struct struct_field *parent)
+	const struct ast_struct_union_field *afield, struct struct_field *parent)
 {
 	if (parent->type->storage == STORAGE_ALIAS
 			&& type_dealias(parent->type)->storage != STORAGE_STRUCT
 			&& type_dealias(parent->type)->storage != STORAGE_UNION) {
-		assert(atype);
-		error(store->check_context, atype->type->loc,
+		assert(afield);
+		error(store->check_context, afield->type->loc,
 			"Cannot embed non-struct non-union alias");
 		return;
 	}
@@ -258,6 +261,7 @@ shift_fields(struct type_store *store,
 		.size = type->size,
 		.align = type->align,
 		.struct_union.c_compat = type->struct_union.c_compat,
+		.struct_union.packed = type->struct_union.packed,
 	};
 	struct struct_field **next = &new.struct_union.fields;
 	for (struct struct_field *field = type->struct_union.fields; field;
@@ -289,10 +293,12 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	// TODO: fields with size SIZE_UNDEFINED
 	size_t usize = 0;
 	assert(storage == STORAGE_STRUCT || storage == STORAGE_UNION);
-	while (atype) {
+	const struct ast_struct_union_field *afield = &atype->fields;
+	while (afield) {
+		bool last = afield->next == NULL;
 		struct struct_field *field = struct_insert_field(store, fields,
-			storage, size, &usize, align, atype, ccompat, size_only,
-			atype->next == NULL);
+			storage, size, &usize, align, atype, afield,
+			ccompat, size_only, last);
 		if (field == NULL) {
 			return;
 		}
@@ -303,9 +309,9 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 			// type_get_field far easier to implement and doesn't
 			// cause any trouble in gen since offsets are only used
 			// there for sorting fields.
-			shift_fields(store, atype, field);
+			shift_fields(store, afield, field);
 		}
-		atype = atype->next;
+		afield = afield->next;
 	}
 
 	if (storage == STORAGE_UNION) {
@@ -633,6 +639,14 @@ tuple_init_from_atype(struct type_store *store,
 static const struct type *
 type_store_lookup_type(struct type_store *store, const struct type *type);
 
+static void
+add_padding(size_t *size, size_t align)
+{
+	if (*size != SIZE_UNDEFINED && *size != 0 && *size % align != 0) {
+		*size += align - (*size - align) % align;
+	}
+}
+
 static struct dimensions
 type_init_from_atype(struct type_store *store,
 	struct type *type,
@@ -819,7 +833,8 @@ type_init_from_atype(struct type_store *store,
 		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		type->struct_union.c_compat = true;
+		type->struct_union.c_compat = !atype->struct_union.packed;
+		type->struct_union.packed = atype->struct_union.packed;
 		struct_init_from_atype(store, type->storage, &type->size,
 			&type->align, &type->struct_union.fields,
 			&atype->struct_union, &type->struct_union.c_compat,
@@ -856,19 +871,30 @@ type_init_from_atype(struct type_store *store,
 		}
 		break;
 	}
-	return (struct dimensions){ .size = type->size, .align = type->align };
-}
 
-static void add_padding(size_t *size, size_t align) {
-	if (*size != SIZE_UNDEFINED && *size != 0 && *size % align != 0) {
-		*size += align - (*size - align) % align;
+	bool packed = false;
+	if (type_is_complete(type)) {
+		const struct type *final = type_dealias(type);
+		if (final->storage == STORAGE_STRUCT) {
+			packed = final->struct_union.packed;
+		}
 	}
+
+	struct dimensions dim = {
+		.size = type->size,
+		.align = type->align,
+	};
+	if (!packed) {
+		add_padding(&dim.size, dim.align);
+	}
+	return dim;
 }
 
 static const struct type *
 _type_store_lookup_type(
 	struct type_store *store,
-	const struct type *type)
+	const struct type *type,
+	const struct dimensions *dims)
 {
 	const struct type *builtin = builtin_for_type(type);
 	if (builtin) {
@@ -893,7 +919,11 @@ _type_store_lookup_type(
 	bucket = *next = xcalloc(1, sizeof(struct type_bucket));
 	bucket->type = *type;
 	bucket->type.id = hash;
-	add_padding(&bucket->type.size, type->align);
+
+	if (dims == NULL) {
+		add_padding(&bucket->type.size, type->align);
+	}
+
 	return &bucket->type;
 }
 
@@ -901,7 +931,7 @@ static const struct type *
 type_store_lookup_type(struct type_store *store, const struct type *type)
 {
 	if (type->storage != STORAGE_ALIAS) {
-		return _type_store_lookup_type(store, type);
+		return _type_store_lookup_type(store, type, NULL);
 	}
 	// References to type aliases always inherit the flags that the
 	// alias was defined with
@@ -909,7 +939,7 @@ type_store_lookup_type(struct type_store *store, const struct type *type)
 	const struct scope_object *obj = scope_lookup(
 		store->check_context->scope, &type->alias.name);
 	psuedotype.flags |= obj->type->flags;
-	return type_store_lookup_alias(store, &psuedotype);
+	return type_store_lookup_alias(store, &psuedotype, NULL);
 }
 
 static struct dimensions
@@ -923,7 +953,6 @@ lookup_atype_with_dimensions(struct type_store *store, const struct type **type,
 	} else {
 		dim = type_init_from_atype(store, NULL, atype);
 	}
-	add_padding(&dim.size, dim.align);
 	return dim;
 }
 
@@ -948,9 +977,7 @@ type_store_lookup_atype(struct type_store *store, const struct ast_type *atype)
 struct dimensions
 type_store_lookup_dimensions(struct type_store *store, const struct ast_type *atype)
 {
-	struct dimensions dim = type_init_from_atype(store, NULL, atype);
-	add_padding(&dim.size, dim.align);
-	return dim;
+	return type_init_from_atype(store, NULL, atype);
 }
 
 const struct type *
@@ -962,7 +989,7 @@ type_store_lookup_with_flags(struct type_store *store,
 	}
 	struct type new = *type;
 	new.flags = flags;
-	return _type_store_lookup_type(store, &new);
+	return _type_store_lookup_type(store, &new, NULL);
 }
 
 const struct type *
@@ -1064,7 +1091,9 @@ type_store_lookup_slice(struct type_store *store, struct location loc,
 }
 
 const struct type *
-type_store_lookup_alias(struct type_store *store, const struct type *type)
+type_store_lookup_alias(struct type_store *store,
+		const struct type *type,
+		const struct dimensions *dims)
 {
 	struct type tmp = *type;
 	const struct type *ret = NULL;
@@ -1077,7 +1106,8 @@ type_store_lookup_alias(struct type_store *store, const struct type *type)
 				store, type->alias.type, typeflags[i]);
 		}
 		tmp.flags = typeflags[i];
-		const struct type *alias = _type_store_lookup_type(store, &tmp);
+		const struct type *alias = _type_store_lookup_type(
+				store, &tmp, dims);
 		if (typeflags[i] == type->flags) {
 			ret = alias;
 		}

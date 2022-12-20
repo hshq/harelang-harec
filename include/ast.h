@@ -71,11 +71,16 @@ struct ast_tuple_type {
 	struct ast_tuple_type *next;
 };
 
-struct ast_struct_union_type {
-	struct ast_struct_union_type *next;
+struct ast_struct_union_field {
+	struct ast_struct_union_field *next;
 	struct ast_expression *offset;
 	char *name;
 	struct ast_type *type;
+};
+
+struct ast_struct_union_type {
+	struct ast_struct_union_field fields;
+	bool packed;
 };
 
 struct ast_type {

@@ -204,8 +204,9 @@ emit_struct(const struct type *type, FILE *out)
 
 	qsort(fields, n, sizeof(fields[0]), field_compar);
 
-	fprintf(out, "%s { ", type->storage == STORAGE_STRUCT
-			? "struct" : "union");
+	fprintf(out, "%s %s{ ",
+			type->storage == STORAGE_STRUCT ? "struct" : "union",
+			type->struct_union.packed ? "@packed " : "");
 	for (size_t i = 0; i < n; ++i) {
 		const struct struct_field *f = fields[i];
 		if (!type->struct_union.c_compat) {
