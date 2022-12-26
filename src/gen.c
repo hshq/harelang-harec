@@ -575,10 +575,11 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 		abort();
 	}
 
-	struct qbe_statement linvalid, lvalid, lalloc;
+	struct qbe_statement linvalid, lvalid, lalloc, lcopy;
 	struct qbe_value balloc = mklabel(ctx, &lalloc, ".%d");
 	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
 	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+	struct qbe_value bcopy = mklabel(ctx, &lcopy, ".%d");
 
 	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value newdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
@@ -596,21 +597,23 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
 	pushi(ctx->current, &newdata, Q_CALL, &rtfunc, &sz, NULL);
-
 	pushi(ctx->current, &cmpres, Q_CNEL, &newdata, &zero, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bvalid, &binvalid, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bcopy, &binvalid, NULL);
+
 	push(&ctx->current->body, &linvalid);
 	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
-	push(&ctx->current->body, &lvalid);
 
+	push(&ctx->current->body, &lcopy);
+	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
+	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &newdata, &srcdata, &sz, NULL);
+
+	push(&ctx->current->body, &lvalid);
 	pushi(ctx->current, NULL, store, &newdata, &dbase, NULL);
 	pushi(ctx->current, &dbase, Q_ADD, &dbase, &offs, NULL);
 	pushi(ctx->current, NULL, store, &length, &dbase, NULL);
 	pushi(ctx->current, &dbase, Q_ADD, &dbase, &offs, NULL);
 	pushi(ctx->current, NULL, store, &length, &dbase, NULL);
 
-	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
-	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &newdata, &srcdata, &sz, NULL);
 	return ret;
 }
 
