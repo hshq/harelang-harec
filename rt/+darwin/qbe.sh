@@ -1,12 +1,15 @@
 #!/bin/sh
 
+EXE="qbe"
+OPTS="-t amd64_apple"
+
 if [ "$1" == "-h" ] || [ "`uname -s`" != "Darwin" ];
 then
-    qbe $*
+    $EXE $*
     exit
 fi
 
-qbe -G m $*
+$EXE $OPTS $*
 
 OUT=
 while getopts 'ho:t:G:d:' OPT; do
