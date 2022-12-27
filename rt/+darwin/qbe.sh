@@ -25,8 +25,8 @@ sed -r -I '' \
     -e 's/^.section ".init_array"$/.section __DATA, .init_array/g' \
     -e 's/^.section ".fini_array"$/.section __DATA, .fini_array/g' \
     -e 's/^.section ".test_array"$/.section __DATA, .test_array/g' \
-    -e 's/^.section ".init_array", (.+)$/.section __DATA, .init_array # \1/g' \
-    -e 's/^.section ".fini_array", (.+)$/.section __DATA, .fini_array # \1/g' \
-    -e 's/^.section ".test_array", (.+)$/.section __DATA, .test_array # \1/g' \
+    -e 's/^.section ".init_array", *(.+)$/.section __DATA, .init_array # \1/g' \
+    -e 's/^.section ".fini_array", *(.+)$/.section __DATA, .fini_array # \1/g' \
+    -e 's/^.section ".test_array", *(.+)$/.section __DATA, .test_array # \1/g' \
     -e 's/^.section .abort "unreachable"$/.section __DATA,.abort # unreachable/g' \
     $OUT
