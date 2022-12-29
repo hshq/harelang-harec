@@ -447,9 +447,11 @@ gen_alloc_slice_at(struct gen_context *ctx,
 		};
 		gen_expr_at(ctx, expr->alloc.init, storage);
 	} else {
+		struct qbe_value copysize = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &copysize, Q_MUL, &length, &isize, NULL);
 		struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
 		pushi(ctx->current, NULL, Q_CALL, &rtmemcpy,
-				&data, &initdata, &size, NULL);
+				&data, &initdata, &copysize, NULL);
 	}
 
 	if (!expand) {
