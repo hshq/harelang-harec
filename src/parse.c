@@ -474,10 +474,15 @@ parse_struct_union_type(struct lexer *lexer)
 {
 	struct token tok = {0};
 	struct ast_type *type = mktype(&lexer->loc);
-	struct ast_struct_union_type *next = &type->struct_union;
+	struct ast_struct_union_field *next = &type->struct_union.fields;
 	switch (lex(lexer, &tok)) {
 	case T_STRUCT:
 		type->storage = STORAGE_STRUCT;
+		if (lex(lexer, &tok) == T_ATTR_PACKED) {
+			type->struct_union.packed = true;
+		} else {
+			unlex(lexer, &tok);
+		}
 		break;
 	case T_UNION:
 		type->storage = STORAGE_UNION;
@@ -541,7 +546,7 @@ parse_struct_union_type(struct lexer *lexer)
 			if (lex(lexer, &tok) != T_RBRACE) {
 				unlex(lexer, &tok);
 				next->next = xcalloc(1,
-					sizeof(struct ast_struct_union_type));
+					sizeof(struct ast_struct_union_field));
 				next = next->next;
 			}
 			break;

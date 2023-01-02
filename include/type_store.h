@@ -46,8 +46,12 @@ const struct type *type_store_lookup_array(struct type_store *store,
 const struct type *type_store_lookup_slice(struct type_store *store,
 	struct location loc, const struct type *members);
 
+// Looks up a type alias, which may be incomplete. If the dimensions of the
+// type are known, provide them as a hint in the dims argument (which can be
+// NULL otherwise). This is used as a hint to skip adding padding to packed
+// struct types.
 const struct type *type_store_lookup_alias(struct type_store *store,
-	const struct type *secondary);
+	const struct type *secondary, const struct dimensions *dims);
 
 const struct type *type_store_lookup_tagged(struct type_store *store,
 	struct location loc, struct type_tagged_union *tags);

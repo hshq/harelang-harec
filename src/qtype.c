@@ -78,7 +78,9 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	def->type.base = type;
 	def->type.name = name;
 
-	assert(type->size == SIZE_UNDEFINED
+	const struct type *final = type_dealias(type);
+	assert((final->storage == STORAGE_STRUCT && final->struct_union.packed)
+			|| type->size == SIZE_UNDEFINED
 			|| type->size == 0
 			|| type->size % type->align == 0);
 

@@ -2577,8 +2577,8 @@ check_expr_struct(struct context *ctx,
 		.storage = STORAGE_STRUCT,
 		.flags = TYPE_CONST,
 	};
-	struct ast_struct_union_type *tfield = &satype.struct_union;
-	struct ast_struct_union_type **tnext = &tfield->next;
+	struct ast_struct_union_field *tfield = &satype.struct_union.fields;
+	struct ast_struct_union_field **tnext = &tfield->next;
 	struct expr_struct_field *sexpr, **snext = &expr->_struct.fields;
 	expr->_struct.autofill = aexpr->_struct.autofill;
 	if (stype == NULL && expr->_struct.autofill) {
@@ -2648,7 +2648,7 @@ check_expr_struct(struct context *ctx,
 	} else {
 		expr->result = type_store_lookup_atype(ctx->store, &satype);
 
-		tfield = &satype.struct_union;
+		tfield = &satype.struct_union.fields;
 		sexpr = expr->_struct.fields;
 		while (tfield) {
 			const struct struct_field *field = type_get_field(
@@ -2668,8 +2668,8 @@ check_expr_struct(struct context *ctx,
 			sexpr->field = field;
 			sexpr->value = lower_implicit_cast(field->type, sexpr->value);
 
-			struct ast_struct_union_type *next = tfield->next;
-			if (tfield != &satype.struct_union) {
+			struct ast_struct_union_field *next = tfield->next;
+			if (tfield != &satype.struct_union.fields) {
 				free(tfield);
 			}
 			tfield = next;
@@ -3376,7 +3376,7 @@ check_type(struct context *ctx,
 			.align = type->align,
 			.flags = type->flags,
 		};
-		decl->_type = type_store_lookup_alias(ctx->store, &_alias);
+		decl->_type = type_store_lookup_alias(ctx->store, &_alias, NULL);
 	}
 	return decl;
 }
@@ -3860,8 +3860,8 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 
 	// 1. compute type dimensions
-	struct dimensions dim = type_store_lookup_dimensions(ctx->store,
-		idecl->decl.type.type);
+	struct dimensions dim = type_store_lookup_dimensions(
+			ctx->store, idecl->decl.type.type);
 
 	handle_errors(ctx->errors);
 	idecl->in_progress = false;
@@ -3880,7 +3880,8 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 		.flags = idecl->decl.type.type->flags,
 	};
 
-	const struct type *alias = type_store_lookup_alias(ctx->store, &_alias);
+	const struct type *alias = type_store_lookup_alias(
+			ctx->store, &_alias, &dim);
 	idecl->obj.otype = O_TYPE;
 	idecl->obj.type = alias;
 	((struct type *)alias)->alias.type =
