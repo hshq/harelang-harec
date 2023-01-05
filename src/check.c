@@ -1447,6 +1447,15 @@ check_expr_cast(struct context *ctx,
 					"a nullable pointer");
 				return;
 			}
+			if (secondary->storage != STORAGE_NULL
+					&& (secondary->storage != STORAGE_POINTER
+					|| primary->pointer.referent
+						!= secondary->pointer.referent
+					|| (secondary->pointer.flags & PTR_NULLABLE))) {
+				error(ctx, aexpr->cast.type->loc, expr,
+					"Can only type assert nullable pointer into non-nullable pointer of the same type or null");
+				return;
+			}
 			break;
 		}
 		if (primary->storage != STORAGE_TAGGED) {

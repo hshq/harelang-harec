@@ -44,7 +44,7 @@ fn casts() void = {
 	assert((a as null): nullable *void == null);
 
 	let a: nullable *int = &4;
-	a as nullable *int;
+	assert(a is *int);
 };
 
 fn reject() void = {
@@ -99,6 +99,18 @@ fn reject() void = {
 	assert(compile("
 		fn test() void = {
 			let a = null;
+		};
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		fn test() void = {
+			let a: nullable *int = &4;
+			a as int;
+		};
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		fn test() void = {
+			let a: nullable *int = &4;
+			a as *str;
 		};
 	") as exited != EXIT_SUCCESS);
 
