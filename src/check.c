@@ -2432,6 +2432,70 @@ check_expr_return(struct context *ctx,
 }
 
 static void
+slice_bounds_check(struct context *ctx, struct expression *expr)
+{
+	const struct type *atype = type_dereference(expr->slice.object->result);
+	const struct type *dtype = type_dealias(atype);
+
+	struct expression *start = NULL, *end = NULL;
+
+	if (expr->slice.end != NULL) {
+		end = xcalloc(1, sizeof(struct expression));
+		enum eval_result r = eval_expr(ctx, expr->slice.end, end);
+		if (r != EVAL_OK) {
+			free(end);
+			return;
+		}
+
+		if (dtype->storage == STORAGE_ARRAY) {
+			assert(dtype->array.length != SIZE_UNDEFINED);
+			if (end->constant.uval > dtype->array.length) {
+				error(ctx, expr->loc, expr,
+					"End index must not be greater than array length");
+				free(end);
+				return;
+			}
+		}
+	} else if (dtype->storage != STORAGE_ARRAY
+			|| dtype->array.length == SIZE_UNDEFINED) {
+		return;
+	}
+
+	if (expr->slice.start == NULL) {
+		if (end) free(end);
+		return;
+	}
+	start = xcalloc(1, sizeof(struct expression));
+	enum eval_result r = eval_expr(ctx, expr->slice.start, start);
+	if (r != EVAL_OK) {
+		free(start);
+		if (end) free(end);
+		return;
+	}
+
+	if (dtype->storage == STORAGE_ARRAY
+			&& dtype->array.length != SIZE_UNDEFINED) {
+		if (start->constant.uval > dtype->array.length) {
+			error(ctx, expr->loc, expr,
+				"Start index must not be greater than array length");
+			free(start);
+			if (end) free(end);
+			return;
+		}
+	}
+
+	if (end != NULL) {
+		if (start->constant.uval > end->constant.uval) {
+			error(ctx, expr->loc, expr,
+				"Start index must not be greater than end index");
+		}
+		free(end);
+	}
+	free(start);
+	return;
+}
+
+static void
 check_expr_slice(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -2489,6 +2553,8 @@ check_expr_slice(struct context *ctx,
 			"Must have end index on array of undefined length");
 		return;
 	}
+
+	slice_bounds_check(ctx, expr);
 
 	if (dtype->storage == STORAGE_SLICE) {
 		expr->result = atype;

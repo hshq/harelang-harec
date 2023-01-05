@@ -136,6 +136,12 @@ fn slicing() void = {
 	assert(compile(
 		"fn test() void = { let x = [1, 2, 3]; x[\"hi\"..]; };"
 	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = { let x = [1, 2, 3]; x[2..1]; };"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = { let x = [1, 2, 3]; x[..4]; };"
+	) as exited != EXIT_SUCCESS);
 };
 
 type tree = struct {
