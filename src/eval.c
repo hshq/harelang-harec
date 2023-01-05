@@ -317,8 +317,18 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 			bval = ftrunc(lvalue.result, flval) == ftrunc(rvalue.result, frval);
 		} else if (type_is_signed(lvalue.result)) {
 			bval = itrunc(lvalue.result, ilval) == itrunc(rvalue.result, irval);
-		} else {
+		} else if (type_is_integer(lvalue.result)
+				|| type_dealias(lvalue.result)->storage == STORAGE_POINTER) {
 			bval = itrunc(lvalue.result, ulval) == itrunc(rvalue.result, urval);
+		} else {
+			assert(type_dealias(lvalue.result)->storage == STORAGE_STRING);
+			if (lvalue.constant.string.len != rvalue.constant.string.len) {
+				bval = false;
+			} else {
+				bval = memcmp(lvalue.constant.string.value,
+					rvalue.constant.string.value,
+					lvalue.constant.string.len) == 0;
+			}
 		}
 		break;
 	case BIN_LESS:
@@ -356,8 +366,18 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 			bval = ftrunc(lvalue.result, flval) != ftrunc(rvalue.result, frval);
 		} else if (type_is_signed(lvalue.result)) {
 			bval = itrunc(lvalue.result, ilval) != itrunc(rvalue.result, irval);
-		} else {
+		} else if (type_is_integer(lvalue.result)
+				|| type_dealias(lvalue.result)->storage == STORAGE_POINTER) {
 			bval = itrunc(lvalue.result, ulval) != itrunc(rvalue.result, urval);
+		} else {
+			assert(type_dealias(lvalue.result)->storage == STORAGE_STRING);
+			if (lvalue.constant.string.len != rvalue.constant.string.len) {
+				bval = true;
+			} else {
+				bval = memcmp(lvalue.constant.string.value,
+					rvalue.constant.string.value,
+					lvalue.constant.string.len) != 0;
+			}
 		}
 		break;
 	}
@@ -365,7 +385,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		out->constant.fval = ftrunc(in->result, fval);
 	} else if (type_is_signed(in->result)) {
 		out->constant.ival = itrunc(in->result, ival);
-	} else if (type_dealias(in->result)->storage == STORAGE_BOOL) {
+	} else if (type_dealias(in->result)->storage == STORAGE_BOOL
+			|| type_dealias(in->result)->storage == STORAGE_STRING) {
 		out->constant.bval = bval;
 	} else {
 		assert(type_is_integer(in->result)
