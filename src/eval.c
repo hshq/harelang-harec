@@ -183,7 +183,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	assert(lvalue.result->storage == rvalue.result->storage);
 	switch (in->binarithm.op) {
 	case BIN_BAND:
-		assert(!type_is_float(lvalue.result));
+		assert(type_is_integer(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
 			ival = itrunc(lvalue.result, ilval) & itrunc(rvalue.result, irval);
 		} else {
@@ -191,7 +191,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		}
 		break;
 	case BIN_BOR:
-		assert(!type_is_float(lvalue.result));
+		assert(type_is_integer(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
 			ival = itrunc(lvalue.result, ilval) | itrunc(rvalue.result, irval);
 		} else {
@@ -209,6 +209,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 			}
 			ival = itrunc(lvalue.result, ilval) / r;
 		} else {
+			assert(type_is_integer(lvalue.result));
 			uintmax_t r = itrunc(rvalue.result, urval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
@@ -218,8 +219,9 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		}
 		break;
 	case BIN_LSHIFT:
+		assert(type_is_integer(lvalue.result));
+		assert(type_is_integer(rvalue.result));
 		assert(!type_is_signed(rvalue.result));
-		assert(!type_is_float(lvalue.result));
 		uval = itrunc(lvalue.result, ulval) << itrunc(rvalue.result, urval);
 		break;
 	case BIN_MINUS:
@@ -228,11 +230,12 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_signed(lvalue.result)) {
 			ival = itrunc(lvalue.result, ilval) - itrunc(rvalue.result, irval);
 		} else {
+			assert(type_is_integer(lvalue.result));
 			uval = itrunc(lvalue.result, ulval) - itrunc(rvalue.result, urval);
 		}
 		break;
 	case BIN_MODULO:
-		assert(!type_is_float(lvalue.result));
+		assert(type_is_integer(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
 			uintmax_t r = itrunc(rvalue.result, irval);
 			if (r == 0) {
@@ -255,12 +258,14 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_signed(lvalue.result)) {
 			ival = itrunc(lvalue.result, ilval) + itrunc(rvalue.result, irval);
 		} else {
+			assert(type_is_integer(lvalue.result));
 			uval = itrunc(lvalue.result, ulval) + itrunc(rvalue.result, urval);
 		}
 		break;
 	case BIN_RSHIFT:
+		assert(type_is_integer(lvalue.result));
+		assert(type_is_integer(rvalue.result));
 		assert(!type_is_signed(rvalue.result));
-		assert(!type_is_float(lvalue.result));
 		uval = itrunc(lvalue.result, ulval) >> itrunc(rvalue.result, urval);
 		break;
 	case BIN_TIMES:
@@ -269,11 +274,12 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_signed(lvalue.result)) {
 			ival = itrunc(lvalue.result, ilval) * itrunc(rvalue.result, irval);
 		} else {
+			assert(type_is_integer(lvalue.result));
 			uval = itrunc(lvalue.result, ulval) * itrunc(rvalue.result, urval);
 		}
 		break;
 	case BIN_BXOR:
-		assert(!type_is_float(lvalue.result));
+		assert(type_is_integer(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
 			ival = itrunc(lvalue.result, ilval) ^ itrunc(rvalue.result, irval);
 		} else {
@@ -287,6 +293,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_signed(lvalue.result)) {
 			bval = itrunc(lvalue.result, ilval) > itrunc(rvalue.result, irval);
 		} else {
+			assert(type_is_integer(lvalue.result));
 			bval = itrunc(lvalue.result, ulval) > itrunc(rvalue.result, urval);
 		}
 		break;
@@ -296,6 +303,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_signed(lvalue.result)) {
 			bval = itrunc(lvalue.result, ilval) >= itrunc(rvalue.result, irval);
 		} else {
+			assert(type_is_integer(lvalue.result));
 			bval = itrunc(lvalue.result, ulval) >= itrunc(rvalue.result, urval);
 		}
 		break;
@@ -319,6 +327,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_signed(lvalue.result)) {
 			bval = itrunc(lvalue.result, ilval) < itrunc(rvalue.result, irval);
 		} else {
+			assert(type_is_integer(lvalue.result));
 			bval = itrunc(lvalue.result, ulval) < itrunc(rvalue.result, urval);
 		}
 		break;
@@ -328,6 +337,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_signed(lvalue.result)) {
 			bval = itrunc(lvalue.result, ilval) <= itrunc(rvalue.result, irval);
 		} else {
+			assert(type_is_integer(lvalue.result));
 			bval = itrunc(lvalue.result, ulval) <= itrunc(rvalue.result, urval);
 		}
 		break;
@@ -358,6 +368,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	} else if (type_dealias(in->result)->storage == STORAGE_BOOL) {
 		out->constant.bval = bval;
 	} else {
+		assert(type_is_integer(in->result)
+			|| type_dealias(in->result)->storage == STORAGE_POINTER);
 		out->constant.uval = itrunc(in->result, uval);
 	}
 	return EVAL_OK;
