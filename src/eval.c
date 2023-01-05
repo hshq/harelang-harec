@@ -162,7 +162,7 @@ ftrunc(const struct type *type, double val)
 	return val;
 }
 
-enum eval_result
+static enum eval_result
 eval_binarithm(struct context *ctx, struct expression *in, struct expression *out)
 {
 	struct expression lvalue = {0}, rvalue = {0};
@@ -363,7 +363,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	return EVAL_OK;
 }
 
-enum eval_result
+static enum eval_result
 eval_const(struct context *ctx, struct expression *in, struct expression *out)
 {
 	enum type_storage storage = type_dealias(out->result)->storage;
@@ -459,7 +459,7 @@ eval_expand_array(struct context *ctx,
 	}
 }
 
-enum eval_result
+static enum eval_result
 eval_type_assertion(struct context *ctx, struct expression *in,
 		struct expression *out)
 {
@@ -480,7 +480,7 @@ eval_type_assertion(struct context *ctx, struct expression *in,
 	}
 }
 
-enum eval_result
+static enum eval_result
 eval_type_test(struct context *ctx, struct expression *in,
 		struct expression *out)
 {
@@ -498,7 +498,7 @@ eval_type_test(struct context *ctx, struct expression *in,
 	return EVAL_OK;
 }
 
-enum eval_result
+static enum eval_result
 eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 {
 	struct expression val = {0};
@@ -612,7 +612,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	assert(0); // Unreachable
 }
 
-enum eval_result
+static enum eval_result
 eval_measurement(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_MEASURE);
@@ -747,7 +747,7 @@ count_struct_fields(const struct type *type)
 	return n;
 }
 
-void
+static void
 autofill_struct(struct context *ctx, const struct type *type, struct struct_constant **fields)
 {
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
@@ -776,7 +776,7 @@ autofill_struct(struct context *ctx, const struct type *type, struct struct_cons
 	}
 }
 
-enum eval_result
+static enum eval_result
 eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_STRUCT);
