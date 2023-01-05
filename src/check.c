@@ -228,6 +228,23 @@ check_expr_access(struct context *ctx,
 			&builtin_type_size, expr->access.index);
 		expr->result = type_store_lookup_with_flags(ctx->store,
 			atype->array.members, atype->flags | atype->array.members->flags);
+
+		// Compile-time bounds check
+		if (atype->storage == STORAGE_ARRAY
+				&& atype->array.length != SIZE_UNDEFINED) {
+			struct expression *evaled = xcalloc(1, sizeof(struct expression));
+			enum eval_result r = eval_expr(ctx, expr->access.index, evaled);
+			if (r == EVAL_OK) {
+				if (evaled->constant.uval >= atype->array.length) {
+					error(ctx, aexpr->loc, expr,
+						"Index must not be greater than array length");
+					free(evaled);
+					return;
+				}
+			}
+			free(evaled);
+		}
+
 		break;
 	case ACCESS_FIELD:
 		expr->access._struct = xcalloc(1, sizeof(struct expression));
@@ -2447,8 +2464,8 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 			return;
 		}
 
-		if (dtype->storage == STORAGE_ARRAY) {
-			assert(dtype->array.length != SIZE_UNDEFINED);
+		if (dtype->storage == STORAGE_ARRAY
+				&& dtype->array.length != SIZE_UNDEFINED) {
 			if (end->constant.uval > dtype->array.length) {
 				error(ctx, expr->loc, expr,
 					"End index must not be greater than array length");
@@ -2456,9 +2473,11 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 				return;
 			}
 		}
-	} else if (dtype->storage != STORAGE_ARRAY
-			|| dtype->array.length == SIZE_UNDEFINED) {
-		return;
+	} else {
+		if (dtype->storage != STORAGE_ARRAY) {
+			return;
+		}
+		assert(dtype->array.length != SIZE_UNDEFINED);
 	}
 
 	if (expr->slice.start == NULL) {

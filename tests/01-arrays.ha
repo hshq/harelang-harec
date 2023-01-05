@@ -17,6 +17,13 @@ fn indexing() void = {
 	let q = &x[0];
 	*q = 1337;
 	assert(x[0] == 1337 && y[0] == 1337);
+
+	assert(compile("
+		export fn main() void = {
+			let a = [1, 2, 3];
+			a[3];
+		};
+	") as exited != EXIT_SUCCESS);
 };
 
 fn measurements() void = {
