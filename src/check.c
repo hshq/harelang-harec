@@ -241,6 +241,7 @@ check_expr_access(struct context *ctx,
 					free(evaled);
 					return;
 				}
+				expr->access.bounds_checked = true;
 			}
 			free(evaled);
 		}
@@ -2501,6 +2502,8 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 			if (end) free(end);
 			return;
 		}
+
+		expr->slice.bounds_checked = true;
 	}
 
 	if (end != NULL) {

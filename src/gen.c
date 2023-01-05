@@ -238,7 +238,7 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	glval = gen_autoderef(ctx, glval);
 	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qival = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	bool checkbounds = true;
+	bool checkbounds = !expr->access.bounds_checked;
 	struct qbe_value length;
 	const struct type *ty = type_dealias(glval.type);
 	switch (ty->storage) {
@@ -2939,7 +2939,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	object = gen_autoderef(ctx, object);
 	const struct type *srctype = type_dealias(object.type);
 
-	bool check_bounds = true;
+	bool check_bounds = !expr->slice.bounds_checked;
 	struct gen_value length;
 	struct qbe_value qlength;
 	struct qbe_value qbase;
