@@ -1475,8 +1475,10 @@ check_expr_cast(struct context *ctx,
 			return;
 		}
 		break;
-	case C_CAST:
-		if (!type_is_castable(secondary, value->result)) {
+	case C_CAST:;
+		const struct type *intermediary =
+			type_is_castable(secondary, value->result);
+		if (intermediary == NULL) {
 			char *primarytypename = gen_typename(value->result);
 			char *secondarytypename = gen_typename(secondary);
 			error(ctx, aexpr->cast.type->loc, expr,
@@ -1486,6 +1488,18 @@ check_expr_cast(struct context *ctx,
 			free(secondarytypename);
 			return;
 		}
+		// intermediary type is required when casting to tagged union
+		// whose member is an alias of primary type, since gen.c asserts
+		// that the primary type is a direct member of the tagged union.
+		// The value is first cast to an intermediary type which is a
+		// direct member of the tagged union, before being cast to the
+		// tagged union itself.
+		expr->cast.value = xcalloc(1, sizeof(struct expression));
+		expr->cast.value->type = EXPR_CAST;
+		expr->cast.value->result = intermediary;
+		expr->cast.value->cast.kind = C_CAST;
+		expr->cast.value->cast.value = value;
+		expr->cast.value->cast.secondary = intermediary;
 		if (value->result->storage == STORAGE_RCONST) {
 			uint32_t max = 0;
 			switch (secondary->storage) {

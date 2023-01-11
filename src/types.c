@@ -881,36 +881,38 @@ type_is_assignable(const struct type *to, const struct type *from)
 	assert(0); // Unreachable
 }
 
-static bool
+static const struct type *
 is_castable_with_tagged(const struct type *to, const struct type *from)
 {
 	if (type_dealias(from)->storage == STORAGE_TAGGED
 			&& type_dealias(to)->storage == STORAGE_TAGGED) {
 		if (tagged_subset_compat(to, from) || tagged_subset_compat(from, to)) {
-			return true;
+			return to;
 		}
 	}
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
-		if (tagged_select_subtype(to, from) != NULL) {
-			return true;
+		const struct type *subtype = tagged_select_subtype(to, from);
+		if (subtype != NULL) {
+			return subtype;
 		}
 	}
 	if (type_dealias(from)->storage == STORAGE_TAGGED) {
-		if (tagged_select_subtype(from, to) != NULL) {
-			return true;
+		const struct type *subtype = tagged_select_subtype(from, to);
+		if (subtype != NULL) {
+			return subtype;
 		}
 	}
-	return false;
+	return NULL;
 }
 
-bool
+const struct type *
 type_is_castable(const struct type *to, const struct type *from)
 {
 	if (to->storage == STORAGE_VOID) {
 		if (type_is_constant(from)) {
 			lower_const(from, NULL);
 		};
-		return true;
+		return to;
 	}
 
 	if (type_dealias(from)->storage == STORAGE_TAGGED
@@ -921,13 +923,13 @@ type_is_castable(const struct type *to, const struct type *from)
 	const struct type *to_orig = to, *from_orig = from;
 	to = type_dealias(to), from = type_dealias(from);
 	if (to == from) {
-		return true;
+		return to_orig;
 	}
 
 	struct type _to, _from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
 	if (to->id == from->id) {
-		return true;
+		return to_orig;
 	}
 
 	switch (from->storage) {
@@ -944,43 +946,54 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_U16:
 	case STORAGE_U64:
 	case STORAGE_UINT:
-		return to->storage == STORAGE_ENUM || type_is_numeric(to);
+		return to->storage == STORAGE_ENUM || type_is_numeric(to)
+			? to_orig : NULL;
 	case STORAGE_U8:
 		return to->storage == STORAGE_ENUM
 			|| type_is_numeric(to)
-			|| to->storage == STORAGE_CHAR;
+			|| to->storage == STORAGE_CHAR
+			? to_orig : NULL;
 	case STORAGE_U32:
 		return to->storage == STORAGE_ENUM
 			|| type_is_numeric(to)
-			|| to->storage == STORAGE_RUNE;
+			|| to->storage == STORAGE_RUNE
+			? to_orig : NULL;
 	case STORAGE_CHAR:
-		return to->storage == STORAGE_U8;
+		return to->storage == STORAGE_U8
+			? to_orig : NULL;
 	case STORAGE_RUNE:
-		return to->storage == STORAGE_U32;
+		return to->storage == STORAGE_U32
+			? to_orig : NULL;
 	case STORAGE_ENUM:
-		return to->storage == STORAGE_ENUM || type_is_integer(from);
+		return to->storage == STORAGE_ENUM || type_is_integer(from)
+			? to_orig : NULL;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		return type_is_numeric(to);
+		return type_is_numeric(to)
+			? to_orig : NULL;
 	case STORAGE_UINTPTR:
 		return to->storage == STORAGE_POINTER
 			|| to->storage == STORAGE_NULL
 			|| type_is_numeric(to)
-			|| to->storage == STORAGE_ENUM;
+			|| to->storage == STORAGE_ENUM
+			? to_orig : NULL;
 	case STORAGE_POINTER:
 		return to->storage == STORAGE_POINTER
 			|| to->storage == STORAGE_NULL
-			|| to->storage == STORAGE_UINTPTR;
+			|| to->storage == STORAGE_UINTPTR
+			? to_orig : NULL;
 	case STORAGE_NULL:
 		return to->storage == STORAGE_POINTER
-			|| to->storage == STORAGE_UINTPTR;
+			|| to->storage == STORAGE_UINTPTR
+			? to_orig : NULL;
 	case STORAGE_SLICE:
 	case STORAGE_ARRAY:
 		return to->storage == STORAGE_SLICE
 			|| to->storage == STORAGE_ARRAY
 			|| (to->storage == STORAGE_POINTER
 					&& to->pointer.referent->storage == STORAGE_ARRAY
-					&& from->storage == STORAGE_SLICE);
+					&& from->storage == STORAGE_SLICE)
+			? to_orig : NULL;
 	// Cannot be cast:
 	case STORAGE_STRING:
 	case STORAGE_BOOL:
@@ -990,9 +1003,9 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
-		return false;
+		return NULL;
 	case STORAGE_ERROR:
-		return true;
+		return to_orig;
 	case STORAGE_TAGGED:
 	case STORAGE_ALIAS:
 		assert(0); // Handled above

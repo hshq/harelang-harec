@@ -190,7 +190,7 @@ uint32_t type_hash(const struct type *type);
 
 const struct type *promote_const(const struct type *a, const struct type *b);
 bool type_is_assignable(const struct type *to, const struct type *from);
-bool type_is_castable(const struct type *to, const struct type *from);
+const struct type *type_is_castable(const struct type *to, const struct type *from);
 bool type_is_complete(const struct type *type);
 
 const struct type *type_create_const(enum type_storage storage,
