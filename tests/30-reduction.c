@@ -128,6 +128,11 @@ int main(void) {
 		"if (true) null: *int "
 		"else if (true) null: const nullable *int "
 		"else null: nullable *int");
+	test(&ctx, "(int | void)",
+		"{ "
+		"if (true) yield; "
+		"yield 0; "
+		"}");
 
 	test(&ctx, "",
 		"if (true) null "

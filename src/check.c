@@ -1878,22 +1878,29 @@ check_expr_control(struct context *ctx,
 	}
 	expr->control.scope = scope;
 
+	if (expr->type != EXPR_YIELD) {
+		return;
+	}
+
+	expr->control.value = xcalloc(1, sizeof(struct expression));
 	if (aexpr->control.value) {
-		expr->control.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->control.value,
 			expr->control.value, scope->hint);
-
-		struct type_tagged_union *result =
-			xcalloc(1, sizeof(struct type_tagged_union));
-		result->type = expr->control.value->result;
-		result->next = scope->results;
-		scope->results = result;
-
-		struct yield *yield = xcalloc(1, sizeof(struct yield));
-		yield->expression = &expr->control.value;
-		yield->next = scope->yields;
-		scope->yields = yield;
+	} else {
+		expr->control.value->type = EXPR_CONSTANT;
+		expr->control.value->result = &builtin_type_void;
 	}
+
+	struct type_tagged_union *result =
+		xcalloc(1, sizeof(struct type_tagged_union));
+	result->type = expr->control.value->result;
+	result->next = scope->results;
+	scope->results = result;
+
+	struct yield *yield = xcalloc(1, sizeof(struct yield));
+	yield->expression = &expr->control.value;
+	yield->next = scope->yields;
+	scope->yields = yield;
 }
 
 static void
