@@ -1,3 +1,5 @@
+use rt::{compile, exited, EXIT_SUCCESS};
+
 fn basics() void = {
 	let x = {
 		yield 10;
@@ -13,10 +15,16 @@ fn basics() void = {
 };
 
 fn termination() void = {
+	// XXX: reject tests have to go first because of
+	// https://todo.sr.ht/~sircmpwn/hare/660
+	assert(compile(
+		"fn test() void = { let x: int = if (true) { yield; } else 1; };"
+	) as exited != EXIT_SUCCESS);
+
 	:outer {
-		if (true) {
+		let x: int = if (true) {
 			yield :outer;
-		} else void;
+		} else 1;
 		abort();
 	};
 };

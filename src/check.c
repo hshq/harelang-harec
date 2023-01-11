@@ -1674,7 +1674,17 @@ check_expr_compound(struct context *ctx,
 		}
 	}
 
-	expr->terminates = lexpr->terminates && lexpr->type != EXPR_YIELD;
+	expr->terminates = false;
+	if (lexpr->terminates) {
+		expr->terminates = true;
+		if (lexpr->type == EXPR_YIELD) {
+			const char *llabel = lexpr->control.label;
+			if (!llabel || (scope->label
+					&& strcmp(llabel, scope->label) == 0)) {
+				expr->terminates = false;
+			}
+		}
+	}
 	expr->result = type_store_reduce_result(ctx->store, aexpr->loc,
 			scope->results);
 
