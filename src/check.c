@@ -1675,7 +1675,7 @@ check_expr_compound(struct context *ctx,
 	}
 
 	expr->terminates = false;
-	if (lexpr->terminates) {
+	if (lexpr->terminates && scope->yields == NULL) {
 		expr->terminates = true;
 		if (lexpr->type == EXPR_YIELD) {
 			const char *llabel = lexpr->control.label;

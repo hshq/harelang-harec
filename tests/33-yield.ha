@@ -15,18 +15,16 @@ fn basics() void = {
 };
 
 fn termination() void = {
-	// XXX: reject tests have to go first because of
-	// https://todo.sr.ht/~sircmpwn/hare/660
-	assert(compile(
-		"fn test() void = { let x: int = if (true) { yield; } else 1; };"
-	) as exited != EXIT_SUCCESS);
-
 	:outer {
 		let x: int = if (true) {
 			yield :outer;
 		} else 1;
 		abort();
 	};
+
+	assert(compile(
+		"fn test() void = { let x: int = if (true) { yield; } else 1; };"
+	) as exited != EXIT_SUCCESS);
 };
 
 fn cast_lowering() void = {
