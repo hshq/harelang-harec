@@ -1,8 +1,12 @@
 export type exited = int, signaled = int;
 export type exit_status = (exited | signaled);
 
+export type typedef = str;
+export type define = str;
+export type compileflag = (typedef | define);
+
 // Runs the Hare compiler and returns the exit status.
-export fn compile(src: const str) exit_status = {
+export fn compile(src: const str, flags: compileflag...) exit_status = {
 	let status = 0;
 	let pipefd = [-1, -1];
 	assert(pipe2(&pipefd, 0) == 0);
@@ -15,16 +19,26 @@ export fn compile(src: const str) exit_status = {
 		close(2);
 
 		const path = "./harec\0";
-		const argv: [_]nullable *const char = [
-			constchar(path),
-			constchar("-\0"),
-			null
-		];
+		let argv: []nullable *const char = [];
+		append(argv, constchar(path));
+		for (let i = 0z; i < len(flags); i += 1) {
+			match (flags[i]) {
+			case let d: define =>
+				append(argv, constchar("-D\0"));
+				append(argv, alloc_constchar(d));
+			case let t: typedef =>
+				append(argv, constchar("-t\0"));
+				append(argv, alloc_constchar(t));
+			};
+		};
+		append(argv, constchar("-\0"));
+		append(argv, null);
+
 		const envp: [_]nullable *const char = [
 			constchar("HARECACHE=mod\0"),
 			null
 		];
-		execve(constchar(path), &argv, &envp);
+		execve(constchar(path), *(&argv: **[*]nullable *const char), &envp);
 		abort();
 	} else {
 		assert(child != -1, "fork(2) failed");

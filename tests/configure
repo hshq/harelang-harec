@@ -50,7 +50,8 @@ tests() {
 		32-copy \
 		33-yield \
 		34-declarations \
-		35-floats
+		35-floats \
+		36-defines
 	do
 		cat <<EOF
 tests/$t: libhart.a testmod.a tests/$t.ha
