@@ -50,6 +50,9 @@ scope_lookup_ancestor(struct scope *scope,
 	if (scope && class != scope->class) {
 		assert(scope->class == SCOPE_COMPOUND);
 		scope = scope->parent;
+		if (scope->class != class) {
+			return NULL;
+		}
 	}
 
 	return scope;

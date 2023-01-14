@@ -57,6 +57,10 @@ fn equality() void = {
 	assert("foo" != "foobar");
 	assert("foobar" == "foobar");
 	assert("foo\0bar" != "foo\0foo");
+	static assert("foo" != "bar");
+	static assert("foo" != "foobar");
+	static assert("foobar" == "foobar");
+	static assert("foo\0bar" != "foo\0foo");
 };
 
 fn raw() void = {
