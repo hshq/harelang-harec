@@ -121,6 +121,13 @@ fn reject() void = {
 			assert(a as *int);
 		};
 	") as exited != EXIT_SUCCESS);
+
+	// dereference expression not in translation-compatible subset
+	assert(compile("
+		let a: int = 0;
+		let b: *int = &a;
+		let c: int = *b;
+	") as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {

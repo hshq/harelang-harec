@@ -953,7 +953,7 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		out->constant.uval = ~lvalue.constant.uval;
 		break;
 	case UN_DEREF:
-		assert(0); // TODO
+		return EVAL_INVALID;
 	case UN_LNOT:
 		out->constant.bval = !lvalue.constant.bval;
 		break;
