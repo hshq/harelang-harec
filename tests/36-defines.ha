@@ -39,7 +39,7 @@ fn compatibility() void = {
 		def TESTDEFINE: int = 0;
 	", "TESTDEFINE:uint=1": rt::define) as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("
-		const TEST = 1
+		const TEST = 1;
 	", "TEST=0": rt::define) as rt::exited != rt::EXIT_SUCCESS);
 };
 
