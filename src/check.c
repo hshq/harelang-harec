@@ -3090,7 +3090,13 @@ check_expr_unarithm(struct context *ctx,
 		}
 		expr->result = operand->result;
 		break;
-	case UN_ADDRESS:
+	case UN_ADDRESS:;
+		const struct type *result = type_dealias(operand->result);
+		if (result->storage == STORAGE_VOID) {
+			error(ctx, aexpr->loc, expr,
+				"Can't take address of void");
+			return;
+		}
 		expr->result = type_store_lookup_pointer(
 			ctx->store, aexpr->loc, operand->result, 0);
 		break;
