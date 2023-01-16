@@ -403,20 +403,19 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 	if (storage == STORAGE_ENUM) {
 		storage = type_dealias(out->result)->alias.type->storage;
 	}
-	struct array_constant **next;
 	switch (storage) {
 	case STORAGE_ALIAS:
 	case STORAGE_ENUM:
 		assert(0); // Handled above
-	case STORAGE_ARRAY:
-		next = &out->constant.array;
+	case STORAGE_ARRAY:;
+		struct array_constant **anext = &out->constant.array;
 		for (struct array_constant *arr = in->constant.array; arr;
 				arr = arr->next) {
-			struct array_constant *aconst = *next =
+			struct array_constant *aconst = *anext =
 				xcalloc(sizeof(struct array_constant), 1);
 			aconst->value = xcalloc(sizeof(struct expression), 1);
 			eval_expr(ctx, arr->value, aconst->value);
-			next = &aconst->next;
+			anext = &aconst->next;
 		}
 		break;
 	case STORAGE_FUNCTION:
@@ -436,8 +435,19 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 				out->constant.tagged.value);
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-	case STORAGE_TUPLE:
 		assert(0); // TODO
+	case STORAGE_TUPLE:;
+		struct tuple_constant **tnext = &out->constant.tuple;
+		for (struct tuple_constant *tuple = in->constant.tuple; tuple;
+				tuple = tuple->next) {
+			struct tuple_constant *tconst = *tnext =
+				xcalloc(1, sizeof(struct tuple_constant));
+			tconst->field = tuple->field;
+			tconst->value = xcalloc(1, sizeof(struct expression));
+			eval_expr(ctx, tuple->value, tconst->value);
+			tnext = &tconst->next;
+		}
+		break;
 	case STORAGE_BOOL:
 	case STORAGE_CHAR:
 	case STORAGE_ERROR:
@@ -693,7 +703,7 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 	assert(0);
 }
 
-static void
+static enum eval_result
 constant_default(struct context *ctx, struct expression *v)
 {
 	struct expression b = {0};
@@ -742,11 +752,26 @@ constant_default(struct context *ctx, struct expression *v)
 		v->constant.array->value->type = EXPR_CONSTANT;
 		v->constant.array->value->result =
 			type_dealias(v->result)->array.members;
-		constant_default(ctx, v->constant.array->value);
+		return constant_default(ctx, v->constant.array->value);
 		break;
 	case STORAGE_TAGGED:
-	case STORAGE_TUPLE:
-		assert(0); // TODO
+		return EVAL_INVALID;
+	case STORAGE_TUPLE:;
+		struct tuple_constant **c = &v->constant.tuple;
+		for (const struct type_tuple *t = &type_dealias(v->result)->tuple;
+				t != NULL; t = t->next) {
+			*c = xcalloc(1, sizeof(struct tuple_constant));
+			(*c)->field = t;
+			(*c)->value = xcalloc(1, sizeof(struct expression));
+			(*c)->value->type = EXPR_CONSTANT;
+			(*c)->value->result = t->type;
+			enum eval_result r = constant_default(ctx, (*c)->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
+			c = &(*c)->next;
+		}
+		break;
 	case STORAGE_ALIAS:
 	case STORAGE_FUNCTION:
 	case STORAGE_VALIST:
@@ -754,6 +779,8 @@ constant_default(struct context *ctx, struct expression *v)
 	case STORAGE_VOID:
 		break; // no-op
 	}
+
+	return EVAL_OK;
 }
 
 static int
@@ -780,14 +807,18 @@ count_struct_fields(const struct type *type)
 	return n;
 }
 
-static void
+static enum eval_result
 autofill_struct(struct context *ctx, const struct type *type, struct struct_constant **fields)
 {
+	enum eval_result r;
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
 	for (const struct struct_field *field = type->struct_union.fields;
 			field; field = field->next) {
 		if (!field->name) {
-			autofill_struct(ctx, type_dealias(field->type), fields);
+			r = autofill_struct(ctx, type_dealias(field->type), fields);
+			if (r != EVAL_OK) {
+				return r;
+			}
 			continue;
 		}
 		size_t i = 0;
@@ -804,9 +835,16 @@ autofill_struct(struct context *ctx, const struct type *type, struct struct_cons
 			fields[i]->value = xcalloc(1, sizeof(struct expression));
 			fields[i]->value->type = EXPR_CONSTANT;
 			fields[i]->value->result = field->type;
-			constant_default(ctx, fields[i]->value);
+			// TODO: there should probably be a better error message
+			// when this happens
+			r = constant_default(ctx, fields[i]->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
 		}
 	}
+
+	return EVAL_OK;
 }
 
 static enum eval_result
@@ -839,7 +877,10 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 	assert(in->_struct.autofill || i == n);
 
 	if (in->_struct.autofill) {
-		autofill_struct(ctx, type, fields);
+		enum eval_result r = autofill_struct(ctx, type, fields);
+		if (r != EVAL_OK) {
+			return r;
+		}
 	}
 
 	qsort(fields, n, sizeof(struct struct_constant *), field_compar);
