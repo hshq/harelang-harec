@@ -289,7 +289,7 @@ lex_name(struct lexer *lexer, struct token *out)
 			error(&out->loc, "Unknown attribute %s", lexer->buf);
 		}
 		out->token = T_NAME;
-		out->name = strdup(lexer->buf);
+		out->name = xstrdup(lexer->buf);
 	} else {
 		out->token = (const char **)token - tokens;
 	}

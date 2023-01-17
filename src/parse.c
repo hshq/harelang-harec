@@ -111,7 +111,7 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 	while (!i->name) {
 		switch (lex(lexer, &tok)) {
 		case T_NAME:
-			i->name = strdup(tok.name);
+			i->name = xstrdup(tok.name);
 			token_finish(&tok);
 			break;
 		default:
@@ -148,7 +148,7 @@ parse_name_list(struct lexer *lexer, struct ast_imports *name)
 	while (more) {
 		struct token tok = {0};
 		want(lexer, T_NAME, &tok);
-		name->ident.name = strdup(tok.name);
+		name->ident.name = xstrdup(tok.name);
 		name->loc = tok.loc;
 		token_finish(&tok);
 

@@ -48,7 +48,7 @@ identifier_unparse(const struct identifier *ident)
 		free(ns);
 		return str;
 	}
-	return strdup(ident->name);
+	return xstrdup(ident->name);
 }
 
 int
@@ -106,14 +106,14 @@ ident_to_sym(const struct identifier *ident)
 		free(ns);
 		return str;
 	}
-	return strdup(ident->name);
+	return xstrdup(ident->name);
 }
 
 void
 identifier_dup(struct identifier *new, const struct identifier *ident)
 {
 	assert(ident && new);
-	new->name = strdup(ident->name);
+	new->name = xstrdup(ident->name);
 	if (ident->ns) {
 		new->ns = xcalloc(1, sizeof(struct identifier));
 		identifier_dup(new->ns, ident->ns);

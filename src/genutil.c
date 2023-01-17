@@ -81,7 +81,7 @@ mkrtfunc(struct gen_context *ctx, const char *name)
 {
 	return (struct qbe_value){
 		.kind = QV_GLOBAL,
-		.name = strdup(name),
+		.name = xstrdup(name),
 		.type = ctx->arch.ptr,
 	};
 }
@@ -91,7 +91,7 @@ mklabel(struct gen_context *ctx, struct qbe_statement *stmt, const char *fmt)
 {
 	struct qbe_value val;
 	val.kind = QV_LABEL;
-	val.name = strdup(genl(stmt, &ctx->id, fmt));
+	val.name = xstrdup(genl(stmt, &ctx->id, fmt));
 	return val;
 }
 

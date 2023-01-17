@@ -150,7 +150,7 @@ qval_dup(const struct qbe_value *val)
 	struct qbe_value *new = xcalloc(1, sizeof(struct qbe_value));
 	*new = *val;
 	if (val->kind != QV_CONST) {
-		new->name = strdup(val->name);
+		new->name = xstrdup(val->name);
 	}
 	return new;
 }

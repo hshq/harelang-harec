@@ -21,7 +21,7 @@ mkident(struct context *ctx, struct identifier *out, const struct identifier *in
 		const char *symbol)
 {
 	if (symbol) {
-		out->name = strdup(symbol);
+		out->name = xstrdup(symbol);
 		return;
 	}
 	identifier_dup(out, in);
@@ -1648,8 +1648,8 @@ check_expr_compound(struct context *ctx,
 	expr->compound.scope = scope;
 
 	if (aexpr->compound.label) {
-		expr->compound.label = strdup(aexpr->compound.label);
-		scope->label = strdup(aexpr->compound.label);
+		expr->compound.label = xstrdup(aexpr->compound.label);
+		scope->label = xstrdup(aexpr->compound.label);
 	}
 
 	struct expressions *list = &expr->compound.exprs;
@@ -3339,7 +3339,7 @@ check_function(struct context *ctx,
 	decl->func.flags = afndecl->flags;
 
 	if (afndecl->symbol) {
-		decl->symbol = strdup(afndecl->symbol);
+		decl->symbol = xstrdup(afndecl->symbol);
 	}
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
 
@@ -3436,7 +3436,7 @@ check_global(struct context *ctx,
 	decl->global.threadlocal = adecl->threadlocal;
 
 	if (adecl->symbol) {
-		decl->symbol = strdup(adecl->symbol);
+		decl->symbol = xstrdup(adecl->symbol);
 	}
 	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 
@@ -3937,7 +3937,7 @@ scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
 			xcalloc(1, sizeof(struct ast_enum_field));
 		*afield = (struct ast_enum_field){
 			.loc = (struct location){0}, // XXX: what to put here?
-			.name = strdup(val->name.name),
+			.name = xstrdup(val->name.name),
 		};
 
 		struct incomplete_enum_field *field =

@@ -28,7 +28,7 @@ ident_to_env(const struct identifier *ident)
 		free(ns);
 		return str;
 	}
-	return strdup(ident->name);
+	return xstrdup(ident->name);
 }
 
 
@@ -43,7 +43,7 @@ open_typedefs(struct identifier *ident)
 	if (!version) {
 		version = env;
 	} else {
-		version = strdup(version);
+		version = xstrdup(version);
 		free(env);
 	}
 
