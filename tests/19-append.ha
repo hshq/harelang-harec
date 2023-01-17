@@ -95,6 +95,11 @@ fn reject() void = {
 		let x: []u8 = [0u8];
 		append(x, [42], 3);
 	") as exited != EXIT_SUCCESS); // must be an expandable array
+	assert(compile("
+		let x: []u8 = [0u8];
+		let x: nullable *[]u8 = &x;
+		append(x, 42);
+	") as exited != EXIT_SUCCESS); // object member type is nullable pointer
 };
 
 export fn main() void = {
