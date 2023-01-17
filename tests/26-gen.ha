@@ -18,6 +18,8 @@ def THING: thing = thing{
 	},
 };
 
+let global: int = 0;
+
 export fn main() void = {
 	let t = thing {
 		offs = 0,
@@ -62,4 +64,9 @@ export fn main() void = {
 		yield p;
 	};
 	*p = 0;
+
+	switch (&global) {
+	case &global => void;
+	case => abort();
+	};
 };

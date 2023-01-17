@@ -1,3 +1,5 @@
+use rt::{compile, exited, EXIT_SUCCESS};
+
 type abool = bool;
 
 fn lnot() void = {
@@ -17,6 +19,21 @@ fn addr() void = {
 	assert(a == 0 - 2);
 	let b = 1-1;
 	assert(b == 0);
+
+	assert(compile("
+		export fn main() void = { &null; };
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		export fn main() void = { &void; };
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		type foo = void;
+		export fn main() void = { &foo; };
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		fn f() void = void;
+		export fn main() void = { &f(); };
+	") as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {

@@ -44,7 +44,7 @@ fn casts() void = {
 	assert((a as null): nullable *void == null);
 
 	let a: nullable *int = &4;
-	a as nullable *int;
+	assert(a is *int);
 };
 
 fn reject() void = {
@@ -101,6 +101,18 @@ fn reject() void = {
 			let a = null;
 		};
 	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		fn test() void = {
+			let a: nullable *int = &4;
+			a as int;
+		};
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		fn test() void = {
+			let a: nullable *int = &4;
+			a as *str;
+		};
+	") as exited != EXIT_SUCCESS);
 
 	// type assertions on non-nullable pointers are prohibited
 	assert(compile("
@@ -108,6 +120,13 @@ fn reject() void = {
 			let a: *int = &4;
 			assert(a as *int);
 		};
+	") as exited != EXIT_SUCCESS);
+
+	// dereference expression not in translation-compatible subset
+	assert(compile("
+		let a: int = 0;
+		let b: *int = &a;
+		let c: int = *b;
 	") as exited != EXIT_SUCCESS);
 };
 

@@ -169,6 +169,11 @@ fn subsetcast() void = {
 
 type foo = (int | void);
 type bar = (size | foo);
+type t1 = t2;
+type t2 = int;
+type t3 = (t2 | void);
+type t4 = t2;
+type t5 = (t4 | void);
 
 fn castout() void = {
 	let x: (int | void) = 1337;
@@ -181,6 +186,12 @@ fn castout() void = {
 	assert(a as int == 42);
 	assert(a: int == 42);
 	assert(a is int);
+
+	const a: t1 = 42;
+	const x = a: t3;
+	assert(x as t2 == 42);
+	const x = a: t5;
+	assert(x as t4 == 42);
 };
 
 fn assertions() void = {

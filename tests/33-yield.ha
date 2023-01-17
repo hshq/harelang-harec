@@ -1,3 +1,5 @@
+use rt::{compile, exited, EXIT_SUCCESS};
+
 fn basics() void = {
 	let x = {
 		yield 10;
@@ -14,11 +16,15 @@ fn basics() void = {
 
 fn termination() void = {
 	:outer {
-		if (true) {
+		let x: int = if (true) {
 			yield :outer;
-		} else void;
+		} else 1;
 		abort();
 	};
+
+	assert(compile(
+		"fn test() void = { let x: int = if (true) { yield; } else 1; };"
+	) as exited != EXIT_SUCCESS);
 };
 
 fn cast_lowering() void = {

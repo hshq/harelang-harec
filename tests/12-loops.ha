@@ -96,6 +96,7 @@ fn label() void = {
 	assert(compile("fn test() void = { break :bar; };") as exited != EXIT_SUCCESS);
 	assert(compile("fn test() void = { :foo for (true) { :foo for (true) void; } ; };") as exited != EXIT_SUCCESS);
 	assert(compile("fn test() void = :foo { break :foo; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { for (true) { { break; }; void; }; };") as exited != EXIT_SUCCESS);
 };
 
 type abool = bool;

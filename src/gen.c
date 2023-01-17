@@ -205,9 +205,8 @@ gen_autoderef(struct gen_context *ctx, struct gen_value val)
 }
 
 static struct gen_value
-gen_access_ident(struct gen_context *ctx, const struct expression *expr)
+gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 {
-	const struct scope_object *obj = expr->access.object;
 	switch (obj->otype) {
 	case O_BIND:
 		for (const struct gen_binding *gb = ctx->bindings;
@@ -239,7 +238,7 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	glval = gen_autoderef(ctx, glval);
 	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qival = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	bool checkbounds = true;
+	bool checkbounds = !expr->access.bounds_checked;
 	struct qbe_value length;
 	const struct type *ty = type_dealias(glval.type);
 	switch (ty->storage) {
@@ -334,7 +333,7 @@ gen_expr_access_addr(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value addr;
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
-		addr = gen_access_ident(ctx, expr);
+		addr = gen_access_ident(ctx, expr->access.object);
 		break;
 	case ACCESS_INDEX:
 		addr = gen_access_index(ctx, expr);
@@ -448,9 +447,11 @@ gen_alloc_slice_at(struct gen_context *ctx,
 		};
 		gen_expr_at(ctx, expr->alloc.init, storage);
 	} else {
+		struct qbe_value copysize = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, &copysize, Q_MUL, &length, &isize, NULL);
 		struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
 		pushi(ctx->current, NULL, Q_CALL, &rtmemcpy,
-				&data, &initdata, &size, NULL);
+				&data, &initdata, &copysize, NULL);
 	}
 
 	if (!expand) {
@@ -2032,6 +2033,13 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 		break;
 	}
 
+	if (expr->constant.object != NULL) {
+		assert(expr->constant.ival == 0);
+		val = gen_access_ident(ctx, expr->constant.object);
+		val.type = expr->result;
+		return val;
+	}
+
 	const struct qbe_type *qtype = qtype_lookup(ctx, expr->result, false);
 	switch (qtype->stype) {
 	case Q_BYTE:
@@ -2931,7 +2939,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	object = gen_autoderef(ctx, object);
 	const struct type *srctype = type_dealias(object.type);
 
-	bool check_bounds = true;
+	bool check_bounds = !expr->slice.bounds_checked;
 	struct gen_value length;
 	struct qbe_value qlength;
 	struct qbe_value qbase;

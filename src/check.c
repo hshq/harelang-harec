@@ -228,6 +228,24 @@ check_expr_access(struct context *ctx,
 			&builtin_type_size, expr->access.index);
 		expr->result = type_store_lookup_with_flags(ctx->store,
 			atype->array.members, atype->flags | atype->array.members->flags);
+
+		// Compile-time bounds check
+		if (atype->storage == STORAGE_ARRAY
+				&& atype->array.length != SIZE_UNDEFINED) {
+			struct expression *evaled = xcalloc(1, sizeof(struct expression));
+			enum eval_result r = eval_expr(ctx, expr->access.index, evaled);
+			if (r == EVAL_OK) {
+				if (evaled->constant.uval >= atype->array.length) {
+					error(ctx, aexpr->loc, expr,
+						"Index must not be greater than array length");
+					free(evaled);
+					return;
+				}
+				expr->access.bounds_checked = true;
+			}
+			free(evaled);
+		}
+
 		break;
 	case ACCESS_FIELD:
 		expr->access._struct = xcalloc(1, sizeof(struct expression));
@@ -1429,6 +1447,15 @@ check_expr_cast(struct context *ctx,
 					"a nullable pointer");
 				return;
 			}
+			if (secondary->storage != STORAGE_NULL
+					&& (secondary->storage != STORAGE_POINTER
+					|| primary->pointer.referent
+						!= secondary->pointer.referent
+					|| (secondary->pointer.flags & PTR_NULLABLE))) {
+				error(ctx, aexpr->cast.type->loc, expr,
+					"Can only type assert nullable pointer into non-nullable pointer of the same type or null");
+				return;
+			}
 			break;
 		}
 		if (primary->storage != STORAGE_TAGGED) {
@@ -1448,8 +1475,10 @@ check_expr_cast(struct context *ctx,
 			return;
 		}
 		break;
-	case C_CAST:
-		if (!type_is_castable(secondary, value->result)) {
+	case C_CAST:;
+		const struct type *intermediary =
+			type_is_castable(secondary, value->result);
+		if (intermediary == NULL) {
 			char *primarytypename = gen_typename(value->result);
 			char *secondarytypename = gen_typename(secondary);
 			error(ctx, aexpr->cast.type->loc, expr,
@@ -1459,6 +1488,18 @@ check_expr_cast(struct context *ctx,
 			free(secondarytypename);
 			return;
 		}
+		// intermediary type is required when casting to tagged union
+		// whose member is an alias of primary type, since gen.c asserts
+		// that the primary type is a direct member of the tagged union.
+		// The value is first cast to an intermediary type which is a
+		// direct member of the tagged union, before being cast to the
+		// tagged union itself.
+		expr->cast.value = xcalloc(1, sizeof(struct expression));
+		expr->cast.value->type = EXPR_CAST;
+		expr->cast.value->result = intermediary;
+		expr->cast.value->cast.kind = C_CAST;
+		expr->cast.value->cast.value = value;
+		expr->cast.value->cast.secondary = intermediary;
 		if (value->result->storage == STORAGE_RCONST) {
 			uint32_t max = 0;
 			switch (secondary->storage) {
@@ -1633,7 +1674,17 @@ check_expr_compound(struct context *ctx,
 		}
 	}
 
-	expr->terminates = lexpr->terminates && lexpr->type != EXPR_YIELD;
+	expr->terminates = false;
+	if (lexpr->terminates && scope->yields == NULL) {
+		expr->terminates = true;
+		if (lexpr->type == EXPR_YIELD) {
+			const char *llabel = lexpr->control.label;
+			if (!llabel || (scope->label
+					&& strcmp(llabel, scope->label) == 0)) {
+				expr->terminates = false;
+			}
+		}
+	}
 	expr->result = type_store_reduce_result(ctx->store, aexpr->loc,
 			scope->results);
 
@@ -1827,22 +1878,29 @@ check_expr_control(struct context *ctx,
 	}
 	expr->control.scope = scope;
 
+	if (expr->type != EXPR_YIELD) {
+		return;
+	}
+
+	expr->control.value = xcalloc(1, sizeof(struct expression));
 	if (aexpr->control.value) {
-		expr->control.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->control.value,
 			expr->control.value, scope->hint);
-
-		struct type_tagged_union *result =
-			xcalloc(1, sizeof(struct type_tagged_union));
-		result->type = expr->control.value->result;
-		result->next = scope->results;
-		scope->results = result;
-
-		struct yield *yield = xcalloc(1, sizeof(struct yield));
-		yield->expression = &expr->control.value;
-		yield->next = scope->yields;
-		scope->yields = yield;
+	} else {
+		expr->control.value->type = EXPR_CONSTANT;
+		expr->control.value->result = &builtin_type_void;
 	}
+
+	struct type_tagged_union *result =
+		xcalloc(1, sizeof(struct type_tagged_union));
+	result->type = expr->control.value->result;
+	result->next = scope->results;
+	scope->results = result;
+
+	struct yield *yield = xcalloc(1, sizeof(struct yield));
+	yield->expression = &expr->control.value;
+	yield->next = scope->yields;
+	scope->yields = yield;
 }
 
 static void
@@ -2432,6 +2490,74 @@ check_expr_return(struct context *ctx,
 }
 
 static void
+slice_bounds_check(struct context *ctx, struct expression *expr)
+{
+	const struct type *atype = type_dereference(expr->slice.object->result);
+	const struct type *dtype = type_dealias(atype);
+
+	struct expression *start = NULL, *end = NULL;
+
+	if (expr->slice.end != NULL) {
+		end = xcalloc(1, sizeof(struct expression));
+		enum eval_result r = eval_expr(ctx, expr->slice.end, end);
+		if (r != EVAL_OK) {
+			free(end);
+			return;
+		}
+
+		if (dtype->storage == STORAGE_ARRAY
+				&& dtype->array.length != SIZE_UNDEFINED) {
+			if (end->constant.uval > dtype->array.length) {
+				error(ctx, expr->loc, expr,
+					"End index must not be greater than array length");
+				free(end);
+				return;
+			}
+		}
+	} else {
+		if (dtype->storage != STORAGE_ARRAY) {
+			return;
+		}
+		assert(dtype->array.length != SIZE_UNDEFINED);
+	}
+
+	if (expr->slice.start == NULL) {
+		if (end) free(end);
+		return;
+	}
+	start = xcalloc(1, sizeof(struct expression));
+	enum eval_result r = eval_expr(ctx, expr->slice.start, start);
+	if (r != EVAL_OK) {
+		free(start);
+		if (end) free(end);
+		return;
+	}
+
+	if (dtype->storage == STORAGE_ARRAY
+			&& dtype->array.length != SIZE_UNDEFINED) {
+		if (start->constant.uval > dtype->array.length) {
+			error(ctx, expr->loc, expr,
+				"Start index must not be greater than array length");
+			free(start);
+			if (end) free(end);
+			return;
+		}
+
+		expr->slice.bounds_checked = true;
+	}
+
+	if (end != NULL) {
+		if (start->constant.uval > end->constant.uval) {
+			error(ctx, expr->loc, expr,
+				"Start index must not be greater than end index");
+		}
+		free(end);
+	}
+	free(start);
+	return;
+}
+
+static void
 check_expr_slice(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -2489,6 +2615,8 @@ check_expr_slice(struct context *ctx,
 			"Must have end index on array of undefined length");
 		return;
 	}
+
+	slice_bounds_check(ctx, expr);
 
 	if (dtype->storage == STORAGE_SLICE) {
 		expr->result = atype;
@@ -2962,7 +3090,13 @@ check_expr_unarithm(struct context *ctx,
 		}
 		expr->result = operand->result;
 		break;
-	case UN_ADDRESS:
+	case UN_ADDRESS:;
+		const struct type *result = type_dealias(operand->result);
+		if (result->storage == STORAGE_VOID) {
+			error(ctx, aexpr->loc, expr,
+				"Can't take address of void");
+			return;
+		}
 		expr->result = type_store_lookup_pointer(
 			ctx->store, aexpr->loc, operand->result, 0);
 		break;

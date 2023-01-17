@@ -62,6 +62,7 @@ struct expression_access {
 		struct {
 			struct expression *array;
 			struct expression *index;
+			bool bounds_checked;
 		};
 		struct {
 			struct expression *_struct;
@@ -291,6 +292,7 @@ struct expression_return {
 struct expression_slice {
 	struct expression *object;
 	struct expression *start, *end;
+	bool bounds_checked;
 };
 
 struct case_option {
