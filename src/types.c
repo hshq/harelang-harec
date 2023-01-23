@@ -462,7 +462,8 @@ strip_flags(const struct type *t, struct type *secondary)
 }
 
 const struct type *
-tagged_select_subtype(const struct type *tagged, const struct type *subtype)
+tagged_select_subtype(const struct type *tagged, const struct type *subtype,
+		bool strip)
 {
 	tagged = type_dealias(tagged);
 	assert(tagged->storage == STORAGE_TAGGED);
@@ -474,10 +475,7 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 	const struct type *selected = NULL;
 	for (const struct type_tagged_union *tu = &tagged->tagged;
 			tu; tu = tu->next) {
-		struct type _tustripped;
-		const struct type *tustripped =
-			strip_flags(tu->type, &_tustripped);
-		if (tustripped->id == stripped->id) {
+		if (tu->type->id == subtype->id) {
 			return tu->type;
 		}
 
@@ -487,6 +485,18 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype)
 		if (type_is_assignable(tu->type, subtype)) {
 			selected = tu->type;
 			++nassign;
+		}
+	}
+
+	if (strip) {
+		for (const struct type_tagged_union *tu = &tagged->tagged;
+				tu; tu = tu->next) {
+			struct type _tustripped;
+			const struct type *tustripped =
+				strip_flags(tu->type, &_tustripped);
+			if (tustripped->id == stripped->id) {
+				return tu->type;
+			}
 		}
 	}
 
@@ -858,7 +868,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 				&& to->array.members == from->array.members;
 		}
 	case STORAGE_TAGGED:
-		return tagged_select_subtype(to, from_orig) != NULL
+		return tagged_select_subtype(to, from_orig, true) != NULL
 			|| tagged_subset_compat(to, from);
 	// The following types are only assignable from themselves, and are
 	// handled above:
@@ -891,13 +901,13 @@ is_castable_with_tagged(const struct type *to, const struct type *from)
 		}
 	}
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
-		const struct type *subtype = tagged_select_subtype(to, from);
+		const struct type *subtype = tagged_select_subtype(to, from, true);
 		if (subtype != NULL) {
 			return subtype;
 		}
 	}
 	if (type_dealias(from)->storage == STORAGE_TAGGED) {
-		const struct type *subtype = tagged_select_subtype(from, to);
+		const struct type *subtype = tagged_select_subtype(from, to, true);
 		if (subtype != NULL) {
 			return subtype;
 		}

@@ -1285,7 +1285,7 @@ gen_type_assertion_or_test(struct gen_context *ctx, const struct expression *exp
 		bfailed = bpassed;
 	}
 	struct gen_value result = {0};
-	if (tagged_select_subtype(expr->cast.value->result, want)) {
+	if (tagged_select_subtype(expr->cast.value->result, want, true)) {
 		result = gen_nested_match_tests(ctx, base, bpassed,
 				bfailed, tag, want);
 	} else if (tagged_subset_compat(expr->cast.value->result, want)) {
@@ -1351,7 +1351,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 {
 	assert(expr->type == EXPR_CAST);
 	const struct type *to = expr->result, *from = expr->cast.value->result;
-	const struct type *subtype = tagged_select_subtype(to, from);
+	const struct type *subtype = tagged_select_subtype(to, from, true);
 
 	if (!subtype && tagged_align_compat(from, to)) {
 		// Case 1: from is a union whose members are a subset of to, and
@@ -1425,7 +1425,7 @@ cast_prefers_at(const struct expression *expr)
 	}
 	// tagged => *; subtype compatible
 	if (type_dealias(from)->storage == STORAGE_TAGGED
-			&& tagged_select_subtype(from, to)) {
+			&& tagged_select_subtype(from, to, true)) {
 		return false;
 	}
 	// * => tagged
@@ -1540,7 +1540,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	if (expr->cast.kind != C_CAST) {
 		bool is_valid_tagged, is_valid_pointer;
 		is_valid_tagged = type_dealias(from)->storage == STORAGE_TAGGED
-				&& (tagged_select_subtype(from, to)
+				&& (tagged_select_subtype(from, to, true)
 				|| tagged_subset_compat(from, to));
 		is_valid_pointer = type_dealias(from)->storage == STORAGE_POINTER
 				&& (type_dealias(to)->storage == STORAGE_POINTER
@@ -2404,7 +2404,7 @@ nested_tagged_offset(const struct type *tu, const struct type *target)
 	const struct type *test = tu;
 	struct qbe_value offset = constl(tu->align);
 	do {
-		test = tagged_select_subtype(tu, target);
+		test = tagged_select_subtype(tu, target, false);
 		if (!test) {
 			break;
 		}
@@ -2451,7 +2451,7 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		if (type_dealias(subtype)->storage != STORAGE_TAGGED) {
 			break;
 		}
-		test = tagged_select_subtype(subtype, type);
+		test = tagged_select_subtype(subtype, type, false);
 		if (!test) {
 			break;
 		}
@@ -2540,7 +2540,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
 		struct qbe_value bnext = mklabel(ctx, &lnext, "next.%d");
 		const struct type *subtype =
-			tagged_select_subtype(objtype, _case->type);
+			tagged_select_subtype(objtype, _case->type, false);
 		enum match_compat compat = COMPAT_SUBTYPE;
 		if (subtype) {
 			gen_nested_match_tests(ctx, object,

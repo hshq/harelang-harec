@@ -624,7 +624,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		}
 		return EVAL_OK;
 	case STORAGE_TAGGED:
-		subtype = tagged_select_subtype(to, val.result);
+		subtype = tagged_select_subtype(to, val.result, true);
 		out->constant.tagged.value =
 			xcalloc(1, sizeof(struct expression));
 		if (subtype) {

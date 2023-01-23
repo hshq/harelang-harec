@@ -127,7 +127,7 @@ lower_implicit_cast(const struct type *to, struct expression *expr)
 
 	if (type_dealias(to)->storage == STORAGE_TAGGED) {
 		const struct type *interim =
-			tagged_select_subtype(to, expr->result);
+			tagged_select_subtype(to, expr->result, true);
 		if (interim) {
 			expr = lower_implicit_cast(interim, expr);
 		}
@@ -1467,7 +1467,7 @@ check_expr_cast(struct context *ctx,
 		// secondary type must be a strict subset or a
 		// member of the primary type
 		if (!((tagged_subset_compat(primary, secondary)
-				|| tagged_select_subtype(primary, secondary))
+				|| tagged_select_subtype(primary, secondary, true))
 				&& !tagged_subset_compat(secondary, primary))) {
 			error(ctx, aexpr->cast.type->loc, expr,
 				"Type is not a valid member of "

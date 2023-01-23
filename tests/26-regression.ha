@@ -69,4 +69,9 @@ export fn main() void = {
 	case &global => void;
 	case => abort();
 	};
+
+	match (void: (void | !void)) {
+	case void => void;
+	case !void => abort();
+	};
 };
