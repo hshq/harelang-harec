@@ -416,7 +416,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 
 	struct qbe_statement linvalid;
 	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	pushi(ctx->current, &cmpres, Q_CNEL, &size, &zero, NULL);
+	pushi(ctx->current, &cmpres, Q_CNEL, &data, &zero, NULL);
 	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bzero, &binvalid, NULL);
 	push(&ctx->current->body, &linvalid);
 	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
