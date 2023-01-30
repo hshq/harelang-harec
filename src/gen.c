@@ -841,6 +841,7 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expressio
 	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
 	struct qbe_value one = constl(1);
 	pushi(ctx->current, &olen, Q_SUB, &olen, &one, NULL);
+	pushi(ctx->current, &olen, Q_MUL, &olen, &isize, NULL);
 	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &next, &odata, &olen, NULL);
 	
 	push(&ctx->current->body, &lzero);

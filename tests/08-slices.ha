@@ -175,19 +175,21 @@ fn recursive_structure() void = {
 };
 
 fn expandable() void = {
-	let s: [6]u16 = [0...];
-	
+	let s: [6]u64 = [0...];
+
 	s[2..2] = [1...];
 	assert(s[2] == 0);
-	
+
 	s[1..3] = [1...];
 	assert(s[0] == 0);
 	assert(s[1] == 1);
 	assert(s[2] == 1);
 	assert(s[3] == 0);
-	
-	s[4..] = [123...];
-	assert(s[3] == 0);
+
+	s[2..] = [123...];
+	assert(s[1] == 1);
+	assert(s[2] == 123);
+	assert(s[3] == 123);
 	assert(s[4] == 123);
 	assert(s[5] == 123);
 };
