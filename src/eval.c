@@ -929,6 +929,11 @@ static enum eval_result
 eval_unarithm(struct context *ctx, struct expression *in, struct expression *out)
 {
 	if (in->unarithm.op == UN_ADDRESS) {
+		if (in->unarithm.operand->result == &builtin_type_error) {
+			out->type = EXPR_CONSTANT;
+			out->result = &builtin_type_error;
+			return EVAL_OK;
+		}
 		assert(in->unarithm.operand->type == EXPR_ACCESS);
 		// TODO other access types
 		assert(in->unarithm.operand->access.type == ACCESS_IDENTIFIER);

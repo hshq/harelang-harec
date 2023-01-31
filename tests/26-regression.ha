@@ -1,4 +1,5 @@
 // Miscellaneous regression tests
+use rt;
 
 type embedded = struct {
 	a: u64,
@@ -74,4 +75,10 @@ export fn main() void = {
 	case void => void;
 	case !void => abort();
 	};
+
+	assert(rt::compile("
+		fn a() void = switch (b) {
+		case &c => void;
+		};"
+	) as rt::exited != rt::EXIT_SUCCESS);
 };
