@@ -1,4 +1,4 @@
-// Tests for various gen bugs
+// Miscellaneous regression tests
 
 type embedded = struct {
 	a: u64,
