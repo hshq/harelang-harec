@@ -81,4 +81,6 @@ export fn main() void = {
 		case &c => void;
 		};"
 	) as rt::exited != rt::EXIT_SUCCESS);
+
+	assert(rt::compile("let a;") as rt::exited != rt::EXIT_SUCCESS);
 };

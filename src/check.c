@@ -3770,6 +3770,8 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 		// the type is set by the expression
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
+		expect(ctx, &idecl->decl.loc, decl->init,
+			"Cannot infer type without an initializer");
 		check_expression(ctx, decl->init, initializer, type);
 		type = lower_const(initializer->result, NULL);
 		assert(type);
