@@ -175,7 +175,7 @@ const struct type_tuple *type_get_value(
 	const struct type *type, uintmax_t index);
 
 const struct type *tagged_select_subtype(
-	const struct type *tagged, const struct type *subtype);
+	const struct type *tagged, const struct type *subtype, bool strip);
 bool tagged_subset_compat(const struct type *to, const struct type *from);
 
 const char *type_storage_unparse(enum type_storage storage);
