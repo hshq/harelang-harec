@@ -2788,10 +2788,10 @@ check_expr_struct(struct context *ctx,
 	}
 
 	if (stype) {
+		expr->result = stype;
 		if (!expr->_struct.autofill) {
 			check_struct_exhaustive(ctx, aexpr, expr, stype);
 		}
-		expr->result = stype;
 	} else {
 		expr->result = type_store_lookup_atype(ctx->store, &satype);
 
