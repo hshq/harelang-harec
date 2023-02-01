@@ -21,7 +21,7 @@ mkident(struct context *ctx, struct identifier *out, const struct identifier *in
 		const char *symbol)
 {
 	if (symbol) {
-		out->name = strdup(symbol);
+		out->name = xstrdup(symbol);
 		return;
 	}
 	identifier_dup(out, in);
@@ -354,7 +354,7 @@ check_expr_alloc_init(struct context *ctx,
 				"Cannot infer expandable array length without type hint");
 			return;
 		}
-		const struct type *htype = type_dealias(type_dereference(inithint));
+		const struct type *htype = type_dealias(inithint);
 		if (htype->storage != STORAGE_ARRAY) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot assign expandable array from non-array type");
@@ -522,7 +522,14 @@ check_expr_append_insert(struct context *ctx,
 	default:
 		abort(); // Invariant
 	}
-	sltype = type_dealias(type_dereference(sltypename));
+	sltype = type_dereference(sltypename);
+	if (!sltype) {
+		error(ctx, aexpr->access.tuple->loc, expr,
+			"Cannot dereference nullable pointer for %s expression",
+			exprtype_name);
+		return;
+	}
+	sltype = type_dealias(sltype);
 
 	if (sltype->storage != STORAGE_SLICE) {
 		char *typename = gen_typename(sltypename);
@@ -556,6 +563,12 @@ check_expr_append_insert(struct context *ctx,
 
 	check_expression(ctx, aexpr->append.value, expr->append.value, sltype);
 	const struct type *valtype = type_dereference(expr->append.value->result);
+	if (!valtype) {
+		error(ctx, aexpr->loc, expr,
+			"Cannot dereference nullable pointer for %s expression",
+			exprtype_name);
+		return;
+	}
 	valtype = type_dealias(valtype);
 	if (aexpr->append.length) {
 		if (valtype->storage != STORAGE_ARRAY
@@ -1648,8 +1661,8 @@ check_expr_compound(struct context *ctx,
 	expr->compound.scope = scope;
 
 	if (aexpr->compound.label) {
-		expr->compound.label = strdup(aexpr->compound.label);
-		scope->label = strdup(aexpr->compound.label);
+		expr->compound.label = xstrdup(aexpr->compound.label);
+		scope->label = xstrdup(aexpr->compound.label);
 	}
 
 	struct expressions *list = &expr->compound.exprs;
@@ -1832,7 +1845,13 @@ check_expr_delete(struct context *ctx,
 			"Deleted expression must be slicing or indexing expression");
 		return;
 	}
-	otype = type_dealias(type_dereference(otype));
+	otype = type_dereference(otype);
+	if (!otype) {
+		error(ctx, aexpr->loc, expr,
+			"Cannot dereference nullable pointer for delete expression");
+		return;
+	}
+	otype = type_dealias(otype);
 	if (otype->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->delete.expr->loc, expr,
 			"delete must operate on a slice");
@@ -3339,7 +3358,7 @@ check_function(struct context *ctx,
 	decl->func.flags = afndecl->flags;
 
 	if (afndecl->symbol) {
-		decl->symbol = strdup(afndecl->symbol);
+		decl->symbol = xstrdup(afndecl->symbol);
 	}
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
 
@@ -3436,7 +3455,7 @@ check_global(struct context *ctx,
 	decl->global.threadlocal = adecl->threadlocal;
 
 	if (adecl->symbol) {
-		decl->symbol = strdup(adecl->symbol);
+		decl->symbol = xstrdup(adecl->symbol);
 	}
 	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 
@@ -3937,7 +3956,7 @@ scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
 			xcalloc(1, sizeof(struct ast_enum_field));
 		*afield = (struct ast_enum_field){
 			.loc = (struct location){0}, // XXX: what to put here?
-			.name = strdup(val->name.name),
+			.name = xstrdup(val->name.name),
 		};
 
 		struct incomplete_enum_field *field =

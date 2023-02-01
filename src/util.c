@@ -6,6 +6,7 @@
 #undef malloc
 #undef calloc
 #undef realloc
+#undef strdup
 
 const char **sources;
 
@@ -77,6 +78,16 @@ xrealloc(void *p, size_t s)
 		abort();
 	}
 	return p;
+}
+
+char *
+xstrdup(const char *s)
+{
+	char *ret = strdup(s);
+	if (!ret) {
+		abort();
+	}
+	return ret;
 }
 
 char *

@@ -3302,7 +3302,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	} else if (func->flags & FN_FINI) {
 		qdef->name = gen_name(ctx, "finifunc.%d");
 	} else {
-		qdef->name = decl->symbol ? strdup(decl->symbol)
+		qdef->name = decl->symbol ? xstrdup(decl->symbol)
 			: ident_to_sym(&decl->ident);
 	}
 
@@ -3326,7 +3326,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		const struct type *type = obj->type;
 		param = *next = xcalloc(1, sizeof(struct qbe_func_param));
 		assert(!obj->ident.ns); // Invariant
-		param->name = strdup(obj->ident.name);
+		param->name = xstrdup(obj->ident.name);
 		param->type = qtype_lookup(ctx, type, false);
 
 		struct gen_binding *gb =
@@ -3336,7 +3336,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		gb->object = obj;
 		if (type_is_aggregate(type)) {
 			// No need to copy to stack
-			gb->value.name = strdup(param->name);
+			gb->value.name = xstrdup(param->name);
 		} else {
 			gb->value.name = gen_name(ctx, "param.%d");
 
@@ -3393,7 +3393,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			.value = {
 				.kind = QV_GLOBAL,
 				.type = &qbe_long,
-				.name = strdup(qdef->name),
+				.name = xstrdup(qdef->name),
 			},
 			.next = NULL,
 		};
@@ -3419,7 +3419,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			.value = {
 				.kind = QV_GLOBAL,
 				.type = &qbe_long,
-				.name = strdup(qdef->name),
+				.name = xstrdup(qdef->name),
 			},
 			.next = NULL,
 		};
@@ -3460,7 +3460,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		next->type = QD_VALUE;
 		next->value.kind = QV_GLOBAL;
 		next->value.type = &qbe_long;
-		next->value.name = strdup(qdef->name);
+		next->value.name = xstrdup(qdef->name);
 		next->next = NULL;
 		dataitem->next = next;
 
@@ -3568,7 +3568,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			qbe_append_def(ctx->out, def);
 			item->value.kind = QV_GLOBAL;
 			item->value.type = &qbe_long;
-			item->value.name = strdup(def->name);
+			item->value.name = xstrdup(def->name);
 		} else {
 			free(def);
 			item->value = constl(0);
@@ -3607,7 +3607,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			qbe_append_def(ctx->out, def);
 			item->value.kind = QV_GLOBAL;
 			item->value.type = &qbe_long;
-			item->value.name = strdup(def->name);
+			item->value.name = xstrdup(def->name);
 		} else {
 			free(def);
 			item->value = constl(0);

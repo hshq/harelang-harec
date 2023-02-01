@@ -169,7 +169,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	field = *fields;
 
 	if (afield->name) {
-		field->name = strdup(afield->name);
+		field->name = xstrdup(afield->name);
 	}
 	struct dimensions dim = {0};
 	if (size_only) {
@@ -272,7 +272,7 @@ shift_fields(struct type_store *store,
 		new->type = field->type;
 		new->offset = parent->offset;
 		if (field->name) {
-			new->name = strdup(field->name);
+			new->name = xstrdup(field->name);
 		} else {
 			shift_fields(store, NULL, new);
 		}
