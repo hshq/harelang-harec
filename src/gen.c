@@ -118,13 +118,11 @@ gen_store(struct gen_context *ctx,
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
+	case STORAGE_UNION:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_VALIST:
 		gen_copy_aligned(ctx, object, value);
-		return;
-	case STORAGE_UNION:
-		gen_copy_memcpy(ctx, object, value);
 		return;
 	case STORAGE_ENUM:
 		object.type = ty->alias.type;
