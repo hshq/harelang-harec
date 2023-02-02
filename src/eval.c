@@ -934,7 +934,9 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 			out->result = &builtin_type_error;
 			return EVAL_OK;
 		}
-		assert(in->unarithm.operand->type == EXPR_ACCESS);
+		if (in->unarithm.operand->type != EXPR_ACCESS) {
+			return EVAL_INVALID;
+		};
 		// TODO other access types
 		assert(in->unarithm.operand->access.type == ACCESS_IDENTIFIER);
 		if (in->unarithm.operand->access.object->otype != O_DECL) {

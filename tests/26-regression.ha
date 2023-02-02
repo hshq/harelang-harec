@@ -83,4 +83,12 @@ export fn main() void = {
 	) as rt::exited != rt::EXIT_SUCCESS);
 
 	assert(rt::compile("let a;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		type a = struct {
+			b: int,
+			c: int,
+		};
+		def A: a = a { b = 0 };"
+	) as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("let a = &0;") as rt::exited != rt::EXIT_SUCCESS);
 };

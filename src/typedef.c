@@ -367,7 +367,11 @@ emit_decl_const(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	fprintf(out, "export def %s: ", ident);
-	emit_exported_type(decl->constant.type, out, ident);
+	if (decl->constant.type) {
+		emit_exported_type(decl->constant.type, out, ident);
+	} else {
+		emit_exported_type(decl->constant.value->result, out, ident);
+	};
 	free(ident);
 	fprintf(out, " = ");
 	emit_const(decl->constant.value, out);
@@ -422,7 +426,11 @@ emit_decl_global(struct declaration *decl, FILE *out)
 		fprintf(out, "@threadlocal ");
 	}
 	fprintf(out, "%s: ", ident);
-	emit_exported_type(decl->global.type, out, ident);
+	if (decl->constant.type) {
+		emit_exported_type(decl->global.type, out, ident);
+	} else {
+		emit_exported_type(decl->global.value->result, out, ident);
+	};
 	fprintf(out, ";\n");
 	free(ident);
 }
