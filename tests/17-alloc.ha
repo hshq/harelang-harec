@@ -153,4 +153,6 @@ export fn main() void = {
 	double_alloc();
 	array();
 	slice();
+	slice_copy();
+	string();
 };
