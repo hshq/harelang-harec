@@ -3526,7 +3526,6 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
-		assert(expr->type == EXPR_CONSTANT); // TODO?
 		item->type = QD_VALUE;
 		switch (ctx->arch.ptr->stype) {
 		case Q_LONG:
