@@ -902,14 +902,20 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 	if (object->type == EXPR_SLICE) {
 		return gen_expr_assign_slice(ctx, expr);
 	}
-	assert(object->type == EXPR_ACCESS || expr->assign.indirect); // Invariant
 
 	struct gen_value obj;
-	if (expr->assign.indirect) {
-		obj = gen_expr(ctx, object);
-		obj.type = type_dealias(object->result)->pointer.referent;
-	} else {
+	switch (object->type) {
+	case EXPR_ACCESS:
 		obj = gen_expr_access_addr(ctx, object);
+		break;
+	case EXPR_UNARITHM:
+		assert(object->unarithm.op == UN_DEREF); // Invariant
+		obj = gen_expr(ctx, object->unarithm.operand);
+		assert(type_dealias(obj.type)->storage == STORAGE_POINTER);
+		obj.type = type_dealias(obj.type)->pointer.referent;
+		break;
+	default:
+		abort(); // Invariant
 	}
 	if (expr->assign.op == BIN_LEQUAL) {
 		gen_expr_at(ctx, value, obj);
