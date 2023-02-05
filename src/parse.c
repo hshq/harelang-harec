@@ -1912,7 +1912,7 @@ parse_switch_expression(struct lexer *lexer)
 		struct ast_expression_list *cur = &_case->exprs;
 		struct ast_expression_list **next = &cur->next;
 		while (exprs) {
-			cur->expr = parse_expression(lexer);
+			cur->expr = parse_statement(lexer);
 			want(lexer, T_SEMICOLON, &tok);
 
 			switch (lex(lexer, &tok)) {
@@ -1997,7 +1997,7 @@ parse_match_expression(struct lexer *lexer)
 		struct ast_expression_list *cur = &_case->exprs;
 		struct ast_expression_list **next = &cur->next;
 		while (exprs) {
-			cur->expr = parse_expression(lexer);
+			cur->expr = parse_statement(lexer);
 			want(lexer, T_SEMICOLON, &tok);
 
 			switch (lex(lexer, &tok)) {
@@ -2251,7 +2251,7 @@ parse_compound_expression(struct lexer *lexer)
 
 	bool more = true;
 	while (more) {
-		cur->expr = parse_expression(lexer);
+		cur->expr = parse_statement(lexer);
 
 		want(lexer, T_SEMICOLON, &tok);
 
@@ -2289,17 +2289,12 @@ parse_expression(struct lexer *lexer)
 
 	struct ast_expression *value;
 	switch (lex(lexer, &tok)) {
-	case T_LET:
-	case T_CONST:
-		unlex(lexer, &tok);
-		return parse_binding_list(lexer, false);
 	case T_STATIC:
-		return parse_static_expression(lexer, true);
+		return parse_static_expression(lexer, false);
 	case T_BREAK:
 	case T_CONTINUE:
 	case T_RETURN:
 	case T_YIELD:
-	case T_DEFER:
 	case T_FOR:
 	case T_IF:
 	case T_LBRACE:
@@ -2313,9 +2308,6 @@ parse_expression(struct lexer *lexer)
 		case T_YIELD:
 			unlex(lexer, &tok);
 			value = parse_control_expression(lexer);
-			break;
-		case T_DEFER:
-			value = parse_deferred_expression(lexer);
 			break;
 		case T_FOR:
 			unlex(lexer, &tok);
@@ -2406,6 +2398,25 @@ parse_expression(struct lexer *lexer)
 		value = parse_cast_expression(lexer, value);
 		value = parse_bin_expression(lexer, value, 0);
 		return value;
+	}
+}
+
+struct ast_expression *
+parse_statement(struct lexer *lexer)
+{
+	struct token tok;
+	switch (lex(lexer, &tok)) {
+	case T_LET:
+	case T_CONST:
+		unlex(lexer, &tok);
+		return parse_binding_list(lexer, false);
+	case T_STATIC:
+		return parse_static_expression(lexer, true);
+	case T_DEFER:
+		return parse_deferred_expression(lexer);
+	default:
+		unlex(lexer, &tok);
+		return parse_expression(lexer);
 	}
 }
 

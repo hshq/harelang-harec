@@ -229,6 +229,10 @@ fn reject() void = {
 		"let a: int = 4; type x = struct { y: str, z: a};",
 		"let a: int = 4; type x = union { y: str, z: a};",
 		"let a: int = 4; fn x(y: str, z: a) void = { void; };",
+
+		// binding not directly in compound expression
+		"export fn main() void = let a = 4;",
+		"export fn main() void = { if (true) let a = 4; };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

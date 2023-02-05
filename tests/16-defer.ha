@@ -1,4 +1,5 @@
 use rt;
+use rt::{compile, exited, EXIT_SUCCESS};
 
 let x: int = 10;
 
@@ -50,6 +51,18 @@ fn control() void = {
 	assert(x == 1);
 };
 
+fn reject() void = {
+	let failures = [
+		"export fn main() void = defer 0;",
+		"export fn main() void = { if (true) defer 0; };",
+		"export fn main() void = { for (defer 0; true; true) void; };",
+	];
+
+	for (let i = 0z; i < len(failures); i += 1) {
+		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+	};
+};
+
 fn noreturn() void = {
 	defer x = 30;
 	for (true) {
@@ -69,5 +82,6 @@ export fn main() void = {
 	scope();
 	loops();
 	control();
+	reject();
 	noreturn();
 };
