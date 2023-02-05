@@ -297,6 +297,25 @@ lex_name(struct lexer *lexer, struct token *out)
 	return out->token;
 }
 
+static uintmax_t
+compute_exp(uintmax_t n, int exponent, bool _signed, struct location *loc)
+{
+	if (n == 0) {
+		return 0;
+	}
+	for (int i = 0; i < exponent; i++) {
+		uintmax_t old = n;
+		n *= 10;
+		if (n / 10 != old) {
+			error(loc, "Integer literal overflow");
+		}
+	}
+	if (_signed && n > (uintmax_t)INT64_MIN) {
+		error(loc, "Integer literal overflow");
+	}
+	return n;
+}
+
 static uint32_t
 lex_literal(struct lexer *lexer, struct token *out)
 {
@@ -488,16 +507,12 @@ finalize:
 	case STORAGE_UINT:
 	case STORAGE_U64:
 	case STORAGE_SIZE:
-		out->uval = strtoumax(lexer->buf, NULL, base);
-		for (intmax_t i = 0; i < exponent; i++) {
-			out->uval *= 10;
-		}
+		out->uval = compute_exp(strtoumax(lexer->buf, NULL, base),
+				exponent, false, &out->loc);
 		break;
 	case STORAGE_ICONST:
-		out->uval = strtoumax(lexer->buf, NULL, base);
-		for (intmax_t i = 0; i < exponent; i++) {
-			out->uval *= 10;
-		}
+		out->uval = compute_exp(strtoumax(lexer->buf, NULL, base),
+				exponent, false, &out->loc);
 		if (out->uval > (uintmax_t)INT64_MAX) {
 			out->storage = STORAGE_U64;
 			break;
@@ -508,18 +523,13 @@ finalize:
 	case STORAGE_I32:
 	case STORAGE_INT:
 	case STORAGE_I64:
-		out->uval = strtoumax(lexer->buf, NULL, base);
-		for (intmax_t i = 0; i < exponent; i++) {
-			out->uval *= 10;
-		}
+		out->uval = compute_exp(strtoumax(lexer->buf, NULL, base),
+				exponent, true, &out->loc);
 		if (out->uval == (uintmax_t)INT64_MIN) {
 			// XXX: Hack
 			out->ival = INT64_MIN;
-			break;
-		}
-		out->ival = strtoimax(lexer->buf, NULL, base);
-		for (intmax_t i = 0; i < exponent; i++) {
-			out->ival *= 10;
+		} else {
+			out->ival = (intmax_t)out->uval;
 		}
 		break;
 	case STORAGE_F32:
