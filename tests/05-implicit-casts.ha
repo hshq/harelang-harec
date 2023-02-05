@@ -76,7 +76,6 @@ fn rules() void = {
 	assert(compile("fn test() void = { let _u32: u32 = 42u64; };") as exited != EXIT_SUCCESS);
 
 	// Pointer conversions
-	let cchr: *const char = "hello world";
 	let nptr: nullable *int = null;
 	nptr = &i;
 	let vptr: nullable *void = nptr;

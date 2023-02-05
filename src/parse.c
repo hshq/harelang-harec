@@ -2138,7 +2138,7 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 
 static struct ast_expression *
 parse_assignment(struct lexer *lexer, struct ast_expression *object,
-	bool indirect, enum binarithm_operator op)
+	enum binarithm_operator op)
 {
 	struct ast_expression *value = parse_expression(lexer);
 	struct ast_expression *expr = mkexpr(&lexer->loc);
@@ -2146,7 +2146,6 @@ parse_assignment(struct lexer *lexer, struct ast_expression *object,
 	expr->assign.op = op;
 	expr->assign.object = object;
 	expr->assign.value = value;
-	expr->assign.indirect = indirect;
 	return expr;
 }
 
@@ -2365,44 +2364,45 @@ parse_expression(struct lexer *lexer)
 		break;
 	}
 
+	if (indirect) {
+		struct ast_expression *deref = mkexpr(&value->loc);
+		deref->type = EXPR_UNARITHM;
+		deref->unarithm.op = UN_DEREF;
+		deref->unarithm.operand = value;
+		value = deref;
+	}
+
 	switch (lex(lexer, &tok)) {
 	case T_EQUAL:
-		return parse_assignment(lexer, value, indirect, BIN_LEQUAL);
+		return parse_assignment(lexer, value, BIN_LEQUAL);
 	case T_BANDEQ:
-		return parse_assignment(lexer, value, indirect, BIN_BAND);
+		return parse_assignment(lexer, value, BIN_BAND);
 	case T_LANDEQ:
-		return parse_assignment(lexer, value, indirect, BIN_LAND);
+		return parse_assignment(lexer, value, BIN_LAND);
 	case T_DIVEQ:
-		return parse_assignment(lexer, value, indirect, BIN_DIV);
+		return parse_assignment(lexer, value, BIN_DIV);
 	case T_LSHIFTEQ:
-		return parse_assignment(lexer, value, indirect, BIN_LSHIFT);
+		return parse_assignment(lexer, value, BIN_LSHIFT);
 	case T_MINUSEQ:
-		return parse_assignment(lexer, value, indirect, BIN_MINUS);
+		return parse_assignment(lexer, value, BIN_MINUS);
 	case T_MODEQ:
-		return parse_assignment(lexer, value, indirect, BIN_MODULO);
+		return parse_assignment(lexer, value, BIN_MODULO);
 	case T_BOREQ:
-		return parse_assignment(lexer, value, indirect, BIN_BOR);
+		return parse_assignment(lexer, value, BIN_BOR);
 	case T_LOREQ:
-		return parse_assignment(lexer, value, indirect, BIN_LOR);
+		return parse_assignment(lexer, value, BIN_LOR);
 	case T_PLUSEQ:
-		return parse_assignment(lexer, value, indirect, BIN_PLUS);
+		return parse_assignment(lexer, value, BIN_PLUS);
 	case T_RSHIFTEQ:
-		return parse_assignment(lexer, value, indirect, BIN_RSHIFT);
+		return parse_assignment(lexer, value, BIN_RSHIFT);
 	case T_TIMESEQ:
-		return parse_assignment(lexer, value, indirect, BIN_TIMES);
+		return parse_assignment(lexer, value, BIN_TIMES);
 	case T_BXOREQ:
-		return parse_assignment(lexer, value, indirect, BIN_BXOR);
+		return parse_assignment(lexer, value, BIN_BXOR);
 	case T_LXOREQ:
-		return parse_assignment(lexer, value, indirect, BIN_LXOR);
+		return parse_assignment(lexer, value, BIN_LXOR);
 	default:
 		unlex(lexer, &tok);
-		if (indirect) {
-			struct ast_expression *deref = mkexpr(&value->loc);
-			deref->type = EXPR_UNARITHM;
-			deref->unarithm.op = UN_DEREF;
-			deref->unarithm.operand = value;
-			value = deref;
-		}
 		value = parse_cast_expression(lexer, value);
 		value = parse_bin_expression(lexer, value, 0);
 		return value;

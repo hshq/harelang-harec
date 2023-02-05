@@ -127,7 +127,6 @@ enum binarithm_operator {
 struct expression_assign {
 	enum binarithm_operator op;
 	struct expression *object, *value;
-	bool indirect;
 };
 
 struct expression_binarithm {

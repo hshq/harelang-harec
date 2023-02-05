@@ -817,9 +817,6 @@ type_is_assignable(const struct type *to, const struct type *from)
 				return to->pointer.flags & PTR_NULLABLE;
 			}
 			return true;
-		case STORAGE_STRING:
-			return to->pointer.referent->storage == STORAGE_CHAR
-				&& to->pointer.referent->flags & TYPE_CONST;
 		default:
 			return false;
 		}

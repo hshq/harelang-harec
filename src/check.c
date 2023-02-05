@@ -710,7 +710,6 @@ check_expr_assign(struct context *ctx,
 {
 	expr->type = EXPR_ASSIGN;
 	expr->result = &builtin_type_void;
-	expr->assign.indirect = aexpr->assign.indirect;
 	struct expression *object = xcalloc(1, sizeof(struct expression));
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 
@@ -718,55 +717,26 @@ check_expr_assign(struct context *ctx,
 
 	expr->assign.op = aexpr->assign.op;
 
-	if (aexpr->assign.indirect) {
-		const struct type *otype = type_dealias(object->result);
-		if (otype->storage != STORAGE_POINTER) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot dereference non-pointer type for assignment");
+	check_expression(ctx, aexpr->assign.value, value, object->result);
+
+	if (object->type == EXPR_SLICE) {
+		if (expr->assign.op != BIN_LEQUAL) {
+			error(ctx, aexpr->assign.object->loc, expr,
+				"Slice assignments may not have a binop");
 			return;
 		}
-		if (otype->pointer.flags & PTR_NULLABLE) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot dereference nullable pointer type");
-			return;
-		}
-		check_expression(ctx, aexpr->assign.value, value, otype->pointer.referent);
-		if (!type_is_assignable(otype->pointer.referent,
-				value->result)) {
-			error(ctx, aexpr->loc, expr,
-				"Value type is not assignable to pointer type");
-			return;
-		}
-		value = lower_implicit_cast(otype->pointer.referent, value);
-	} else {
-		check_expression(ctx, aexpr->assign.value, value, object->result);
-		assert(object->type == EXPR_CONSTANT // If error
-				|| object->type == EXPR_ACCESS
-				|| object->type == EXPR_SLICE); // Invariant
-		if (object->type == EXPR_SLICE) {
-			if (expr->assign.op != BIN_LEQUAL) {
-				error(ctx, aexpr->assign.object->loc, expr,
-					"Slice assignments may not have a binop");
-				return;
-			}
-		}
-		if (object->result->flags & TYPE_CONST) {
-			error(ctx, aexpr->loc, expr,
-					"Cannot assign to const object");
-			return;
-		}
-		if (!type_is_assignable(object->result, value->result)) {
-			char *valtypename = gen_typename(value->result);
-			char *objtypename = gen_typename(object->result);
-			error(ctx, aexpr->loc, expr,
-				"rvalue type (%s) is not assignable to lvalue (%s)",
-				valtypename, objtypename);
-			free(valtypename);
-			free(objtypename);
-			return;
-		}
-		value = lower_implicit_cast(object->result, value);
 	}
+	if (!type_is_assignable(object->result, value->result)) {
+		char *valtypename = gen_typename(value->result);
+		char *objtypename = gen_typename(object->result);
+		error(ctx, aexpr->loc, expr,
+			"rvalue type (%s) is not assignable to lvalue (%s)",
+			valtypename, objtypename);
+		free(valtypename);
+		free(objtypename);
+		return;
+	}
+	value = lower_implicit_cast(object->result, value);
 
 	expr->assign.object = object;
 	expr->assign.value = value;

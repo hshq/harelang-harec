@@ -190,13 +190,7 @@ fn invariants() void = {
 fn fields() void = {
 	let n: u32 = 0;
 
-	let up: *union {
-		struct {
-			a: u8,
-			b: u8,
-		},
-		c: u32,
-	} = &n: uintptr: *union {
+	let up = &n: *union {
 		struct {
 			a: u8,
 			b: u8,
@@ -207,15 +201,7 @@ fn fields() void = {
 	assert(&up.b: uintptr == &n: uintptr + 1);
 	assert(&up.c: uintptr == &n: uintptr);
 
-	let sp: *struct {
-		a: u8,
-		struct {
-			b: u8,
-			struct {
-				c: u8,
-			},
-		},
-	} = &n: uintptr: *struct {
+	let sp  = &n: *struct {
 		a: u8,
 		struct {
 			b: u8,

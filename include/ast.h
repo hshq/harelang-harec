@@ -151,7 +151,6 @@ struct ast_expression_assert {
 struct ast_expression_assign {
 	enum binarithm_operator op;
 	struct ast_expression *object, *value;
-	bool indirect;
 };
 
 struct ast_expression_binarithm {
