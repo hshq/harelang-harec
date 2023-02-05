@@ -151,7 +151,21 @@ fn basics() void = {
 	let f5 = 1.23e+45, f6 = 9.87e-65, f7 = 1e-7, f8 = 5.0e-324;
 	let ie1 = 1e5i;
 
-	assert(compile("let x: u64 = 1e100;") as exited != EXIT_SUCCESS);
+	let failures: [_]str = [
+		// exponent overflow
+		"let x: u64 = 1e100;",
+
+		// various invalid literals
+		"let x = 0x;",
+		"let x = 0xz;",
+		"let x = 0xu;",
+		"let x = 0xu64;",
+		"let x = 0be+0;",
+		"let x = 0bf64;",
+	];
+	for (let i = 0z; i < len(failures); i += 1) {
+		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+	};
 };
 
 export fn main() void = {
