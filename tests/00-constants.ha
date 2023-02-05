@@ -168,6 +168,10 @@ fn basics() void = {
                 "let x = 0b14;",
                 "let x = 0o82;",
                 "let x = 0o28;",
+
+		// leading zeros
+		"let x = 05;"
+		"let x = 0000000010;"
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		assert(compile(failures[i]) as exited != EXIT_SUCCESS);

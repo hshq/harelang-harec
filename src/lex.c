@@ -322,7 +322,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 	uint32_t c = next(lexer, &out->loc, true);
 	assert(c != C_EOF && c <= 0x7F && isdigit(c));
 
-	bool started = false;
+	bool started = false, leadingzero = false;
 	int base = 10;
 	const char *basechrs = "0123456789";
 	if (c == '0') {
@@ -344,6 +344,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 			break;
 		default:
 			started = true;
+			leadingzero = true;
 			push(lexer, c, true);
 			break;
 		}
@@ -425,6 +426,9 @@ lex_literal(struct lexer *lexer, struct token *out)
 finalize:
 	if (!started) {
 		error(&out->loc, "Invalid literal");
+	}
+	if (leadingzero && lexer->buflen >= 2 && strchr(basechrs, lexer->buf[1])) {
+		error(&out->loc, "Leading zero in base 10 literal");
 	}
 	lexer->require_int = false;
 	out->token = T_LITERAL;
