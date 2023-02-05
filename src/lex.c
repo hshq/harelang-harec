@@ -424,9 +424,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 
 finalize:
 	if (!started) {
-		out->token = T_ERROR;
-		consume(lexer, -1);
-		return out->token;
+		error(&out->loc, "Invalid literal");
 	}
 	lexer->require_int = false;
 	out->token = T_LITERAL;

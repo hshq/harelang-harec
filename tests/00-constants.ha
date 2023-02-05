@@ -162,6 +162,12 @@ fn basics() void = {
 		"let x = 0xu64;",
 		"let x = 0be+0;",
 		"let x = 0bf64;",
+
+		// invalid digits in smaller bases
+                "let x = 0b41;",
+                "let x = 0b14;",
+                "let x = 0o82;",
+                "let x = 0o28;",
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
