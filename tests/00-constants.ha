@@ -137,7 +137,7 @@ fn aggregates() void = {
 	u2arr as [3]u8;
 };
 
-export fn main() void = {
+fn basics() void = {
 	let i1 = 13, i2 = 13i, i3 = 13i8, i4 = 13i16, i5 = 13i32, i6 = 13i64;
 	let u1 = 13u, u2 = 13z, u3 = 13u8, u4 = 13u16, u5 = 13u32, u6 = 13u64;
 	let n1 = -13, n2 = -13u;
@@ -149,9 +149,39 @@ export fn main() void = {
 		r15 = '\U12345678';
 	let f1 = 1.0, f2 = 1f32, f3 = 1.0e2, f4 = 1.0f64;
 	let f5 = 1.23e+45, f6 = 9.87e-65, f7 = 1e-7, f8 = 5.0e-324;
+	let ie1 = 1e5i;
 
+	let failures: [_]str = [
+		// exponent overflow
+		"let x: u64 = 1e100;",
+
+		// various invalid literals
+		"let x = 0x;",
+		"let x = 0xz;",
+		"let x = 0xu;",
+		"let x = 0xu64;",
+		"let x = 0be+0;",
+		"let x = 0bf64;",
+
+		// invalid digits in smaller bases
+                "let x = 0b41;",
+                "let x = 0b14;",
+                "let x = 0o82;",
+                "let x = 0o28;",
+
+		// leading zeros
+		"let x = 05;"
+		"let x = 0000000010;"
+	];
+	for (let i = 0z; i < len(failures); i += 1) {
+		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+	};
+};
+
+export fn main() void = {
 	// The interaction between constants and result type reduction is tested
 	// in 30-reduction.c
+	basics();
 	assignment();
 	aggregates();
 };

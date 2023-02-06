@@ -230,6 +230,14 @@ fn alignment_conversion() void = {
 	assert(x as int == 4321);
 };
 
+fn binding() void = {
+	let x: (int | void) = void;
+	match (x) {
+	case =>
+		let x = 42;
+	};
+};
+
 export fn main() void = {
 	tagged();
 	termination();
@@ -241,5 +249,6 @@ export fn main() void = {
 	transitivity();
 	numeric();
 	alignment_conversion();
+	binding();
 	// TODO: Test exhaustiveness and dupe detection
 };

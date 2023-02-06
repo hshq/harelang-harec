@@ -61,10 +61,18 @@ fn str_switching() void = {
 	assert(result == true);
 };
 
+fn binding() void = {
+	switch (1) {
+	case =>
+		let x = 42;
+	};
+};
+
 export fn main() void = {
 	basics();
 	termination();
 	tagged_result();
 	str_switching();
+	binding();
 	// TODO: Test exhaustiveness and dupe detection
 };
