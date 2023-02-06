@@ -109,4 +109,5 @@ export fn main() void = {
 		fn a() void = A = 0;"
 	) as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("def A = x && true;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("type a = struct { b: fn() void };") as rt::exited != rt::EXIT_SUCCESS);
 };

@@ -187,7 +187,11 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 			"Type of undefined size is not a valid struct/union member");
 		return NULL;
 	}
-	assert(dim.align != ALIGN_UNDEFINED);
+	if (dim.align == ALIGN_UNDEFINED) {
+		error(store->check_context, afield->type->loc,
+			"Type of undefined alignment is not a valid struct/union member");
+		return NULL;
+	}
 	assert(dim.align != 0);
 
 	if (afield->offset) {
