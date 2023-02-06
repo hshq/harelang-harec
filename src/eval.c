@@ -564,6 +564,10 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		return EVAL_OK;
 	}
 
+	if (from->storage == STORAGE_ERROR) {
+		return EVAL_OK;
+	}
+
 	// XXX: We should also be able to handle expressions which use
 	// symbols/identifiers
 

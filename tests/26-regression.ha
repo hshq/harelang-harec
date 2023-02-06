@@ -108,4 +108,5 @@ export fn main() void = {
 		def A = 0;
 		fn a() void = A = 0;"
 	) as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("def A = x && true;") as rt::exited != rt::EXIT_SUCCESS);
 };
