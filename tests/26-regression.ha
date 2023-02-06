@@ -91,4 +91,5 @@ export fn main() void = {
 		def A: a = a { b = 0 };"
 	) as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("let a = &0;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("def A: a = 1 % 1;") as rt::exited != rt::EXIT_SUCCESS);
 };

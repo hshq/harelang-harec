@@ -135,6 +135,7 @@ itrunc(const struct type *type, uintmax_t val)
 	case STORAGE_ENUM:
 		return itrunc(type->alias.type, val);
 	case STORAGE_ERROR:
+		return val;
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
