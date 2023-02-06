@@ -321,6 +321,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_integer(lvalue.result)
 				|| type_dealias(lvalue.result)->storage == STORAGE_POINTER) {
 			bval = itrunc(lvalue.result, ulval) == itrunc(rvalue.result, urval);
+		} else if (lvalue.result->storage == STORAGE_BOOL) {
+			bval = lvalue.constant.bval == rvalue.constant.bval;
 		} else {
 			assert(type_dealias(lvalue.result)->storage == STORAGE_STRING);
 			if (lvalue.constant.string.len != rvalue.constant.string.len) {
@@ -370,6 +372,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_integer(lvalue.result)
 				|| type_dealias(lvalue.result)->storage == STORAGE_POINTER) {
 			bval = itrunc(lvalue.result, ulval) != itrunc(rvalue.result, urval);
+		} else if (lvalue.result->storage == STORAGE_BOOL) {
+			bval = lvalue.constant.bval != rvalue.constant.bval;
 		} else {
 			assert(type_dealias(lvalue.result)->storage == STORAGE_STRING);
 			if (lvalue.constant.string.len != rvalue.constant.string.len) {
