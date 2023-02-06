@@ -650,7 +650,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		assert(0); // Invariant
 	case STORAGE_ERROR:
 	case STORAGE_VOID:
-		break; // no-op
+		return EVAL_OK;
 	}
 
 	assert(0); // Unreachable
