@@ -442,7 +442,22 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 		out->constant.tagged.value = xcalloc(sizeof(struct expression), 1);
 		return eval_expr(ctx, in->constant.tagged.value,
 				out->constant.tagged.value);
-	case STORAGE_STRUCT:
+	case STORAGE_STRUCT:;
+		struct struct_constant **next = &out->constant._struct;
+		for (struct struct_constant *_struct = in->constant._struct;
+				_struct; _struct = _struct->next) {
+			struct struct_constant *cur = *next =
+				xcalloc(sizeof(struct struct_constant), 1);
+			cur->field = _struct->field;
+			cur->value = xcalloc(sizeof(struct expression), 1);
+			enum eval_result r =
+				eval_expr(ctx, _struct->value, cur->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
+			next = &cur->next;
+		}
+		break;
 	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_TUPLE:;

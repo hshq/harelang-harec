@@ -215,14 +215,19 @@ fn fields() void = {
 	assert(&sp.c: uintptr == &n: uintptr + 2);
 };
 
-fn eval_struct() void = {
+def S = struct {
+	a: u8 = 69,
+	b: u32 = 1337,
+};
+
+fn eval() void = {
 	static let s = struct {
 		a: u8 = 69,
 		b: u32 = 1337,
 	};
-};
 
-fn eval_access() void = {
+	static assert(S.a == 69);
+
 	static assert(struct {
 		a: u8 = 69,
 		b: u32 = 1337,
@@ -239,8 +244,7 @@ export fn main() void = {
 	autofill();
 	invariants();
 	fields();
-	eval_struct();
-	eval_access();
+	eval();
 	// TODO:
 	// - Union tests
 	// - Embedded structs
