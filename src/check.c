@@ -3112,6 +3112,12 @@ check_expr_unarithm(struct context *ctx,
 				"Cannot dereference nullable pointer type");
 			return;
 		}
+		if (type_dealias(operand->result)->pointer.referent->size
+				== SIZE_UNDEFINED) {
+			error(ctx, aexpr->unarithm.operand->loc, expr,
+				"Cannot dereference pointer to type of undefined size");
+			return;
+		}
 		expr->result = type_dealias(operand->result)->pointer.referent;
 		break;
 	}
