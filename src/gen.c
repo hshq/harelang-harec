@@ -1146,7 +1146,7 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 			continue;
 		}
 
-		const struct type *type = binding->initializer->result;
+		const struct type *type = binding->object->type;
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
 		gb->value.kind = GV_TEMP;
 		gb->value.type = type;
