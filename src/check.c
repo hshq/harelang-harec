@@ -976,6 +976,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform arithmetic on non-numeric %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		expr->result = p;
 		break;
@@ -984,6 +985,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform operation on non-integer %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		expr->result = p;
 		break;
@@ -992,6 +994,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform logical arithmetic on non-bool %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		break;
 	case BT_COMPARISON:
@@ -999,6 +1002,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform comparison on non-numeric %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		break;
 	case BT_EQUALITY:
@@ -1010,6 +1014,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform equality test on %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		break;
 	case BT_INVALID:
