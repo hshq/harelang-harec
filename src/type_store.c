@@ -243,6 +243,7 @@ shift_fields(struct type_store *store,
 		assert(afield);
 		error(store->check_context, afield->type->loc,
 			"Cannot embed non-struct non-union alias");
+		parent->type = &builtin_type_error;
 		return;
 	}
 	if (parent->offset == 0) {
