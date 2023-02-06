@@ -104,4 +104,8 @@ export fn main() void = {
 			let x: (void | int) = abort();
 		};"
 	) as rt::exited == rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def A = 0;
+		fn a() void = A = 0;"
+	) as rt::exited != rt::EXIT_SUCCESS);
 };

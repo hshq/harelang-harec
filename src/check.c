@@ -718,6 +718,12 @@ check_expr_assign(struct context *ctx,
 	expr->assign.op = aexpr->assign.op;
 
 	check_expression(ctx, aexpr->assign.value, value, object->result);
+	if (object->type == EXPR_CONSTANT
+			&& object->result != &builtin_type_error) {
+		error(ctx, aexpr->assign.object->loc, expr,
+			"Cannot assign to constant");
+		return;
+	}
 
 	if (object->type == EXPR_SLICE) {
 		if (expr->assign.op != BIN_LEQUAL) {
