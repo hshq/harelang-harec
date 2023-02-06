@@ -419,7 +419,11 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 			struct array_constant *aconst = *anext =
 				xcalloc(sizeof(struct array_constant), 1);
 			aconst->value = xcalloc(sizeof(struct expression), 1);
-			eval_expr(ctx, arr->value, aconst->value);
+			enum eval_result r =
+				eval_expr(ctx, arr->value, aconst->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
 			anext = &aconst->next;
 		}
 		break;
@@ -449,7 +453,11 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 				xcalloc(1, sizeof(struct tuple_constant));
 			tconst->field = tuple->field;
 			tconst->value = xcalloc(1, sizeof(struct expression));
-			eval_expr(ctx, tuple->value, tconst->value);
+			enum eval_result r =
+				eval_expr(ctx, tuple->value, tconst->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
 			tnext = &tconst->next;
 		}
 		break;
