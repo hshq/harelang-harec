@@ -964,6 +964,7 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		if (in->unarithm.operand->result == &builtin_type_error) {
 			out->type = EXPR_CONSTANT;
 			out->result = &builtin_type_error;
+			out->constant.uval = 0;
 			return EVAL_OK;
 		}
 		if (in->unarithm.operand->type != EXPR_ACCESS) {

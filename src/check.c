@@ -70,6 +70,7 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 	if (expr) {
 		expr->type = EXPR_CONSTANT;
 		expr->result = &builtin_type_error;
+		expr->constant.uval = 0; // XXX: ival?
 		expr->terminates = false;
 		expr->loc = loc;
 	}
