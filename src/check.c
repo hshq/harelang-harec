@@ -381,8 +381,13 @@ check_expr_alloc_slice(struct context *ctx,
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 
 	const struct type *objtype = expr->alloc.init->result;
-	if (type_dealias(objtype)->storage != STORAGE_ARRAY
-			&& type_dealias(objtype)->storage != STORAGE_SLICE) {
+	if (type_dealias(objtype)->storage == STORAGE_ARRAY) {
+		if (type_dealias(objtype)->array.length == SIZE_UNDEFINED) {
+			error(ctx, aexpr->alloc.init->loc, expr,
+				"Slice initializer must have defined length");
+			return;
+		}
+	} else if (type_dealias(objtype)->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->alloc.init->loc, expr,
 			"Slice initializer must be of slice or array type, not %s",
 			type_storage_unparse(type_dealias(objtype)->storage));
