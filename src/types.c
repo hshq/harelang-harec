@@ -997,12 +997,13 @@ type_is_castable(const struct type *to, const struct type *from)
 			|| to->storage == STORAGE_UINTPTR
 			? to_orig : NULL;
 	case STORAGE_SLICE:
-	case STORAGE_ARRAY:
 		return to->storage == STORAGE_SLICE
-			|| to->storage == STORAGE_ARRAY
 			|| (to->storage == STORAGE_POINTER
-					&& to->pointer.referent->storage == STORAGE_ARRAY
-					&& from->storage == STORAGE_SLICE)
+					&& to->pointer.referent->storage == STORAGE_ARRAY)
+			? to_orig : NULL;
+	case STORAGE_ARRAY:
+		return to->storage == STORAGE_ARRAY
+			|| to->storage == STORAGE_SLICE
 			? to_orig : NULL;
 	// Cannot be cast:
 	case STORAGE_STRING:

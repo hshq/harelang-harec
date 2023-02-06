@@ -111,4 +111,5 @@ export fn main() void = {
 	assert(rt::compile("def A = x && true;") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("type a = struct { b: fn() void };") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("fn a() []int = alloc([]: [*]int, 0);") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("fn a() [1]int = [1]: []int: [1]int;") as rt::exited != rt::EXIT_SUCCESS);
 };
