@@ -3327,30 +3327,21 @@ check_const(struct context *ctx,
 
 static struct declaration *
 check_function(struct context *ctx,
+	const struct scope_object *obj,
 	const struct ast_decl *adecl)
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
 	if ((adecl->function.flags & FN_TEST) && !ctx->is_test) {
 		return NULL;
 	}
-
-	const struct ast_type fn_atype = {
-		.storage = STORAGE_FUNCTION,
-		.flags = TYPE_CONST,
-		.func = afndecl->prototype,
-	};
-	const struct type *fntype = type_store_lookup_atype(
-			ctx->store, &fn_atype);
-	ctx->fntype = fntype;
+	ctx->fntype = obj->type;
 
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_FUNC;
-	decl->func.type = fntype;
+	decl->func.type = obj->type;
 	decl->func.flags = afndecl->flags;
 
-	if (afndecl->symbol) {
-		decl->symbol = xstrdup(afndecl->symbol);
-	}
+	decl->symbol = ident_to_sym(&obj->ident);
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
 
 	if (!adecl->function.body) {
@@ -3367,7 +3358,7 @@ check_function(struct context *ctx,
 		};
 		const struct type *type = type_store_lookup_atype(
 				ctx->store, params->type);
-		if (fntype->func.variadism == VARIADISM_HARE
+		if (obj->type->func.variadism == VARIADISM_HARE
 				&& !params->next) {
 			type = type_store_lookup_slice(ctx->store,
 				params->loc, type);
@@ -3378,20 +3369,20 @@ check_function(struct context *ctx,
 	}
 
 	struct expression *body = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, afndecl->body, body, fntype->func.result);
+	check_expression(ctx, afndecl->body, body, obj->type->func.result);
 	// TODO: Pass errors up and deal with them at the end of check
 	handle_errors(ctx->errors);
 
 	char *restypename = gen_typename(body->result);
-	char *fntypename = gen_typename(fntype->func.result);
+	char *fntypename = gen_typename(obj->type->func.result);
 	expect(ctx, &afndecl->body->loc,
-		body->terminates || type_is_assignable(fntype->func.result, body->result),
+		body->terminates || type_is_assignable(obj->type->func.result, body->result),
 		"Result value %s is not assignable to function result type %s",
 		restypename, fntypename);
 	free(restypename);
 	free(fntypename);
-	if (!body->terminates && fntype->func.result != body->result) {
-		body = lower_implicit_cast(fntype->func.result, body);
+	if (!body->terminates && obj->type->func.result != body->result) {
+		body = lower_implicit_cast(obj->type->func.result, body);
 	}
 	decl->func.body = body;
 
@@ -3412,17 +3403,17 @@ check_function(struct context *ctx,
 			expect(ctx, &adecl->loc, 0,
 				"Only one of @init, @fini, or @test may be used in a function declaration");
 		};
-		expect(ctx, &adecl->loc, fntype->func.result == &builtin_type_void,
+		expect(ctx, &adecl->loc, obj->type->func.result == &builtin_type_void,
 				"%s function must return void", flag);
-		expect(ctx, &adecl->loc, (fntype->func.flags & FN_NORETURN) == 0,
+		expect(ctx, &adecl->loc, (obj->type->func.flags & FN_NORETURN) == 0,
 				"%s function must return", flag);
 		expect(ctx, &adecl->loc, !decl->exported,
 				"%s function cannot be exported", flag);
 		expect(ctx, &adecl->loc, !afndecl->prototype.params,
 				"%s function cannot have parameters", flag);
 	}
-	if (fntype->func.flags & FN_NORETURN) {
-		expect(ctx, &adecl->loc, fntype->func.result == &builtin_type_void,
+	if (obj->type->func.flags & FN_NORETURN) {
+		expect(ctx, &adecl->loc, obj->type->func.result == &builtin_type_void,
 				"@noreturn function must return void");
 	};
 
@@ -3519,7 +3510,7 @@ check_declaration(struct context *ctx,
 		decl = check_const(ctx, &idecl->obj, &adecl->constant);
 		break;
 	case AST_DECL_FUNC:
-		decl = check_function(ctx, adecl);
+		decl = check_function(ctx, &idecl->obj, adecl);
 		break;
 	case AST_DECL_GLOBAL:
 		decl = check_global(ctx, &adecl->global);
