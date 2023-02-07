@@ -4084,16 +4084,33 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 			idecl->imports = imports;
 		}
 		break;
-	case AST_DECL_FUNC:
-		if (decl->function.flags) {
-			return;
-		}
+	case AST_DECL_FUNC:;
 		struct ast_function_decl *func = &decl->function;
-		struct identifier with_ns = {0};
-		mkident(ctx, &with_ns, &func->ident, func->symbol);
+		struct identifier ident = {0}, *name = NULL;
+		if (func->flags) {
+			const char *template = NULL;
+			if (func->flags & FN_TEST) {
+				template = "testfunc.%d";
+			} else if (func->flags & FN_INIT) {
+				template = "initfunc.%d";
+			} else if (func->flags & FN_FINI) {
+				template = "finifunc.%d";
+			}
+			assert(template);
+
+			int n = snprintf(NULL, 0, template, ctx->id);
+			ident.name = xcalloc(n + 1, 1);
+			snprintf(ident.name, n + 1, template, ctx->id);
+			++ctx->id;
+
+			name = &ident;
+		} else {
+			mkident(ctx, &ident, &func->ident, func->symbol);
+			name = &func->ident;
+		}
 		struct incomplete_declaration *idecl =
 			incomplete_declaration_create(ctx, decl->loc,
-					ctx->scope, &with_ns, &func->ident);
+					ctx->scope, &ident, name);
 		idecl->type = IDECL_DECL;
 		idecl->decl = (struct ast_decl){
 			.decl_type = AST_DECL_FUNC,
