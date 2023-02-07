@@ -3424,21 +3424,15 @@ check_function(struct context *ctx,
 
 static struct declaration *
 check_global(struct context *ctx,
+	const struct scope_object *obj,
 	const struct ast_global_decl *adecl)
 {
-	const struct type *type = NULL;
-	if (adecl->type) {
-		type = type_store_lookup_atype(ctx->store, adecl->type);
-	}
-
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_GLOBAL;
-	decl->global.type = type;
+	decl->global.type = obj->type;
 	decl->global.threadlocal = adecl->threadlocal;
 
-	if (adecl->symbol) {
-		decl->symbol = xstrdup(adecl->symbol);
-	}
+	decl->symbol = ident_to_sym(&obj->ident);
 	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 
 	if (!adecl->init) {
@@ -3448,29 +3442,19 @@ check_global(struct context *ctx,
 	// TODO: Free initialier
 	struct expression *initializer =
 		xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, adecl->init, initializer, type);
+	check_expression(ctx, adecl->init, initializer, obj->type);
 	// TODO: Pass errors up and deal with them at the end of check
 
-	if (type) {
-		char *typename1 = gen_typename(initializer->result);
-		char *typename2 = gen_typename(type);
-		expect(ctx, &adecl->init->loc,
-			type_is_assignable(type, initializer->result),
-			"Initializer type %s is not assignable to constant type %s",
-			typename1, typename2);
-		free(typename1);
-		free(typename2);
-	}
+	char *typename1 = gen_typename(initializer->result);
+	char *typename2 = gen_typename(obj->type);
+	expect(ctx, &adecl->init->loc,
+		type_is_assignable(obj->type, initializer->result),
+		"Initializer type %s is not assignable to constant type %s",
+		typename1, typename2);
+	free(typename1);
+	free(typename2);
 
-	bool context = adecl->type
-		&& adecl->type->storage == STORAGE_ARRAY
-		&& adecl->type->array.contextual;
-	if (context || !type) {
-		// XXX: Do we need to do anything more here
-		type = lower_const(initializer->result, NULL);
-	}
-
-	initializer = lower_implicit_cast(type, initializer);
+	initializer = lower_implicit_cast(obj->type, initializer);
 
 	struct expression *value =
 		xcalloc(1, sizeof(struct expression));
@@ -3513,7 +3497,7 @@ check_declaration(struct context *ctx,
 		decl = check_function(ctx, &idecl->obj, adecl);
 		break;
 	case AST_DECL_GLOBAL:
-		decl = check_global(ctx, &adecl->global);
+		decl = check_global(ctx, &idecl->obj, &adecl->global);
 		break;
 	case AST_DECL_TYPE:
 		decl = check_type(ctx, &idecl->obj, &adecl->type, adecl->exported);
