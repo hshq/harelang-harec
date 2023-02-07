@@ -176,10 +176,20 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		return r;
 	}
 
-	bool blval = lvalue.constant.bval, brval = rvalue.constant.bval, bval;
-	intmax_t ilval = lvalue.constant.ival, irval = rvalue.constant.ival, ival;
-	uintmax_t ulval = lvalue.constant.uval, urval = rvalue.constant.uval, uval;
-	double flval = lvalue.constant.fval, frval = rvalue.constant.fval, fval;
+	bool blval, brval, bval;
+	intmax_t ilval, irval, ival;
+	uintmax_t ulval, urval, uval;
+	double flval, frval, fval;
+	if (type_is_float(lvalue.result)) {
+		flval = lvalue.constant.fval, frval = rvalue.constant.fval;
+	} else if (type_is_signed(lvalue.result)) {
+		ilval = lvalue.constant.ival, irval = rvalue.constant.ival;
+	} else if (type_is_integer(lvalue.result)) {
+		ulval = lvalue.constant.uval, urval = rvalue.constant.uval;
+	} else if (type_dealias(lvalue.result)->storage == STORAGE_BOOL) {
+		blval = lvalue.constant.bval, brval = rvalue.constant.bval;
+	}
+
 	// Type promotion is lowered in check
 	assert(lvalue.result->storage == rvalue.result->storage);
 	switch (in->binarithm.op) {
