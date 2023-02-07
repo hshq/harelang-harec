@@ -3320,7 +3320,7 @@ check_const(struct context *ctx,
 	}
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	const struct scope_object *obj = scope_lookup(
-			ctx->unit, &adecl->ident);
+			ctx->defines, &adecl->ident);
 	decl->type = DECL_CONST;
 	decl->constant.type = type;
 	decl->constant.value = obj->value;
@@ -3683,7 +3683,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			scope_push((struct scope **)&type->_enum.values, SCOPE_ENUM);
 			scan_enum_field(ctx, imp,
 				type->_enum.values, type, t->type->_enum.values);
-			type->_enum.values->parent = ctx->unit;
+			type->_enum.values->parent = ctx->defines;
 			idecl->obj.otype = O_TYPE;
 			idecl->obj.type = type;
 		} else {
@@ -4171,7 +4171,7 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	struct incomplete_declaration *idecl = (struct incomplete_declaration *)obj;
 
 	// load this declaration's subunit context
-	ctx->scope = ctx->unit;
+	ctx->scope = ctx->defines;
 	ctx->unit->parent = idecl->imports;
 
 	// resolving a declaration that is already in progress -> cycle
@@ -4323,15 +4323,15 @@ check_internal(struct type_store *ts,
 
 	// Put defines into a temporary scope (-D on the command line)
 	ctx.scope = NULL;
-	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
+	ctx.unit = scope_push(&ctx.scope, SCOPE_DEFINES);
 	for (struct ast_global_decl *def = defines; def; def = def->next) {
 		struct incomplete_declaration *idecl =
 			scan_const(&ctx, NULL, false , defineloc, def);
 		resolve_const(&ctx, idecl);
 	}
-	struct scope *def_scope = ctx.scope;
+	ctx.defines = ctx.scope;
 	ctx.scope = NULL;
-	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
+	ctx.defines->parent = ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 
 	// Populate the imports and put declarations into a scope.
 	// Each declaration holds a reference to its subunit's imports
@@ -4374,29 +4374,17 @@ check_internal(struct type_store *ts,
 		next = &(*next)->next;
 	}
 
-	// Put defines into unit scope
-	// We have to insert them *after* declarations, because this way they
-	// shadow declarations, not the other way around
-	//
-	// XXX: shadowed declarations are not checked for consistency
-	for (const struct scope_object *obj = def_scope->objects;
-			obj; obj = obj->lnext) {
-		if (obj->otype == O_SCAN) {
-			continue;
-		}
-		scope_insert(ctx.unit, O_CONST, &obj->ident, &obj->name,
-			obj->type, obj->value);
-	}
-	scope_free(def_scope);
-
 	// Find enum aliases and store them in incomplete enum value declarations
 	for (const struct scope_object *obj = ctx.scope->objects;
 			obj; obj = obj->lnext) {
 		scan_enum_field_aliases(&ctx, obj);
 	}
 
+	// XXX: shadowed declarations are not checked for consistency
+	ctx.scope = ctx.defines;
+
 	// Perform actual declaration resolution
-	for (const struct scope_object *obj = ctx.scope->objects;
+	for (const struct scope_object *obj = ctx.unit->objects;
 			obj; obj = obj->lnext) {
 		wrap_resolver(&ctx, obj, resolve_decl);
 	}
@@ -4415,7 +4403,7 @@ check_internal(struct type_store *ts,
 	for (const struct ast_subunit *su = &aunit->subunits;
 			su; su = su->next) {
 		// subunit scope has to be *behind* unit scope
-		ctx.scope->parent = scope->scope;
+		ctx.unit->parent = scope->scope;
 		next_decl = check_declarations(&ctx, su->decls, next_decl);
 		scope = scope->next;
 	}

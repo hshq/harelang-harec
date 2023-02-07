@@ -35,6 +35,7 @@ enum scope_class {
 	SCOPE_MATCH,
 	SCOPE_SUBUNIT,
 	SCOPE_UNIT,
+	SCOPE_DEFINES,
 };
 
 struct expression;

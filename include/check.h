@@ -33,6 +33,7 @@ struct context {
 	bool is_test;
 	struct scope *unit;
 	struct scope *scope;
+	struct scope *defines;
 	bool deferring;
 	int id;
 	struct errors *errors;
