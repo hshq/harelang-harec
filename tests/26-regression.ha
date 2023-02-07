@@ -91,4 +91,29 @@ export fn main() void = {
 		def A: a = a { b = 0 };"
 	) as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("let a = &0;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("def A: a = 1 % 1;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("def A: b = void;") as rt::exited != rt::EXIT_SUCCESS);
+	static assert(true == true && true != false);
+	assert(rt::compile("
+		type a = str;
+		type b = struct { a };
+		def A = b { c = 0 };"
+	) as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		fn a() void = {
+			let x: (void | int) = abort();
+		};"
+	) as rt::exited == rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def A = 0;
+		fn a() void = A = 0;"
+	) as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("def A = x && true;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("type a = struct { b: fn() void };") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("fn a() []int = alloc([]: [*]int, 0);") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("fn a() [1]int = [1]: []int: [1]int;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("fn a() void = &*&a;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("let a = [*&0];") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("fn a() *void = alloc(void);") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("fn a() void = { static let b = x & struct { a: int = 0 }; };") as rt::exited != rt::EXIT_SUCCESS);
 };

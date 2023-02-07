@@ -58,6 +58,9 @@ type_get_field(const struct type *type, const char *name)
 {
 	// TODO: We should consider lowering unions into structs with explicit
 	// offsets
+	if (type->storage == STORAGE_ERROR) {
+		return NULL;
+	};
 	assert(type->storage == STORAGE_STRUCT
 			|| type->storage == STORAGE_UNION);
 	struct struct_field *field = type->struct_union.fields;
@@ -994,12 +997,13 @@ type_is_castable(const struct type *to, const struct type *from)
 			|| to->storage == STORAGE_UINTPTR
 			? to_orig : NULL;
 	case STORAGE_SLICE:
-	case STORAGE_ARRAY:
 		return to->storage == STORAGE_SLICE
-			|| to->storage == STORAGE_ARRAY
 			|| (to->storage == STORAGE_POINTER
-					&& to->pointer.referent->storage == STORAGE_ARRAY
-					&& from->storage == STORAGE_SLICE)
+					&& to->pointer.referent->storage == STORAGE_ARRAY)
+			? to_orig : NULL;
+	case STORAGE_ARRAY:
+		return to->storage == STORAGE_ARRAY
+			|| to->storage == STORAGE_SLICE
 			? to_orig : NULL;
 	// Cannot be cast:
 	case STORAGE_STRING:

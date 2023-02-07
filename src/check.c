@@ -70,6 +70,7 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 	if (expr) {
 		expr->type = EXPR_CONSTANT;
 		expr->result = &builtin_type_error;
+		expr->constant.uval = 0; // XXX: ival?
 		expr->terminates = false;
 		expr->loc = loc;
 	}
@@ -365,9 +366,15 @@ check_expr_alloc_init(struct context *ctx,
 	}
 	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
 			objtype, ptrflags);
-	if (expr->result->size == 0 || expr->result->size == SIZE_UNDEFINED) {
+	if (expr->alloc.init->result->size == 0) {
 		error(ctx, aexpr->loc, expr,
-			"Cannot allocate object of zero or undefined size");
+			"Cannot allocate object with size 0");
+		return;
+	}
+	if (expr->alloc.init->result->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->loc, expr,
+			"Cannot allocate object of undefined size");
+		return;
 	}
 }
 
@@ -381,8 +388,13 @@ check_expr_alloc_slice(struct context *ctx,
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 
 	const struct type *objtype = expr->alloc.init->result;
-	if (type_dealias(objtype)->storage != STORAGE_ARRAY
-			&& type_dealias(objtype)->storage != STORAGE_SLICE) {
+	if (type_dealias(objtype)->storage == STORAGE_ARRAY) {
+		if (type_dealias(objtype)->array.length == SIZE_UNDEFINED) {
+			error(ctx, aexpr->alloc.init->loc, expr,
+				"Slice initializer must have defined length");
+			return;
+		}
+	} else if (type_dealias(objtype)->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->alloc.init->loc, expr,
 			"Slice initializer must be of slice or array type, not %s",
 			type_storage_unparse(type_dealias(objtype)->storage));
@@ -718,6 +730,12 @@ check_expr_assign(struct context *ctx,
 	expr->assign.op = aexpr->assign.op;
 
 	check_expression(ctx, aexpr->assign.value, value, object->result);
+	if (object->type == EXPR_CONSTANT
+			&& object->result != &builtin_type_error) {
+		error(ctx, aexpr->assign.object->loc, expr,
+			"Cannot assign to constant");
+		return;
+	}
 
 	if (object->type == EXPR_SLICE) {
 		if (expr->assign.op != BIN_LEQUAL) {
@@ -959,6 +977,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform arithmetic on non-numeric %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		expr->result = p;
 		break;
@@ -967,6 +986,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform operation on non-integer %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		expr->result = p;
 		break;
@@ -975,6 +995,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform logical arithmetic on non-bool %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		break;
 	case BT_COMPARISON:
@@ -982,6 +1003,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform comparison on non-numeric %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		break;
 	case BT_EQUALITY:
@@ -993,6 +1015,7 @@ check_expr_binarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Cannot perform equality test on %s type",
 				type_storage_unparse(type_dealias(p)->storage));
+			return;
 		}
 		break;
 	case BT_INVALID:
@@ -3099,6 +3122,12 @@ check_expr_unarithm(struct context *ctx,
 				& PTR_NULLABLE) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot dereference nullable pointer type");
+			return;
+		}
+		if (type_dealias(operand->result)->pointer.referent->size
+				== SIZE_UNDEFINED) {
+			error(ctx, aexpr->unarithm.operand->loc, expr,
+				"Cannot dereference pointer to type of undefined size");
 			return;
 		}
 		expr->result = type_dealias(operand->result)->pointer.referent;

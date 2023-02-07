@@ -135,6 +135,7 @@ itrunc(const struct type *type, uintmax_t val)
 	case STORAGE_ENUM:
 		return itrunc(type->alias.type, val);
 	case STORAGE_ERROR:
+		return val;
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
@@ -320,6 +321,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_integer(lvalue.result)
 				|| type_dealias(lvalue.result)->storage == STORAGE_POINTER) {
 			bval = itrunc(lvalue.result, ulval) == itrunc(rvalue.result, urval);
+		} else if (lvalue.result->storage == STORAGE_BOOL) {
+			bval = lvalue.constant.bval == rvalue.constant.bval;
 		} else {
 			assert(type_dealias(lvalue.result)->storage == STORAGE_STRING);
 			if (lvalue.constant.string.len != rvalue.constant.string.len) {
@@ -369,6 +372,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		} else if (type_is_integer(lvalue.result)
 				|| type_dealias(lvalue.result)->storage == STORAGE_POINTER) {
 			bval = itrunc(lvalue.result, ulval) != itrunc(rvalue.result, urval);
+		} else if (lvalue.result->storage == STORAGE_BOOL) {
+			bval = lvalue.constant.bval != rvalue.constant.bval;
 		} else {
 			assert(type_dealias(lvalue.result)->storage == STORAGE_STRING);
 			if (lvalue.constant.string.len != rvalue.constant.string.len) {
@@ -414,7 +419,11 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 			struct array_constant *aconst = *anext =
 				xcalloc(sizeof(struct array_constant), 1);
 			aconst->value = xcalloc(sizeof(struct expression), 1);
-			eval_expr(ctx, arr->value, aconst->value);
+			enum eval_result r =
+				eval_expr(ctx, arr->value, aconst->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
 			anext = &aconst->next;
 		}
 		break;
@@ -433,7 +442,22 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 		out->constant.tagged.value = xcalloc(sizeof(struct expression), 1);
 		return eval_expr(ctx, in->constant.tagged.value,
 				out->constant.tagged.value);
-	case STORAGE_STRUCT:
+	case STORAGE_STRUCT:;
+		struct struct_constant **next = &out->constant._struct;
+		for (struct struct_constant *_struct = in->constant._struct;
+				_struct; _struct = _struct->next) {
+			struct struct_constant *cur = *next =
+				xcalloc(sizeof(struct struct_constant), 1);
+			cur->field = _struct->field;
+			cur->value = xcalloc(sizeof(struct expression), 1);
+			enum eval_result r =
+				eval_expr(ctx, _struct->value, cur->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
+			next = &cur->next;
+		}
+		break;
 	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_TUPLE:;
@@ -444,7 +468,11 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 				xcalloc(1, sizeof(struct tuple_constant));
 			tconst->field = tuple->field;
 			tconst->value = xcalloc(1, sizeof(struct expression));
-			eval_expr(ctx, tuple->value, tconst->value);
+			enum eval_result r =
+				eval_expr(ctx, tuple->value, tconst->value);
+			if (r != EVAL_OK) {
+				return r;
+			}
 			tnext = &tconst->next;
 		}
 		break;
@@ -559,6 +587,10 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		return EVAL_OK;
 	}
 
+	if (from->storage == STORAGE_ERROR) {
+		return EVAL_OK;
+	}
+
 	// XXX: We should also be able to handle expressions which use
 	// symbols/identifiers
 
@@ -649,7 +681,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		assert(0); // Invariant
 	case STORAGE_ERROR:
 	case STORAGE_VOID:
-		break; // no-op
+		return EVAL_OK;
 	}
 
 	assert(0); // Unreachable
@@ -932,6 +964,7 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		if (in->unarithm.operand->result == &builtin_type_error) {
 			out->type = EXPR_CONSTANT;
 			out->result = &builtin_type_error;
+			out->constant.uval = 0;
 			return EVAL_OK;
 		}
 		if (in->unarithm.operand->type != EXPR_ACCESS) {
