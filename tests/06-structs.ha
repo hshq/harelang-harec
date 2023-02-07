@@ -4,6 +4,9 @@ fn padding() void = {
 	assert(size(struct { x: i32, y: i32 }) == 8);
 	assert(size(struct { x: i32, y: i64 }) == 16);
 	assert(size(union { x: i8, y: i16, z: i32 }) == 4);
+	assert(align(struct { x: i32, y: i32 }) == 4);
+	assert(align(struct { x: i32, y: i64 }) == 8);
+	assert(align(union { x: i8, y: i16, z: i32 }) == 4);
 
 	const s = struct {
 		x: i8 = 10,

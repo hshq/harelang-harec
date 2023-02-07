@@ -26,6 +26,7 @@ static const char *tokens[] = {
 	[T_ATTR_THREADLOCAL] = "@threadlocal",
 	[T_UNDERSCORE] = "_",
 	[T_ABORT] = "abort",
+	[T_ALIGN] = "align",
 	[T_ALLOC] = "alloc",
 	[T_APPEND] = "append",
 	[T_AS] = "as",

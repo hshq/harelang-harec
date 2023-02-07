@@ -2236,6 +2236,20 @@ check_expr_measure(struct context *ctx,
 			return;
 		}
 		break;
+	case M_ALIGN:
+		expr->measure.dimensions = type_store_lookup_dimensions(
+			ctx->store, aexpr->measure.type);
+		if (expr->measure.dimensions.align == ALIGN_UNDEFINED) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take alignment of a type with undefined alignment");
+			return;
+		}
+		if (expr->measure.dimensions.size == 0) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take alignment of a type of size 0");
+			return;
+		}
+		break;
 	case M_SIZE:
 		expr->measure.dimensions = type_store_lookup_dimensions(
 			ctx->store, aexpr->measure.type);

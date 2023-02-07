@@ -32,6 +32,19 @@ fn measurements() void = {
 	assert(size([3]int) == size(int) * 3);
 
 	static assert(len([1, 2, 3]) == 3);
+
+	assert(align([_]i8) == 1);
+	assert(align([_]i16) == 2);
+	assert(align([_]i32) == 4);
+	assert(align([_]i64) == 8);
+	assert(align([*]i8) == 1);
+	assert(align([*]i16) == 2);
+	assert(align([*]i32) == 4);
+	assert(align([*]i64) == 8);
+	assert(align([2]i8) == 1);
+	assert(align([2]i16) == 2);
+	assert(align([2]i32) == 4);
+	assert(align([2]i64) == 8);
 };
 
 fn storage() void = {
@@ -40,13 +53,6 @@ fn storage() void = {
 	assert(*((y + (size(int) * 0): uintptr): *int) == 1);
 	assert(*((y + (size(int) * 1): uintptr): *int) == 2);
 	assert(*((y + (size(int) * 2): uintptr): *int) == 3);
-};
-
-fn alignment() void = {
-	let x: [_]i32 = [1, 2, 3];
-	assert(&x: uintptr: size % 4 == 0);
-	let y: [_]i64 = [1, 2, 3];
-	assert(&y: uintptr: size % 8 == 0);
 };
 
 fn assignment() void = {
@@ -152,7 +158,6 @@ export fn main() void = {
 	indexing();
 	measurements();
 	storage();
-	alignment();
 	assignment();
 	param([1, 2, 3]);
 	nested();

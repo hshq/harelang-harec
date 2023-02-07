@@ -712,6 +712,9 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 		}
 		out->constant.uval = len;
 		return EVAL_OK;
+	case M_ALIGN:
+		out->constant.uval = in->measure.dimensions.align;
+		return EVAL_OK;
 	case M_SIZE:
 		out->constant.uval = in->measure.dimensions.size;
 		return EVAL_OK;

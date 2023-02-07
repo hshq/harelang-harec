@@ -51,8 +51,10 @@ fn casting() void = {
 fn measurements() void = {
 	let x: []int = [1, 2, 3, 4, 5];
 	assert(size([]int) == size(*[*]int) + size(size) * 2);
+	assert(align([]int) == (if (align(*[*]int) > align(size)) align(*[*]int)
+		else align(size)));
 	assert(len(x) == 5);
-	assert(&x: uintptr: size % size(int) == 0);
+	assert(&x[0]: uintptr: size % size(int) == 0);
 };
 
 fn indexing() void = {

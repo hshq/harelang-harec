@@ -55,7 +55,12 @@ let global_uintptr: uintptr_storage = uintptr_storage::FOO;
 
 fn storage() void = {
 	assert(size(explicit_values) == size(int));
-	assert(size(with_storage) == 2);
+	assert(size(with_storage) == size(u16));
+	assert(size(uintptr_storage) == size(uintptr));
+	assert(align(explicit_values) == align(int));
+	assert(align(with_storage) == align(u16));
+	assert(align(uintptr_storage) == align(uintptr));
+
 	const val = 0xBEEFu16;
 	const is_little = (&val: *[2]u8)[0] == 0xEF;
 	assert(with_storage::CAFE: u8 == (if (is_little) 0xFEu8 else 0xCAu8));

@@ -19,6 +19,7 @@ enum lexical_token {
 	T_ATTR_THREADLOCAL,
 	T_UNDERSCORE,
 	T_ABORT,
+	T_ALIGN,
 	T_ALLOC,
 	T_APPEND,
 	T_AS,

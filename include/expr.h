@@ -265,6 +265,7 @@ struct expression_match {
 };
 
 enum measure_operator {
+	M_ALIGN,
 	M_LEN,
 	M_SIZE,
 	M_OFFSET,
