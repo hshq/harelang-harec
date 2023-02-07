@@ -3529,70 +3529,34 @@ check_type(struct context *ctx,
 }
 
 static struct declarations **
-check_declarations(struct context *ctx,
-		const struct ast_decls *adecls,
+check_declaration(struct context *ctx,
+		const struct incomplete_declaration *idecl,
 		struct declarations **next)
 {
-	while (adecls) {
-		struct declaration *decl = NULL;
-		const struct ast_decl *adecl = &adecls->decl;
-		switch (adecl->decl_type) {
-		case AST_DECL_CONST:
-			for (const struct ast_global_decl *c = &adecl->constant;
-					c; c = c->next) {
-				decl = check_const(ctx, c);
-				struct declarations *decls = *next =
-					xcalloc(1, sizeof(struct declarations));
-				decl->exported = adecl->exported;
-				decl->loc = adecl->loc;
-				decls->decl = decl;
-				next = &decls->next;
-			}
-			decl = NULL;
-			break;
-		case AST_DECL_FUNC:
-			decl = check_function(ctx, adecl);
-			break;
-		case AST_DECL_GLOBAL:
-			for (const struct ast_global_decl *g = &adecl->global;
-					g; g = g->next) {
-				decl = check_global(ctx, g);
-				if (decl == NULL) {
-					continue;
-				}
-				struct declarations *decls = *next =
-					xcalloc(1, sizeof(struct declarations));
-				decl->exported = adecl->exported;
-				decl->loc = adecl->loc;
-				decls->decl = decl;
-				next = &decls->next;
-			}
-			decl = NULL;
-			break;
-		case AST_DECL_TYPE:
-			for (const struct ast_type_decl *t = &adecl->type;
-					t; t = t->next) {
-				decl = check_type(ctx, t, adecl->exported);
-				struct declarations *decls = *next =
-					xcalloc(1, sizeof(struct declarations));
-				decl->exported = adecl->exported;
-				decls->decl = decl;
-				next = &decls->next;
-			}
-			decl = NULL;
-			break;
-		}
+	const struct ast_decl *adecl = &idecl->decl;
+	struct declaration *decl = NULL;
+	switch (adecl->decl_type) {
+	case AST_DECL_CONST:
+		decl = check_const(ctx, &adecl->constant);
+		break;
+	case AST_DECL_FUNC:
+		decl = check_function(ctx, adecl);
+		break;
+	case AST_DECL_GLOBAL:
+		decl = check_global(ctx, &adecl->global);
+		break;
+	case AST_DECL_TYPE:
+		decl = check_type(ctx, &adecl->type, adecl->exported);
+		break;
+	}
 
-		if (decl) {
-			struct declarations *decls = *next =
-				xcalloc(1, sizeof(struct declarations));
-			decl->exported = adecl->exported;
-			decl->loc = adecl->loc;
-			decls->decl = decl;
-			next = &decls->next;
-		}
-
-		adecls = adecls->next;
+	if (decl) {
+		struct declarations *decls = *next =
+			xcalloc(1, sizeof(struct declarations));
+		decl->exported = adecl->exported;
+		decl->loc = adecl->loc;
+		decls->decl = decl;
+		next = &decls->next;
 	}
 	return next;
 }
@@ -4162,6 +4126,10 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	struct scope *scope = ctx->scope;
 	struct scope *subunit = ctx->unit->parent;
 	ctx->unit->parent = NULL;
+	const struct type *fntype = ctx->fntype;
+	ctx->fntype = NULL;
+	bool deferring = ctx->deferring;
+	ctx->deferring = false;
 
 	// ensure this declaration wasn't already scanned
 	if (!obj || obj->otype != O_SCAN) {
@@ -4193,6 +4161,8 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	idecl->in_progress = false;
 exit:
 	// load stored context
+	ctx->deferring = deferring;
+	ctx->fntype = fntype;
 	ctx->unit->parent = subunit;
 	ctx->scope = scope;
 }
@@ -4383,37 +4353,27 @@ check_internal(struct type_store *ts,
 	// XXX: shadowed declarations are not checked for consistency
 	ctx.scope = ctx.defines;
 
+	struct declarations **next_decl = &unit->declarations;
 	// Perform actual declaration resolution
 	for (const struct scope_object *obj = ctx.unit->objects;
 			obj; obj = obj->lnext) {
 		wrap_resolver(&ctx, obj, resolve_decl);
+		// Populate the expression graph
+		const struct incomplete_declaration *idecl =
+			(const struct incomplete_declaration *)obj;
+		if (idecl->type != IDECL_DECL) {
+			continue;
+		}
+		ctx.unit->parent = idecl->imports;
+		next_decl = check_declaration(&ctx, idecl, next_decl);
 	}
 
 	handle_errors(ctx.errors);
 
-	if (scan_only) {
-		ctx.store->check_context = NULL;
-		ctx.unit->parent = NULL;
-		return ctx.unit;
-	}
-
-	// Populate the expression graph
-	struct scopes *scope = subunit_scopes;
-	struct declarations **next_decl = &unit->declarations;
-	for (const struct ast_subunit *su = &aunit->subunits;
-			su; su = su->next) {
-		// subunit scope has to be *behind* unit scope
-		ctx.unit->parent = scope->scope;
-		next_decl = check_declarations(&ctx, su->decls, next_decl);
-		scope = scope->next;
-	}
-
-	if (!unit->declarations) {
+	if (!(scan_only || unit->declarations)) {
 		fprintf(stderr, "Error: module contains no declarations\n");
 		exit(EXIT_FAILURE);
 	}
-
-	handle_errors(ctx.errors);
 
 	ctx.store->check_context = NULL;
 	ctx.unit->parent = NULL;
