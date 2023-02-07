@@ -176,12 +176,23 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		return r;
 	}
 
-	bool blval = lvalue.constant.bval, brval = rvalue.constant.bval, bval;
-	intmax_t ilval = lvalue.constant.ival, irval = rvalue.constant.ival, ival;
-	uintmax_t ulval = lvalue.constant.uval, urval = rvalue.constant.uval, uval;
-	double flval = lvalue.constant.fval, frval = rvalue.constant.fval, fval;
+	bool blval, brval, bval;
+	intmax_t ilval, irval, ival;
+	uintmax_t ulval, urval, uval;
+	double flval, frval, fval;
+	if (type_is_float(lvalue.result)) {
+		flval = lvalue.constant.fval, frval = rvalue.constant.fval;
+	} else if (type_is_signed(lvalue.result)) {
+		ilval = lvalue.constant.ival, irval = rvalue.constant.ival;
+	} else if (type_is_integer(lvalue.result)) {
+		ulval = lvalue.constant.uval, urval = rvalue.constant.uval;
+	} else if (type_dealias(lvalue.result)->storage == STORAGE_BOOL) {
+		blval = lvalue.constant.bval, brval = rvalue.constant.bval;
+	}
+
 	// Type promotion is lowered in check
 	assert(lvalue.result->storage == rvalue.result->storage);
+	bool neg = false;
 	switch (in->binarithm.op) {
 	case BIN_BAND:
 		assert(type_is_integer(lvalue.result));
@@ -313,6 +324,9 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
 		bval = blval && brval;
 		break;
+	case BIN_NEQUAL:
+		neg = true;
+		/* fallthrough */
 	case BIN_LEQUAL:
 		if (type_is_float(lvalue.result)) {
 			bval = ftrunc(lvalue.result, flval) == ftrunc(rvalue.result, frval);
@@ -333,6 +347,7 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 					lvalue.constant.string.len) == 0;
 			}
 		}
+		bval = bval != neg;
 		break;
 	case BIN_LESS:
 		if (type_is_float(lvalue.result)) {
@@ -363,27 +378,6 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		assert(type_dealias(lvalue.result)->storage == STORAGE_BOOL
 			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
 		bval = blval != brval;
-		break;
-	case BIN_NEQUAL:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) != ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) != itrunc(rvalue.result, irval);
-		} else if (type_is_integer(lvalue.result)
-				|| type_dealias(lvalue.result)->storage == STORAGE_POINTER) {
-			bval = itrunc(lvalue.result, ulval) != itrunc(rvalue.result, urval);
-		} else if (lvalue.result->storage == STORAGE_BOOL) {
-			bval = lvalue.constant.bval != rvalue.constant.bval;
-		} else {
-			assert(type_dealias(lvalue.result)->storage == STORAGE_STRING);
-			if (lvalue.constant.string.len != rvalue.constant.string.len) {
-				bval = true;
-			} else {
-				bval = memcmp(lvalue.constant.string.value,
-					rvalue.constant.string.value,
-					lvalue.constant.string.len) != 0;
-			}
-		}
 		break;
 	}
 	if (type_is_float(in->result)) {

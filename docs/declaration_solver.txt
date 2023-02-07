@@ -20,7 +20,7 @@ in this algorithm. Enum types never have dependencies and can be completed
 on the spot. Enum values are put into a special scope that is created for each
 enum type and marked incomplete.
 
-At this point the defines can be copied from the dedicated scope into the unit
+At this point the dedicated scope for defines is reparented on the unit
 scope, shadowing the declarations from the source files.
 
 Next, aliases of enum types are detected and taken care of. Because an enum

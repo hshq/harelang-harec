@@ -2698,12 +2698,7 @@ check_expr_struct(struct context *ctx,
 				"Unknown type alias");
 			return;
 		}
-
-		if (obj->otype != O_TYPE) {
-			error(ctx, aexpr->loc, expr,
-					"Name does not refer to a type");
-			return;
-		}
+		assert(obj->otype == O_TYPE);
 		stype = obj->type;
 		enum type_storage storage = type_dealias(stype)->storage;
 		if (storage != STORAGE_STRUCT && storage != STORAGE_UNION) {
@@ -3317,48 +3312,36 @@ check_expression(struct context *ctx,
 
 static struct declaration *
 check_const(struct context *ctx,
+	const struct scope_object *obj,
 	const struct ast_global_decl *adecl)
 {
-	const struct type *type = NULL;
-	if (adecl->type) {
-		type = type_store_lookup_atype(ctx->store, adecl->type);
-	}
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	const struct scope_object *obj = scope_lookup(
-			ctx->unit, &adecl->ident);
+	const struct scope_object *shadow_obj = scope_lookup(
+			ctx->defines, &adecl->ident);
 	decl->type = DECL_CONST;
-	decl->constant.type = type;
-	decl->constant.value = obj->value;
-	mkident(ctx, &decl->ident, &adecl->ident, NULL);
+	decl->constant.type = obj->type;
+	decl->constant.value = shadow_obj->value;
+	decl->ident = obj->ident;
 	return decl;
 }
 
 static struct declaration *
 check_function(struct context *ctx,
+	const struct scope_object *obj,
 	const struct ast_decl *adecl)
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
 	if ((adecl->function.flags & FN_TEST) && !ctx->is_test) {
 		return NULL;
 	}
-
-	const struct ast_type fn_atype = {
-		.storage = STORAGE_FUNCTION,
-		.flags = TYPE_CONST,
-		.func = afndecl->prototype,
-	};
-	const struct type *fntype = type_store_lookup_atype(
-			ctx->store, &fn_atype);
-	ctx->fntype = fntype;
+	ctx->fntype = obj->type;
 
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_FUNC;
-	decl->func.type = fntype;
+	decl->func.type = obj->type;
 	decl->func.flags = afndecl->flags;
 
-	if (afndecl->symbol) {
-		decl->symbol = xstrdup(afndecl->symbol);
-	}
+	decl->symbol = ident_to_sym(&obj->ident);
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
 
 	if (!adecl->function.body) {
@@ -3375,7 +3358,7 @@ check_function(struct context *ctx,
 		};
 		const struct type *type = type_store_lookup_atype(
 				ctx->store, params->type);
-		if (fntype->func.variadism == VARIADISM_HARE
+		if (obj->type->func.variadism == VARIADISM_HARE
 				&& !params->next) {
 			type = type_store_lookup_slice(ctx->store,
 				params->loc, type);
@@ -3386,20 +3369,20 @@ check_function(struct context *ctx,
 	}
 
 	struct expression *body = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, afndecl->body, body, fntype->func.result);
+	check_expression(ctx, afndecl->body, body, obj->type->func.result);
 	// TODO: Pass errors up and deal with them at the end of check
 	handle_errors(ctx->errors);
 
 	char *restypename = gen_typename(body->result);
-	char *fntypename = gen_typename(fntype->func.result);
+	char *fntypename = gen_typename(obj->type->func.result);
 	expect(ctx, &afndecl->body->loc,
-		body->terminates || type_is_assignable(fntype->func.result, body->result),
+		body->terminates || type_is_assignable(obj->type->func.result, body->result),
 		"Result value %s is not assignable to function result type %s",
 		restypename, fntypename);
 	free(restypename);
 	free(fntypename);
-	if (!body->terminates && fntype->func.result != body->result) {
-		body = lower_implicit_cast(fntype->func.result, body);
+	if (!body->terminates && obj->type->func.result != body->result) {
+		body = lower_implicit_cast(obj->type->func.result, body);
 	}
 	decl->func.body = body;
 
@@ -3420,17 +3403,17 @@ check_function(struct context *ctx,
 			expect(ctx, &adecl->loc, 0,
 				"Only one of @init, @fini, or @test may be used in a function declaration");
 		};
-		expect(ctx, &adecl->loc, fntype->func.result == &builtin_type_void,
+		expect(ctx, &adecl->loc, obj->type->func.result == &builtin_type_void,
 				"%s function must return void", flag);
-		expect(ctx, &adecl->loc, (fntype->func.flags & FN_NORETURN) == 0,
+		expect(ctx, &adecl->loc, (obj->type->func.flags & FN_NORETURN) == 0,
 				"%s function must return", flag);
 		expect(ctx, &adecl->loc, !decl->exported,
 				"%s function cannot be exported", flag);
 		expect(ctx, &adecl->loc, !afndecl->prototype.params,
 				"%s function cannot have parameters", flag);
 	}
-	if (fntype->func.flags & FN_NORETURN) {
-		expect(ctx, &adecl->loc, fntype->func.result == &builtin_type_void,
+	if (obj->type->func.flags & FN_NORETURN) {
+		expect(ctx, &adecl->loc, obj->type->func.result == &builtin_type_void,
 				"@noreturn function must return void");
 	};
 
@@ -3441,21 +3424,15 @@ check_function(struct context *ctx,
 
 static struct declaration *
 check_global(struct context *ctx,
+	const struct scope_object *obj,
 	const struct ast_global_decl *adecl)
 {
-	const struct type *type = NULL;
-	if (adecl->type) {
-		type = type_store_lookup_atype(ctx->store, adecl->type);
-	}
-
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	decl->type = DECL_GLOBAL;
-	decl->global.type = type;
+	decl->global.type = obj->type;
 	decl->global.threadlocal = adecl->threadlocal;
 
-	if (adecl->symbol) {
-		decl->symbol = xstrdup(adecl->symbol);
-	}
+	decl->symbol = ident_to_sym(&obj->ident);
 	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 
 	if (!adecl->init) {
@@ -3465,29 +3442,19 @@ check_global(struct context *ctx,
 	// TODO: Free initialier
 	struct expression *initializer =
 		xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, adecl->init, initializer, type);
+	check_expression(ctx, adecl->init, initializer, obj->type);
 	// TODO: Pass errors up and deal with them at the end of check
 
-	if (type) {
-		char *typename1 = gen_typename(initializer->result);
-		char *typename2 = gen_typename(type);
-		expect(ctx, &adecl->init->loc,
-			type_is_assignable(type, initializer->result),
-			"Initializer type %s is not assignable to constant type %s",
-			typename1, typename2);
-		free(typename1);
-		free(typename2);
-	}
+	char *typename1 = gen_typename(initializer->result);
+	char *typename2 = gen_typename(obj->type);
+	expect(ctx, &adecl->init->loc,
+		type_is_assignable(obj->type, initializer->result),
+		"Initializer type %s is not assignable to constant type %s",
+		typename1, typename2);
+	free(typename1);
+	free(typename2);
 
-	bool context = adecl->type
-		&& adecl->type->storage == STORAGE_ARRAY
-		&& adecl->type->array.contextual;
-	if (context || !type) {
-		// XXX: Do we need to do anything more here
-		type = lower_const(initializer->result, NULL);
-	}
-
-	initializer = lower_implicit_cast(type, initializer);
+	initializer = lower_implicit_cast(obj->type, initializer);
 
 	struct expression *value =
 		xcalloc(1, sizeof(struct expression));
@@ -3504,100 +3471,46 @@ check_global(struct context *ctx,
 
 static struct declaration *
 check_type(struct context *ctx,
+	const struct scope_object *obj,
 	const struct ast_type_decl *adecl,
 	bool exported)
 {
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 	decl->type = DECL_TYPE;
-	if (adecl->type->storage == STORAGE_ENUM) {
-		decl->_type =
-			type_store_lookup_enum(ctx->store, adecl->type, exported);
-	} else {
-		const struct type *type =
-			type_store_lookup_atype(ctx->store, adecl->type);
-		struct type _alias = {
-			.storage = STORAGE_ALIAS,
-			.alias = {
-				.ident = decl->ident,
-				.name = adecl->ident,
-				.type = type,
-				.exported = exported,
-			},
-			.size = type->size,
-			.align = type->align,
-			.flags = type->flags,
-		};
-		decl->_type = type_store_lookup_alias(ctx->store, &_alias, NULL);
-	}
+	decl->ident = obj->ident;
+	decl->_type = obj->type;
 	return decl;
 }
 
 static struct declarations **
-check_declarations(struct context *ctx,
-		const struct ast_decls *adecls,
+check_declaration(struct context *ctx,
+		const struct incomplete_declaration *idecl,
 		struct declarations **next)
 {
-	while (adecls) {
-		struct declaration *decl = NULL;
-		const struct ast_decl *adecl = &adecls->decl;
-		switch (adecl->decl_type) {
-		case AST_DECL_CONST:
-			for (const struct ast_global_decl *c = &adecl->constant;
-					c; c = c->next) {
-				decl = check_const(ctx, c);
-				struct declarations *decls = *next =
-					xcalloc(1, sizeof(struct declarations));
-				decl->exported = adecl->exported;
-				decl->loc = adecl->loc;
-				decls->decl = decl;
-				next = &decls->next;
-			}
-			decl = NULL;
-			break;
-		case AST_DECL_FUNC:
-			decl = check_function(ctx, adecl);
-			break;
-		case AST_DECL_GLOBAL:
-			for (const struct ast_global_decl *g = &adecl->global;
-					g; g = g->next) {
-				decl = check_global(ctx, g);
-				if (decl == NULL) {
-					continue;
-				}
-				struct declarations *decls = *next =
-					xcalloc(1, sizeof(struct declarations));
-				decl->exported = adecl->exported;
-				decl->loc = adecl->loc;
-				decls->decl = decl;
-				next = &decls->next;
-			}
-			decl = NULL;
-			break;
-		case AST_DECL_TYPE:
-			for (const struct ast_type_decl *t = &adecl->type;
-					t; t = t->next) {
-				decl = check_type(ctx, t, adecl->exported);
-				struct declarations *decls = *next =
-					xcalloc(1, sizeof(struct declarations));
-				decl->exported = adecl->exported;
-				decls->decl = decl;
-				next = &decls->next;
-			}
-			decl = NULL;
-			break;
-		}
+	const struct ast_decl *adecl = &idecl->decl;
+	struct declaration *decl = NULL;
+	switch (adecl->decl_type) {
+	case AST_DECL_CONST:
+		decl = check_const(ctx, &idecl->obj, &adecl->constant);
+		break;
+	case AST_DECL_FUNC:
+		decl = check_function(ctx, &idecl->obj, adecl);
+		break;
+	case AST_DECL_GLOBAL:
+		decl = check_global(ctx, &idecl->obj, &adecl->global);
+		break;
+	case AST_DECL_TYPE:
+		decl = check_type(ctx, &idecl->obj, &adecl->type, adecl->exported);
+		break;
+	}
 
-		if (decl) {
-			struct declarations *decls = *next =
-				xcalloc(1, sizeof(struct declarations));
-			decl->exported = adecl->exported;
-			decl->loc = adecl->loc;
-			decls->decl = decl;
-			next = &decls->next;
-		}
-
-		adecls = adecls->next;
+	if (decl) {
+		struct declarations *decls = *next =
+			xcalloc(1, sizeof(struct declarations));
+		decl->exported = adecl->exported;
+		decl->loc = adecl->loc;
+		decls->decl = decl;
+		next = &decls->next;
 	}
 	return next;
 }
@@ -3688,7 +3601,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			scope_push((struct scope **)&type->_enum.values, SCOPE_ENUM);
 			scan_enum_field(ctx, imp,
 				type->_enum.values, type, t->type->_enum.values);
-			type->_enum.values->parent = ctx->unit;
+			type->_enum.values->parent = ctx->defines;
 			idecl->obj.otype = O_TYPE;
 			idecl->obj.type = type;
 		} else {
@@ -4089,16 +4002,33 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 			idecl->imports = imports;
 		}
 		break;
-	case AST_DECL_FUNC:
-		if (decl->function.flags) {
-			return;
-		}
+	case AST_DECL_FUNC:;
 		struct ast_function_decl *func = &decl->function;
-		struct identifier with_ns = {0};
-		mkident(ctx, &with_ns, &func->ident, func->symbol);
+		struct identifier ident = {0}, *name = NULL;
+		if (func->flags) {
+			const char *template = NULL;
+			if (func->flags & FN_TEST) {
+				template = "testfunc.%d";
+			} else if (func->flags & FN_INIT) {
+				template = "initfunc.%d";
+			} else if (func->flags & FN_FINI) {
+				template = "finifunc.%d";
+			}
+			assert(template);
+
+			int n = snprintf(NULL, 0, template, ctx->id);
+			ident.name = xcalloc(n + 1, 1);
+			snprintf(ident.name, n + 1, template, ctx->id);
+			++ctx->id;
+
+			name = &ident;
+		} else {
+			mkident(ctx, &ident, &func->ident, func->symbol);
+			name = &func->ident;
+		}
 		struct incomplete_declaration *idecl =
 			incomplete_declaration_create(ctx, decl->loc,
-					ctx->scope, &with_ns, &func->ident);
+					ctx->scope, &ident, name);
 		idecl->type = IDECL_DECL;
 		idecl->decl = (struct ast_decl){
 			.decl_type = AST_DECL_FUNC,
@@ -4150,6 +4080,10 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	struct scope *scope = ctx->scope;
 	struct scope *subunit = ctx->unit->parent;
 	ctx->unit->parent = NULL;
+	const struct type *fntype = ctx->fntype;
+	ctx->fntype = NULL;
+	bool deferring = ctx->deferring;
+	ctx->deferring = false;
 
 	// ensure this declaration wasn't already scanned
 	if (!obj || obj->otype != O_SCAN) {
@@ -4159,7 +4093,7 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	struct incomplete_declaration *idecl = (struct incomplete_declaration *)obj;
 
 	// load this declaration's subunit context
-	ctx->scope = ctx->unit;
+	ctx->scope = ctx->defines;
 	ctx->unit->parent = idecl->imports;
 
 	// resolving a declaration that is already in progress -> cycle
@@ -4181,6 +4115,8 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	idecl->in_progress = false;
 exit:
 	// load stored context
+	ctx->deferring = deferring;
+	ctx->fntype = fntype;
 	ctx->unit->parent = subunit;
 	ctx->scope = scope;
 }
@@ -4311,15 +4247,15 @@ check_internal(struct type_store *ts,
 
 	// Put defines into a temporary scope (-D on the command line)
 	ctx.scope = NULL;
-	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
+	ctx.unit = scope_push(&ctx.scope, SCOPE_DEFINES);
 	for (struct ast_global_decl *def = defines; def; def = def->next) {
 		struct incomplete_declaration *idecl =
 			scan_const(&ctx, NULL, false , defineloc, def);
 		resolve_const(&ctx, idecl);
 	}
-	struct scope *def_scope = ctx.scope;
+	ctx.defines = ctx.scope;
 	ctx.scope = NULL;
-	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
+	ctx.defines->parent = ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 
 	// Populate the imports and put declarations into a scope.
 	// Each declaration holds a reference to its subunit's imports
@@ -4362,58 +4298,36 @@ check_internal(struct type_store *ts,
 		next = &(*next)->next;
 	}
 
-	// Put defines into unit scope
-	// We have to insert them *after* declarations, because this way they
-	// shadow declarations, not the other way around
-	//
-	// XXX: shadowed declarations are not checked for consistency
-	for (const struct scope_object *obj = def_scope->objects;
-			obj; obj = obj->lnext) {
-		if (obj->otype == O_SCAN) {
-			continue;
-		}
-		scope_insert(ctx.unit, O_CONST, &obj->ident, &obj->name,
-			obj->type, obj->value);
-	}
-	scope_free(def_scope);
-
 	// Find enum aliases and store them in incomplete enum value declarations
 	for (const struct scope_object *obj = ctx.scope->objects;
 			obj; obj = obj->lnext) {
 		scan_enum_field_aliases(&ctx, obj);
 	}
 
+	// XXX: shadowed declarations are not checked for consistency
+	ctx.scope = ctx.defines;
+
+	struct declarations **next_decl = &unit->declarations;
 	// Perform actual declaration resolution
-	for (const struct scope_object *obj = ctx.scope->objects;
+	for (const struct scope_object *obj = ctx.unit->objects;
 			obj; obj = obj->lnext) {
 		wrap_resolver(&ctx, obj, resolve_decl);
+		// Populate the expression graph
+		const struct incomplete_declaration *idecl =
+			(const struct incomplete_declaration *)obj;
+		if (idecl->type != IDECL_DECL) {
+			continue;
+		}
+		ctx.unit->parent = idecl->imports;
+		next_decl = check_declaration(&ctx, idecl, next_decl);
 	}
 
 	handle_errors(ctx.errors);
 
-	if (scan_only) {
-		ctx.store->check_context = NULL;
-		ctx.unit->parent = NULL;
-		return ctx.unit;
-	}
-
-	// Populate the expression graph
-	struct scopes *scope = subunit_scopes;
-	struct declarations **next_decl = &unit->declarations;
-	for (const struct ast_subunit *su = &aunit->subunits;
-			su; su = su->next) {
-		// subunit scope has to be *behind* unit scope
-		ctx.scope->parent = scope->scope;
-		next_decl = check_declarations(&ctx, su->decls, next_decl);
-		scope = scope->next;
-	}
-
-	if (!unit->declarations) {
+	if (!(scan_only || unit->declarations)) {
 		fprintf(stderr, "Error: module contains no declarations\n");
 		exit(EXIT_FAILURE);
 	}
-
-	handle_errors(ctx.errors);
 
 	ctx.store->check_context = NULL;
 	ctx.unit->parent = NULL;
