@@ -3301,16 +3301,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	qdef->exported = decl->exported;
 	ctx->current = &qdef->func;
 
-	if (func->flags & FN_TEST) {
-		qdef->name = gen_name(ctx, "testfunc.%d");
-	} else if (func->flags & FN_INIT) {
-		qdef->name = gen_name(ctx, "initfunc.%d");
-	} else if (func->flags & FN_FINI) {
-		qdef->name = gen_name(ctx, "finifunc.%d");
-	} else {
-		qdef->name = decl->symbol ? xstrdup(decl->symbol)
-			: ident_to_sym(&decl->ident);
-	}
+	qdef->name = decl->symbol ? xstrdup(decl->symbol)
+		: ident_to_sym(&decl->ident);
 
 	struct qbe_statement start_label = {0};
 	mklabel(ctx, &start_label, "start.%d");
