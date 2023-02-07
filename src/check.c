@@ -3499,32 +3499,14 @@ check_global(struct context *ctx,
 
 static struct declaration *
 check_type(struct context *ctx,
+	const struct scope_object *obj,
 	const struct ast_type_decl *adecl,
 	bool exported)
 {
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	mkident(ctx, &decl->ident, &adecl->ident, NULL);
 	decl->type = DECL_TYPE;
-	if (adecl->type->storage == STORAGE_ENUM) {
-		decl->_type =
-			type_store_lookup_enum(ctx->store, adecl->type, exported);
-	} else {
-		const struct type *type =
-			type_store_lookup_atype(ctx->store, adecl->type);
-		struct type _alias = {
-			.storage = STORAGE_ALIAS,
-			.alias = {
-				.ident = decl->ident,
-				.name = adecl->ident,
-				.type = type,
-				.exported = exported,
-			},
-			.size = type->size,
-			.align = type->align,
-			.flags = type->flags,
-		};
-		decl->_type = type_store_lookup_alias(ctx->store, &_alias, NULL);
-	}
+	decl->ident = obj->ident;
+	decl->_type = obj->type;
 	return decl;
 }
 
@@ -3546,7 +3528,7 @@ check_declaration(struct context *ctx,
 		decl = check_global(ctx, &adecl->global);
 		break;
 	case AST_DECL_TYPE:
-		decl = check_type(ctx, &adecl->type, adecl->exported);
+		decl = check_type(ctx, &idecl->obj, &adecl->type, adecl->exported);
 		break;
 	}
 
