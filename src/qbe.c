@@ -187,7 +187,7 @@ geni(struct qbe_statement *stmt, const struct qbe_value *out,
 }
 
 const char *
-genl(struct qbe_statement *stmt, uint64_t *id, const char *fmt)
+genl(struct qbe_statement *stmt, int *id, const char *fmt)
 {
 	stmt->type = Q_LABEL;
 	int n = snprintf(NULL, 0, fmt, *id);
@@ -248,7 +248,7 @@ pushprei(struct qbe_func *func, const struct qbe_value *out,
 }
 
 const char *
-pushl(struct qbe_func *func, uint64_t *id, const char *fmt)
+pushl(struct qbe_func *func, int *id, const char *fmt)
 {
 	struct qbe_statement stmt = {0};
 	const char *l = genl(&stmt, id, fmt);

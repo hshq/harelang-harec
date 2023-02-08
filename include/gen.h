@@ -67,7 +67,7 @@ struct gen_context {
 	struct type_store *store;
 	struct identifier *ns;
 
-	uint64_t id;
+	int id;
 
 	struct qbe_func *current;
 	const struct type *functype;
