@@ -83,7 +83,6 @@ void gen(const struct unit *unit,
 		struct qbe_program *out);
 
 // genutil.c
-char *gen_name(struct gen_context *ctx, const char *fmt);
 struct gen_value mkgtemp(struct gen_context *ctx,
 	const struct type *type, const char *fmt);
 struct qbe_value mkqval(struct gen_context *ctx, struct gen_value *value);
