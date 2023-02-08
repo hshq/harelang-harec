@@ -1094,10 +1094,7 @@ check_binding_unpack(struct context *ctx,
 				struct identifier gen = {0};
 
 				// Generate a static declaration identifier
-				int n = snprintf(NULL, 0, "static.%d", ctx->id);
-				gen.name = xcalloc(n + 1, 1);
-				snprintf(gen.name, n + 1, "static.%d", ctx->id);
-				++ctx->id;
+				gen.name = gen_name(&ctx->id, "static.%d");
 
 				unpack->object = scope_insert(
 					ctx->scope, O_DECL, &gen, &ident,
@@ -1177,10 +1174,7 @@ check_expr_binding(struct context *ctx,
 		struct identifier gen = {0};
 		if (abinding->is_static) {
 			// Generate a static declaration identifier
-			int n = snprintf(NULL, 0, "static.%d", ctx->id);
-			gen.name = xcalloc(n + 1, 1);
-			snprintf(gen.name, n + 1, "static.%d", ctx->id);
-			++ctx->id;
+			gen.name = gen_name(&ctx->id, "static.%d");
 		}
 
 		bool context = abinding->type
@@ -2360,20 +2354,14 @@ check_expr_propagate(struct context *ctx,
 	struct match_case *case_err = xcalloc(1, sizeof(struct match_case));
 	struct identifier ok_name = {0}, err_name = {0};
 
-	int n = snprintf(NULL, 0, "ok.%d", ctx->id);
-	ok_name.name = xcalloc(n + 1, 1);
-	snprintf(ok_name.name, n + 1, "ok.%d", ctx->id);
-	++ctx->id;
+	ok_name.name = gen_name(&ctx->id, "ok.%d");
 	const struct scope_object *ok_obj = NULL;
 	if (result_type->size != 0 && result_type->size != SIZE_UNDEFINED) {
 		ok_obj = scope_insert(scope, O_BIND, &ok_name,
 			&ok_name, result_type, NULL);
 	}
 
-	n = snprintf(NULL, 0, "err.%d", ctx->id);
-	err_name.name = xcalloc(n + 1, 1);
-	snprintf(err_name.name, n + 1, "err.%d", ctx->id);
-	++ctx->id;
+	err_name.name = gen_name(&ctx->id, "err.%d");
 	const struct scope_object *err_obj = NULL;
 	if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
 		err_obj = scope_insert(scope, O_BIND, &err_name,
@@ -4015,10 +4003,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 				template = "finifunc.%d";
 			}
 			assert(template);
-
-			int n = snprintf(NULL, 0, template, ctx->id);
-			ident.name = xcalloc(n + 1, 1);
-			snprintf(ident.name, n + 1, template, ctx->id);
+			ident.name = gen_name(&ctx->id, template);
 			++ctx->id;
 
 			name = &ident;
@@ -4246,6 +4231,7 @@ check_internal(struct type_store *ts,
 	// sub-scopes for each declaration, expression-list, etc.
 
 	// Put defines into a temporary scope (-D on the command line)
+	sources[0] = "-D";
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_DEFINES);
 	for (struct ast_global_decl *def = defines; def; def = def->next) {
@@ -4256,6 +4242,7 @@ check_internal(struct type_store *ts,
 	ctx.defines = ctx.scope;
 	ctx.scope = NULL;
 	ctx.defines->parent = ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
+	sources[0] = "<unknown>";
 
 	// Populate the imports and put declarations into a scope.
 	// Each declaration holds a reference to its subunit's imports

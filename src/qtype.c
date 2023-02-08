@@ -19,18 +19,13 @@ sf_compar(const void *_a, const void *_b)
 static const struct qbe_type *
 tagged_qtype(struct gen_context *ctx, const struct type *type)
 {
-	int n = snprintf(NULL, 0, "tags.%" PRIu64, ctx->id);
-	char *name = xcalloc(1, n + 1);
-	snprintf(name, n + 1, "tags.%" PRIu64, ctx->id);
-	++ctx->id;
-
 	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
 	def->kind = Q_TYPE;
-	def->name = name;
+	def->name = gen_name(&ctx->id, "tags.%d");
 	def->exported = false;
 	def->type.stype = Q__AGGREGATE;
 	def->type.base = NULL;
-	def->type.name = name;
+	def->type.name = def->name;
 	def->type.size = type->size - type->align;
 
 	struct qbe_field *field = &def->type.fields;
@@ -66,17 +61,12 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		}
 	}
 
-	int n = snprintf(NULL, 0, "type.%" PRIu64, ctx->id);
-	char *name = xcalloc(1, n + 1);
-	snprintf(name, n + 1, "type.%" PRIu64, ctx->id);
-	++ctx->id;
-
 	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
 	def->kind = Q_TYPE;
-	def->name = name;
+	def->name = gen_name(&ctx->id, "type.%d");
 	def->type.stype = Q__AGGREGATE;
 	def->type.base = type;
-	def->type.name = name;
+	def->type.name = def->name;
 
 	const struct type *final = type_dealias(type);
 	assert((final->storage == STORAGE_STRUCT && final->struct_union.packed)

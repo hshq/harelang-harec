@@ -21,6 +21,8 @@ char *xstrdup(const char *s);
 #define realloc(a, b) (void *)sizeof(struct { static_assert(0, "Use xrealloc instead"); int _; })
 #define strdup(s) (char *)(sizeof(struct { static_assert(0, "Use xstrdup instead"); int _; })
 
+char *gen_name(int *id, const char *fmt);
+
 struct pathspec {
 	const char *var;
 	const char *path;

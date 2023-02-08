@@ -164,7 +164,7 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 	struct gen_value value = {
 		.kind = GV_TEMP,
 		.type = object.type,
-		.name = gen_name(ctx, "load.%d"),
+		.name = gen_name(&ctx->id, "load.%d"),
 	};
 	struct qbe_value qobj = mkqval(ctx, &object),
 		qval = mkqval(ctx, &value);
@@ -1081,7 +1081,7 @@ gen_expr_binding_unpack(struct gen_context *ctx,
 	assert(binding->object == NULL);
 
 	const struct type *type = binding->initializer->result;
-	char *tuple_name = gen_name(ctx, "tupleunpack.%d");
+	char *tuple_name = gen_name(&ctx->id, "tupleunpack.%d");
 	struct gen_value tuple_gv = {
 		.kind = GV_TEMP,
 		.type = type,
@@ -1105,7 +1105,7 @@ gen_expr_binding_unpack(struct gen_context *ctx,
 		struct gen_value item_gv = {
 			.kind = GV_TEMP,
 			.type = type,
-			.name = gen_name(ctx, "binding.%d"),
+			.name = gen_name(&ctx->id, "binding.%d"),
 		};
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
 		gb->value = item_gv;
@@ -1150,7 +1150,7 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
 		gb->value.kind = GV_TEMP;
 		gb->value.type = type;
-		gb->value.name = gen_name(ctx, "binding.%d");
+		gb->value.name = gen_name(&ctx->id, "binding.%d");
 		gb->object = binding->object;
 		gb->next = ctx->bindings;
 		ctx->bindings = gb;
@@ -1360,9 +1360,9 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 	const struct type *subtype = tagged_select_subtype(to, from, true);
 
 	if (!subtype && tagged_align_compat(from, to)) {
-		// Case 1: from is a union whose members are a subset of to, and
-		// the alignment matches, so we can just interpret values of
-		// type 'from' as if it were of type 'to'
+		// Case 1: from is a union whose members are a subset or
+		// superset of to, and the alignment matches, so we can just
+		// interpret values of type 'from' as if it were of type 'to'
 		struct gen_value out2 = out;
 		out2.type = from;
 		gen_expr_at(ctx, expr->cast.value, out2);
@@ -2572,7 +2572,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
 		gb->value.kind = GV_TEMP;
 		gb->value.type = _case->type;
-		gb->value.name = gen_name(ctx, "binding.%d");
+		gb->value.name = gen_name(&ctx->id, "binding.%d");
 		gb->object = _case->object;
 		gb->next = ctx->bindings;
 		ctx->bindings = gb;
@@ -3336,7 +3336,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			// No need to copy to stack
 			gb->value.name = xstrdup(param->name);
 		} else {
-			gb->value.name = gen_name(ctx, "param.%d");
+			gb->value.name = gen_name(&ctx->id, "param.%d");
 
 			struct qbe_value qv = mklval(ctx, &gb->value);
 			struct qbe_value sz = constl(type->size);
@@ -3552,7 +3552,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case STORAGE_STRING:
 		def = xcalloc(1, sizeof(struct qbe_def));
-		def->name = gen_name(ctx, "strdata.%d");
+		def->name = gen_name(&ctx->id, "strdata.%d");
 		def->kind = Q_DATA;
 		def->data.align = ALIGN_UNDEFINED;
 		def->data.items.type = QD_STRING;
@@ -3583,7 +3583,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case STORAGE_SLICE:
 		def = xcalloc(1, sizeof(struct qbe_def));
-		def->name = gen_name(ctx, "sldata.%d");
+		def->name = gen_name(&ctx->id, "sldata.%d");
 		def->kind = Q_DATA;
 		def->data.align = ALIGN_UNDEFINED;
 

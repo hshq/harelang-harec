@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 #include "util.h"
 // Remove safety macros:
 #undef malloc
@@ -88,6 +89,16 @@ xstrdup(const char *s)
 		abort();
 	}
 	return ret;
+}
+
+char *
+gen_name(int *id, const char *fmt)
+{
+	int n = snprintf(NULL, 0, fmt, *id);
+	char *str = xcalloc(1, n + 1);
+	snprintf(str, n + 1, fmt, *id);
+	++*id;
+	return str;
 }
 
 char *

@@ -6,16 +6,6 @@
 #include "types.h"
 #include "util.h"
 
-char *
-gen_name(struct gen_context *ctx, const char *fmt)
-{
-	int n = snprintf(NULL, 0, fmt, ctx->id);
-	char *str = xcalloc(1, n + 1);
-	snprintf(str, n + 1, fmt, ctx->id);
-	++ctx->id;
-	return str;
-}
-
 struct qbe_value
 mkqval(struct gen_context *ctx, struct gen_value *value)
 {
@@ -62,7 +52,7 @@ mkqtmp(struct gen_context *ctx, const struct qbe_type *qtype, const char *fmt)
 	return (struct qbe_value){
 		.kind = QV_TEMPORARY,
 		.type = qtype,
-		.name = gen_name(ctx, fmt),
+		.name = gen_name(&ctx->id, fmt),
 	};
 }
 
@@ -72,7 +62,7 @@ mkgtemp(struct gen_context *ctx, const struct type *type, const char *fmt)
 	return (struct gen_value){
 		.kind = GV_TEMP,
 		.type = type,
-		.name = gen_name(ctx, fmt),
+		.name = gen_name(&ctx->id, fmt),
 	};
 }
 
