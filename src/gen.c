@@ -1360,9 +1360,9 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 	const struct type *subtype = tagged_select_subtype(to, from, true);
 
 	if (!subtype && tagged_align_compat(from, to)) {
-		// Case 1: from is a union whose members are a subset of to, and
-		// the alignment matches, so we can just interpret values of
-		// type 'from' as if it were of type 'to'
+		// Case 1: from is a union whose members are a subset or
+		// superset of to, and the alignment matches, so we can just
+		// interpret values of type 'from' as if it were of type 'to'
 		struct gen_value out2 = out;
 		out2.type = from;
 		gen_expr_at(ctx, expr->cast.value, out2);
