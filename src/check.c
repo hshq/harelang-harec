@@ -4231,6 +4231,7 @@ check_internal(struct type_store *ts,
 	// sub-scopes for each declaration, expression-list, etc.
 
 	// Put defines into a temporary scope (-D on the command line)
+	sources[0] = "-D";
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_DEFINES);
 	for (struct ast_global_decl *def = defines; def; def = def->next) {
@@ -4241,6 +4242,7 @@ check_internal(struct type_store *ts,
 	ctx.defines = ctx.scope;
 	ctx.scope = NULL;
 	ctx.defines->parent = ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
+	sources[0] = "<unknown>";
 
 	// Populate the imports and put declarations into a scope.
 	// Each declaration holds a reference to its subunit's imports

@@ -143,7 +143,7 @@ main(int argc, char *argv[])
 
 	sources = xcalloc(ninputs + 2, sizeof(char **));
 	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * ninputs);
-	sources[0] = "-D";
+	sources[0] = "<unknown>";
 	sources[ninputs + 1] = NULL;
 
 	for (size_t i = 0; i < ninputs; ++i) {
