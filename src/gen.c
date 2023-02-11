@@ -2247,6 +2247,7 @@ gen_expr_if_with(struct gen_context *ctx,
 	struct qbe_value bend = mklabel(ctx, &lend, ".%d");
 	struct gen_value cond = gen_expr(ctx, expr->_if.cond);
 	struct qbe_value qcond = mkqval(ctx, &cond);
+	qcond = extend(ctx, qcond, &builtin_type_bool);
 	pushi(ctx->current, NULL, Q_JNZ, &qcond, &btrue, &bfalse, NULL);
 
 	push(&ctx->current->body, &ltrue);
