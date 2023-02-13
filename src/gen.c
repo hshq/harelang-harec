@@ -1882,9 +1882,9 @@ static void
 gen_const_string_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	const struct expression_constant *constexpr = &expr->constant;
-	const char *val = constexpr->string.value;
-	size_t len = constexpr->string.len;
+	const struct expression_constant *constant = &expr->constant;
+	const char *val = constant->string.value;
+	size_t len = constant->string.len;
 
 	// TODO: Generate string data structure as global also?
 	struct qbe_value global = mkqtmp(ctx, ctx->arch.ptr, "strdata.%d");
