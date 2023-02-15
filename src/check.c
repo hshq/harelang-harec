@@ -51,9 +51,14 @@ static void
 handle_errors(struct errors *errors)
 {
 	struct errors *error = errors;
+	bool first = true;
 	while (error) {
 		fprintf(stderr, "Error %s:%d:%d: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
+		if (first) {
+			errline(sources[error->loc.file], error->loc.lineno, error->loc.colno);
+			first = false;
+		}
 		struct errors *next = error->next;
 		free(error);
 		error = next;
@@ -3105,6 +3110,11 @@ check_expr_unarithm(struct context *ctx,
 				& PTR_NULLABLE) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot dereference nullable pointer type");
+			return;
+		}
+		if (type_dealias(operand->result)->pointer.referent->size == 0) {
+			error(ctx, aexpr->unarithm.operand->loc, expr,
+				"Cannot dereference pointer to zero-sized type");
 			return;
 		}
 		if (type_dealias(operand->result)->pointer.referent->size

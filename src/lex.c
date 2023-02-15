@@ -151,6 +151,7 @@ error(struct location *loc, char *fmt, ...)
 	va_end(ap);
 
 	fputc('\n', stderr);
+	errline(sources[loc->file], loc->lineno, loc->colno);
 	exit(EXIT_FAILURE);
 }
 

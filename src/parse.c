@@ -22,6 +22,7 @@ synassert_msg(bool cond, const char *msg, struct token *tok)
 		fprintf(stderr, "Syntax error: %s at %s:%d:%d (found '%s')\n", msg,
 			sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
 			token_str(tok));
+		errline(sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -43,6 +44,7 @@ vsynerr(struct token *tok, va_list ap)
 		t = va_arg(ap, enum lexical_token);
 		fprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
 	}
+	errline(sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
 	exit(EXIT_FAILURE);
 }
 

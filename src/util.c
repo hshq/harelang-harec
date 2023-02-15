@@ -1,7 +1,10 @@
+#include <sys/stat.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "util.h"
 // Remove safety macros:
 #undef malloc
@@ -116,4 +119,70 @@ getpath(const struct pathspec *paths, size_t npaths) {
 		}
 	}
 	return NULL;
+}
+
+int
+errline(const char* path, int lineno, int colno)
+{
+	char* real = realpath(path, NULL);
+	struct stat filestat;
+	if (stat(real, &filestat) != 0 || !S_ISREG(filestat.st_mode)) {
+		free(real);
+		return -1;
+	}
+	free(real);
+
+	FILE* src = fopen(path, "r");
+	if (!src) {
+		return -1;
+	}
+	char* line = NULL;
+	size_t len = 0;
+	int n = 0;
+	while (n < lineno) {
+		if (getline(&line, &len, src) == -1) {
+			fclose(src);
+			if (line) {
+				free(line);
+			}
+			return -1;
+		}
+		n += 1;
+	}
+	if (line) {
+		bool color = true;
+		const char* no_color = getenv("NO_COLOR");
+		const char* harec_color = getenv("HAREC_COLOR");
+		if (!isatty(fileno(stderr))) {
+			color = false;
+		}
+		if (no_color != NULL) {
+			if (0 < strlen(no_color)) {
+				color = false;
+			}
+		}
+		if (harec_color != NULL) {
+			if (strcmp(harec_color, "0") == 0) {
+				color = false;
+			} else {
+				color = true;
+			}
+		}
+		fprintf(stderr, "\n%d |\t%s", lineno, line);
+		for (int i = lineno; 1 <= i; i /= 10) {
+			fputc(' ', stderr);
+		}
+		fputs(" |\t", stderr);
+		for (int i = 1; i < colno; i++) {
+			fputc(' ', stderr);
+		}
+		if (color) {
+			fputs("\x1b[31m^\x1b[0m\n\n", stderr);
+		} else {
+			fputs("^\n\n", stderr);
+		}
+		free(line);
+	}
+	fclose(src);
+	return 0;
 }

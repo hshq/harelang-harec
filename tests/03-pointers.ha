@@ -128,6 +128,14 @@ fn reject() void = {
 		let b: *int = &a;
 		let c: int = *b;
 	") as exited != EXIT_SUCCESS);
+
+	// dereference of a zero-sized type
+	assert(compile("
+		fn test() void = {
+			let a: *void = &12;
+			*a;
+		};
+	") as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {
