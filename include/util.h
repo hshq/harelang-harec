@@ -30,4 +30,6 @@ struct pathspec {
 
 char *getpath(const struct pathspec *paths, size_t npaths);
 
+int errline(const char* path, int lineno, int colno);
+
 #endif
