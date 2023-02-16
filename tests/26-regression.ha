@@ -119,4 +119,5 @@ export fn main() void = {
 	assert(rt::compile("fn a() *void = alloc(void);") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("fn a() void = { static let b = x & struct { a: int = 0 }; };") as rt::exited != rt::EXIT_SUCCESS);
 	let a: (size | mod::t) = 0;
+	assert(rt::compile("type a = enum { A }; fn b() *void = a::A: *void;") as rt::exited != rt::EXIT_SUCCESS);
 };

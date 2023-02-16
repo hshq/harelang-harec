@@ -976,7 +976,7 @@ type_is_castable(const struct type *to, const struct type *from)
 		return to->storage == STORAGE_U32
 			? to_orig : NULL;
 	case STORAGE_ENUM:
-		return to->storage == STORAGE_ENUM || type_is_integer(from)
+		return to->storage == STORAGE_ENUM || type_is_integer(to)
 			? to_orig : NULL;
 	case STORAGE_F32:
 	case STORAGE_F64:
