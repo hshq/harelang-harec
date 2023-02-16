@@ -21,6 +21,8 @@ def THING: thing = thing{
 
 let global: int = 0;
 
+type mod::t = (size | const size); // needs to have a type id larger than size
+
 export fn main() void = {
 	let t = thing {
 		offs = 0,
@@ -116,4 +118,5 @@ export fn main() void = {
 	assert(rt::compile("let a = [*&0];") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("fn a() *void = alloc(void);") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("fn a() void = { static let b = x & struct { a: int = 0 }; };") as rt::exited != rt::EXIT_SUCCESS);
+	let a: (size | mod::t) = 0;
 };
