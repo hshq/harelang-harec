@@ -176,10 +176,10 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		return r;
 	}
 
-	bool blval, brval, bval;
-	intmax_t ilval, irval, ival;
-	uintmax_t ulval, urval, uval;
-	double flval, frval, fval;
+	bool blval = false, brval = false, bval = false;
+	intmax_t ilval = 0, irval = 0, ival = 0;
+	uintmax_t ulval = 0, urval = 0, uval = 0;
+	double flval = 0, frval = 0, fval = 0;
 	if (type_is_float(lvalue.result)) {
 		flval = lvalue.constant.fval, frval = rvalue.constant.fval;
 	} else if (type_is_signed(lvalue.result)) {
