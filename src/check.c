@@ -2657,8 +2657,12 @@ check_struct_exhaustive(struct context *ctx,
 				continue;
 			}
 			if (strcmp(f->name, sf->name) == 0) {
+				if (found) {
+					error(ctx, aexpr->loc, expr,
+						"Field '%s' is initialized multiple times",
+						sf->name);
+				}
 				found = true;
-				break;
 			}
 		}
 

@@ -167,6 +167,15 @@ fn invariants() void = {
 	};
 	",
 
+	// multiple initializations for single field
+	"type s = struct { x: int }; fn test() s = s { x = 5, x = 7 };",
+
+	"type e = struct { x: int }, s = struct { y: int, e };"
+	"fn test() s = s { x = 5, x = 7 };",
+
+	"type e = struct { x: int }, s = struct { e, y: int};"
+	"fn test() s = s { x = 5, x = 7 };",
+
 	// Duplicate members
 	"fn test() void = { let x: struct { a: int, a: int } = struct { a: int = 2 };"
 	// Dereference non-nullable pointer:
