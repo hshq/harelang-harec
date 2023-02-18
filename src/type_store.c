@@ -1117,6 +1117,7 @@ type_store_lookup_alias(struct type_store *store,
 			ret = alias;
 		}
 	}
+	assert(ret != NULL);
 	return ret;
 }
 
