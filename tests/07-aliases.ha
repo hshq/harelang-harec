@@ -98,7 +98,7 @@ type recur = struct {
 
 fn recursive() void = {
 	let x: recur = struct {
-		self: *recur = &x,
+		self: *recur = null: *recur,
 	};
 	x.self = &x;
 	assert(x.self == x.self.self);
