@@ -52,6 +52,12 @@ type aenum = enum u64 {
 };
 const big_value: aenum = aenum::BIG_VALUE;
 
+type renum = enum rune {
+	R1 = 'a',
+	R2 = 'g',
+};
+let renum_val = renum::R1;
+
 const float: f32 = 1234.5678;
 const double: f64 = 1234.5678;
 

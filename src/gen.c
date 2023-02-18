@@ -3668,6 +3668,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			break;
 		case STORAGE_I32:
 		case STORAGE_U32:
+		case STORAGE_RUNE:
 		case STORAGE_INT: // XXX: arch
 		case STORAGE_UINT:
 			item->type = QD_VALUE;
