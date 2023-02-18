@@ -3618,7 +3618,6 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 	const struct type *type = NULL;
 	if (decl->type) {
 		type = type_store_lookup_atype(ctx->store, decl->type);
-		expect(ctx, &decl->type->loc, type != NULL, "Unable to resolve type");
 	}
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
