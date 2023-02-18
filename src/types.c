@@ -651,6 +651,7 @@ promote_const(const struct type *a, const struct type *b) {
 				&type_dealias(a)->tagged; tu; tu = tu->next) {
 			const struct type *p = promote_const(tu->type, b);
 			if (!p) {
+				lower_const(b, tag);
 				continue;
 			}
 			if (tag) {
