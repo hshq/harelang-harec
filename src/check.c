@@ -3183,7 +3183,7 @@ check_expr_vaend(struct context *ctx,
 			"Expected vaend operand to be valist");
 		return;
 	}
-	expr->result = &builtin_type_error;
+	expr->result = &builtin_type_void;
 }
 
 void
