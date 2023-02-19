@@ -3558,7 +3558,6 @@ scan_enum_field(struct context *ctx, struct scope *imports,
 		xcalloc(1, sizeof(struct incomplete_enum_field));
 	*field = (struct incomplete_enum_field){
 		.field = f,
-		.type = etype,
 		.enum_scope = enum_scope,
 	};
 
@@ -3574,6 +3573,7 @@ scan_enum_field(struct context *ctx, struct scope *imports,
 				&name, &localname);
 	fld->type = IDECL_ENUM_FLD;
 	fld->imports = imports;
+	fld->obj.type = etype,
 	fld->field = field;
 }
 
@@ -3723,7 +3723,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	assert(idecl->type == IDECL_ENUM_FLD);
 
-	const struct type *type = idecl->field->type;
+	const struct type *type = idecl->obj.type;
 
 	struct identifier localname = {
 		.name = idecl->obj.ident.name
@@ -3783,7 +3783,6 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 
 	idecl->obj.otype = O_CONST;
-	idecl->obj.type = type;
 	idecl->obj.value = value;
 }
 
@@ -3878,13 +3877,13 @@ scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
 			(struct incomplete_declaration *)val;
 		*field = (struct incomplete_enum_field){
 			.field = afield,
-			.type = obj->type,
 			.enum_scope = idecl->field->enum_scope,
 		};
 
 		idecl = incomplete_declaration_create(ctx, (struct location){0},
 			ctx->scope, &ident, &name);
 		idecl->type = IDECL_ENUM_FLD;
+		idecl->obj.type = obj->type;
 		idecl->field = field;
 	};
 }
