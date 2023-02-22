@@ -2455,6 +2455,11 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 			case T_ATTR_SYMBOL:
 				i->symbol = parse_attr_symbol(lexer);
 				break;
+			default:
+				unlex(lexer, &tok);
+				break;
+			}
+			switch (lex(lexer, &tok)) {
 			case T_ATTR_THREADLOCAL:
 				i->threadlocal = true;
 				break;

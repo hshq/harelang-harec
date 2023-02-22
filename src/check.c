@@ -2657,8 +2657,12 @@ check_struct_exhaustive(struct context *ctx,
 				continue;
 			}
 			if (strcmp(f->name, sf->name) == 0) {
+				if (found) {
+					error(ctx, aexpr->loc, expr,
+						"Field '%s' is initialized multiple times",
+						sf->name);
+				}
 				found = true;
-				break;
 			}
 		}
 
@@ -3179,7 +3183,7 @@ check_expr_vaend(struct context *ctx,
 			"Expected vaend operand to be valist");
 		return;
 	}
-	expr->result = &builtin_type_error;
+	expr->result = &builtin_type_void;
 }
 
 void
@@ -3554,7 +3558,6 @@ scan_enum_field(struct context *ctx, struct scope *imports,
 		xcalloc(1, sizeof(struct incomplete_enum_field));
 	*field = (struct incomplete_enum_field){
 		.field = f,
-		.type = etype,
 		.enum_scope = enum_scope,
 	};
 
@@ -3570,6 +3573,7 @@ scan_enum_field(struct context *ctx, struct scope *imports,
 				&name, &localname);
 	fld->type = IDECL_ENUM_FLD;
 	fld->imports = imports;
+	fld->obj.type = etype,
 	fld->field = field;
 }
 
@@ -3618,7 +3622,6 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 	const struct type *type = NULL;
 	if (decl->type) {
 		type = type_store_lookup_atype(ctx->store, decl->type);
-		expect(ctx, &decl->type->loc, type != NULL, "Unable to resolve type");
 	}
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, initializer, type);
@@ -3720,7 +3723,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	assert(idecl->type == IDECL_ENUM_FLD);
 
-	const struct type *type = idecl->field->type;
+	const struct type *type = idecl->obj.type;
 
 	struct identifier localname = {
 		.name = idecl->obj.ident.name
@@ -3780,7 +3783,6 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 
 	idecl->obj.otype = O_CONST;
-	idecl->obj.type = type;
 	idecl->obj.value = value;
 }
 
@@ -3875,13 +3877,13 @@ scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
 			(struct incomplete_declaration *)val;
 		*field = (struct incomplete_enum_field){
 			.field = afield,
-			.type = obj->type,
 			.enum_scope = idecl->field->enum_scope,
 		};
 
 		idecl = incomplete_declaration_create(ctx, (struct location){0},
 			ctx->scope, &ident, &name);
 		idecl->type = IDECL_ENUM_FLD;
+		idecl->obj.type = obj->type;
 		idecl->field = field;
 	};
 }

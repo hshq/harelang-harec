@@ -104,7 +104,6 @@ enum idecl_type {
 // Keeps track of enum specific context required for enum field resolution
 struct incomplete_enum_field {
 	struct ast_enum_field *field;
-	const struct type *type;
 	struct scope *enum_scope;
 };
 

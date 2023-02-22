@@ -118,13 +118,11 @@ gen_store(struct gen_context *ctx,
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
+	case STORAGE_UNION:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
 	case STORAGE_VALIST:
 		gen_copy_aligned(ctx, object, value);
-		return;
-	case STORAGE_UNION:
-		gen_copy_memcpy(ctx, object, value);
 		return;
 	case STORAGE_ENUM:
 		object.type = ty->alias.type;
@@ -2249,6 +2247,7 @@ gen_expr_if_with(struct gen_context *ctx,
 	struct qbe_value bend = mklabel(ctx, &lend, ".%d");
 	struct gen_value cond = gen_expr(ctx, expr->_if.cond);
 	struct qbe_value qcond = mkqval(ctx, &cond);
+	qcond = extend(ctx, qcond, &builtin_type_bool);
 	pushi(ctx->current, NULL, Q_JNZ, &qcond, &btrue, &bfalse, NULL);
 
 	push(&ctx->current->body, &ltrue);
@@ -3477,6 +3476,9 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	struct qbe_def *def;
 	const struct expression_constant *constant = &expr->constant;
 	const struct type *type = type_dealias(expr->result);
+	if (type->storage == STORAGE_ENUM) {
+		type = type->alias.type;
+	}
 	type = lower_const(type, NULL);
 	if (constant->object) {
 		item->type = QD_SYMOFFS;
@@ -3528,7 +3530,6 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		break;
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
-		assert(expr->type == EXPR_CONSTANT); // TODO?
 		item->type = QD_VALUE;
 		switch (ctx->arch.ptr->stype) {
 		case Q_LONG:
@@ -3653,39 +3654,6 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			}
 		}
 		break;
-	case STORAGE_ENUM:
-		switch (type->alias.type->storage) {
-		case STORAGE_I8:
-		case STORAGE_U8:
-		case STORAGE_CHAR:
-			item->type = QD_VALUE;
-			item->value = constw((uint8_t)constant->uval);
-			item->value.type = &qbe_byte;
-			break;
-		case STORAGE_I16:
-		case STORAGE_U16:
-			item->type = QD_VALUE;
-			item->value = constw((uint16_t)constant->uval);
-			item->value.type = &qbe_half;
-			break;
-		case STORAGE_I32:
-		case STORAGE_U32:
-		case STORAGE_INT: // XXX: arch
-		case STORAGE_UINT:
-			item->type = QD_VALUE;
-			item->value = constw((uint32_t)constant->uval);
-			break;
-		case STORAGE_U64:
-		case STORAGE_I64:
-		case STORAGE_SIZE: // XXX: arch
-		case STORAGE_UINTPTR:
-			item->type = QD_VALUE;
-			item->value = constl((uint64_t)constant->uval);
-			break;
-		default:
-			assert(0);
-		}
-		break;
 	case STORAGE_TUPLE:
 		for (const struct tuple_constant *tuple = constant->tuple;
 				tuple; tuple = tuple->next) {
@@ -3741,6 +3709,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 			item->zeroed = type->size - type->align - constant->tagged.tag->size;
 		}
 		break;
+	case STORAGE_ENUM:
 	case STORAGE_UNION:
 	case STORAGE_ALIAS:
 	case STORAGE_ERROR:
