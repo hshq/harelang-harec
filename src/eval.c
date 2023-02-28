@@ -998,7 +998,7 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		if (type_is_float(out->result)) {
 			out->constant.fval = -lvalue.constant.fval;
 		} else {
-			out->constant.ival = -lvalue.constant.ival;
+			out->constant.ival = -(uintmax_t)lvalue.constant.ival;
 		}
 		break;
 	case UN_PLUS:
