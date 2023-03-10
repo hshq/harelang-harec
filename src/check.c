@@ -3315,11 +3315,24 @@ check_expression(struct context *ctx,
 static struct declaration *
 check_const(struct context *ctx,
 	const struct scope_object *obj,
+	const struct location *loc,
 	const struct ast_global_decl *adecl)
 {
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
 	const struct scope_object *shadow_obj = scope_lookup(
 			ctx->defines, &adecl->ident);
+	if (obj != shadow_obj) {
+		// Shadowed by define
+		if (obj->type != shadow_obj->type) {
+			char *typename = gen_typename(obj->type);
+			char *shadow_typename = gen_typename(shadow_obj->type);
+			error(ctx, *loc, NULL,
+					"Constant of type %s is shadowed by define of incompatible type %s",
+					typename, shadow_typename);
+			free(typename);
+			free(shadow_typename);
+		}
+	}
 	decl->type = DECL_CONST;
 	decl->constant.type = obj->type;
 	decl->constant.value = shadow_obj->value;
@@ -3493,7 +3506,7 @@ check_declaration(struct context *ctx,
 	struct declaration *decl = NULL;
 	switch (adecl->decl_type) {
 	case AST_DECL_CONST:
-		decl = check_const(ctx, &idecl->obj, &adecl->constant);
+		decl = check_const(ctx, &idecl->obj, &adecl->loc, &adecl->constant);
 		break;
 	case AST_DECL_FUNC:
 		decl = check_function(ctx, &idecl->obj, adecl);
@@ -4305,6 +4318,27 @@ check_internal(struct type_store *ts,
 
 	// XXX: shadowed declarations are not checked for consistency
 	ctx.scope = ctx.defines;
+
+	for (const struct scope_object *obj = ctx.scope->objects;
+			obj; obj = obj->lnext) {
+		const struct scope_object *shadowed_obj =
+			scope_lookup(ctx.unit, &obj->name);
+		if (!shadowed_obj) {
+			continue;
+		}
+		if (shadowed_obj->otype == O_CONST) {
+			continue;
+		}
+		if (shadowed_obj->otype == O_SCAN) {
+			const struct incomplete_declaration *idecl =
+				(struct incomplete_declaration *)shadowed_obj;
+			if (idecl->type == IDECL_DECL &&
+					idecl->decl.decl_type == AST_DECL_CONST) {
+				continue;
+			}
+		}
+		error(&ctx, defineloc, NULL, "Define shadows a non-define object");
+	}
 
 	struct declarations **next_decl = &unit->declarations;
 	// Perform actual declaration resolution

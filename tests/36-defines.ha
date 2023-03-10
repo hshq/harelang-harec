@@ -47,5 +47,5 @@ export fn main() void = {
 	import();
 	mandatory();
 	optional();
-	// TODO: compatibility();
+	compatibility();
 };
