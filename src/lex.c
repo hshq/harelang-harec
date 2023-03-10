@@ -163,7 +163,7 @@ lex_init(struct lexer *lexer, FILE *f, int fileid)
 	lexer->in = f;
 	lexer->bufsz = 256;
 	lexer->buf = xcalloc(1, lexer->bufsz);
-	lexer->un.token = T_ERROR;
+	lexer->un.token = T_NONE;
 	lexer->loc.lineno = 1;
 	lexer->loc.colno = 0;
 	lexer->loc.file = fileid;
@@ -885,9 +885,9 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 static enum lexical_token
 _lex(struct lexer *lexer, struct token *out)
 {
-	if (lexer->un.token != T_ERROR) {
+	if (lexer->un.token != T_NONE) {
 		*out = lexer->un;
-		lexer->un.token = T_ERROR;
+		lexer->un.token = T_NONE;
 		return out->token;
 	}
 
@@ -1016,8 +1016,8 @@ lexical_token_str(enum lexical_token tok)
 		return "literal";
 	case T_EOF:
 		return "end of file";
-	case T_ERROR:
-		return "error";
+	case T_NONE:
+		abort();
 	default:
 		assert(tok < sizeof(tokens) / sizeof(tokens[0]));
 		return tokens[tok];
@@ -1167,6 +1167,6 @@ token_str(const struct token *tok)
 void
 unlex(struct lexer *lexer, struct token *in)
 {
-	assert(lexer->un.token == T_ERROR && "Only one unlex is supported");
+	assert(lexer->un.token == T_NONE);
 	lexer->un = *in;
 }

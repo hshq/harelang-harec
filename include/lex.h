@@ -140,7 +140,7 @@ enum lexical_token {
 
 	// Magic tokens
 	T_EOF,
-	T_ERROR,
+	T_NONE,
 };
 
 struct location {
