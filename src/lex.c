@@ -300,7 +300,7 @@ lex_name(struct lexer *lexer, struct token *out)
 }
 
 static uintmax_t
-compute_exp(uintmax_t n, int exponent, bool _signed, struct location *loc)
+compute_exp(uintmax_t n, int exponent, bool _signed)
 {
 	if (n == 0) {
 		return 0;
@@ -309,246 +309,192 @@ compute_exp(uintmax_t n, int exponent, bool _signed, struct location *loc)
 		uintmax_t old = n;
 		n *= 10;
 		if (n / 10 != old) {
-			error(loc, "Integer literal overflow");
+			errno = ERANGE;
+			return INT64_MAX;
 		}
 	}
 	if (_signed && n > (uintmax_t)INT64_MIN) {
-		error(loc, "Integer literal overflow");
+		errno = ERANGE;
+		return INT64_MAX;
 	}
 	return n;
 }
 
-static uint32_t
+static void
 lex_literal(struct lexer *lexer, struct token *out)
 {
-	uint32_t c = next(lexer, &out->loc, true);
+	enum bases {
+		BIN = 1, OCT, HEX, DEC = 0x07, MASK = DEC
+	};
+	static_assert((BIN | OCT | HEX | DEC) == DEC, "DEC bits must be a superset of all other bases");
+	enum flags {
+		FLT = 3, EXP, SUFF, DIG,
+	};
+
+	static const char chrs[][24] = {
+		[BIN] = "01",
+		[OCT] = "01234567",
+		[DEC] = "0123456789",
+		[HEX] = "0123456789abcdefABCDEF",
+	};
+
+	static const char matching_states[0x80][6] = {
+		['.'] = {DEC, /*HEX,*/ 0},
+		['e'] = {DEC, DEC | 1<<FLT, 0},
+		['+'] = {DEC | 1<<EXP | 1<<DIG, DEC | 1<<FLT | 1<<EXP | 1<<DIG, 0},
+		['-'] = {DEC | 1<<EXP | 1<<DIG, DEC | 1<<FLT | 1<<EXP | 1<<DIG, 0},
+		['i'] = {BIN, OCT, HEX, DEC, DEC | 1<<EXP, 0},
+		['u'] = {BIN, OCT, HEX, DEC, DEC | 1<<EXP, 0},
+		['z'] = {BIN, OCT, HEX, DEC, DEC | 1<<EXP, 0},
+		['f'] = {DEC, DEC | 1<<FLT, DEC | 1<<EXP, DEC | 1<<FLT | 1<<EXP, 0},
+	};
+	int state = DEC, base = 10, oldstate = DEC;
+	uint32_t c = next(lexer, &out->loc, true), last = 0;
 	assert(c != C_EOF && c <= 0x7F && isdigit(c));
-
-	bool started = false, leadingzero = false;
-	int base = 10;
-	const char *basechrs = "0123456789";
 	if (c == '0') {
-		switch ((c = next(lexer, NULL, true))) {
-		case 'b':
+		c = next(lexer, NULL, true);
+		if (c <= 0x7F && isdigit(c)) {
+			error(&out->loc, "Leading zero in base 10 literal");
+		} else if (c == 'b') {
+			state = BIN | 1 << DIG;
 			base = 2;
-			basechrs = "01";
-			consume(lexer, 2);
-			break;
-		case 'o':
+		} else if (c == 'o') {
+			state = OCT | 1 << DIG;
 			base = 8;
-			basechrs = "01234567";
-			consume(lexer, 2);
-			break;
-		case 'x':
+		} else if (c == 'x') {
+			state = HEX | 1 << DIG;
 			base = 16;
-			basechrs = "0123456789ABCDEFabcdef";
-			consume(lexer, 2);
+		}
+	}
+	if (state != DEC) {
+		last = c;
+		c = next(lexer, NULL, true);
+	}
+	size_t exp = 0, suff = 0;
+	do {
+		if (strchr(chrs[state & MASK], c)) {
+			state &= ~(1 << DIG);
+			last = c;
+			continue;
+		} else if (c > 0x7f || !strchr(matching_states[c], state)) {
+			goto end;
+		}
+		oldstate = state;
+		switch (c) {
+		case '.':
+			if (lexer->require_int) {
+				goto want_int;
+			}
+			state |= 1 << FLT;
+			break;
+		case '-':
+			state |= 1 << FLT;
+			/* fallthrough */
+		case 'e':
+		case '+':
+			state |= 1 << EXP;
+			exp = lexer->buflen - 1;
+			break;
+		case 'f':
+			state |= 1 << FLT;
+			/* fallthrough */
+		case 'i':
+		case 'u':
+		case 'z':
+			state |= DEC | 1 << SUFF;
+			suff = lexer->buflen - 1;
 			break;
 		default:
-			started = true;
-			leadingzero = true;
-			push(lexer, c, true);
-			break;
+			goto end;
 		}
-	} else {
-		started = true;
-	}
-
-	char *suff = NULL;
-	char *exp = NULL;
-	bool isfloat = false;
-	while ((c = next(lexer, NULL, true)) != C_EOF) {
-		if (!strchr(basechrs, c)) {
-			switch (c) {
-			case '.':
-				if (!started) {
-					push(lexer, c, true);
-					goto finalize;
-				}
-				if (lexer->require_int) {
-					push(lexer, '.', true);
-					goto finalize;
-				}
-				if (isfloat || suff || exp) {
-					push(lexer, c, true);
-					goto finalize;
-				}
-				if (!strchr(basechrs, c = next(lexer, NULL, false))) {
-					push(lexer, c, false);
-					push(lexer, '.', true);
-					goto finalize;
-				} else {
-					push(lexer, c, false);
-				}
-				isfloat = true;
-				break;
-			case 'e':
-				if (!started) {
-					push(lexer, c, true);
-					goto finalize;
-				}
-				if (exp || suff) {
-					push(lexer, c, true);
-					goto finalize;
-				}
-				// exponent is always in base 10
-				basechrs = "0123456789";
-				c = next(lexer, NULL, true);
-				if (c != '-' && c != '+' && !strchr(basechrs, c)) {
-					push(lexer, c, true);
-					push(lexer, 'e', true);
-					goto finalize;
-				};
-				exp = &lexer->buf[lexer->buflen - 1];
-				break;
-			case 'f':
-				if (base != 10) {
-					push(lexer, c, true);
-					goto finalize;
-				}
-				// Fallthrough
-			case 'i':
-			case 'u':
-			case 'z':
-				if (suff || !started) {
-					push(lexer, c, true);
-					goto finalize;
-				}
-				suff = &lexer->buf[lexer->buflen - 1];
-				basechrs = "0123456789";
-				break;
-			default:
-				push(lexer, c, true);
-				goto finalize;
-			}
+		if (state & 1 << FLT && lexer->require_int) {
+			error(&out->loc, "Expected integer literal");
 		}
-		started = true;
+		last = c;
+		state |= 1 << DIG;
+	} while ((c = next(lexer, NULL, true)) != C_EOF);
+	last = 0;
+end:
+	if (last && !strchr("iuz", last) && !strchr(chrs[state & MASK], last)) {
+		state = oldstate;
+		push(lexer, c, true);
+		push(lexer, last, true);
+	} else if (c != C_EOF) {
+want_int:
+		push(lexer, c, true);
 	}
-
-finalize:
-	if (!started) {
-		error(&out->loc, "Invalid literal");
-	}
-	if (leadingzero && lexer->buflen >= 2 && strchr(basechrs, lexer->buf[1])) {
-		error(&out->loc, "Leading zero in base 10 literal");
-	}
-	lexer->require_int = false;
 	out->token = T_LITERAL;
-	if (isfloat) {
-		out->storage = STORAGE_FCONST;
-	} else {
-		out->storage = STORAGE_ICONST;
-	}
-	if (suff) {
-		const char *suffs[] = {
-			[STORAGE_U8] = "u8",
-			[STORAGE_U16] = "u16",
-			[STORAGE_U32] = "u32",
-			[STORAGE_U64] = "u64",
-			[STORAGE_I8] = "i8",
-			[STORAGE_I16] = "i16",
-			[STORAGE_I32] = "i32",
-			[STORAGE_I64] = "i64",
+	lexer->require_int = false;
 
-			[STORAGE_UINT] = "u",
-			[STORAGE_INT] = "i",
-			[STORAGE_SIZE] = "z",
-			[STORAGE_F32] = "f32",
-			[STORAGE_F64] = "f64",
-		};
-		bool isvalid = false;
-		for (enum type_storage i = 0;
-				i < sizeof(suffs) / sizeof(suffs[0]); ++i) {
-			if (suffs[i] && strcmp(suff, suffs[i]) == 0) {
-				isvalid = true;
-				out->storage = i;
+	enum kind {
+		UNKNOWN = -1,
+		ICONST, SIGNED, UNSIGNED, FLOAT
+	} kind = UNKNOWN;
+	static const struct {
+		const char suff[4];
+		enum kind kind;
+		enum type_storage storage;
+	} storages[] = {
+		{"f32", FLOAT, STORAGE_F32},
+		{"f64", FLOAT, STORAGE_F64},
+		{"i", SIGNED, STORAGE_INT},
+		{"i16", SIGNED, STORAGE_I16},
+		{"i32", SIGNED, STORAGE_I32},
+		{"i64", SIGNED, STORAGE_I64},
+		{"i8", SIGNED, STORAGE_I8},
+		{"u", UNSIGNED, STORAGE_UINT},
+		{"u16", UNSIGNED, STORAGE_U16},
+		{"u32", UNSIGNED, STORAGE_U32},
+		{"u64", UNSIGNED, STORAGE_U64},
+		{"u8", UNSIGNED, STORAGE_U8},
+		{"z", UNSIGNED, STORAGE_SIZE},
+	};
+	if (suff) {
+		for (size_t i = 0; i < sizeof storages / sizeof storages[0]; i++) {
+			if (!strcmp(storages[i].suff, lexer->buf + suff)) {
+				out->storage = storages[i].storage;
+				kind = storages[i].kind;
 				break;
 			}
 		}
-		if (!isvalid) {
-			error(&out->loc, "Invalid numeric suffix");
+		if (kind == UNKNOWN) {
+			error(&out->loc, "Invalid suffix '%s'", lexer->buf + suff);
 		}
 	}
-
-	intmax_t exponent = 0;
-	if (exp) {
-		char *endptr = NULL;
-		errno = 0;
-		exponent = strtoimax(exp, &endptr, 10);
-		if (errno == ERANGE) {
-			error(&out->loc, "Numerical exponent overflow");
-		}
-		// integers can't have negative exponents
-		if (exponent < 0 && !suff) {
+	if (state & 1 << FLT) {
+		if (kind == UNKNOWN) {
 			out->storage = STORAGE_FCONST;
-		}
-		enum type_storage s = out->storage;
-		bool valid = exponent >= 0
-			|| s == STORAGE_F32
-			|| s == STORAGE_F64
-			|| s == STORAGE_FCONST;
-		if (endptr == exp || !valid) {
-			error(&out->loc, "Integers cannot have negative exponents");
-		}
-	}
-
-	if (isfloat) {
-		switch (out->storage) {
-		case STORAGE_F32:
-		case STORAGE_F64:
-		case STORAGE_FCONST:
-			break;
-		default:
+		} else if (kind != FLOAT) {
 			error(&out->loc, "Unexpected decimal point in integer literal");
 		}
+		out->fval = strtod(lexer->buf, NULL);
+		consume(lexer, -1);
+		return;
 	}
 
-	errno = 0;
-	switch (out->storage) {
-	case STORAGE_U8:
-	case STORAGE_U16:
-	case STORAGE_U32:
-	case STORAGE_UINT:
-	case STORAGE_U64:
-	case STORAGE_SIZE:
-		out->uval = compute_exp(strtoumax(lexer->buf, NULL, base),
-				exponent, false, &out->loc);
-		break;
-	case STORAGE_ICONST:
-		out->uval = compute_exp(strtoumax(lexer->buf, NULL, base),
-				exponent, false, &out->loc);
-		if (out->uval > (uintmax_t)INT64_MAX) {
-			out->storage = STORAGE_U64;
-			break;
-		}
-		// Fallthrough
-	case STORAGE_I8:
-	case STORAGE_I16:
-	case STORAGE_I32:
-	case STORAGE_INT:
-	case STORAGE_I64:
-		out->uval = compute_exp(strtoumax(lexer->buf, NULL, base),
-				exponent, true, &out->loc);
-		if (out->uval == (uintmax_t)INT64_MIN) {
-			// XXX: Hack
-			out->ival = INT64_MIN;
-		} else {
-			out->ival = (intmax_t)out->uval;
-		}
-		break;
-	case STORAGE_F32:
-	case STORAGE_F64:
-	case STORAGE_FCONST:
-		out->fval = strtod(lexer->buf, NULL);
-		break;
-	default:
-		assert(0);
+	if (kind == UNKNOWN) {
+		kind = ICONST;
+		out->storage = STORAGE_ICONST;
 	}
-	if (errno == ERANGE && !isfloat) {
+	uintmax_t exponent = 0;
+	errno = 0;
+	if (exp != 0) {
+		exponent = strtoumax(lexer->buf + exp + 1, NULL, 10);
+	}
+	out->uval = strtoumax(lexer->buf + (base == 10 ? 0 : 2), NULL, base);
+	out->uval = compute_exp(out->uval, exponent, kind == SIGNED);
+	if (errno == ERANGE) {
 		error(&out->loc, "Integer literal overflow");
 	}
+	if (kind == ICONST && out->uval > (uintmax_t)INT64_MAX) {
+		out->storage = STORAGE_U64;
+	} else if (kind == SIGNED && out->uval == (uintmax_t)INT64_MIN) {
+		// XXX: Hack
+		out->ival = INT64_MIN;
+	} else if (kind != UNSIGNED) {
+		out->ival = (intmax_t)out->uval;
+	}
 	consume(lexer, -1);
-	return out->token;
 }
 
 static uint32_t
@@ -953,7 +899,8 @@ _lex(struct lexer *lexer, struct token *out)
 
 	if (c <= 0x7F && isdigit(c)) {
 		push(lexer, c, false);
-		return lex_literal(lexer, out);
+		lex_literal(lexer, out);
+		return T_LITERAL;
 	}
 
 	lexer->require_int = false;
