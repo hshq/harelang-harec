@@ -5,10 +5,10 @@ fn measurements() void = {
 	assert(len("Hello!\0") == 7);
 	assert(len("He\0llo!") == 7);
 	assert(size(str) == size(*u8) + size(size) * 2);
-	const align: size =
+	const alignment: size =
 		if (size(*u8) > size(size)) size(*u8)
 		else size(size);
-	assert(&x: uintptr: size % align == 0);
+	assert(align(str) % alignment == 0);
 
 	static assert(len("Hello!") == 6);
 };

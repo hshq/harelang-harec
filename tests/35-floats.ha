@@ -1,3 +1,8 @@
+fn measurements() void = {
+	assert(size(f32) == align(f32));
+	assert(size(f32) == align(f32));
+};
+
 fn signed_casts() void = {
 	let a = 20f64;
 	let f = a: f32;
@@ -109,6 +114,7 @@ fn unsigned_casts() void = {
 
 export fn main() void = {
 	// TODO: test parsing, compile-time evaluation
+	measurements();
 	signed_casts();
 	unsigned_casts();
 };

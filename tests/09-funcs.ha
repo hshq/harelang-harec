@@ -77,6 +77,9 @@ fn reject() void = {
 		"fn f(x: [*]int) void = void;",
 		// return value of undefined size
 		"fn f(x: int) [*]int = void;",
+
+		"let x: size = size(fn(x: int) int);",
+		"let x: size = align(fn(x: int) int);",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

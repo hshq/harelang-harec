@@ -68,9 +68,33 @@ fn void_assignability() void = {
 	`) as exited != EXIT_SUCCESS); // non-void types cannot be assigned to void
 };
 
+fn measurements() void = {
+	assert(size(!int) == size(int));
+	assert(size(!f64) == size(f64));
+	assert(size(!(int | void)) == size((int | void)));
+	assert(size(!(i8, rune)) == size((i8, rune)));
+	assert(size(!struct { x: int, y: str }) == size(struct { x: int, y: str }));
+	assert(size(!union { x: int, y: str }) == size(union { x: int, y: str }));
+	assert(size(![2]int) == size([2]int));
+	assert(size(![]int) == size([]int));
+	assert(size(!*size) == size(*size));
+
+	assert(align(!int) == align(int));
+	assert(align(!f64) == align(f64));
+	assert(align(!(int | void)) == align((int | void)));
+	assert(align(!(i8, rune)) == align((i8, rune)));
+	assert(align(!struct { x: int, y: str }) == align(struct { x: int, y: str }));
+	assert(align(!union { x: int, y: str }) == align(union { x: int, y: str }));
+	assert(align(![2]int) == align([2]int));
+	assert(align(![*]int) == align([*]int));
+	assert(align(![]int) == align([]int));
+	assert(align(!*size) == align(*size));
+};
+
 export fn main() void = {
 	assignability();
 	propagate();
 	cannotignore();
 	void_assignability();
+	measurements();
 };

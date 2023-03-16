@@ -4,6 +4,8 @@ type string = struct {
 	capacity: size,
 };
 
+export fn toutf8(s: str) []u8 = *(&s: *[]u8);
+
 fn constchar(s: str) *const char = {
 	let s = &s: *string;
 	return s.data: *const char;

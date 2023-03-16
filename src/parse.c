@@ -1153,6 +1153,10 @@ parse_measurement_expression(struct lexer *lexer)
 
 	want(lexer, T_LPAREN, NULL);
 	switch (tok.token) {
+	case T_ALIGN:
+		exp->measure.op = M_ALIGN;
+		exp->measure.type = parse_type(lexer);
+		break;
 	case T_SIZE:
 		exp->measure.op = M_SIZE;
 		exp->measure.type = parse_type(lexer);
@@ -1561,6 +1565,7 @@ parse_builtin_expression(struct lexer *lexer)
 	case T_ASSERT:
 		unlex(lexer, &tok);
 		return parse_assertion_expression(lexer, false);
+	case T_ALIGN:
 	case T_SIZE:
 	case T_LEN:
 	case T_OFFSET:

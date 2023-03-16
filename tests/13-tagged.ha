@@ -2,16 +2,17 @@ use rt::{compile, exited, EXIT_SUCCESS};
 
 fn measurements() void = {
 	const x: (u8 | u16 | u32 | u64) = 1337u16;	// With padding
-	const align: size =
+	const alignment: size =
 		if (size(u64) < size(uint)) size(uint)
 		else size(u64);
-	assert(size((u8 | u16 | u32 | u64)) == align * 2);
+	assert(align((u8 | u16 | u32 | u64)) == alignment);
+	assert(size((u8 | u16 | u32 | u64)) == alignment * 2);
 	assert(&x: uintptr: size % size(uint) == 0);
 	assert(&x: uintptr: size % size(u64) == 0);
 
 	const y: (u8 | u16) = 1337u16;			// No padding
-	assert(&y: uintptr: size % size(uint) == 0);
-	assert(&y: uintptr: size % size(u16) == 0);
+	assert(align((u8 | u16)) == align(uint));
+	assert(align(((u8 | u16) | (i8 | i16))) == align(uint));
 };
 
 fn storage() void = {

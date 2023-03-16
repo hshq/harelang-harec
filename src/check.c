@@ -1170,40 +1170,13 @@ check_expr_binding(struct context *ctx,
 			goto done;
 		}
 
-		struct identifier ident = {
-			.name = abinding->name,
-		};
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
-
-		struct identifier gen = {0};
-		if (abinding->is_static) {
-			// Generate a static declaration identifier
-			gen.name = gen_name(&ctx->id, "static.%d");
-		}
-
-		bool context = abinding->type
-			&& abinding->type->storage == STORAGE_ARRAY
-			&& abinding->type->array.contextual;
-		const struct scope_object *shadowed =
-			scope_lookup(ctx->scope, &ident);
-		if (type && !context && shadowed == NULL) {
-			// If the type is defined in advance, and a variable
-			// isn't being shadowed, we can insert the object into
-			// the scope early, which is required for
-			// self-referencing objects.
-			if (!abinding->is_static) {
-				binding->object = scope_insert(ctx->scope,
-					O_BIND, &ident, &ident, type, NULL);
-			} else {
-				binding->object = scope_insert(ctx->scope,
-					O_DECL, &gen, &ident, type, NULL);
-			}
-		}
-
 		check_expression(ctx, abinding->initializer, initializer, type);
 
-		if (context) {
+		if (abinding->type
+				&& abinding->type->storage == STORAGE_ARRAY
+				&& abinding->type->array.contextual) {
 			if (initializer->result->storage != STORAGE_ARRAY) {
 				error(ctx, aexpr->loc, expr,
 					"Cannot infer array length from non-array type");
@@ -1218,19 +1191,23 @@ check_expr_binding(struct context *ctx,
 			type = initializer->result;
 		}
 
-		if (context || !type || shadowed != NULL) {
-			if (!type) {
-				type = type_store_lookup_with_flags(ctx->store,
-					initializer->result, abinding->flags);
-			}
+		if (!type) {
+			type = type_store_lookup_with_flags(ctx->store,
+				initializer->result, abinding->flags);
+		}
 
-			if (!abinding->is_static) {
-				binding->object = scope_insert(ctx->scope,
-					O_BIND, &ident, &ident, type, NULL);
-			} else {
-				binding->object = scope_insert(ctx->scope,
-					O_DECL, &gen, &ident, type, NULL);
-			}
+		struct identifier ident = {
+			.name = abinding->name,
+		};
+		if (abinding->is_static) {
+			// Generate a static declaration identifier
+			struct identifier gen = {0};
+			gen.name = gen_name(&ctx->id, "static.%d");
+			binding->object = scope_insert(ctx->scope,
+				O_DECL, &gen, &ident, type, NULL);
+		} else {
+			binding->object = scope_insert(ctx->scope,
+				O_BIND, &ident, &ident, type, NULL);
 		}
 
 		if (type->storage == STORAGE_NULL) {
@@ -2233,6 +2210,20 @@ check_expr_measure(struct context *ctx,
 		if (atype->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot take length of array type with undefined length");
+			return;
+		}
+		break;
+	case M_ALIGN:
+		expr->measure.dimensions = type_store_lookup_dimensions(
+			ctx->store, aexpr->measure.type);
+		if (expr->measure.dimensions.align == ALIGN_UNDEFINED) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take alignment of a type with undefined alignment");
+			return;
+		}
+		if (expr->measure.dimensions.size == 0) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take alignment of a type of size 0");
 			return;
 		}
 		break;

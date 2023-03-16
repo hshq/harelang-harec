@@ -520,7 +520,7 @@ min_value(const struct type *t)
 	if (t->size == sizeof(intmax_t)) {
 		return INTMAX_MIN;
 	}
-	return -(1 << (t->size * 8 - 1));
+	return -((intmax_t)1 << (t->size * 8 - 1));
 }
 
 static uintmax_t

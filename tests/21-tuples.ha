@@ -5,6 +5,9 @@ def CONST: (int, str) = (15, "foo");
 fn storage() void = {
 	let x: (int, size) = (42, 1337);
 	assert(size((int, size)) == size(size) * 2);
+	assert(size((int, (u8, size))) == size(size) * 3);
+	assert(align((int, size)) == align(size));
+	assert(align((int, (u8, size))) == align(size));
 	let ptr = &x: *struct { i: int, z: size };
 	assert(ptr.i == 42 && ptr.z == 1337);
 };

@@ -712,6 +712,9 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 		}
 		out->constant.uval = len;
 		return EVAL_OK;
+	case M_ALIGN:
+		out->constant.uval = in->measure.dimensions.align;
+		return EVAL_OK;
 	case M_SIZE:
 		out->constant.uval = in->measure.dimensions.size;
 		return EVAL_OK;
@@ -995,7 +998,7 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		if (type_is_float(out->result)) {
 			out->constant.fval = -lvalue.constant.fval;
 		} else {
-			out->constant.ival = -lvalue.constant.ival;
+			out->constant.ival = -(uintmax_t)lvalue.constant.ival;
 		}
 		break;
 	case UN_PLUS:

@@ -162,12 +162,18 @@ type mut_ptuple_A1 = *(mut_ptuple_A2, u8), mut_ptuple_A2 = (mut_ptuple_A1, u8);
 type mut_ptuple_B2 = (mut_ptuple_B1, u8), mut_ptuple_B1 = *(mut_ptuple_B2, u8); // reverse
 
 // type with a type dimension dependency
-type arri8_A = [size(arrintptr)]u8, arrintptr = [8]*int;
-type arrintptr_B = [8]*int, arri8_B = [size(arrintptr)]u8; // reverse
+type arri8_A = [size(arrintptr_A)]u8, arrintptr_A = [8]*int;
+type arrintptr_B = [8]*int, arri8_B = [size(arrintptr_B)]u8; // reverse
+
+type arri8_al_A = [align(arrintptr_al_A)]u8, arrintptr_al_A = [8]*int;
+type arrintptr_al_B = [8]*int, arri8_al_B = [align(arrintptr_al_B)]u8; // reverse
 
 // mutually recursive types with a dimension dependency
 type arru8_A = [size(arru8ptr_A)]u8, arru8ptr_A = [8]*arru8_A;
 type arru8ptr_B = [8]*arru8_B, arru8_B = [size(arru8ptr_B)]u8; // reverse
+
+type arru8_al_A = [align(arru8ptr_al_A)]u8, arru8ptr_al_A = [8]*arru8_al_A;
+type arru8ptr_al_B = [8]*arru8_al_B, arru8_al_B = [align(arru8ptr_al_B)]u8; // reverse
 
 // unwrapped aliases to tagged unions
 type unwrap_A1 = ([32]u8 | void | str),
@@ -182,6 +188,7 @@ type unwrap_alias_B3 = ...unwrap_alias_B2, // reverse
 	unwrap_B1 = ([32]u8 | void | str);
 
 fn sz() void = {
+	// size
 	static assert(size(mut_struct_A3) == 2 * size(*void));
 	static assert(size(mut_struct_B3) == 2 * size(*void));
 
@@ -205,6 +212,31 @@ fn sz() void = {
 
 	static assert(size(unwrap_A1) == size(unwrap_alias_A3));
 	static assert(size(unwrap_B1) == size(unwrap_alias_B3));
+
+	//align
+	static assert(align(mut_struct_A3) == align(*void));
+	static assert(align(mut_struct_B3) == align(*void));
+
+	static assert(align(mut_tagged_A1) == align(*void));
+	static assert(align(mut_tagged_B1) == align(*void));
+
+	static assert(align(mut_tagged_A3) == align(*void));
+	static assert(align(mut_tagged_B3) == align(*void));
+
+	static assert(align(mut_tagged_A4) == align(*void));
+	static assert(align(mut_tagged_B4) == align(*void));
+
+	static assert(align(mut_tuple_A1) == align(*void));
+	static assert(align(mut_tuple_B1) == align(*void));
+
+	static assert(align(arru8_A) == align(u8));
+	static assert(align(arru8_B) == align(u8));
+
+	static assert(align(arru8ptr_A) == align(*void));
+	static assert(align(arru8ptr_B) == align(*void));
+
+	static assert(align(unwrap_A1) == align(unwrap_alias_A3));
+	static assert(align(unwrap_B1) == align(unwrap_alias_B3));
 };
 
 fn reject() void = {

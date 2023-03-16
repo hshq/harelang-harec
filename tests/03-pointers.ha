@@ -8,6 +8,9 @@ fn basics() void = {
 	assert(*y == 42);
 	*y = 1337;
 	assert(x == 1337);
+
+	assert(size(*int) == size(uintptr));
+	assert(align(*int) == align(uintptr));
 };
 
 fn _nullable() void = {

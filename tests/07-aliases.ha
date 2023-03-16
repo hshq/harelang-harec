@@ -98,10 +98,28 @@ type recur = struct {
 
 fn recursive() void = {
 	let x: recur = struct {
-		self: *recur = &x,
+		self: *recur = null: *recur,
 	};
 	x.self = &x;
 	assert(x.self == x.self.self);
+};
+
+fn measurement() void = {
+	assert(size(my_int) == size(int) && size(my_my_int) == size(int));
+	assert(size(my_array) == size([3]int));
+	assert(size(my_array_ptr) == size(*[3]int));
+	assert(size(my_slice) == size([]int));
+	assert(size(my_struct) == size(struct { x: int, y: int }));
+	assert(size(my_struct_ptr) == size(*struct { x: int, y: int }));
+	assert(size(my_tagged) == size((int | void)));
+
+	assert(align(my_int) == align(int) && align(my_my_int) == align(int));
+	assert(align(my_array) == align([3]int));
+	assert(align(my_array_ptr) == align(*[3]int));
+	assert(align(my_slice) == align([]int));
+	assert(align(my_struct) == align(struct { x: int, y: int }));
+	assert(align(my_struct_ptr) == align(*struct { x: int, y: int }));
+	assert(align(my_tagged) == align((int | void)));
 };
 
 export fn main() void = {
@@ -112,4 +130,5 @@ export fn main() void = {
 	alias_tagged();
 	alias_alias();
 	recursive();
+	measurement();
 };

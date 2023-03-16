@@ -2779,6 +2779,12 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 			abort(); // Invariant
 		}
 		break;
+	case M_ALIGN:
+		return (struct gen_value){
+			.kind = GV_CONST,
+			.type = &builtin_type_size,
+			.lval = expr->measure.dimensions.align,
+		};
 	case M_SIZE:
 		return (struct gen_value){
 			.kind = GV_CONST,
