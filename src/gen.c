@@ -916,7 +916,7 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 		abort(); // Invariant
 	}
 	if (expr->assign.op == BIN_LEQUAL) {
-		gen_expr_at(ctx, value, obj);
+		gen_store(ctx, obj, gen_expr(ctx, value));
 	} else if (expr->assign.op == BIN_LAND || expr->assign.op == BIN_LOR) {
 		struct qbe_statement lrval, lshort;
 		struct qbe_value brval = mklabel(ctx, &lrval, ".%d");
