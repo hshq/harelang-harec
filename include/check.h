@@ -56,7 +56,7 @@ struct function_decl {
 	const struct type *type;
 	struct expression *body;
 	struct scope *scope;
-	unsigned int flags; // enum function_flags
+	unsigned int flags; // enum func_decl_flags
 };
 
 struct global_decl {
