@@ -122,6 +122,10 @@ fn unpacking() void = {
 // Regression tests for miscellaneous compiler bugs
 fn regression() void = {
 	let a: (((int | void), int) | void) = (void, 0);
+
+	let x = (1, 0);
+	x = (2, x.0);
+	assert(x.0 == 2 && x.1 == 1);
 };
 
 fn reject() void = {

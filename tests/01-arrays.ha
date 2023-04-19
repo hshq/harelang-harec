@@ -60,8 +60,11 @@ fn assignment() void = {
 	let y = x;
 	let z = [0, 0, 0];
 	z = y;
+	let w = [1, 0];
+	w = [2, w[0]];
 	assert(y[0] == 1 && y[1] == 2 && y[2] == 3);
 	assert(z[0] == 1 && z[1] == 2 && z[2] == 3);
+	assert(w[0] == 2 && w[1] == 1);
 
 	assert(compile("
 		export fn main() void = {
