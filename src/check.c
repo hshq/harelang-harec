@@ -3324,7 +3324,7 @@ check_const(struct context *ctx,
 			free(shadow_typename);
 		}
 	}
-	decl->type = DECL_CONST;
+	decl->decl_type = DECL_CONST;
 	decl->constant.type = obj->type;
 	decl->constant.value = shadow_obj->value;
 	decl->ident = obj->ident;
@@ -3343,7 +3343,7 @@ check_function(struct context *ctx,
 	ctx->fntype = obj->type;
 
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	decl->type = DECL_FUNC;
+	decl->decl_type = DECL_FUNC;
 	decl->func.type = obj->type;
 	decl->func.flags = afndecl->flags;
 
@@ -3442,7 +3442,7 @@ check_global(struct context *ctx,
 	const struct ast_global_decl *adecl)
 {
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	decl->type = DECL_GLOBAL;
+	decl->decl_type = DECL_GLOBAL;
 	decl->global.type = obj->type;
 	decl->global.threadlocal = adecl->threadlocal;
 
@@ -3495,9 +3495,9 @@ check_type(struct context *ctx,
 	bool exported)
 {
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	decl->type = DECL_TYPE;
+	decl->decl_type = DECL_TYPE;
 	decl->ident = obj->ident;
-	decl->_type = obj->type;
+	decl->type = obj->type;
 	return decl;
 }
 
@@ -3509,16 +3509,16 @@ check_declaration(struct context *ctx,
 	const struct ast_decl *adecl = &idecl->decl;
 	struct declaration *decl = NULL;
 	switch (adecl->decl_type) {
-	case AST_DECL_CONST:
+	case DECL_CONST:
 		decl = check_const(ctx, &idecl->obj, &adecl->loc, &adecl->constant);
 		break;
-	case AST_DECL_FUNC:
+	case DECL_FUNC:
 		decl = check_function(ctx, &idecl->obj, adecl);
 		break;
-	case AST_DECL_GLOBAL:
+	case DECL_GLOBAL:
 		decl = check_global(ctx, &idecl->obj, &adecl->global);
 		break;
-	case AST_DECL_TYPE:
+	case DECL_TYPE:
 		decl = check_type(ctx, &idecl->obj, &adecl->type, adecl->exported);
 		break;
 	}
@@ -3603,7 +3603,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			incomplete_declaration_create(ctx, decl->loc, ctx->scope,
 					&with_ns, &t->ident);
 		idecl->decl = (struct ast_decl){
-			.decl_type = AST_DECL_TYPE,
+			.decl_type = DECL_TYPE,
 			.loc = decl->loc,
 			.type = *t,
 			.exported = decl->exported,
@@ -3849,7 +3849,7 @@ lookup_enum_type(struct context *ctx, const struct scope_object *obj)
 		}
 
 		if (idecl->type != IDECL_DECL ||
-				idecl->decl.decl_type != AST_DECL_TYPE) {
+				idecl->decl.decl_type != DECL_TYPE) {
 			return NULL;
 		}
 
@@ -3938,7 +3938,7 @@ scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
 void
 resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != AST_DECL_TYPE) {
+	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != DECL_TYPE) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
 			loc = idecl->field->field->loc;
@@ -3961,7 +3961,7 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 void
 resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != AST_DECL_TYPE) {
+	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != DECL_TYPE) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
 			loc = idecl->field->field->loc;
@@ -4014,7 +4014,7 @@ scan_const(struct context *ctx, struct scope *imports, bool exported,
 				ctx->scope, &with_ns, &decl->ident);
 	idecl->type = IDECL_DECL;
 	idecl->decl = (struct ast_decl){
-		.decl_type = AST_DECL_CONST,
+		.decl_type = DECL_CONST,
 		.loc = loc,
 		.constant = *decl,
 		.exported = exported,
@@ -4027,12 +4027,12 @@ static void
 scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 {
 	switch (decl->decl_type) {
-	case AST_DECL_CONST:
+	case DECL_CONST:
 		for (struct ast_global_decl *g = &decl->constant; g; g = g->next) {
 			scan_const(ctx, imports, decl->exported, decl->loc, g);
 		}
 		break;
-	case AST_DECL_GLOBAL:
+	case DECL_GLOBAL:
 		for (struct ast_global_decl *g = &decl->global; g; g = g->next) {
 			struct identifier with_ns = {0};
 			mkident(ctx, &with_ns, &g->ident, g->symbol);
@@ -4041,7 +4041,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 						ctx->scope, &with_ns, &g->ident);
 			idecl->type = IDECL_DECL;
 			idecl->decl = (struct ast_decl){
-				.decl_type = AST_DECL_GLOBAL,
+				.decl_type = DECL_GLOBAL,
 				.loc = decl->loc,
 				.global = *g,
 				.exported = decl->exported,
@@ -4049,7 +4049,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 			idecl->imports = imports;
 		}
 		break;
-	case AST_DECL_FUNC:;
+	case DECL_FUNC:;
 		struct ast_function_decl *func = &decl->function;
 		struct identifier ident = {0}, *name = NULL;
 		if (func->flags) {
@@ -4075,14 +4075,14 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 					ctx->scope, &ident, name);
 		idecl->type = IDECL_DECL;
 		idecl->decl = (struct ast_decl){
-			.decl_type = AST_DECL_FUNC,
+			.decl_type = DECL_FUNC,
 			.loc = decl->loc,
 			.function = *func,
 			.exported = decl->exported,
 		};
 		idecl->imports = imports;
 		break;
-	case AST_DECL_TYPE:
+	case DECL_TYPE:
 		scan_types(ctx, imports, decl);
 		break;
 	}
@@ -4100,16 +4100,16 @@ resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 
 	switch (idecl->decl.decl_type) {
-	case AST_DECL_CONST:
+	case DECL_CONST:
 		resolve_const(ctx, idecl);
 		return;
-	case AST_DECL_GLOBAL:
+	case DECL_GLOBAL:
 		resolve_global(ctx, idecl);
 		return;
-	case AST_DECL_FUNC:
+	case DECL_FUNC:
 		resolve_function(ctx, idecl);
 		return;
-	case AST_DECL_TYPE:
+	case DECL_TYPE:
 		resolve_type(ctx, idecl);
 		return;
 	}

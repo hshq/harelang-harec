@@ -18,6 +18,7 @@ struct modcache {
 
 struct ast_expression;
 struct ast_unit;
+enum decl_type;
 
 struct errors {
 	struct location loc;
@@ -64,15 +65,8 @@ struct global_decl {
 	bool threadlocal;
 };
 
-enum declaration_type {
-	DECL_CONST,
-	DECL_FUNC,
-	DECL_GLOBAL,
-	DECL_TYPE,
-};
-
 struct declaration {
-	enum declaration_type type;
+	enum decl_type decl_type;
 	struct identifier ident;
 	struct location loc;
 	char *symbol;
@@ -81,7 +75,7 @@ struct declaration {
 		struct constant_decl constant;
 		struct function_decl func;
 		struct global_decl global;
-		const struct type *_type;
+		const struct type *type;
 	};
 };
 

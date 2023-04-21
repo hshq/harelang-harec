@@ -353,8 +353,8 @@ emit_exported_type(const struct type *type, FILE *out, const char *ident)
 {
 	if (!emit_type(type, out)) {
 		// XXX: Hack
-		struct type *_type = (struct type *)type;
-		_type->alias.exported = true;
+		struct type *type = (struct type *)type;
+		type->alias.exported = true;
 		fprintf(stderr, "Cannot use unexported type ");
 		emit_type(type, stderr);
 		fprintf(stderr, " in exported declaration '%s'\n", ident);
@@ -440,10 +440,10 @@ emit_decl_type(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	fprintf(out, "export type %s = ", ident);
-	assert(decl->_type->storage == STORAGE_ALIAS
-			|| decl->_type->storage == STORAGE_ENUM);
-	if (decl->_type->storage == STORAGE_ENUM) {
-		const struct type *type = decl->_type;
+	assert(decl->type->storage == STORAGE_ALIAS
+			|| decl->type->storage == STORAGE_ENUM);
+	if (decl->type->storage == STORAGE_ENUM) {
+		const struct type *type = decl->type;
 		fprintf(out, "enum %s { ",
 			type_storage_unparse(type->alias.type->storage));
 		for (const struct scope_object *ev = type->_enum.values->objects;
@@ -455,10 +455,10 @@ emit_decl_type(struct declaration *decl, FILE *out)
 		}
 		fprintf(out, "}");
 	} else {
-		emit_exported_type(decl->_type->alias.type, out, ident);
+		emit_exported_type(decl->type->alias.type, out, ident);
 	}
 	fprintf(out, "; // size: %zd, align: %zd, id: %u\n",
-		decl->_type->size, decl->_type->align, decl->_type->id);
+		decl->type->size, decl->type->align, decl->type->id);
 	free(ident);
 }
 
@@ -479,7 +479,7 @@ emit_typedefs(struct unit *unit, FILE *out)
 			continue;
 		}
 
-		switch (decl->type) {
+		switch (decl->decl_type) {
 		case DECL_CONST:
 			emit_decl_const(decl, out);
 			break;

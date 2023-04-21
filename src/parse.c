@@ -2603,20 +2603,20 @@ parse_decl(struct lexer *lexer, struct ast_decl *decl)
 	switch (lex(lexer, &tok)) {
 	case T_CONST:
 	case T_LET:
-		decl->decl_type = AST_DECL_GLOBAL;
+		decl->decl_type = DECL_GLOBAL;
 		parse_global_decl(lexer, tok.token, &decl->global);
 		break;
 	case T_DEF:
-		decl->decl_type = AST_DECL_CONST;
+		decl->decl_type = DECL_CONST;
 		parse_global_decl(lexer, tok.token, &decl->constant);
 		break;
 	case T_TYPE:
-		decl->decl_type = AST_DECL_TYPE;
+		decl->decl_type = DECL_TYPE;
 		parse_type_decl(lexer, &decl->type);
 		break;
 	default:
 		unlex(lexer, &tok);
-		decl->decl_type = AST_DECL_FUNC;
+		decl->decl_type = DECL_FUNC;
 		parse_fn_decl(lexer, &decl->function);
 		break;
 	}

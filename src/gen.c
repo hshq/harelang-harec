@@ -1058,7 +1058,7 @@ gen_expr_binding_unpack_static(struct gen_context *ctx,
 		assert(unpack->object->otype == O_DECL);
 
 		struct declaration decl = {
-			.type = DECL_GLOBAL,
+			.decl_type = DECL_GLOBAL,
 			.ident = unpack->object->ident,
 			.global = {
 				.type = unpack->object->type,
@@ -1133,7 +1133,7 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		if (binding->object->otype == O_DECL) {
 			// static binding
 			struct declaration decl = {
-				.type = DECL_GLOBAL,
+				.decl_type = DECL_GLOBAL,
 				.ident = binding->object->ident,
 				.global = {
 					.type = binding->object->type,
@@ -3742,7 +3742,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 static void
 gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 {
-	assert(decl->type == DECL_GLOBAL);
+	assert(decl->decl_type == DECL_GLOBAL);
 	const struct global_decl *global = &decl->global;
 	if (!global->value) {
 		return; // Forward declaration
@@ -3760,7 +3760,7 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 static void
 gen_decl(struct gen_context *ctx, const struct declaration *decl)
 {
-	switch (decl->type) {
+	switch (decl->decl_type) {
 	case DECL_FUNC:
 		gen_function_decl(ctx, decl);
 		break;

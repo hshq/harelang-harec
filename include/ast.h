@@ -385,16 +385,16 @@ struct ast_function_decl {
 	unsigned int flags; // enum func_decl_flags (check.h)
 };
 
-enum ast_decl_type {
-	AST_DECL_FUNC,
-	AST_DECL_TYPE,
-	AST_DECL_GLOBAL,
-	AST_DECL_CONST,
+enum decl_type {
+	DECL_FUNC,
+	DECL_TYPE,
+	DECL_GLOBAL,
+	DECL_CONST,
 };
 
 struct ast_decl {
 	struct location loc;
-	enum ast_decl_type decl_type;
+	enum decl_type decl_type;
 	bool exported;
 	union {
 		struct ast_global_decl global;
