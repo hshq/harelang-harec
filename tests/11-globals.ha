@@ -88,6 +88,10 @@ fn invalid() void = {
 	assert(compile("def a: int;") as exited != EXIT_SUCCESS);
 	assert(compile("let a;") as exited != EXIT_SUCCESS);
 
+	assert(compile("def a: [_]str = 0;") as exited != EXIT_SUCCESS);
+	assert(compile("def a: int = \"string\";") as exited != EXIT_SUCCESS);
+	assert(compile("def a: [_]int = [\"string\"];") as exited != EXIT_SUCCESS);
+	assert(compile("def a: [_]int = [1, 2];") as exited == EXIT_SUCCESS);
 };
 
 fn counter() int = {

@@ -3639,19 +3639,21 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 	if (decl->type) {
 		type = type_store_lookup_atype(ctx->store, decl->type);
 	}
-	struct expression *initializer = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, decl->init, initializer, type);
-	bool context = decl->type
-		&& decl->type->storage == STORAGE_ARRAY
-		&& decl->type->array.contextual;
-	if (context || !decl->type) {
+	struct expression *init = xcalloc(1, sizeof(struct expression)),
+		*value = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, decl->init, init, type);
+	if (!decl->type) {
 		// XXX: Do we need to do anything more here
-		type = lower_const(initializer->result, NULL);
+		type = lower_const(init->result, NULL);
+		if (type->storage == STORAGE_NULL) {
+			error(ctx, decl->init->loc, value,
+				"Null is not a valid type for a constant");
+			type = &builtin_type_error;
+			goto end;
+		}
 	}
-
-	struct expression *value = xcalloc(1, sizeof(struct expression));
-	if (!type_is_assignable(type, initializer->result)) {
-		char *typename1 = gen_typename(initializer->result);
+	if (!type_is_assignable(type, init->result)) {
+		char *typename1 = gen_typename(init->result);
 		char *typename2 = gen_typename(type);
 		error(ctx, decl->init->loc, value,
 			"Initializer type %s is not assignable to constant type %s",
@@ -3661,22 +3663,21 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 		type = &builtin_type_error;
 		goto end;
 	}
-	initializer = lower_implicit_cast(type, initializer);
+	if (decl->type && decl->type->storage == STORAGE_ARRAY
+			&& decl->type->array.contextual) {
+		type = lower_const(init->result, NULL);
+	} else {
+		init = lower_implicit_cast(type, init);
+	}
+	assert(type->size != SIZE_UNDEFINED);
 
-	enum eval_result r = eval_expr(ctx, initializer, value);
+	enum eval_result r = eval_expr(ctx, init, value);
 	if (r != EVAL_OK) {
 		error(ctx, decl->init->loc, value,
-			"Unable to evaluate constant initializer at compile time");
+			"Unable to evaluate constant init at compile time");
 		type = &builtin_type_error;
 		goto end;
 	}
-	if (type->storage == STORAGE_NULL) {
-		error(ctx, decl->init->loc, value,
-			"Null is not a valid type for a constant");
-		type = &builtin_type_error;
-		goto end;
-	}
-
 end:
 	idecl->obj.otype = O_CONST;
 	idecl->obj.type = type;
