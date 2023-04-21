@@ -3303,46 +3303,21 @@ check_expression(struct context *ctx,
 	}
 }
 
-static struct declaration *
-check_const(struct context *ctx,
-	const struct scope_object *obj,
-	const struct location *loc,
-	const struct ast_global_decl *adecl)
-{
-	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	const struct scope_object *shadow_obj = scope_lookup(
-			ctx->defines, &adecl->ident);
-	if (obj != shadow_obj) {
-		// Shadowed by define
-		if (obj->type != shadow_obj->type) {
-			char *typename = gen_typename(obj->type);
-			char *shadow_typename = gen_typename(shadow_obj->type);
-			error(ctx, *loc, NULL,
-					"Constant of type %s is shadowed by define of incompatible type %s",
-					typename, shadow_typename);
-			free(typename);
-			free(shadow_typename);
-		}
-	}
-	decl->decl_type = DECL_CONST;
-	decl->constant.type = obj->type;
-	decl->constant.value = shadow_obj->value;
-	decl->ident = obj->ident;
-	return decl;
-}
-
-static struct declaration *
+void
 check_function(struct context *ctx,
 	const struct scope_object *obj,
-	const struct ast_decl *adecl)
+	const struct ast_decl *adecl,
+	struct declaration **declp)
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
 	if ((adecl->function.flags & FN_TEST) && !ctx->is_test) {
-		return NULL;
+		free(*declp);
+		*declp = NULL;
+		return;
 	}
 	ctx->fntype = obj->type;
 
-	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
+	struct declaration *decl = *declp;
 	decl->decl_type = DECL_FUNC;
 	decl->func.type = obj->type;
 	decl->func.flags = afndecl->flags;
@@ -3351,7 +3326,7 @@ check_function(struct context *ctx,
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
 
 	if (!adecl->function.body) {
-		return decl; // Prototype
+		return; // Prototype
 	}
 
 	decl->func.scope = scope_push(&ctx->scope, SCOPE_FUNC);
@@ -3360,7 +3335,9 @@ check_function(struct context *ctx,
 		if (!params->name) {
 			error(ctx, params->loc, NULL,
 				"Function parameters must be named");
-			return NULL;
+			free(decl);
+			*declp = NULL;
+			return;
 		}
 		struct identifier ident = {
 			.name = params->name,
@@ -3390,7 +3367,9 @@ check_function(struct context *ctx,
 			restypename, fntypename);
 		free(restypename);
 		free(fntypename);
-		return NULL;
+		free(decl);
+		*declp = NULL;
+		return;
 	}
 	decl->func.body = lower_implicit_cast(obj->type->func.result, body);
 
@@ -3428,77 +3407,14 @@ check_function(struct context *ctx,
 		error(ctx, adecl->loc, NULL, "@noreturn function must return void");
 	};
 	if (ctx->errors) {
-		return NULL;
+		free(decl);
+		*declp = NULL;
+		return;
 	}
 
 	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
-	return decl;
-}
-
-static struct declaration *
-check_global(struct context *ctx,
-	const struct scope_object *obj,
-	const struct ast_global_decl *adecl)
-{
-	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	decl->decl_type = DECL_GLOBAL;
-	decl->global.type = obj->type;
-	decl->global.threadlocal = adecl->threadlocal;
-
-	decl->symbol = ident_to_sym(&obj->ident);
-	mkident(ctx, &decl->ident, &adecl->ident, NULL);
-
-	if (!adecl->init) {
-		return decl; // Forward declaration
-	}
-
-	// TODO: Free initialier
-	struct expression *initializer =
-		xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, adecl->init, initializer, obj->type);
-	// TODO: Pass errors up and deal with them at the end of check
-
-	if (!type_is_assignable(obj->type, initializer->result)) {
-		char *typename1 = gen_typename(initializer->result);
-		char *typename2 = gen_typename(obj->type);
-		error(ctx, adecl->init->loc, initializer,
-			"Initializer type %s is not assignable to constant type %s",
-			typename1, typename2);
-		free(typename1);
-		free(typename2);
-		return NULL;
-	}
-
-	initializer = lower_implicit_cast(obj->type, initializer);
-
-	struct expression *value =
-		xcalloc(1, sizeof(struct expression));
-	enum eval_result r = eval_expr(ctx, initializer, value);
-	if (r != EVAL_OK) {
-		error(ctx, adecl->init->loc, initializer,
-			"Unable to evaluate global initializer at compile time");
-		return NULL;
-	}
-
-	decl->global.value = value;
-
-	free(initializer);
-
-	return decl;
-}
-
-static struct declaration *
-check_type(struct context *ctx,
-	const struct scope_object *obj,
-	const struct ast_type_decl *adecl,
-	bool exported)
-{
-	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	decl->decl_type = DECL_TYPE;
-	decl->ident = obj->ident;
-	decl->type = obj->type;
-	return decl;
+	return;
 }
 
 static struct declarations **
@@ -3507,19 +3423,44 @@ check_declaration(struct context *ctx,
 		struct declarations **next)
 {
 	const struct ast_decl *adecl = &idecl->decl;
-	struct declaration *decl = NULL;
+	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
+	decl->decl_type = adecl->decl_type;
 	switch (adecl->decl_type) {
-	case DECL_CONST:
-		decl = check_const(ctx, &idecl->obj, &adecl->loc, &adecl->constant);
+	case DECL_CONST:;
+		const struct scope_object *shadow_obj = scope_lookup(
+			ctx->defines, &adecl->constant.ident);
+		if (&idecl->obj != shadow_obj) {
+			// Shadowed by define
+			if (idecl->obj.type != shadow_obj->type) {
+				char *typename = gen_typename(idecl->obj.type);
+				char *shadow_typename = gen_typename(shadow_obj->type);
+				error(ctx, adecl->loc, NULL,
+						"Constant of type %s is shadowed by define of incompatible type %s",
+						typename, shadow_typename);
+				free(typename);
+				free(shadow_typename);
+			}
+		}
+		decl->constant.type = idecl->obj.type;
+		decl->constant.value = shadow_obj->value;
+		decl->ident = idecl->obj.ident;
 		break;
 	case DECL_FUNC:
-		decl = check_function(ctx, &idecl->obj, adecl);
+		check_function(ctx, &idecl->obj, adecl, &decl);
 		break;
 	case DECL_GLOBAL:
-		decl = check_global(ctx, &idecl->obj, &adecl->global);
+		decl->global.type = idecl->obj.type;
+		decl->global.threadlocal = adecl->global.threadlocal;
+
+		decl->symbol = ident_to_sym(&idecl->obj.ident);
+		mkident(ctx, &decl->ident, &adecl->global.ident, NULL);
+		if (adecl->global.init) {
+			decl->global.value = idecl->obj.value;
+		}
 		break;
 	case DECL_TYPE:
-		decl = check_type(ctx, &idecl->obj, &adecl->type, adecl->exported);
+		decl->ident = idecl->obj.ident;
+		decl->type = idecl->obj.type;
 		break;
 	}
 
@@ -3705,62 +3646,65 @@ void
 resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	const struct ast_global_decl *decl = &idecl->decl.global;
-
 	const struct type *type = NULL;
+	bool context = false;
 	if (decl->type) {
 		type = type_store_lookup_atype(ctx->store, decl->type);
-		if (decl->type->storage == STORAGE_ARRAY
-				&& decl->type->array.contextual) {
-			if (!decl->init) {
-				error(ctx, decl->type->loc, NULL,
-					"Cannot infer array length without an initializer");
-				type = &builtin_type_error;
-				goto end;
-			}
-
-			struct expression *initializer =
-				xcalloc(1, sizeof(struct expression));
-			check_expression(ctx, decl->init, initializer, type);
-			if (initializer->result->storage != STORAGE_ARRAY) {
-				error(ctx, decl->init->loc, initializer,
-					"Cannot infer array length from non-array type");
-				type = &builtin_type_error;
-				goto end;
-			}
-			if (initializer->result->array.members != type->array.members) {
-				error(ctx, decl->init->loc, initializer,
-					"Initializer is not assignable to binding type");
-				type = &builtin_type_error;
-				goto end;
-			}
-			type = initializer->result;
-			free(initializer);
-		}
-	} else {
-		// the type is set by the expression
-		if (!decl->init) {
-			error(ctx, idecl->decl.loc, NULL,
-				"Cannot infer type without an initializer");
+		context = decl->type->storage == STORAGE_ARRAY
+			&& decl->type->array.contextual;
+		if (context && !decl->init) {
+			error(ctx, decl->type->loc, NULL,
+				"Cannot infer array length without an init");
 			type = &builtin_type_error;
 			goto end;
 		}
-		struct expression *initializer =
-			xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, decl->init, initializer, type);
-		type = lower_const(initializer->result, NULL);
-		assert(type);
-		free(initializer);
 	}
 
-	if (type->storage == STORAGE_NULL) {
-		error(ctx, decl->init->loc, NULL,
-			"Null is not a valid type for a global");
-		type = &builtin_type_error;
-		goto end;
+	struct expression *init, *value = NULL;
+	if (decl->init) {
+		init = xcalloc(1, sizeof(struct expression));
+		value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, decl->init, init, type);
+		if (type) {
+			if (!type_is_assignable(type, init->result)) {
+				char *typename1 = gen_typename(init->result);
+				char *typename2 = gen_typename(type);
+				error(ctx, decl->init->loc, value,
+					"Initializer type %s is not assignable to constant type %s",
+					typename1, typename2);
+				free(typename1);
+				free(typename2);
+				type = &builtin_type_error;
+				goto end;
+			}
+		} else {
+			type = lower_const(init->result, NULL);
+		}
+		if (context) {
+			type = init->result;
+		} else {
+			init = lower_implicit_cast(type, init);
+		}
+		assert(type->size != SIZE_UNDEFINED);
+		if (type->storage == STORAGE_NULL) {
+			error(ctx, decl->init->loc, NULL,
+				"Null is not a valid type for a global");
+			type = &builtin_type_error;
+			goto end;
+		}
+		enum eval_result r = eval_expr(ctx, init, value);
+		if (r != EVAL_OK) {
+			error(ctx, decl->init->loc, value,
+				"Unable to evaluate constant init at compile time");
+			type = &builtin_type_error;
+			goto end;
+		}
 	}
+
 end:
 	idecl->obj.otype = O_DECL;
 	idecl->obj.type = type;
+	idecl->obj.value = value;
 	idecl->obj.threadlocal = decl->threadlocal;
 }
 
@@ -4367,7 +4311,7 @@ check_internal(struct type_store *ts,
 			const struct incomplete_declaration *idecl =
 				(struct incomplete_declaration *)shadowed_obj;
 			if (idecl->type == IDECL_DECL &&
-					idecl->decl.decl_type == AST_DECL_CONST) {
+					idecl->decl.decl_type == DECL_CONST) {
 				continue;
 			}
 		}
