@@ -3310,11 +3310,6 @@ check_function(struct context *ctx,
 	struct declaration **declp)
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
-	if ((adecl->function.flags & FN_TEST) && !ctx->is_test) {
-		free(*declp);
-		*declp = NULL;
-		return;
-	}
 	ctx->fntype = obj->type;
 
 	struct declaration *decl = *declp;
@@ -3424,6 +3419,7 @@ check_declaration(struct context *ctx,
 {
 	const struct ast_decl *adecl = &idecl->decl;
 	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
+	bool skip = false;
 	decl->decl_type = adecl->decl_type;
 	switch (adecl->decl_type) {
 	case DECL_CONST:;
@@ -3447,6 +3443,7 @@ check_declaration(struct context *ctx,
 		break;
 	case DECL_FUNC:
 		check_function(ctx, &idecl->obj, adecl, &decl);
+		skip = (adecl->function.flags & FN_TEST) && !ctx->is_test;
 		break;
 	case DECL_GLOBAL:
 		decl->global.type = idecl->obj.type;
@@ -3464,14 +3461,14 @@ check_declaration(struct context *ctx,
 		break;
 	}
 
-	if (decl) {
+	if (!skip) {
 		struct declarations *decls = *next =
 			xcalloc(1, sizeof(struct declarations));
 		decl->exported = adecl->exported;
 		decl->loc = adecl->loc;
 		decls->decl = decl;
 		next = &decls->next;
-	}
+	} // TODO: free otherwise
 	return next;
 }
 
