@@ -80,9 +80,14 @@ fn storage() void = {
 	assert(double == 1234.5678);
 };
 
-fn invariants() void = {
+fn invalid() void = {
 	assert(compile("fn test() int; let x: int = test();") as exited != EXIT_SUCCESS);
 	assert(compile("const a: u8 = 2; const b: u8 = a + 5;") as exited != EXIT_SUCCESS);
+
+	assert(compile("def a;") as exited != EXIT_SUCCESS);
+	assert(compile("def a: int;") as exited != EXIT_SUCCESS);
+	assert(compile("let a;") as exited != EXIT_SUCCESS);
+
 };
 
 fn counter() int = {
@@ -162,7 +167,7 @@ export fn main() void = {
 	// - Globals which are pointers to other globals
 	write();
 	storage();
-	invariants();
+	invalid();
 	static_binding();
 	pointers();
 	tagged();

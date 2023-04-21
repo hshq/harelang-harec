@@ -2474,22 +2474,23 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 			}
 		}
 		parse_identifier(lexer, &i->ident, false);
-		if (lex(lexer, &tok) == T_COLON) {
+		switch (lex(lexer, &tok)) {
+		case T_COLON:
 			i->type = parse_type(lexer);
 			if (mode == T_CONST) {
 				i->type->flags |= TYPE_CONST;
 			}
-		} else {
-			unlex(lexer, &tok);
-		}
-
-		if (mode == T_DEF) {
-			want(lexer, T_EQUAL, NULL);
+			if (lex(lexer, &tok) != T_EQUAL) {
+				synassert(mode != T_DEF, &tok, T_EQUAL, T_EOF);
+				unlex(lexer, &tok);
+				break;
+			}
+			/* fallthrough */
+		case T_EQUAL:
 			i->init = parse_expression(lexer);
-		} else if (lex(lexer, &tok) == T_EQUAL) {
-			i->init = parse_expression(lexer);
-		} else {
-			unlex(lexer, &tok);
+			break;
+		default:
+			synerr(&tok, T_EQUAL, T_COLON, T_EOF);
 		}
 
 		switch (lex(lexer, &tok)) {
