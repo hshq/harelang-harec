@@ -3358,8 +3358,9 @@ check_function(struct context *ctx,
 	struct ast_function_parameters *params = afndecl->prototype.params;
 	while (params) {
 		if (!params->name) {
-			error_norec(ctx, params->loc, NULL,
+			error(ctx, params->loc, NULL,
 				"Function parameters must be named");
+			return NULL;
 		}
 		struct identifier ident = {
 			.name = params->name,
@@ -3384,9 +3385,12 @@ check_function(struct context *ctx,
 	if (!body->terminates && !type_is_assignable(obj->type->func.result, body->result)) {
 		char *restypename = gen_typename(body->result);
 		char *fntypename = gen_typename(obj->type->func.result);
-		error_norec(ctx, afndecl->body->loc, body,
+		error(ctx, afndecl->body->loc, body,
 			"Result value %s is not assignable to function result type %s",
 			restypename, fntypename);
+		free(restypename);
+		free(fntypename);
+		return NULL;
 	}
 	decl->func.body = lower_implicit_cast(obj->type->func.result, body);
 
@@ -3404,7 +3408,7 @@ check_function(struct context *ctx,
 			flag = "@test";
 			break;
 		default:
-			error_norec(ctx, adecl->loc, NULL,
+			error(ctx, adecl->loc, NULL,
 				"Only one of @init, @fini, or @test may be used in a function declaration");
 		};
 		if (obj->type->func.result != &builtin_type_void) {
@@ -3419,11 +3423,13 @@ check_function(struct context *ctx,
 		if (afndecl->prototype.params) {
 			error(ctx, adecl->loc, NULL, "%s function cannot have parameters", flag);
 		}
-		handle_errors(ctx->errors);
 	}
 	if (obj->type->func.flags & FN_NORETURN && obj->type->func.result != &builtin_type_void) {
-		error_norec(ctx, adecl->loc, NULL, "@noreturn function must return void");
+		error(ctx, adecl->loc, NULL, "@noreturn function must return void");
 	};
+	if (ctx->errors) {
+		return NULL;
+	}
 
 	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
@@ -3456,9 +3462,12 @@ check_global(struct context *ctx,
 	if (!type_is_assignable(obj->type, initializer->result)) {
 		char *typename1 = gen_typename(initializer->result);
 		char *typename2 = gen_typename(obj->type);
-		error_norec(ctx, adecl->init->loc, initializer,
+		error(ctx, adecl->init->loc, initializer,
 			"Initializer type %s is not assignable to constant type %s",
 			typename1, typename2);
+		free(typename1);
+		free(typename2);
+		return NULL;
 	}
 
 	initializer = lower_implicit_cast(obj->type, initializer);
@@ -3467,8 +3476,9 @@ check_global(struct context *ctx,
 		xcalloc(1, sizeof(struct expression));
 	enum eval_result r = eval_expr(ctx, initializer, value);
 	if (r != EVAL_OK) {
-		error_norec(ctx, adecl->init->loc, initializer,
+		error(ctx, adecl->init->loc, initializer,
 			"Unable to evaluate global initializer at compile time");
+		return NULL;
 	}
 
 	decl->global.value = value;
@@ -3538,7 +3548,6 @@ incomplete_declaration_create(struct context *ctx, struct location loc,
 	if (idecl) {
 		error_norec(ctx, loc, NULL, "Duplicate global identifier '%s'",
 			identifier_unparse(ident));
-		return idecl;
 	}
 	idecl =  xcalloc(1, sizeof(struct incomplete_declaration));
 
@@ -3640,27 +3649,35 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 		type = lower_const(initializer->result, NULL);
 	}
 
+	struct expression *value = xcalloc(1, sizeof(struct expression));
 	if (!type_is_assignable(type, initializer->result)) {
 		char *typename1 = gen_typename(initializer->result);
 		char *typename2 = gen_typename(type);
-		error_norec(ctx, decl->init->loc, initializer,
+		error(ctx, decl->init->loc, value,
 			"Initializer type %s is not assignable to constant type %s",
 			typename1, typename2);
+		free(typename1);
+		free(typename2);
+		type = &builtin_type_error;
+		goto end;
 	}
 	initializer = lower_implicit_cast(type, initializer);
 
-	struct expression *value =
-		xcalloc(1, sizeof(struct expression));
 	enum eval_result r = eval_expr(ctx, initializer, value);
 	if (r != EVAL_OK) {
-		error_norec(ctx, decl->init->loc, initializer,
+		error(ctx, decl->init->loc, value,
 			"Unable to evaluate constant initializer at compile time");
+		type = &builtin_type_error;
+		goto end;
 	}
 	if (type->storage == STORAGE_NULL) {
-		error_norec(ctx, decl->init->loc, NULL,
+		error(ctx, decl->init->loc, value,
 			"Null is not a valid type for a constant");
+		type = &builtin_type_error;
+		goto end;
 	}
 
+end:
 	idecl->obj.otype = O_CONST;
 	idecl->obj.type = type;
 	idecl->obj.value = value;
@@ -3694,20 +3711,26 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 		if (decl->type->storage == STORAGE_ARRAY
 				&& decl->type->array.contextual) {
 			if (!decl->init) {
-				error_norec(ctx, decl->type->loc, NULL,
+				error(ctx, decl->type->loc, NULL,
 					"Cannot infer array length without an initializer");
+				type = &builtin_type_error;
+				goto end;
 			}
 
 			struct expression *initializer =
 				xcalloc(1, sizeof(struct expression));
 			check_expression(ctx, decl->init, initializer, type);
 			if (initializer->result->storage != STORAGE_ARRAY) {
-				error_norec(ctx, decl->init->loc, initializer,
+				error(ctx, decl->init->loc, initializer,
 					"Cannot infer array length from non-array type");
+				type = &builtin_type_error;
+				goto end;
 			}
 			if (initializer->result->array.members != type->array.members) {
-				error_norec(ctx, decl->init->loc, initializer,
+				error(ctx, decl->init->loc, initializer,
 					"Initializer is not assignable to binding type");
+				type = &builtin_type_error;
+				goto end;
 			}
 			type = initializer->result;
 			free(initializer);
@@ -3715,8 +3738,10 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 	} else {
 		// the type is set by the expression
 		if (!decl->init) {
-			error_norec(ctx, idecl->decl.loc, NULL,
+			error(ctx, idecl->decl.loc, NULL,
 				"Cannot infer type without an initializer");
+			type = &builtin_type_error;
+			goto end;
 		}
 		struct expression *initializer =
 			xcalloc(1, sizeof(struct expression));
@@ -3727,10 +3752,12 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 
 	if (type->storage == STORAGE_NULL) {
-		error_norec(ctx, decl->init->loc, NULL,
+		error(ctx, decl->init->loc, NULL,
 			"Null is not a valid type for a global");
+		type = &builtin_type_error;
+		goto end;
 	}
-
+end:
 	idecl->obj.otype = O_DECL;
 	idecl->obj.type = type;
 	idecl->obj.threadlocal = decl->threadlocal;
