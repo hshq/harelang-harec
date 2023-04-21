@@ -39,6 +39,7 @@ struct context {
 	int id;
 	struct errors *errors;
 	struct errors **next;
+	struct declarations *decls;
 };
 
 struct constant_decl {
@@ -80,7 +81,7 @@ struct declaration {
 };
 
 struct declarations {
-	struct declaration *decl;
+	struct declaration decl;
 	struct declarations *next;
 };
 

@@ -3303,25 +3303,36 @@ check_expression(struct context *ctx,
 	}
 }
 
+static void
+append_decl(struct context *ctx, struct declaration *decl)
+{
+	struct declarations *decls = xcalloc(1, sizeof(struct declarations));
+	decls->decl = *decl;
+	decls->next = ctx->decls;
+	ctx->decls = decls;
+}
+
 void
 check_function(struct context *ctx,
 	const struct scope_object *obj,
-	const struct ast_decl *adecl,
-	struct declaration **declp)
+	const struct ast_decl *adecl)
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
 	ctx->fntype = obj->type;
 
-	struct declaration *decl = *declp;
+	struct declaration _decl, *decl = &_decl;
 	decl->decl_type = DECL_FUNC;
 	decl->func.type = obj->type;
 	decl->func.flags = afndecl->flags;
+	decl->exported = adecl->exported;
+	decl->loc = adecl->loc;
 
 	decl->symbol = ident_to_sym(&obj->ident);
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
 
 	if (!adecl->function.body) {
-		return; // Prototype
+		decl->func.body = NULL;
+		goto end; // Prototype
 	}
 
 	decl->func.scope = scope_push(&ctx->scope, SCOPE_FUNC);
@@ -3330,8 +3341,6 @@ check_function(struct context *ctx,
 		if (!params->name) {
 			error(ctx, params->loc, NULL,
 				"Function parameters must be named");
-			free(decl);
-			*declp = NULL;
 			return;
 		}
 		struct identifier ident = {
@@ -3362,8 +3371,6 @@ check_function(struct context *ctx,
 			restypename, fntypename);
 		free(restypename);
 		free(fntypename);
-		free(decl);
-		*declp = NULL;
 		return;
 	}
 	decl->func.body = lower_implicit_cast(obj->type->func.result, body);
@@ -3401,75 +3408,14 @@ check_function(struct context *ctx,
 	if (obj->type->func.flags & FN_NORETURN && obj->type->func.result != &builtin_type_void) {
 		error(ctx, adecl->loc, NULL, "@noreturn function must return void");
 	};
-	if (ctx->errors) {
-		free(decl);
-		*declp = NULL;
-		return;
-	}
 
 	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
-	return;
-}
-
-static struct declarations **
-check_declaration(struct context *ctx,
-		const struct incomplete_declaration *idecl,
-		struct declarations **next)
-{
-	const struct ast_decl *adecl = &idecl->decl;
-	struct declaration *decl = xcalloc(1, sizeof(struct declaration));
-	bool skip = false;
-	decl->decl_type = adecl->decl_type;
-	switch (adecl->decl_type) {
-	case DECL_CONST:;
-		const struct scope_object *shadow_obj = scope_lookup(
-			ctx->defines, &adecl->constant.ident);
-		if (&idecl->obj != shadow_obj) {
-			// Shadowed by define
-			if (idecl->obj.type != shadow_obj->type) {
-				char *typename = gen_typename(idecl->obj.type);
-				char *shadow_typename = gen_typename(shadow_obj->type);
-				error(ctx, adecl->loc, NULL,
-						"Constant of type %s is shadowed by define of incompatible type %s",
-						typename, shadow_typename);
-				free(typename);
-				free(shadow_typename);
-			}
-		}
-		decl->constant.type = idecl->obj.type;
-		decl->constant.value = shadow_obj->value;
-		decl->ident = idecl->obj.ident;
-		break;
-	case DECL_FUNC:
-		check_function(ctx, &idecl->obj, adecl, &decl);
-		skip = (adecl->function.flags & FN_TEST) && !ctx->is_test;
-		break;
-	case DECL_GLOBAL:
-		decl->global.type = idecl->obj.type;
-		decl->global.threadlocal = adecl->global.threadlocal;
-
-		decl->symbol = ident_to_sym(&idecl->obj.ident);
-		mkident(ctx, &decl->ident, &adecl->global.ident, NULL);
-		if (adecl->global.init) {
-			decl->global.value = idecl->obj.value;
-		}
-		break;
-	case DECL_TYPE:
-		decl->ident = idecl->obj.ident;
-		decl->type = idecl->obj.type;
-		break;
+end:
+	if (((adecl->function.flags & FN_TEST) && !ctx->is_test) || ctx->errors) {
+		return;
 	}
-
-	if (!skip) {
-		struct declarations *decls = *next =
-			xcalloc(1, sizeof(struct declarations));
-		decl->exported = adecl->exported;
-		decl->loc = adecl->loc;
-		decls->decl = decl;
-		next = &decls->next;
-	} // TODO: free otherwise
-	return next;
+	append_decl(ctx, decl);
 }
 
 static struct incomplete_declaration *
@@ -3560,6 +3506,13 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			type->_enum.values->parent = ctx->defines;
 			idecl->obj.otype = O_TYPE;
 			idecl->obj.type = type;
+			append_decl(ctx, &(struct declaration){
+				.decl_type = DECL_TYPE,
+				.ident = idecl->obj.ident,
+				.loc = decl->loc,
+				.exported = exported,
+				.type = type,
+			});
 		} else {
 			idecl->type = IDECL_DECL;
 		}
@@ -3620,6 +3573,35 @@ end:
 	idecl->obj.otype = O_CONST;
 	idecl->obj.type = type;
 	idecl->obj.value = value;
+
+	if (!ctx->defines || ctx->errors) {
+		return;
+	}
+	const struct scope_object *shadow_obj =
+		scope_lookup(ctx->defines, &idecl->obj.ident);
+	if (shadow_obj && &idecl->obj != shadow_obj) {
+		// Shadowed by define
+		if (idecl->obj.type != shadow_obj->type) {
+			char *typename = gen_typename(idecl->obj.type);
+			char *shadow_typename = gen_typename(shadow_obj->type);
+			error(ctx, idecl->decl.loc, NULL,
+					"Constant of type %s is shadowed by define of incompatible type %s",
+					typename, shadow_typename);
+			free(typename);
+			free(shadow_typename);
+		}
+		idecl->obj.value = shadow_obj->value;
+	}
+	append_decl(ctx, &(struct declaration){
+		.decl_type = DECL_CONST,
+		.ident = idecl->obj.ident,
+		.exported = idecl->decl.exported,
+		.loc = idecl->decl.loc,
+		.constant = {
+			.type = type,
+			.value = value,
+		}
+	});
 }
 
 void
@@ -3701,8 +3683,21 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 end:
 	idecl->obj.otype = O_DECL;
 	idecl->obj.type = type;
-	idecl->obj.value = value;
 	idecl->obj.threadlocal = decl->threadlocal;
+
+	append_decl(ctx, &(struct declaration){
+		.decl_type = DECL_GLOBAL,
+		.ident = idecl->obj.ident,
+		.symbol = ident_to_sym(&idecl->obj.ident),
+
+		.exported = idecl->decl.exported,
+		.loc = idecl->decl.loc,
+		.global = {
+			.type = type,
+			.value = value,
+			.threadlocal = idecl->decl.global.threadlocal,
+		}
+	});
 }
 
 void
@@ -3941,13 +3936,20 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	idecl->obj.type = alias;
 	((struct type *)alias)->alias.type =
 		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
+
+	append_decl(ctx, &(struct declaration){
+		.decl_type = DECL_TYPE,
+		.ident = idecl->obj.ident,
+		.loc = idecl->decl.loc,
+		.exported = idecl->decl.exported,
+		.type = alias,
+	});
 }
 
 static struct incomplete_declaration *
 scan_const(struct context *ctx, struct scope *imports, bool exported,
 		struct location loc, struct ast_global_decl *decl)
 {
-
 	struct identifier with_ns = {0};
 	mkident(ctx, &with_ns, &decl->ident, NULL);
 	struct incomplete_declaration *idecl =
@@ -4315,22 +4317,21 @@ check_internal(struct type_store *ts,
 		error(&ctx, defineloc, NULL, "Define shadows a non-define object");
 	}
 
-	struct declarations **next_decl = &unit->declarations;
 	// Perform actual declaration resolution
 	for (const struct scope_object *obj = ctx.unit->objects;
 			obj; obj = obj->lnext) {
 		wrap_resolver(&ctx, obj, resolve_decl);
-		// Populate the expression graph
-		const struct incomplete_declaration *idecl =
-			(const struct incomplete_declaration *)obj;
-		if (idecl->type != IDECL_DECL) {
-			continue;
+		// populate the expression graph
+		struct incomplete_declaration *idecl =
+			(struct incomplete_declaration *)obj;
+		if (idecl->type == IDECL_DECL && idecl->decl.decl_type == DECL_FUNC) {
+			ctx.unit->parent = idecl->imports;
+			check_function(&ctx, &idecl->obj, &idecl->decl);
 		}
-		ctx.unit->parent = idecl->imports;
-		next_decl = check_declaration(&ctx, idecl, next_decl);
 	}
 
 	handle_errors(ctx.errors);
+	unit->declarations = ctx.decls;
 
 	if (!(scan_only || unit->declarations)) {
 		fprintf(stderr, "Error: module contains no declarations\n");

@@ -474,7 +474,7 @@ emit_typedefs(struct unit *unit, FILE *out)
 
 	for (struct declarations *decls = unit->declarations;
 			decls; decls = decls->next) {
-		struct declaration *decl = decls->decl;
+		struct declaration *decl = &decls->decl;
 		if (!decl->exported) {
 			continue;
 		}

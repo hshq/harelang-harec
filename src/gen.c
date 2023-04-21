@@ -3788,7 +3788,7 @@ gen(const struct unit *unit, struct type_store *store, struct qbe_program *out)
 	ctx.out->next = &ctx.out->defs;
 	const struct declarations *decls = unit->declarations;
 	while (decls) {
-		gen_decl(&ctx, decls->decl);
+		gen_decl(&ctx, &decls->decl);
 		decls = decls->next;
 	}
 }
