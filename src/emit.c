@@ -327,7 +327,7 @@ emit_data(struct qbe_def *def, FILE *out)
 	fprintf(out, "%s\ndata $%s = ", def->exported ? " export" : "",
 			def->name);
 	if (def->data.align != ALIGN_UNDEFINED) {
-		fprintf(out, "align %lu ", def->data.align);
+		fprintf(out, "align %zu ", def->data.align);
 	}
 	fprintf(out, "{ ");
 

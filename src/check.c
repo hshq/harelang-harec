@@ -698,7 +698,7 @@ check_expr_assert(struct context *ctx,
 		if (!cond) {
 			if (aexpr->assert.message != NULL) {
 				char format[40];
-				snprintf(format, 40, "Static assertion failed %%%lds",
+				snprintf(format, 40, "Static assertion failed %%%zds",
 					expr->assert.message->constant.string.len);
 				if (aexpr->assert.cond == NULL) {
 					error(ctx, aexpr->loc, expr, format,
