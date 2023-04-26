@@ -94,7 +94,7 @@ main(int argc, char *argv[])
 	struct ast_global_decl *defines = NULL, **next_def = &defines;
 
 	int c;
-	while ((c = getopt(argc, argv, "D:ho:Tt:N:")) != -1) {
+	while ((c = getopt(argc, argv, "a:D:ho:Tt:N:")) != -1) {
 		switch (c) {
 		case 'a':
 			target = optarg;
