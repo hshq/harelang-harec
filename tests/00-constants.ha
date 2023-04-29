@@ -34,66 +34,83 @@ fn assignment() void = {
 	let rtu3: (rune | u64 | void) = void;
 
 	i = 127;
-	assert(compile("export fn main() void = { let i = 0i8; i = 128; };") as exited != EXIT_SUCCESS);
 	u = 18446744073709551615;
-	assert(compile("export fn main() void = { let u = 0u32; u = 4294967296; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let f = 0.0f64; f = 0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let r = 'a'; r = 0; };") as exited != EXIT_SUCCESS);
 	e = 0;
-	assert(compile("type my_enum = enum u8 { FOO }; export fn main() void = { let e: my_enum = my_enum::FOO; e = 256; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let p: nullable *void = null; p = 0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let b = false; b = 0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let n = null; n = 0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let t = (0, 1); t = 0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let a = [0, 1]; a = 0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let s = \"\"; s = 0; };") as exited != EXIT_SUCCESS);
 	itu1 = 0;
 	itu2 = 0;
 	itu3 = 0;
-	assert(compile("export fn main() void = { let itu4: (u32 | u64 | void) = void; itu4 = 0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let itu5: (str | void) = void; itu5 = 0; };") as exited != EXIT_SUCCESS);
-
-	assert(compile("export fn main() void = { let i = 0i8; i = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let u = 0u8; u = 0.0; };") as exited != EXIT_SUCCESS);
 	f = 0.0;
-	assert(compile("export fn main() void = { let r = 'a'; r = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("type my_enum = enum u8 { FOO }; export fn main() void = { let e: my_enum = my_enum::FOO; e = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let p: nullable *void = null; p = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let b = false; b = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let n = null; n = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let t = (0, 1); t = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let a = [0, 1]; a = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let s = ""; s = 0.0; };") as exited != EXIT_SUCCESS);
 	ftu1 = 0.0;
 	ftu2 = 0.0;
 	ftu3 = 0.0;
-	assert(compile("type my_f32 = f32; export fn main() void = { let ftu4: (f32 | my_f32 | void) = void; ftu4 = 0.0; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let ftu5: (str | void) = void; ftu5 = 0.0; };") as exited != EXIT_SUCCESS);
 
 	i = 'a';
 	u = 'a';
-	assert(compile("export fn main() void = { let f = 0.0f64; f = 'a'; };") as exited != EXIT_SUCCESS);
 	r = 'a';
 	e = 'a';
-	assert(compile("export fn main() void = { let p: nullable *void = null; p = 'a'; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let b = false; b = 'a'; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let n = null; n = 'a'; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 'a'; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let t = (0, 1); t = 'a'; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let a = [0, 1]; a = 'a'; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let s = ""; s = 'a'; };") as exited != EXIT_SUCCESS);
 	rtu1 = 'a';
 	rtu2 = 'a';
 	rtu3 = 'a';
 	assert(rtu3 is rune);
-	assert(compile("export fn main() void = { let rtu4: (u32 | u64 | void) = void; rtu4 = 'a'; };") as exited != EXIT_SUCCESS);
-	assert(compile("export fn main() void = { let rtu5: (str | void) = void; rtu5 = 'a'; };") as exited != EXIT_SUCCESS);
-
 	let u2: uint = 'a';
 	let u2: uintptr = 'a';
 	let z: size = 'a';
+
+	let failures = [
+		"fn f() void = { let i = 0i8; i = 128; };",
+
+		"fn f() void = { let u = 0u32; u = 4294967296; };",
+		"fn f() void = { let f = 0.0f64; f = 0; };",
+		"fn f() void = { let r = 'a'; r = 0; };",
+
+		"type my_enum = enum u8 { FOO }; fn f() void = { let e: my_enum = my_enum::FOO; e = 256; };",
+		"fn f() void = { let p: nullable *void = null; p = 0; };",
+		"fn f() void = { let b = false; b = 0; };",
+		"fn f() void = { let n = null; n = 0; };",
+		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0; };",
+		"fn f() void = { let t = (0, 1); t = 0; };",
+		"fn f() void = { let a = [0, 1]; a = 0; };",
+		"fn f() void = { let s = \"\"; s = 0; };",
+
+		"fn f() void = { let itu4: (u32 | u64 | void) = void; itu4 = 0; };",
+		"fn f() void = { let itu5: (str | void) = void; itu5 = 0; };",
+
+		"fn f() void = { let i = 0i8; i = 0.0; };",
+		"fn f() void = { let u = 0u8; u = 0.0; };",
+
+		"fn f() void = { let r = 'a'; r = 0.0; };",
+		"type my_enum = enum u8 { FOO }; fn f() void = { let e: my_enum = my_enum::FOO; e = 0.0; };",
+		"fn f() void = { let p: nullable *void = null; p = 0.0; };",
+		"fn f() void = { let b = false; b = 0.0; };",
+		"fn f() void = { let n = null; n = 0.0; };",
+		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0.0; };",
+		"fn f() void = { let t = (0, 1); t = 0.0; };",
+		"fn f() void = { let a = [0, 1]; a = 0.0; };",
+		"fn f() void = { let s = ""; s = 0.0; };",
+
+		"type my_f32 = f32; fn f() void = { let ftu4: (f32 | my_f32 | void) = void; ftu4 = 0.0; };",
+		"fn f() void = { let ftu5: (str | void) = void; ftu5 = 0.0; };",
+
+		"type my_f32 = f32; fn f() void = { let ftu4: (f32 | my_f32 | void) = void; ftu4 = 0.0; };",
+		"fn f() void = { let ftu5: (str | void) = void; ftu5 = 0.0; };",
+
+		"fn f() void = { let f = 0.0f64; f = 'a'; };",
+
+		"fn f() void = { let p: nullable *void = null; p = 'a'; };",
+		"fn f() void = { let b = false; b = 'a'; };",
+		"fn f() void = { let n = null; n = 'a'; };",
+		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 'a'; };",
+		"fn f() void = { let t = (0, 1); t = 'a'; };",
+		"fn f() void = { let a = [0, 1]; a = 'a'; };",
+		"fn f() void = { let s = ""; s = 'a'; };",
+
+		"fn f() void = { let rtu4: (u32 | u64 | void) = void; rtu4 = 'a'; };",
+		"fn f() void = { let rtu5: (str | void) = void; rtu5 = 'a'; };",
+	];
+
+	for (let i = 0z; i < len(failures); i += 1) {
+		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+	};
 };
 
 fn aggregates() void = {
