@@ -247,6 +247,18 @@ fn reject() void = {
 			void;
 		};"
 	) as exited != EXIT_SUCCESS);
+
+	assert(compile(
+		"fn test() void = {
+			let x = 3: (int | void) + 5: (int | void);
+		};"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = {
+			let x = 3: (int | void);
+			x += 5: (int | void);
+		};"
+	) as exited != EXIT_SUCCESS);
 };
 
 def val1: integer = 8u8;

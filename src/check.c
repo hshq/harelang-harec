@@ -720,10 +720,11 @@ check_expr_assert(struct context *ctx,
 }
 
 static void
-check_binarithm_op(struct context *ctx, struct expression *expr)
+check_binarithm_op(struct context *ctx, struct expression *expr,
+		enum binarithm_operator op)
 {
 	const struct type *dealiased = type_dealias(expr->result);
-	switch (expr->binarithm.op) {
+	switch (op) {
 	// Numeric arithmetic
 	case BIN_DIV:
 	case BIN_MINUS:
@@ -795,27 +796,18 @@ check_expr_assign(struct context *ctx,
 {
 	expr->type = EXPR_ASSIGN;
 	expr->result = &builtin_type_void;
-	struct expression *object = xcalloc(1, sizeof(struct expression));
-	struct expression *value = xcalloc(1, sizeof(struct expression));
-
-	check_expression(ctx, aexpr->assign.object, object, NULL);
-
 	expr->assign.op = aexpr->assign.op;
 
+	struct expression *object = xcalloc(1, sizeof(struct expression));
+	struct expression *value = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aexpr->assign.object, object, NULL);
 	check_expression(ctx, aexpr->assign.value, value, object->result);
+
 	if (object->type == EXPR_CONSTANT
 			&& object->result != &builtin_type_error) {
 		error(ctx, aexpr->assign.object->loc, expr,
 			"Cannot assign to constant");
 		return;
-	}
-
-	if (object->type == EXPR_SLICE) {
-		if (expr->assign.op != BIN_LEQUAL) {
-			error(ctx, aexpr->assign.object->loc, expr,
-				"Slice assignments may not have a binop");
-			return;
-		}
 	}
 	if (!type_is_assignable(object->result, value->result)) {
 		char *valtypename = gen_typename(value->result);
@@ -827,10 +819,12 @@ check_expr_assign(struct context *ctx,
 		free(objtypename);
 		return;
 	}
-	value = lower_implicit_cast(object->result, value);
+	if (expr->assign.op != BIN_LEQUAL) {
+		check_binarithm_op(ctx, object, expr->assign.op);
+	}
 
+	expr->assign.value = lower_implicit_cast(object->result, value);
 	expr->assign.object = object;
-	expr->assign.value = value;
 }
 
 static const struct type *
@@ -994,7 +988,7 @@ check_expr_binarithm(struct context *ctx,
 	expr->binarithm.lvalue = lower_implicit_cast(expr->result, lvalue);
 	expr->binarithm.rvalue = lower_implicit_cast(expr->result, rvalue);
 
-	check_binarithm_op(ctx, expr);
+	check_binarithm_op(ctx, expr, expr->binarithm.op);
 }
 
 static void
