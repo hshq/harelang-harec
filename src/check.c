@@ -720,6 +720,74 @@ check_expr_assert(struct context *ctx,
 }
 
 static void
+check_binarithm_op(struct context *ctx, struct expression *expr)
+{
+	const struct type *dealiased = type_dealias(expr->result);
+	switch (expr->binarithm.op) {
+	// Numeric arithmetic
+	case BIN_DIV:
+	case BIN_MINUS:
+	case BIN_PLUS:
+	case BIN_TIMES:
+		if (!type_is_numeric(dealiased)) {
+			error(ctx, expr->loc, expr,
+				"Cannot perform arithmetic on non-numeric %s type",
+				type_storage_unparse(dealiased->storage));
+		}
+		return;
+	// Integer artithmetic
+	case BIN_BAND:
+	case BIN_BOR:
+	case BIN_LSHIFT:
+	case BIN_MODULO:
+	case BIN_RSHIFT:
+	case BIN_BXOR:
+		if (!type_is_integer(dealiased)) {
+			error(ctx, expr->loc, expr,
+				"Cannot perform operation on non-integer %s type",
+				type_storage_unparse(dealiased->storage));
+		}
+		return;
+	// Logical arithmetic
+	case BIN_LAND:
+	case BIN_LOR:
+	case BIN_LXOR:
+		expr->result = &builtin_type_bool;
+		if (dealiased->storage != STORAGE_BOOL) {
+			error(ctx, expr->loc, expr,
+				"Cannot perform logical arithmetic on non-bool %s type",
+				type_storage_unparse(dealiased->storage));
+		}
+		return;
+	case BIN_GREATER:
+	case BIN_GREATEREQ:
+	case BIN_LESS:
+	case BIN_LESSEQ:
+		expr->result = &builtin_type_bool;
+		if (!type_is_numeric(dealiased)) {
+			error(ctx, expr->loc, expr,
+				"Cannot perform comparison on non-numeric %s type",
+				type_storage_unparse(dealiased->storage));
+		}
+		return;
+	case BIN_LEQUAL:
+	case BIN_NEQUAL:
+		expr->result = &builtin_type_bool;
+		if (!type_is_numeric(dealiased) &&
+				dealiased->storage != STORAGE_POINTER
+				&& dealiased->storage != STORAGE_STRING
+				&& dealiased->storage != STORAGE_BOOL
+				&& dealiased->storage != STORAGE_RCONST
+				&& dealiased->storage != STORAGE_RUNE) {
+			error(ctx, expr->loc, expr,
+				"Cannot perform equality test on %s dealiased",
+				type_storage_unparse(dealiased->storage));
+		}
+		return;
+	}
+}
+
+static void
 check_expr_assign(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
@@ -905,67 +973,15 @@ check_expr_binarithm(struct context *ctx,
 	expr->type = EXPR_BINARITHM;
 	expr->binarithm.op = aexpr->binarithm.op;
 
-	enum {
-		BT_INVALID = -1,
-		BT_NUMERIC,
-		BT_INTEGER,
-		BT_LOGICAL,
-		BT_COMPARISON,
-		BT_EQUALITY,
-	} btype;
-
-	btype = BT_INVALID;
-
-	switch (expr->binarithm.op) {
-	// Numeric arithmetic
-	case BIN_DIV:
-	case BIN_MINUS:
-	case BIN_PLUS:
-	case BIN_TIMES:
-		btype = BT_NUMERIC;
-		break;
-	// Integer artithmetic
-	case BIN_BAND:
-	case BIN_BOR:
-	case BIN_LSHIFT:
-	case BIN_MODULO:
-	case BIN_RSHIFT:
-	case BIN_BXOR:
-		btype = BT_INTEGER;
-		break;
-	// Logical arithmetic
-	case BIN_LAND:
-	case BIN_LOR:
-	case BIN_LXOR:
-		btype = BT_LOGICAL;
-		hint = NULL;
-		break;
-	case BIN_GREATER:
-	case BIN_GREATEREQ:
-	case BIN_LESS:
-	case BIN_LESSEQ:
-		btype = BT_COMPARISON;
-		hint = NULL;
-		break;
-	case BIN_LEQUAL:
-	case BIN_NEQUAL:
-		btype = BT_EQUALITY;
-		hint = NULL;
-		break;
-	}
-
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression)),
 		*rvalue = xcalloc(1, sizeof(struct expression));
-	struct ast_expression *alvalue = aexpr->binarithm.lvalue,
-		*arvalue = aexpr->binarithm.rvalue;
 	// XXX: Should hints be passed down?
 	(void)hint;
-	check_expression(ctx, alvalue, lvalue, NULL);
-	check_expression(ctx, arvalue, rvalue, NULL);
+	check_expression(ctx, aexpr->binarithm.lvalue, lvalue, NULL);
+	check_expression(ctx, aexpr->binarithm.rvalue, rvalue, NULL);
 
-	const struct type *p =
-		type_promote(ctx->store, lvalue->result, rvalue->result);
-	if (p == NULL) {
+	expr->result = type_promote(ctx->store, lvalue->result, rvalue->result);
+	if (expr->result == NULL) {
 		char *ltypename = gen_typename(lvalue->result);
 		char *rtypename = gen_typename(rvalue->result);
 		error(ctx, aexpr->loc, expr,
@@ -975,63 +991,10 @@ check_expr_binarithm(struct context *ctx,
 		free(rtypename);
 		return;
 	}
-	expr->result = &builtin_type_bool;
-	switch (btype) {
-	case BT_NUMERIC:
-		if (!type_is_numeric(p)) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot perform arithmetic on non-numeric %s type",
-				type_storage_unparse(type_dealias(p)->storage));
-			return;
-		}
-		expr->result = p;
-		break;
-	case BT_INTEGER:
-		if (!type_is_integer(p)) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot perform operation on non-integer %s type",
-				type_storage_unparse(type_dealias(p)->storage));
-			return;
-		}
-		expr->result = p;
-		break;
-	case BT_LOGICAL:
-		if (type_dealias(p)->storage != STORAGE_BOOL) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot perform logical arithmetic on non-bool %s type",
-				type_storage_unparse(type_dealias(p)->storage));
-			return;
-		}
-		break;
-	case BT_COMPARISON:
-		if (!type_is_numeric(p)) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot perform comparison on non-numeric %s type",
-				type_storage_unparse(type_dealias(p)->storage));
-			return;
-		}
-		break;
-	case BT_EQUALITY:
-		if (!type_is_numeric(p) && type_dealias(p)->storage != STORAGE_POINTER
-				&& type_dealias(p)->storage != STORAGE_STRING
-				&& type_dealias(p)->storage != STORAGE_BOOL
-				&& type_dealias(p)->storage != STORAGE_RCONST
-				&& type_dealias(p)->storage != STORAGE_RUNE) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot perform equality test on %s type",
-				type_storage_unparse(type_dealias(p)->storage));
-			return;
-		}
-		break;
-	case BT_INVALID:
-		abort();
-		break;
-	}
-	lvalue = lower_implicit_cast(p, lvalue);
-	rvalue = lower_implicit_cast(p, rvalue);
+	expr->binarithm.lvalue = lower_implicit_cast(expr->result, lvalue);
+	expr->binarithm.rvalue = lower_implicit_cast(expr->result, rvalue);
 
-	expr->binarithm.lvalue = lvalue;
-	expr->binarithm.rvalue = rvalue;
+	check_binarithm_op(ctx, expr);
 }
 
 static void
