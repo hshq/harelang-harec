@@ -2056,9 +2056,11 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 		val.lval = expr->constant.uval;
 		return val;
 	case Q_SINGLE:
+		pushc(ctx->current, "%f", (float)expr->constant.fval);
 		val.sval = (float)expr->constant.fval;
 		return val;
 	case Q_DOUBLE:
+		pushc(ctx->current, "%f", expr->constant.fval);
 		val.dval = expr->constant.fval;
 		return val;
 	case Q__VOID:
