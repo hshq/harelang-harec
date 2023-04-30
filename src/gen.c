@@ -2953,7 +2953,8 @@ gen_expr_slice_at(struct gen_context *ctx,
 	object = gen_autoderef(ctx, object);
 	const struct type *srctype = type_dealias(object.type);
 
-	bool check_bounds = !expr->slice.bounds_checked;
+	bool hasstart = expr->slice.start, hasend = expr->slice.end;
+	bool check_bounds = !expr->slice.bounds_checked && (hasstart || hasend);
 	struct gen_value length;
 	struct qbe_value qlength;
 	struct qbe_value qbase;
@@ -2988,7 +2989,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	}
 
 	struct gen_value start;
-	if (expr->slice.start) {
+	if (hasstart) {
 		start = gen_expr(ctx, expr->slice.start);
 	} else {
 		start = (struct gen_value){
@@ -2999,7 +3000,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	}
 
 	struct gen_value end;
-	if (expr->slice.end) {
+	if (hasend) {
 		end = gen_expr(ctx, expr->slice.end);
 	} else {
 		end = length;
@@ -3009,15 +3010,18 @@ gen_expr_slice_at(struct gen_context *ctx,
 	struct qbe_value qend = mkqval(ctx, &end);
 
 	if (check_bounds) {
-		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
-		struct qbe_value startend_oob = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-		pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlength, NULL);
-		pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
-		pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
-		pushi(ctx->current, &startend_oob, Q_CULEL, &qstart, &qend, NULL);
-		pushi(ctx->current, &valid, Q_AND, &valid, &startend_oob, NULL);
+		if (hasstart && hasend) {
+			pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qend, NULL);
+			pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
+			pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
+		} else if (hasstart) {
+			pushi(ctx->current, &valid, Q_CULEL, &qstart, &qlength, NULL);
+		} else if (hasend) {
+			pushi(ctx->current, &valid, Q_CULEL, &qend, &qlength, NULL);
+		}
 
 		struct qbe_statement linvalid, lvalid;
 		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
