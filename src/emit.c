@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <ctype.h>
-#include <float.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -94,16 +93,12 @@ emit_const(struct qbe_value *val, FILE *out)
 	case Q_BYTE:
 	case Q_HALF:
 	case Q_WORD:
-		fprintf(out, "%u", val->wval);
+	case Q_SINGLE:
+		fprintf(out, "%" PRIu32, val->wval);
 		break;
 	case Q_LONG:
-		fprintf(out, "%" PRIu64, val->lval);
-		break;
-	case Q_SINGLE:
-		fprintf(out, "s_%.*g", DECIMAL_DIG, val->sval);
-		break;
 	case Q_DOUBLE:
-		fprintf(out, "d_%.*g", DECIMAL_DIG, val->dval);
+		fprintf(out, "%" PRIu64, val->lval);
 		break;
 	case Q__VOID:
 	case Q__AGGREGATE:
