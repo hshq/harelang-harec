@@ -3,9 +3,19 @@ sources:
 - https://git.sr.ht/~sircmpwn/harec
 - git://c9x.me/qbe.git
 tasks:
+- signoff: |
+    cd harec
+    if [ "$BUILD_REASON" = "patchset" ]
+    then
+        if ! git log --format='%b' origin/master^^.. | grep 'Signed-off-by' >/dev/null
+        then
+            echo "Patch missing Signed-off-by"
+            exit 1
+        fi
+    fi
 - qbe: |
     cd qbe
-    make PREFIX=/usr
+    make -j2 PREFIX=/usr
     sudo make install PREFIX=/usr
 - prepare: |
     mkdir harec/build
