@@ -393,6 +393,18 @@ gen_alloc_slice_at(struct gen_context *ctx,
 		qcap = length;
 	}
 
+	// reused in next few blocks
+	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
+
+	struct qbe_statement lnotfits, lfits;
+	struct qbe_value bfits = mklabel(ctx, &lfits, ".%d");
+	struct qbe_value bnotfits = mklabel(ctx, &lnotfits, ".%d");
+	pushi(ctx->current, &cmpres, Q_CULEL, &length, &qcap, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bfits, &bnotfits, NULL);
+	push(&ctx->current->body, &lnotfits);
+	gen_fixed_abort(ctx, expr->loc, ABORT_CAP_TOO_SMALL);
+	push(&ctx->current->body, &lfits);
+
 	const struct type *sltype = type_dealias(expr->result);
 	struct qbe_value isize = constl(sltype->array.members->size);
 	struct qbe_value size = mkqtmp(ctx, ctx->arch.sz, ".%d");
@@ -404,7 +416,6 @@ gen_alloc_slice_at(struct gen_context *ctx,
 
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
 	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value zero = constl(0);
 	pushi(ctx->current, &data, Q_COPY, &zero, NULL);
 	pushi(ctx->current, &cmpres, Q_CNEL, &size, &zero, NULL);
