@@ -3627,6 +3627,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 	const struct ast_global_decl *decl = &idecl->decl.global;
 	const struct type *type = NULL;
 	bool context = false;
+	struct expression *init, *value = NULL;
 	if (decl->type) {
 		type = type_store_lookup_atype(ctx->store, decl->type);
 		context = decl->type->storage == STORAGE_ARRAY
@@ -3639,7 +3640,6 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 	}
 
-	struct expression *init, *value = NULL;
 	if (decl->init) {
 		init = xcalloc(1, sizeof(struct expression));
 		value = xcalloc(1, sizeof(struct expression));

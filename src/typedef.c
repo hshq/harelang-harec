@@ -353,8 +353,7 @@ emit_exported_type(const struct type *type, FILE *out, const char *ident)
 {
 	if (!emit_type(type, out)) {
 		// XXX: Hack
-		struct type *type = (struct type *)type;
-		type->alias.exported = true;
+		((struct type *)type)->alias.exported = true;
 		fprintf(stderr, "Cannot use unexported type ");
 		emit_type(type, stderr);
 		fprintf(stderr, " in exported declaration '%s'\n", ident);

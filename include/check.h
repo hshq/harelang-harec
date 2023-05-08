@@ -18,7 +18,6 @@ struct modcache {
 
 struct ast_expression;
 struct ast_unit;
-enum decl_type;
 
 struct errors {
 	struct location loc;
