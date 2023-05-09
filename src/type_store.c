@@ -77,8 +77,6 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 	switch (storage) {
 	case STORAGE_BOOL:
 		return is_const ? &builtin_type_const_bool : &builtin_type_bool;
-	case STORAGE_CHAR:
-		return is_const ? &builtin_type_const_char : &builtin_type_char;
 	case STORAGE_ERROR:
 		return &builtin_type_error;
 	case STORAGE_F32:
@@ -678,7 +676,6 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_NULL:
 		assert(0); // Invariant
 	case STORAGE_BOOL:
-	case STORAGE_CHAR:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_I8:

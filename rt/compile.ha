@@ -19,7 +19,7 @@ export fn compile(src: const str, flags: compileflag...) exit_status = {
 		close(2);
 
 		const path = "./harec\0";
-		let argv: []nullable *const char = [];
+		let argv: []nullable *const u8 = [];
 		append(argv, constchar(path));
 		for (let i = 0z; i < len(flags); i += 1) {
 			match (flags[i]) {
@@ -34,11 +34,11 @@ export fn compile(src: const str, flags: compileflag...) exit_status = {
 		append(argv, constchar("-\0"));
 		append(argv, null);
 
-		const envp: [_]nullable *const char = [
+		const envp: [_]nullable *const u8 = [
 			constchar("HARECACHE=mod\0"),
 			null
 		];
-		execve(constchar(path), *(&argv: **[*]nullable *const char), &envp);
+		execve(constchar(path), *(&argv: **[*]nullable *const u8), &envp);
 		abort();
 	} else {
 		assert(child != -1, "fork(2) failed");

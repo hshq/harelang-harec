@@ -27,7 +27,6 @@ enum lexical_token {
 	T_BOOL,
 	T_BREAK,
 	T_CASE,
-	T_CHAR,
 	T_CONST,
 	T_CONTINUE,
 	T_DEF,

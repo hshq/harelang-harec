@@ -9,10 +9,6 @@ export type other = enum {
 	EIGHT = 8: _enum,
 };
 
-export type char_enum = enum char {
-	ONE = 1,
-};
-
 export type enum_alias = _enum;
 export type error_enum = !_enum;
 

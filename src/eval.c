@@ -97,7 +97,6 @@ static uintmax_t
 itrunc(const struct type *type, uintmax_t val)
 {
 	switch (type->storage) {
-	case STORAGE_CHAR:
 	case STORAGE_U8:
 		return (uint8_t)val;
 	case STORAGE_U16:
@@ -472,7 +471,6 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 		}
 		break;
 	case STORAGE_BOOL:
-	case STORAGE_CHAR:
 	case STORAGE_ERROR:
 	case STORAGE_F32:
 	case STORAGE_F64:
@@ -662,7 +660,6 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 			*out->constant.tagged.value = val;
 		}
 		return EVAL_OK;
-	case STORAGE_CHAR:
 	case STORAGE_NULL:
 	case STORAGE_ALIAS:
 		assert(0); // Handled above
@@ -756,7 +753,6 @@ constant_default(struct context *ctx, struct expression *v)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
-	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_NULL:
 	case STORAGE_RCONST:
