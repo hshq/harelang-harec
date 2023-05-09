@@ -796,9 +796,12 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expression *expr)
 {
+	const struct type *sltype = expr->assign.object->result->array.members;
+	const struct qbe_type *slqtype = qtype_lookup(ctx, sltype, false);
+
 	struct gen_value obj = gen_expr(ctx, expr->assign.object);
 	struct qbe_value qobj = mkqval(ctx, &obj);
-	
+
 	// get the length of the copy
 	struct qbe_value step = constl(ctx->arch.ptr->size);
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
@@ -816,22 +819,22 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expressio
 	pushi(ctx->current, &cmpres, Q_CNEL, &olen, &zero, NULL);
 	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bnonzero, &bzero, NULL);
 	push(&ctx->current->body, &lnonzero);
-	
+
 	// get the destination
 	struct qbe_value odata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &odata, Q_LOADL, &qobj, NULL);
-	
+
 	// get the source
 	struct gen_value val = gen_expr(ctx, expr->assign.value);
 	struct qbe_value qval = mkqval(ctx, &val);
-	struct qbe_value vdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &vdata, Q_LOADL, &qval, NULL);
-	
+	struct qbe_value vdata = mkqtmp(ctx, slqtype, ".%d");
+	enum qbe_instr load = load_for_type(ctx, sltype);
+	pushi(ctx->current, &vdata, load, &qval, NULL);
+
 	// copy the first item
-	const struct type *sltype = expr->assign.object->result->array.members;
 	enum qbe_instr store = store_for_type(ctx, sltype);
 	pushi(ctx->current, NULL, store, &vdata, &odata, NULL);
-	
+
 	// perform the copy minus the first element
 	struct qbe_value isize = constl(sltype->size);
 	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");

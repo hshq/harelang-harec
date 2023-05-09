@@ -78,6 +78,9 @@ export fn main() void = {
 	case !void => abort();
 	};
 
+	let s: []f64 = [1.0, 2.0, 3.0];
+	s[..] = [0.0...];
+
 	assert(rt::compile("
 		fn a() void = switch (b) {
 		case &c => void;
