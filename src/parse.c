@@ -2474,22 +2474,23 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 			}
 		}
 		parse_identifier(lexer, &i->ident, false);
-		if (lex(lexer, &tok) == T_COLON) {
+		switch (lex(lexer, &tok)) {
+		case T_COLON:
 			i->type = parse_type(lexer);
 			if (mode == T_CONST) {
 				i->type->flags |= TYPE_CONST;
 			}
-		} else {
-			unlex(lexer, &tok);
-		}
-
-		if (mode == T_DEF) {
-			want(lexer, T_EQUAL, NULL);
+			if (lex(lexer, &tok) != T_EQUAL) {
+				synassert(mode != T_DEF, &tok, T_EQUAL, T_EOF);
+				unlex(lexer, &tok);
+				break;
+			}
+			/* fallthrough */
+		case T_EQUAL:
 			i->init = parse_expression(lexer);
-		} else if (lex(lexer, &tok) == T_EQUAL) {
-			i->init = parse_expression(lexer);
-		} else {
-			unlex(lexer, &tok);
+			break;
+		default:
+			synerr(&tok, T_EQUAL, T_COLON, T_EOF);
 		}
 
 		switch (lex(lexer, &tok)) {
@@ -2602,20 +2603,20 @@ parse_decl(struct lexer *lexer, struct ast_decl *decl)
 	switch (lex(lexer, &tok)) {
 	case T_CONST:
 	case T_LET:
-		decl->decl_type = AST_DECL_GLOBAL;
+		decl->decl_type = DECL_GLOBAL;
 		parse_global_decl(lexer, tok.token, &decl->global);
 		break;
 	case T_DEF:
-		decl->decl_type = AST_DECL_CONST;
+		decl->decl_type = DECL_CONST;
 		parse_global_decl(lexer, tok.token, &decl->constant);
 		break;
 	case T_TYPE:
-		decl->decl_type = AST_DECL_TYPE;
+		decl->decl_type = DECL_TYPE;
 		parse_type_decl(lexer, &decl->type);
 		break;
 	default:
 		unlex(lexer, &tok);
-		decl->decl_type = AST_DECL_FUNC;
+		decl->decl_type = DECL_FUNC;
 		parse_fn_decl(lexer, &decl->function);
 		break;
 	}

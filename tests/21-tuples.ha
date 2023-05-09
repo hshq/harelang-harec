@@ -1,6 +1,7 @@
 use rt::{compile, exited, EXIT_SUCCESS};
 
-def CONST: (int, str) = (15, "foo");
+def CONST1: (int, str) = (15, "foo");
+def CONST2: [_](int, str) = [(15, "foo"), (30, "bar")];
 
 fn storage() void = {
 	let x: (int, size) = (42, 1337);
@@ -25,7 +26,9 @@ fn indexing() void = {
 fn func(in: (int, size)) (int, size) = (in.0 + 1, in.1 + 1);
 fn eval_expr_access() void = {
 	static assert((42, 0).0 == 42 && (42, 0).1 == 0);
-	static assert(CONST.0 == 15 && CONST.1 == "foo");
+	static assert(CONST1.0 == 15 && CONST1.1 == "foo");
+	static assert(CONST2[0].0 == 15 && CONST2[0].1 == "foo");
+	static assert(CONST2[1].0 == 30 && CONST2[1].1 == "bar");
 };
 
 fn eval_expr_tuple() void = {

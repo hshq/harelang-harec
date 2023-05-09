@@ -38,6 +38,7 @@ struct context {
 	int id;
 	struct errors *errors;
 	struct errors **next;
+	struct declarations *decls;
 };
 
 struct constant_decl {
@@ -55,7 +56,7 @@ struct function_decl {
 	const struct type *type;
 	struct expression *body;
 	struct scope *scope;
-	unsigned int flags; // enum function_flags
+	unsigned int flags; // enum func_decl_flags
 };
 
 struct global_decl {
@@ -64,15 +65,8 @@ struct global_decl {
 	bool threadlocal;
 };
 
-enum declaration_type {
-	DECL_CONST,
-	DECL_FUNC,
-	DECL_GLOBAL,
-	DECL_TYPE,
-};
-
 struct declaration {
-	enum declaration_type type;
+	enum decl_type decl_type;
 	struct identifier ident;
 	struct location loc;
 	char *symbol;
@@ -81,12 +75,12 @@ struct declaration {
 		struct constant_decl constant;
 		struct function_decl func;
 		struct global_decl global;
-		const struct type *_type;
+		const struct type *type;
 	};
 };
 
 struct declarations {
-	struct declaration *decl;
+	struct declaration decl;
 	struct declarations *next;
 };
 

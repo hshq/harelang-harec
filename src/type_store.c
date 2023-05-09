@@ -398,7 +398,7 @@ tagged_or_atagged_member(struct type_store *store,
 		struct incomplete_declaration *idecl =
 			(struct incomplete_declaration *)obj;
 		if (idecl->type != IDECL_DECL
-				|| idecl->decl.decl_type != AST_DECL_TYPE) {
+				|| idecl->decl.decl_type != DECL_TYPE) {
 			error(store->check_context, _atype->loc,
 				"Object '%s' is not a type",
 				identifier_unparse(&obj->ident));

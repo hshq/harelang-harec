@@ -19,6 +19,11 @@ fn andorxor() void = {
 	assert((false || set(&x)) == true);
 	assert(x == 42);
 
+	static assert((false || false) == false);
+	static assert((false || true) == true);
+	static assert((true || false) == true);
+	static assert((true || true) == true);
+
 	let x = 0;
 	let f = false;
 	f ||= false;
@@ -40,6 +45,11 @@ fn andorxor() void = {
 	assert((true && set(&x)) == true);
 	assert(x == 42);
 
+	static assert((false && false) == false);
+	static assert((false && true) == false);
+	static assert((true && false) == false);
+	static assert((true && true) ==  true);
+
 	let x = 0;
 	let f = true;
 	f &&= true;
@@ -56,6 +66,11 @@ fn andorxor() void = {
 	assert((false ^^ true) == true);
 	assert((true ^^ false) == true);
 	assert((true ^^ true) == false);
+
+	static assert((false ^^ false) == false);
+	static assert((false ^^ true) == true);
+	static assert((true ^^ false) == true);
+	static assert((true ^^ true) == false);
 
 	let f = true;
 	f ^^= true;
@@ -90,6 +105,80 @@ fn sar_shr() void = {
 	assert(h1 == -189203912);
 };
 
+fn arithmetic() void = {
+	assert(1337 + 1234 == 2571);
+	assert(1337 - 1234 == 103);
+	assert(1234 - 1337 == -103);
+	assert(1337 * 1234 == 1649858);
+	assert(1337 / 1234 == 1);
+	assert(1234 / 1337 == 0);
+	assert(625 / 5 == 125);
+	assert(1337 % 1234 == 103);
+	assert(1234 % 1337 == 1234);
+	assert(625 % 5 == 0);
+	assert(2147483647i32 + 1 == -2147483648i32);
+	assert(-2147483648i32 - 1 == 2147483647i32);
+	assert(4294967295u32 + 1 == 0u32);
+	assert(0u32 - 1 == 4294967295u32);
+	assert(-1337 * 1234 == -1649858);
+	assert(1337 * -1234 == -1649858);
+	assert(-1337 * -1234 == 1649858);
+	assert(-1337 / 1234 == -1);
+	assert(1337 / -1234 == -1);
+	assert(-1337 / -1234 == 1);
+	assert(-1234 / 1337 == 0);
+	assert(1234 / -1337 == 0);
+	assert(-1234 / -1337 == 0);
+	assert(-625 / 5 == -125);
+	assert(625 / -5 == -125);
+	assert(-625 / -5 == 125);
+	assert(-1337 % 1234 == -103);
+	assert(1337 % -1234 == 103);
+	assert(-1337 % -1234 == -103);
+	assert(-1234 % 1337 == -1234);
+	assert(1234 % -1337 == 1234);
+	assert(-1234 % -1337 == -1234);
+	assert(-625 % 5 == 0);
+	assert(625 % -5 == 0);
+	assert(-625 % -5 == 0);
+
+	static assert(1337 + 1234 == 2571);
+	static assert(1337 - 1234 == 103);
+	static assert(1234 - 1337 == -103);
+	static assert(1337 * 1234 == 1649858);
+	static assert(1337 / 1234 == 1);
+	static assert(1234 / 1337 == 0);
+	static assert(625 / 5 == 125);
+	static assert(1337 % 1234 == 103);
+	static assert(1234 % 1337 == 1234);
+	static assert(625 % 5 == 0);
+	static assert(2147483647i32 + 1 == -2147483648i32);
+	static assert(-2147483648i32 - 1 == 2147483647i32);
+	static assert(4294967295u32 + 1 == 0u32);
+	static assert(0u32 - 1 == 4294967295u32);
+	static assert(-1337 * 1234 == -1649858);
+	static assert(1337 * -1234 == -1649858);
+	static assert(-1337 * -1234 == 1649858);
+	static assert(-1337 / 1234 == -1);
+	static assert(1337 / -1234 == -1);
+	static assert(-1337 / -1234 == 1);
+	static assert(-1234 / 1337 == 0);
+	static assert(1234 / -1337 == 0);
+	static assert(-1234 / -1337 == 0);
+	static assert(-625 / 5 == -125);
+	static assert(625 / -5 == -125);
+	static assert(-625 / -5 == 125);
+	static assert(-1337 % 1234 == -103);
+	static assert(1337 % -1234 == 103);
+	static assert(-1337 % -1234 == -103);
+	static assert(-1234 % 1337 == -1234);
+	static assert(1234 % -1337 == 1234);
+	static assert(-1234 % -1337 == -1234);
+	static assert(-625 % 5 == 0);
+	static assert(625 % -5 == 0);
+	static assert(-625 % -5 == 0);
+};
+
 def FLOAT: f64 = 6.0 * 7.0;
 def I8: i8 = 127 * 2;
 def U8: u8 = 128 * 2;
@@ -110,11 +199,20 @@ fn eval() void = {
 	assert(B == -125i8);
 	assert(I32 == -2147483645i32);
 	assert(ALIAS == 2);
+
+	static assert(FLOAT == 42.0);
+	static assert(I8 == -2i8);
+	static assert(U8 == 0);
+	static assert(A == -125i8);
+	static assert(B == -125i8);
+	static assert(I32 == -2147483645i32);
+	static assert(ALIAS == 2);
 };
 
 export fn main() void = {
 	// TODO: other binarithms
 	andorxor();
 	sar_shr();
+	arithmetic();
 	eval();
 };

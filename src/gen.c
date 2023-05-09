@@ -796,9 +796,12 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expression *expr)
 {
+	const struct type *sltype = expr->assign.object->result->array.members;
+	const struct qbe_type *slqtype = qtype_lookup(ctx, sltype, false);
+
 	struct gen_value obj = gen_expr(ctx, expr->assign.object);
 	struct qbe_value qobj = mkqval(ctx, &obj);
-	
+
 	// get the length of the copy
 	struct qbe_value step = constl(ctx->arch.ptr->size);
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
@@ -816,22 +819,22 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expressio
 	pushi(ctx->current, &cmpres, Q_CNEL, &olen, &zero, NULL);
 	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bnonzero, &bzero, NULL);
 	push(&ctx->current->body, &lnonzero);
-	
+
 	// get the destination
 	struct qbe_value odata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &odata, Q_LOADL, &qobj, NULL);
-	
+
 	// get the source
 	struct gen_value val = gen_expr(ctx, expr->assign.value);
 	struct qbe_value qval = mkqval(ctx, &val);
-	struct qbe_value vdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &vdata, Q_LOADL, &qval, NULL);
-	
+	struct qbe_value vdata = mkqtmp(ctx, slqtype, ".%d");
+	enum qbe_instr load = load_for_type(ctx, sltype);
+	pushi(ctx->current, &vdata, load, &qval, NULL);
+
 	// copy the first item
-	const struct type *sltype = expr->assign.object->result->array.members;
 	enum qbe_instr store = store_for_type(ctx, sltype);
 	pushi(ctx->current, NULL, store, &vdata, &odata, NULL);
-	
+
 	// perform the copy minus the first element
 	struct qbe_value isize = constl(sltype->size);
 	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
@@ -1058,7 +1061,7 @@ gen_expr_binding_unpack_static(struct gen_context *ctx,
 		assert(unpack->object->otype == O_DECL);
 
 		struct declaration decl = {
-			.type = DECL_GLOBAL,
+			.decl_type = DECL_GLOBAL,
 			.ident = unpack->object->ident,
 			.global = {
 				.type = unpack->object->type,
@@ -1133,7 +1136,7 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		if (binding->object->otype == O_DECL) {
 			// static binding
 			struct declaration decl = {
-				.type = DECL_GLOBAL,
+				.decl_type = DECL_GLOBAL,
 				.ident = binding->object->ident,
 				.global = {
 					.type = binding->object->type,
@@ -2953,7 +2956,8 @@ gen_expr_slice_at(struct gen_context *ctx,
 	object = gen_autoderef(ctx, object);
 	const struct type *srctype = type_dealias(object.type);
 
-	bool check_bounds = !expr->slice.bounds_checked;
+	bool hasstart = expr->slice.start, hasend = expr->slice.end;
+	bool check_bounds = !expr->slice.bounds_checked && (hasstart || hasend);
 	struct gen_value length;
 	struct qbe_value qlength;
 	struct qbe_value qbase;
@@ -2988,7 +2992,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	}
 
 	struct gen_value start;
-	if (expr->slice.start) {
+	if (hasstart) {
 		start = gen_expr(ctx, expr->slice.start);
 	} else {
 		start = (struct gen_value){
@@ -2999,7 +3003,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	}
 
 	struct gen_value end;
-	if (expr->slice.end) {
+	if (hasend) {
 		end = gen_expr(ctx, expr->slice.end);
 	} else {
 		end = length;
@@ -3009,15 +3013,18 @@ gen_expr_slice_at(struct gen_context *ctx,
 	struct qbe_value qend = mkqval(ctx, &end);
 
 	if (check_bounds) {
-		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
-		struct qbe_value startend_oob = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-		pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlength, NULL);
-		pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
-		pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
-		pushi(ctx->current, &startend_oob, Q_CULEL, &qstart, &qend, NULL);
-		pushi(ctx->current, &valid, Q_AND, &valid, &startend_oob, NULL);
+		if (hasstart && hasend) {
+			pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qend, NULL);
+			pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlength, NULL);
+			pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
+		} else if (hasstart) {
+			pushi(ctx->current, &valid, Q_CULEL, &qstart, &qlength, NULL);
+		} else if (hasend) {
+			pushi(ctx->current, &valid, Q_CULEL, &qend, &qlength, NULL);
+		}
 
 		struct qbe_statement linvalid, lvalid;
 		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
@@ -3738,7 +3745,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 static void
 gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 {
-	assert(decl->type == DECL_GLOBAL);
+	assert(decl->decl_type == DECL_GLOBAL);
 	const struct global_decl *global = &decl->global;
 	if (!global->value) {
 		return; // Forward declaration
@@ -3756,7 +3763,7 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 static void
 gen_decl(struct gen_context *ctx, const struct declaration *decl)
 {
-	switch (decl->type) {
+	switch (decl->decl_type) {
 	case DECL_FUNC:
 		gen_function_decl(ctx, decl);
 		break;
@@ -3784,7 +3791,7 @@ gen(const struct unit *unit, struct type_store *store, struct qbe_program *out)
 	ctx.out->next = &ctx.out->defs;
 	const struct declarations *decls = unit->declarations;
 	while (decls) {
-		gen_decl(&ctx, decls->decl);
+		gen_decl(&ctx, &decls->decl);
 		decls = decls->next;
 	}
 }

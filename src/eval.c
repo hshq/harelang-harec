@@ -214,12 +214,12 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		if (type_is_float(lvalue.result)) {
 			fval = ftrunc(lvalue.result, flval) / ftrunc(rvalue.result, frval);
 		} else if (type_is_signed(lvalue.result)) {
-			uintmax_t r = itrunc(rvalue.result, irval);
+			intmax_t r = itrunc(rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			ival = itrunc(lvalue.result, ilval) / r;
+			ival = (intmax_t)itrunc(lvalue.result, ilval) / r;
 		} else {
 			assert(type_is_integer(lvalue.result));
 			uintmax_t r = itrunc(rvalue.result, urval);
@@ -249,19 +249,19 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	case BIN_MODULO:
 		assert(type_is_integer(lvalue.result));
 		if (type_is_signed(lvalue.result)) {
-			uintmax_t r = itrunc(rvalue.result, irval);
+			intmax_t r = itrunc(rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			ival = itrunc(lvalue.result, ilval) % itrunc(rvalue.result, irval);
+			ival = (intmax_t)itrunc(lvalue.result, ilval) % r;
 		} else {
 			uintmax_t r = itrunc(rvalue.result, urval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			uval = itrunc(lvalue.result, ulval) % itrunc(rvalue.result, urval);
+			uval = itrunc(lvalue.result, ulval) % r;
 		}
 		break;
 	case BIN_PLUS:
@@ -284,7 +284,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		if (type_is_float(lvalue.result)) {
 			fval = ftrunc(lvalue.result, flval) * ftrunc(rvalue.result, frval);
 		} else if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) * itrunc(rvalue.result, irval);
+			ival = (intmax_t)itrunc(lvalue.result, ilval)
+				* (intmax_t)itrunc(rvalue.result, irval);
 		} else {
 			assert(type_is_integer(lvalue.result));
 			uval = itrunc(lvalue.result, ulval) * itrunc(rvalue.result, urval);

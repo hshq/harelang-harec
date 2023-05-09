@@ -80,6 +80,10 @@ fn reject() void = {
 
 		"let x: size = size(fn(x: int) int);",
 		"let x: size = align(fn(x: int) int);",
+
+		// @test functions are always typechecked
+		"@test fn test() void = 42 + \"foo\";"
+		"let x: int = 4;", // ensure there is at least one declaration
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
