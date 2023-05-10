@@ -19,9 +19,9 @@ static void
 synassert_msg(bool cond, const char *msg, struct token *tok)
 {
 	if (!cond) {
-		fprintf(stderr, "Syntax error: %s at %s:%d:%d (found '%s')\n", msg,
+		fprintf(stderr, "%s:%d:%d: syntax error: %s (found '%s')\n",
 			sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
-			token_str(tok));
+			msg, token_str(tok));
 		errline(sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
 		exit(EXIT_FAILURE);
 	}
@@ -32,9 +32,9 @@ vsynerr(struct token *tok, va_list ap)
 {
 	enum lexical_token t = va_arg(ap, enum lexical_token);
 	fprintf(stderr,
-		"Syntax error: unexpected '%s' at %s:%d:%d%s",
-		token_str(tok), sources[tok->loc.file], tok->loc.lineno,
-		tok->loc.colno, t == T_EOF ? "\n" : ", expected " );
+		"%s:%d:%d: syntax error: unexpected '%s' %s",
+		sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
+		token_str(tok), t == T_EOF ? "\n" : ", expected " );
 	while (t != T_EOF) {
 		if (t == T_LITERAL || t == T_NAME) {
 			fprintf(stderr, "%s", lexical_token_str(t));

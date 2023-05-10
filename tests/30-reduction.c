@@ -47,7 +47,7 @@ void test(struct context *ctx, const char *expected, const char *input) {
 
 	struct errors *error = ctx->errors;
 	while (error) {
-		fprintf(stderr, "Error %s:%d:%d: %s\n", sources[error->loc.file],
+		fprintf(stderr, "%s:%d:%d: error: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
 		struct errors *next = error->next;
 		free(error);
