@@ -152,7 +152,6 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	case STORAGE_ENUM:
 	case STORAGE_ERROR:
 	case STORAGE_ALIAS:
-	case STORAGE_CHAR:
 	case STORAGE_I8:
 	case STORAGE_U8:
 	case STORAGE_I16:
@@ -191,7 +190,6 @@ qtype_lookup(struct gen_context *ctx,
 	switch (type->storage) {
 	case STORAGE_U8:
 	case STORAGE_I8:
-	case STORAGE_CHAR:
 	case STORAGE_BOOL:
 		return xtype ? &qbe_byte : &qbe_word;
 	case STORAGE_I16:
@@ -247,7 +245,6 @@ type_is_aggregate(const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_BOOL:
-	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_F32:
 	case STORAGE_F64:

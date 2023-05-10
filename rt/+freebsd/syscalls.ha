@@ -24,9 +24,9 @@ export @noreturn fn exit(status: int) void = { syscall1(SYS_exit, status: u64); 
 export fn fork() int = syscall0(SYS_fork): int;
 
 export fn execve(
-	path: *const char,
-	argv: *[*]nullable *const char,
-	envp: *[*]nullable *const char,
+	path: *const u8,
+	argv: *[*]nullable *const u8,
+	envp: *[*]nullable *const u8,
 ) int = syscall3(SYS_execve,
 	path: uintptr: u64,
 	argv: uintptr: u64,

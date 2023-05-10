@@ -21,19 +21,19 @@ fn storage() void = {
 		tag: uint,
 		union { _u8: u8, _u16: u16, _u32: u32, _u64: u64 },
 	};
-	assert(y.tag == 1906196061); // u8 type ID
+	assert(y.tag == 3481467866); // u8 type ID
 	assert(y._u8 == 42);
 
 	x = 1337u16;
-	assert(y.tag == 2206074632); // u16 type ID
+	assert(y.tag == 2843771249); // u16 type ID
 	assert(y._u16 == 1337);
 
 	x = 0xCAFEBABEu32;
-	assert(y.tag == 4119164483); // u32 type ID
+	assert(y.tag == 2206074632); // u32 type ID
 	assert(y._u32 == 0xCAFEBABE);
 
 	x = 0xCAFEBABEDEADBEEFu64;
-	assert(y.tag == 3481467866); // u64 type ID
+	assert(y.tag == 4119164483); // u64 type ID
 	assert(y._u64 == 0xCAFEBABEDEADBEEF);
 };
 
@@ -98,9 +98,9 @@ fn membercast() void = {
 		id: uint,
 		data: int,
 	};
-	assert(p.id == 2543892678);
+	assert(p.id == 3181589295);
 	x = 1337;
-	assert(p.id == 1099590421);
+	assert(p.id == 2674862226);
 	assert(p.data == 1337);
 
 	// Align of 4
@@ -112,10 +112,10 @@ fn membercast() void = {
 			fdata: f32,
 		},
 	};
-	assert(p.id == 1099590421);
+	assert(p.id == 2674862226);
 	assert(p.data.idata == 1337);
 	x = 13.37f32;
-	assert(p.id == 1568378015);
+	assert(p.id == 3950255460);
 	assert(p.data.fdata == 13.37f32);
 
 	// Align of 8
@@ -124,7 +124,7 @@ fn membercast() void = {
 		id: uint,
 		data: size,
 	};
-	assert(p.id == 1737287038);
+	assert(p.id == 2374983655);
 	assert(p.data == 1337z);
 };
 
@@ -140,7 +140,7 @@ fn subsetcast() void = {
 			i: int,
 		},
 	};
-	assert(p.tag == 1737287038);
+	assert(p.tag == 2374983655);
 	assert(p.data.z == 1337z);
 	// superset -> subset
 	let x: (size | void | int) = 2z;
@@ -159,7 +159,7 @@ fn subsetcast() void = {
 			i: int,
 		},
 	};
-	assert(p.tag == 1099590421);
+	assert(p.tag == 2674862226);
 	assert(p.data.i == 1337);
 	// superset -> subset
 	let x: (size | int | void) = 2i;

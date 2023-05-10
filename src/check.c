@@ -893,7 +893,6 @@ type_promote(struct type_store *store,
 	case STORAGE_UINT:
 	case STORAGE_SIZE:
 	case STORAGE_U8:
-	case STORAGE_CHAR:
 		if (!type_is_integer(db) || type_is_signed(db)
 				|| db->size == da->size) {
 			return NULL;
@@ -1699,7 +1698,6 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_FCONST:
 		expr->constant.fval = aexpr->constant.fval;
 		break;
-	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_ERROR:
 	case STORAGE_UINTPTR:

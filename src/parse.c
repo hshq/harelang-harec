@@ -349,8 +349,6 @@ parse_integer_type(struct lexer *lexer)
 		return STORAGE_SIZE;
 	case T_UINTPTR:
 		return STORAGE_UINTPTR;
-	case T_CHAR:
-		return STORAGE_CHAR;
 	default:
 		assert(0);
 	}
@@ -374,7 +372,6 @@ parse_primitive_type(struct lexer *lexer)
 	case T_UINT:
 	case T_SIZE:
 	case T_UINTPTR:
-	case T_CHAR:
 		unlex(lexer, &tok);
 		type->storage = parse_integer_type(lexer);
 		break;
@@ -434,7 +431,6 @@ parse_enum_type(struct identifier *ident, struct lexer *lexer)
 	case T_UINT:
 	case T_SIZE:
 	case T_UINTPTR:
-	case T_CHAR:
 		unlex(lexer, &tok);
 		type->_enum.storage = parse_integer_type(lexer);
 		break;
@@ -656,7 +652,6 @@ parse_type(struct lexer *lexer)
 	bool _noreturn = false, nullable = false, unwrap = false;
 	switch (lex(lexer, &tok)) {
 	case T_BOOL:
-	case T_CHAR:
 	case T_F32:
 	case T_F64:
 	case T_I16:
@@ -801,7 +796,6 @@ parse_constant(struct lexer *lexer)
 	}
 
 	switch (tok.storage) {
-	case STORAGE_CHAR:
 	case STORAGE_U8:
 	case STORAGE_U16:
 	case STORAGE_U32:

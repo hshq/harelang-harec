@@ -14,7 +14,6 @@ fn dimensions() void = {
 	assert(size(size) % align(size) == 0);
 	assert(size(uintptr) % align(uintptr) == 0);
 	// etc
-	assert(size(char) == 1 && align(char) == 1 && size(char) % align(char) == 0);
 	assert(size(rune) == 4 && align(rune) == 4 && size(rune) % align(rune) == 0);
 };
 

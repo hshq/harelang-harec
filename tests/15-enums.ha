@@ -36,11 +36,6 @@ type with_storage = enum u16 {
 	BEEF = 0xBEEF,
 };
 
-type char_storage = enum char {
-	FOO = 0,
-	BAR = 1,
-};
-
 type rune_storage = enum rune {
 	FOO = '0',
 	BAR = '1',
@@ -67,7 +62,6 @@ fn storage() void = {
 	assert(with_storage::BABE: u8 == (if (is_little) 0xBEu8 else 0xBAu8));
 	assert(with_storage::DEAD: u8 == (if (is_little) 0xADu8 else 0xDEu8));
 	assert(with_storage::BEEF: u8 == (if (is_little) 0xEFu8 else 0xBEu8));
-	assert(char_storage::FOO == 0 && char_storage::BAR == 1);
 	assert(rune_storage::FOO == '0' && rune_storage::BAR == '1');
 };
 

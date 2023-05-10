@@ -1683,7 +1683,6 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	enum type_storage fstor = type_dealias(from)->storage,
 		tstor = type_dealias(to)->storage;
 	switch (tstor) {
-	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_U8:
 	case STORAGE_I8:
@@ -3516,7 +3515,6 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	switch (type->storage) {
 	case STORAGE_I8:
 	case STORAGE_U8:
-	case STORAGE_CHAR:
 		item->type = QD_VALUE;
 		item->value = constw((uint8_t)constant->uval);
 		item->value.type = &qbe_byte;

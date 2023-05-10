@@ -126,8 +126,6 @@ type_storage_unparse(enum type_storage storage)
 		return "array";
 	case STORAGE_BOOL:
 		return "bool";
-	case STORAGE_CHAR:
-		return "char";
 	case STORAGE_ENUM:
 		return "enum";
 	case STORAGE_F32:
@@ -217,7 +215,6 @@ type_is_integer(const struct type *type)
 	case STORAGE_FCONST:
 	case STORAGE_VALIST:
 		return false;
-	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_ERROR:
 	case STORAGE_I8:
@@ -255,7 +252,6 @@ type_is_numeric(const struct type *type)
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
 	case STORAGE_BOOL:
-	case STORAGE_CHAR:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_NULL:
@@ -316,7 +312,6 @@ type_is_signed(const struct type *type)
 	case STORAGE_TUPLE:
 	case STORAGE_UNION:
 	case STORAGE_BOOL:
-	case STORAGE_CHAR:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_NULL:
@@ -363,7 +358,6 @@ type_hash(const struct type *type)
 	hash = fnv1a(hash, type->flags);
 	switch (type->storage) {
 	case STORAGE_BOOL:
-	case STORAGE_CHAR:
 	case STORAGE_ERROR:
 	case STORAGE_F32:
 	case STORAGE_F64:
@@ -828,8 +822,6 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_ALIAS:
 		assert(to->alias.type);
 		return type_is_assignable(to->alias.type, from);
-	case STORAGE_STRING:
-		return to->id == builtin_type_ptr_const_char.id;
 	case STORAGE_VOID:
 		return to_orig->id == from_orig->id &&
 			(from_orig->flags & TYPE_ERROR)	== (to_orig->flags & TYPE_ERROR);
@@ -874,11 +866,11 @@ type_is_assignable(const struct type *to, const struct type *from)
 	// The following types are only assignable from themselves, and are
 	// handled above:
 	case STORAGE_BOOL:
-	case STORAGE_CHAR:
 	case STORAGE_ENUM:
 	case STORAGE_FUNCTION:
 	case STORAGE_NULL:
 	case STORAGE_RUNE:
+	case STORAGE_STRING:
 	case STORAGE_STRUCT:
 	case STORAGE_TUPLE:
 	case STORAGE_UINTPTR:
@@ -960,17 +952,12 @@ type_is_castable(const struct type *to, const struct type *from)
 		return to->storage == STORAGE_ENUM || type_is_numeric(to)
 			? to_orig : NULL;
 	case STORAGE_U8:
-		return to->storage == STORAGE_ENUM
-			|| type_is_numeric(to)
-			|| to->storage == STORAGE_CHAR
+		return to->storage == STORAGE_ENUM || type_is_numeric(to)
 			? to_orig : NULL;
 	case STORAGE_U32:
 		return to->storage == STORAGE_ENUM
 			|| type_is_numeric(to)
 			|| to->storage == STORAGE_RUNE
-			? to_orig : NULL;
-	case STORAGE_CHAR:
-		return to->storage == STORAGE_U8
 			? to_orig : NULL;
 	case STORAGE_RUNE:
 		return to->storage == STORAGE_U32
@@ -1048,8 +1035,6 @@ builtin_types_init(const char *target)
 		builtin_type_const_uintptr.align = 8;
 		builtin_type_const_size.size = 8;
 		builtin_type_const_size.align = 8;
-		builtin_type_ptr_const_char.size = 8;
-		builtin_type_ptr_const_char.align = 8;
 		builtin_type_str.size = 24;
 		builtin_type_str.align = 8;
 		builtin_type_const_str.size = 24;
@@ -1075,8 +1060,6 @@ builtin_types_init(const char *target)
 		builtin_type_const_uintptr.align = 8;
 		builtin_type_const_size.size = 8;
 		builtin_type_const_size.align = 8;
-		builtin_type_ptr_const_char.size = 8;
-		builtin_type_ptr_const_char.align = 8;
 		builtin_type_str.size = 24;
 		builtin_type_str.align = 8;
 		builtin_type_const_str.size = 24;
@@ -1102,8 +1085,6 @@ builtin_types_init(const char *target)
 		builtin_type_const_uintptr.align = 8;
 		builtin_type_const_size.size = 8;
 		builtin_type_const_size.align = 8;
-		builtin_type_ptr_const_char.size = 8;
-		builtin_type_ptr_const_char.align = 8;
 		builtin_type_str.size = 24;
 		builtin_type_str.align = 8;
 		builtin_type_const_str.size = 24;
@@ -1115,23 +1096,22 @@ builtin_types_init(const char *target)
 		exit(EXIT_FAILURE);
 	}
 	struct type *builtins[] = {
-		&builtin_type_bool, &builtin_type_char, &builtin_type_error,
-		&builtin_type_f32, &builtin_type_f64, &builtin_type_i8,
-		&builtin_type_i16, &builtin_type_i32, &builtin_type_i64,
-		&builtin_type_int, &builtin_type_u8, &builtin_type_u16,
-		&builtin_type_u32, &builtin_type_u64, &builtin_type_uint,
-		&builtin_type_uintptr, &builtin_type_null, &builtin_type_rune,
-		&builtin_type_size, &builtin_type_void,
-		&builtin_type_const_bool, &builtin_type_const_char,
-		&builtin_type_const_f32, &builtin_type_const_f64,
-		&builtin_type_const_i8, &builtin_type_const_i16,
-		&builtin_type_const_i32, &builtin_type_const_i64,
-		&builtin_type_const_int, &builtin_type_const_u8,
-		&builtin_type_const_u16, &builtin_type_const_u32,
-		&builtin_type_const_u64, &builtin_type_const_uint,
-		&builtin_type_const_uintptr, &builtin_type_const_rune,
-		&builtin_type_const_size, &builtin_type_const_void,
-		&builtin_type_ptr_const_char, &builtin_type_str,
+		&builtin_type_bool, &builtin_type_error, &builtin_type_f32,
+		&builtin_type_f64, &builtin_type_i8, &builtin_type_i16,
+		&builtin_type_i32, &builtin_type_i64, &builtin_type_int,
+		&builtin_type_u8, &builtin_type_u16, &builtin_type_u32,
+		&builtin_type_u64, &builtin_type_uint, &builtin_type_uintptr,
+		&builtin_type_null, &builtin_type_rune, &builtin_type_size,
+		&builtin_type_void,
+		&builtin_type_const_bool, &builtin_type_const_f32,
+		&builtin_type_const_f64, &builtin_type_const_i8,
+		&builtin_type_const_i16, &builtin_type_const_i32,
+		&builtin_type_const_i64, &builtin_type_const_int,
+		&builtin_type_const_u8, &builtin_type_const_u16,
+		&builtin_type_const_u32, &builtin_type_const_u64,
+		&builtin_type_const_uint, &builtin_type_const_uintptr,
+		&builtin_type_const_rune, &builtin_type_const_size,
+		&builtin_type_const_void, &builtin_type_str,
 		&builtin_type_const_str, &builtin_type_valist,
 	};
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
@@ -1142,11 +1122,6 @@ builtin_types_init(const char *target)
 // Built-in type singletons
 struct type builtin_type_bool = {
 	.storage = STORAGE_BOOL,
-	.size = 1,
-	.align = 1,
-},
-builtin_type_char = {
-	.storage = STORAGE_CHAR,
 	.size = 1,
 	.align = 1,
 },
@@ -1232,12 +1207,6 @@ builtin_type_void = {
 },
 builtin_type_const_bool = {
 	.storage = STORAGE_BOOL,
-	.flags = TYPE_CONST,
-	.size = 1,
-	.align = 1,
-},
-builtin_type_const_char = {
-	.storage = STORAGE_CHAR,
 	.flags = TYPE_CONST,
 	.size = 1,
 	.align = 1,
@@ -1332,13 +1301,7 @@ builtin_type_const_void = {
 };
 
 // Others
-struct type builtin_type_ptr_const_char = {
-	.storage = STORAGE_POINTER,
-	.pointer = {
-		.referent = &builtin_type_const_char,
-	},
-},
-builtin_type_str = {
+struct type builtin_type_str = {
 	.storage = STORAGE_STRING,
 },
 builtin_type_const_str = {

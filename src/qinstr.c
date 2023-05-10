@@ -26,7 +26,6 @@ enum qbe_instr
 store_for_type(struct gen_context *ctx, const struct type *type)
 {
 	switch (type->storage) {
-	case STORAGE_CHAR:
 	case STORAGE_I8:
 	case STORAGE_U8:
 	case STORAGE_BOOL:
@@ -93,7 +92,6 @@ load_for_type(struct gen_context *ctx, const struct type *type)
 	switch (type->storage) {
 	case STORAGE_I8:
 		return Q_LOADSB;
-	case STORAGE_CHAR:
 	case STORAGE_U8:
 	case STORAGE_BOOL:
 		return Q_LOADUB;

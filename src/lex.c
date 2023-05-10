@@ -34,7 +34,6 @@ static const char *tokens[] = {
 	[T_BOOL] = "bool",
 	[T_BREAK] = "break",
 	[T_CASE] = "case",
-	[T_CHAR] = "char",
 	[T_CONST] = "const",
 	[T_CONTINUE] = "continue",
 	[T_DEFER] = "defer",
@@ -1141,7 +1140,6 @@ token_str(const struct token *tok)
 		case STORAGE_ALIAS:
 		case STORAGE_ARRAY:
 		case STORAGE_BOOL:
-		case STORAGE_CHAR:
 		case STORAGE_ENUM:
 		case STORAGE_ERROR:
 		case STORAGE_FUNCTION:

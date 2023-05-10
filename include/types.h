@@ -8,7 +8,6 @@ enum type_storage {
 	// Built-in types
 	// The order of these is important
 	STORAGE_BOOL,
-	STORAGE_CHAR,
 	STORAGE_F32,
 	STORAGE_F64,
 	STORAGE_I16,
@@ -204,7 +203,6 @@ void builtin_types_init(const char *target);
 extern struct type
 	// Primitive
 	builtin_type_bool,
-	builtin_type_char,
 	builtin_type_error,
 	builtin_type_f32,
 	builtin_type_f64,
@@ -225,7 +223,6 @@ extern struct type
 	builtin_type_void,
 	// Const primitives
 	builtin_type_const_bool,
-	builtin_type_const_char,
 	builtin_type_const_f32,
 	builtin_type_const_f64,
 	builtin_type_const_i8,
@@ -243,7 +240,6 @@ extern struct type
 	builtin_type_const_size,
 	builtin_type_const_void,
 	// etc
-	builtin_type_ptr_const_char,
 	builtin_type_str,
 	builtin_type_const_str,
 	builtin_type_valist;

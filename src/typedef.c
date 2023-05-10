@@ -14,8 +14,6 @@ static const char *
 storage_to_suffix(enum type_storage storage)
 {
 	switch (storage) {
-	case STORAGE_CHAR:
-		return "";
 	case STORAGE_F32:
 		return "f32";
 	case STORAGE_F64:
@@ -124,9 +122,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_ENUM: {
 		const struct type *t = type_dealias(expr->result);
 		char *ident = identifier_unparse(&expr->result->alias.ident);
-		if (t->alias.type->storage == STORAGE_CHAR) {
-			fprintf(out, "%" PRIuMAX, val->uval);
-		} else if (t->alias.type->storage == STORAGE_UINTPTR) {
+		if (t->alias.type->storage == STORAGE_UINTPTR) {
 			fprintf(out, "%" PRIuMAX ": uintptr", val->uval);
 		} else if (type_is_signed(t->alias.type)) {
 			fprintf(out, "%" PRIiMAX "%s: %s", val->ival,
@@ -168,7 +164,6 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_ALIAS:
-	case STORAGE_CHAR:
 	case STORAGE_ERROR:
 	case STORAGE_FUNCTION:
 	case STORAGE_POINTER:
@@ -236,7 +231,6 @@ emit_type(const struct type *type, FILE *out)
 	char *ident;
 	switch (type->storage) {
 	case STORAGE_BOOL:
-	case STORAGE_CHAR:
 	case STORAGE_ERROR:
 	case STORAGE_F32:
 	case STORAGE_F64:
