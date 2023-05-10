@@ -1,3 +1,5 @@
+use rt::{compile, exited, EXIT_SUCCESS};
+
 fn measurements() void = {
 	const x = "Hello!";
 	assert(len(x) == 6);
@@ -67,10 +69,25 @@ fn raw() void = {
 	assert(`hello \" world` == "hello \\\" world");
 };
 
+fn reject() void = {
+	assert(compile(`
+		fn f() void = {
+			let x = "asdf" + "fdsa";
+		};
+	`) as exited != EXIT_SUCCESS);
+	assert(compile(`
+		fn f() void = {
+			let x = "asdf";
+			x += "fdsa";
+		};
+	`) as exited != EXIT_SUCCESS);
+};
+
 export fn main() void = {
 	measurements();
 	storage();
 	concat();
 	equality();
 	raw();
+	reject();
 };

@@ -192,7 +192,14 @@ fn invariants() void = {
 	// Members of undefined size before last
 	"type s = struct { x: [*]int, a: str };",
 	// Members of size 0
-	"type s = struct { x: void, a: str };"
+	"type s = struct { x: void, a: str };",
+
+	// No arithmetic on structs
+	"type s = struct { a: int };"
+	"fn f() void = { let x = s { a = 3 } + s { a = 5 }; };",
+
+	"type s = struct { a: int };"
+	"fn f() void = { let x = s { a = 3 }; x += s { a = 5 }; };",
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		assert(compile(failures[i]) as exited != EXIT_SUCCESS);

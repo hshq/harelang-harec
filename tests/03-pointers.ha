@@ -139,6 +139,46 @@ fn reject() void = {
 			*a;
 		};
 	") as exited != EXIT_SUCCESS);
+
+	// arithmetic on pointer types is not allowed
+	assert(compile(`
+		fn f() void = {
+			let a = &12i + &8i;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn f() void = {
+			let a = &12i + 8i: uintptr;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn f() void = {
+			let a = &12i + 8i;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn f() void = {
+			let a = &12i;
+			a += &8i;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn f() void = {
+			let a = &12i;
+			a += 8i: uintptr;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn f() void = {
+			let a = &12i;
+			a += 8i;
+		};
+	`) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {

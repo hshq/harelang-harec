@@ -180,6 +180,10 @@ fn reject() void = {
 		"fn t() void = { let a = (0, 1, 2); a.-1; };",
 		"fn t() void = { let a = (0, 1, 2).3; };",
 		"fn t() void = { let a = (0, 1, 2).-1; };",
+
+		// arithmetic on tuples
+		"fn t() void = { let a = (0, 1) + (2, 3); };",
+		"fn t() void = { let a = (0, 1); a += (2, 3); };",
 	];
 
 	for (let i = 0z; i < len(tests); i += 1) {

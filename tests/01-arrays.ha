@@ -83,6 +83,13 @@ fn assignment() void = {
 			a = &b;
 		};
 	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn f() void = {
+			let a = [1u, 2u, 3u];
+			a += [3u, 2u, 1u];
+		};
+	`) as exited != EXIT_SUCCESS);
 };
 
 fn param(x: [3]int) void = {

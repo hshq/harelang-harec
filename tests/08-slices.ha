@@ -101,6 +101,9 @@ fn assignment() void = {
 	assert(compile(
 		"export fn main() void = { let a: []int = [1]; a[..] += a; };"
 	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn f() void = { let a: []int = [1] + [2];"
+	) as exited != EXIT_SUCCESS);
 };
 
 fn assert_slice_eq(actual: []int, expected: []int) void = {

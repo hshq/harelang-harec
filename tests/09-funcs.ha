@@ -84,6 +84,10 @@ fn reject() void = {
 		// @test functions are always typechecked
 		"@test fn test() void = 42 + \"foo\";"
 		"let x: int = 4;", // ensure there is at least one declaration
+
+		"fn f(x: int) void = void;"
+		"fn g(x: int) void = void;"
+		"fn test() void = { f + g; };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
