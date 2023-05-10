@@ -34,11 +34,7 @@ export fn compile(src: const str, flags: compileflag...) exit_status = {
 		append(argv, constchar("-\0"));
 		append(argv, null);
 
-		const envp: [_]nullable *const u8 = [
-			constchar("HARECACHE=mod\0"),
-			null
-		];
-		execve(constchar(path), *(&argv: **[*]nullable *const u8), &envp);
+		execve(constchar(path), *(&argv: **[*]nullable *const u8), envp);
 		abort();
 	} else {
 		assert(child != -1, "fork(2) failed");

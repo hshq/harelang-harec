@@ -7,6 +7,8 @@ harec: $(harec_objects)
 	@printf 'CCLD\t$@\n'
 	@$(CC) $(LDFLAGS) -o $@ $(harec_objects) $(LIBS)
 
+hare_env=
+
 include rt/Makefile
 include testmod/Makefile
 include tests/Makefile
