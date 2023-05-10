@@ -24,35 +24,6 @@ usage(const char *argv_0)
 		argv_0);
 }
 
-enum stage {
-	STAGE_LEX,
-	STAGE_PARSE,
-	STAGE_CHECK,
-	STAGE_GEN,
-	STAGE_EMIT,
-};
-
-static enum stage
-parse_stage(const char *s)
-{
-	if (s == NULL) {
-		return STAGE_EMIT;
-	} else if (strcmp(s, "lex") == 0) {
-		return STAGE_LEX;
-	} else if (strcmp(s, "parse") == 0) {
-		return STAGE_PARSE;
-	} else if (strcmp(s, "check") == 0) {
-		return STAGE_CHECK;
-	} else if (strcmp(s, "gen") == 0) {
-		return STAGE_GEN;
-	} else if (strcmp(s, "emit") == 0) {
-		return STAGE_EMIT;
-	} else {
-		fprintf(stderr, "Unknown HA_STAGE value '%s'\n", s);
-		exit(EXIT_FAILURE);
-	}
-}
-
 static struct ast_global_decl *
 parse_define(const char *argv_0, const char *in)
 {
@@ -139,7 +110,6 @@ main(int argc, char *argv[])
 	struct ast_unit aunit = {0};
 	struct ast_subunit *subunit = &aunit.subunits;
 	struct ast_subunit **next = &aunit.subunits.next;
-	enum stage stage = parse_stage(getenv("HA_STAGE"));
 
 	sources = xcalloc(ninputs + 2, sizeof(char **));
 	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * ninputs);
@@ -169,29 +139,17 @@ main(int argc, char *argv[])
 		}
 
 		lex_init(&lexer, in,  i + 1);
-		if (stage == STAGE_LEX) {
-			struct token tok;
-			while (lex(&lexer, &tok) != T_EOF);
-		} else {
-			parse(&lexer, subunit);
-			if (i + 1 < ninputs) {
-				*next = xcalloc(1, sizeof(struct ast_subunit));
-				subunit = *next;
-				next = &subunit->next;
-			}
+		parse(&lexer, subunit);
+		if (i + 1 < ninputs) {
+			*next = xcalloc(1, sizeof(struct ast_subunit));
+			subunit = *next;
+			next = &subunit->next;
 		}
 		lex_finish(&lexer);
 	}
 
-	if (stage == STAGE_PARSE || stage == STAGE_LEX) {
-		return EXIT_SUCCESS;
-	}
-
 	static struct type_store ts = {0};
 	check(&ts, is_test, defines, &aunit, &unit);
-	if (stage == STAGE_CHECK) {
-		return EXIT_SUCCESS;
-	}
 
 	if (typedefs) {
 		FILE *out = fopen(typedefs, "w");
@@ -206,9 +164,6 @@ main(int argc, char *argv[])
 
 	struct qbe_program prog = {0};
 	gen(&unit, &ts, &prog);
-	if (stage == STAGE_GEN) {
-		return EXIT_SUCCESS;
-	}
 
 	FILE *out;
 	if (!output) {

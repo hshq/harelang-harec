@@ -893,6 +893,9 @@ type_promote(struct type_store *store,
 	case STORAGE_UINT:
 	case STORAGE_SIZE:
 	case STORAGE_U8:
+		if (da->storage == STORAGE_SIZE && db->storage == STORAGE_UINTPTR) {
+			return db;
+		}
 		if (!type_is_integer(db) || type_is_signed(db)
 				|| db->size == da->size) {
 			return NULL;
@@ -908,6 +911,9 @@ type_promote(struct type_store *store,
 		if (db->storage == STORAGE_NULL) {
 			return a;
 		}
+		if (db->storage == STORAGE_UINTPTR) {
+			return a;
+		};
 		if (db->storage != STORAGE_POINTER) {
 			return NULL;
 		}
@@ -926,13 +932,22 @@ type_promote(struct type_store *store,
 		assert(r == NULL);
 		return NULL;
 	case STORAGE_NULL:
-		assert(db->storage != STORAGE_NULL);
-		if (db->storage == STORAGE_POINTER) {
+		if (db->storage == STORAGE_POINTER
+				|| db->storage == STORAGE_UINTPTR) {
 			return b;
 		}
 		return NULL;
 	case STORAGE_ERROR:
 		return b;
+	case STORAGE_UINTPTR:
+		if (db->storage == STORAGE_SIZE
+				|| db->storage == STORAGE_NULL) {
+			return a;
+		}
+		if (db->storage == STORAGE_POINTER) {
+			return b;
+		}
+		return NULL;
 	// Cannot be promoted
 	case STORAGE_BOOL:
 	case STORAGE_FUNCTION:
@@ -942,7 +957,6 @@ type_promote(struct type_store *store,
 	case STORAGE_STRUCT:
 	case STORAGE_TAGGED:
 	case STORAGE_TUPLE:
-	case STORAGE_UINTPTR:
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
 	case STORAGE_VOID:

@@ -787,8 +787,6 @@ type_is_assignable(const struct type *to, const struct type *from)
 		to_secondary = type_dealias(to->pointer.referent);
 		to_secondary = strip_flags(to_secondary, &_to_secondary);
 		switch (from->storage) {
-		case STORAGE_UINTPTR:
-			return true;
 		case STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case STORAGE_POINTER:
