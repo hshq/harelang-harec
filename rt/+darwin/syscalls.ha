@@ -33,9 +33,9 @@ export fn fork() int = sys_fork(SYS_fork): int;
 // };
 
 export fn execve(
-	path: *const char,
-	argv: *[*]nullable *const char,
-	envp: *[*]nullable *const char,
+	path: *const u8,
+	argv: *[*]nullable *const u8,
+	envp: *[*]nullable *const u8,
 ) int = syscall3(SYS_execve,
 	path: uintptr: u64,
 	argv: uintptr: u64,
