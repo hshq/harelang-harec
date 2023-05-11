@@ -683,10 +683,17 @@ static enum eval_result
 eval_measurement(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_MEASURE);
+	const struct type *expr_type;
 	struct expression obj = {0};
 	enum eval_result res;
 	switch (in->measure.op) {
 	case M_LEN:
+		expr_type = type_dealias(type_dereference(in->measure.value->result));
+		if (expr_type->storage == STORAGE_ARRAY) {
+			out->constant.uval = expr_type->array.length;
+			return EVAL_OK;
+		}
+
 		res = eval_expr(ctx, in->measure.value, &obj);
 		if (res != EVAL_OK) {
 			return res;
