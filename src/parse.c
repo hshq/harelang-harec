@@ -254,22 +254,43 @@ parse_imports(struct lexer *lexer, struct ast_subunit *subunit)
 static void
 parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 {
-	struct token tok = {0};
+	struct token tok = {0}, tok2 = {0};
 	bool more = true;
 	type->params = mkfuncparams(&lexer->loc);
 	struct ast_function_parameters *next = type->params;
 	while (more) {
 		switch (lex(lexer, &tok)) {
-		case T_UNDERSCORE:
-			break;
 		case T_NAME:
-			next->name = tok.name; // Assumes ownership
+			// Assumes ownership of tok.name.
+			switch (lex(lexer, &tok2)) {
+			case T_COLON:
+				next->name = tok.name;
+				next->type = parse_type(lexer);
+				break;
+			case T_DOUBLE_COLON:
+				next->type = parse_type(lexer);
+				synassert(next->type->storage == STORAGE_ALIAS,
+						&tok, T_NAME, T_EOF);
+				struct identifier *ident =
+					xcalloc(1, sizeof(struct identifier));
+				struct identifier *ns;
+				ident->name = tok.name;
+				for (ns = &next->type->alias; ns->ns; ns = ns->ns);
+				ns->ns = ident;
+				break;
+			default:
+				unlex(lexer, &tok2);
+				next->type = mktype(&tok.loc);
+				next->type->storage = STORAGE_ALIAS;
+				next->type->alias.name = tok.name;
+				break;
+			}
 			break;
 		default:
-			synerr(&tok, T_UNDERSCORE, T_NAME, T_EOF);
+			unlex(lexer, &tok);
+			next->type = parse_type(lexer);
+			break;
 		}
-		want(lexer, T_COLON, NULL);
-		next->type = parse_type(lexer);
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
