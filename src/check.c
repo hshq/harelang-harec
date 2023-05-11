@@ -54,7 +54,7 @@ handle_errors(struct errors *errors)
 	struct errors *error = errors;
 	bool first = true;
 	while (error) {
-		fprintf(stderr, "Error %s:%d:%d: %s\n", sources[error->loc.file],
+		fprintf(stderr, "%s:%d:%d: error: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
 		if (first) {
 			errline(sources[error->loc.file], error->loc.lineno, error->loc.colno);

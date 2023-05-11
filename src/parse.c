@@ -19,9 +19,9 @@ static void
 synassert_msg(bool cond, const char *msg, struct token *tok)
 {
 	if (!cond) {
-		fprintf(stderr, "Syntax error: %s at %s:%d:%d (found '%s')\n", msg,
+		fprintf(stderr, "%s:%d:%d: syntax error: %s (found '%s')\n",
 			sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
-			token_str(tok));
+			msg, token_str(tok));
 		errline(sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
 		exit(EXIT_FAILURE);
 	}
@@ -32,9 +32,9 @@ vsynerr(struct token *tok, va_list ap)
 {
 	enum lexical_token t = va_arg(ap, enum lexical_token);
 	fprintf(stderr,
-		"Syntax error: unexpected '%s' at %s:%d:%d%s",
-		token_str(tok), sources[tok->loc.file], tok->loc.lineno,
-		tok->loc.colno, t == T_EOF ? "\n" : ", expected " );
+		"%s:%d:%d: syntax error: unexpected '%s' %s",
+		sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
+		token_str(tok), t == T_EOF ? "\n" : ", expected " );
 	while (t != T_EOF) {
 		if (t == T_LITERAL || t == T_NAME) {
 			fprintf(stderr, "%s", lexical_token_str(t));
@@ -254,22 +254,43 @@ parse_imports(struct lexer *lexer, struct ast_subunit *subunit)
 static void
 parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 {
-	struct token tok = {0};
+	struct token tok = {0}, tok2 = {0};
 	bool more = true;
 	type->params = mkfuncparams(&lexer->loc);
 	struct ast_function_parameters *next = type->params;
 	while (more) {
 		switch (lex(lexer, &tok)) {
-		case T_UNDERSCORE:
-			break;
 		case T_NAME:
-			next->name = tok.name; // Assumes ownership
+			// Assumes ownership of tok.name.
+			switch (lex(lexer, &tok2)) {
+			case T_COLON:
+				next->name = tok.name;
+				next->type = parse_type(lexer);
+				break;
+			case T_DOUBLE_COLON:
+				next->type = parse_type(lexer);
+				synassert(next->type->storage == STORAGE_ALIAS,
+						&tok, T_NAME, T_EOF);
+				struct identifier *ident =
+					xcalloc(1, sizeof(struct identifier));
+				struct identifier *ns;
+				ident->name = tok.name;
+				for (ns = &next->type->alias; ns->ns; ns = ns->ns);
+				ns->ns = ident;
+				break;
+			default:
+				unlex(lexer, &tok2);
+				next->type = mktype(&tok.loc);
+				next->type->storage = STORAGE_ALIAS;
+				next->type->alias.name = tok.name;
+				break;
+			}
 			break;
 		default:
-			synerr(&tok, T_UNDERSCORE, T_NAME, T_EOF);
+			unlex(lexer, &tok);
+			next->type = parse_type(lexer);
+			break;
 		}
-		want(lexer, T_COLON, NULL);
-		next->type = parse_type(lexer);
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
