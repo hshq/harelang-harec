@@ -1,13 +1,13 @@
-fn syscall0(_: u64) u64;
-fn syscall1(_: u64, _: u64) u64;
-fn syscall2(_: u64, _: u64, _: u64) u64;
-fn syscall3(_: u64, _: u64, _: u64, _: u64) u64;
-fn syscall4(_: u64, _: u64, _: u64, _: u64, _: u64) u64;
-fn syscall5(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64) u64;
-fn syscall6(_: u64, _: u64, _: u64, _: u64, _: u64, _: u64, _: u64) u64;
+fn syscall0(u64) u64;
+fn syscall1(u64, u64) u64;
+fn syscall2(u64, u64, u64) u64;
+fn syscall3(u64, u64, u64, u64) u64;
+fn syscall4(u64, u64, u64, u64, u64) u64;
+fn syscall5(u64, u64, u64, u64, u64, u64) u64;
+fn syscall6(u64, u64, u64, u64, u64, u64, u64) u64;
 
-fn sys_pipe(_: u64, _: u64) u64;
-fn sys_fork(_: u64) u64;
+fn sys_pipe(u64, u64) u64;
+fn sys_fork(u64) u64;
 
 export fn write(fd: int, buf: *const void, count: size) size =
 	syscall3(SYS_write, fd: u64, buf: uintptr: u64, count: u64): size;
