@@ -85,12 +85,17 @@ main(int argc, char *argv[])
 			break;
 		case 'N':
 			unit.ns = xcalloc(1, sizeof(struct identifier));
-			FILE *in = fmemopen(optarg, strlen(optarg), "r");
-			const char *ns = "-N";
-			sources = &ns;
-			lex_init(&lexer, in, 0);
-			parse_identifier(&lexer, unit.ns, false);
-			lex_finish(&lexer);
+			if (strlen(optarg) == 0) {
+				unit.ns->name = "";
+				unit.ns->ns = NULL;
+			} else {
+				FILE *in = fmemopen(optarg, strlen(optarg), "r");
+				const char *ns = "-N";
+				sources = &ns;
+				lex_init(&lexer, in, 0);
+				parse_identifier(&lexer, unit.ns, false);
+				lex_finish(&lexer);
+			}
 			break;
 		case 'h':
 		default:

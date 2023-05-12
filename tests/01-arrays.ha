@@ -26,12 +26,21 @@ fn indexing() void = {
 	") as exited != EXIT_SUCCESS);
 };
 
+type array_alias = [3]int;
+
 fn measurements() void = {
 	let x = [1, 2, 3];
 	assert(len(x) == 3);
 	assert(size([3]int) == size(int) * 3);
 
+	static assert(len(x) == 3);
+	static assert(len(&x) == 3);
 	static assert(len([1, 2, 3]) == 3);
+
+	let y: array_alias = x;
+
+	static assert(len(y) == 3);
+	static assert(len(&y) == 3);
 
 	assert(align([_]i8) == 1);
 	assert(align([_]i16) == 2);
