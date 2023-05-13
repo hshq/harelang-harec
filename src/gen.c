@@ -1906,7 +1906,7 @@ gen_const_string_at(struct gen_context *ctx,
 	def->kind = Q_DATA;
 	def->data.align = ALIGN_UNDEFINED;
 	def->data.items.type = QD_STRING;
-	def->data.items.str = xcalloc(1, len);
+	def->data.items.str = xcalloc(len, 1);
 	memcpy(def->data.items.str, val, len);
 	def->data.items.sz = len;
 
@@ -3581,7 +3581,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 		def->kind = Q_DATA;
 		def->data.align = ALIGN_UNDEFINED;
 		def->data.items.type = QD_STRING;
-		def->data.items.str = xcalloc(1, expr->constant.string.len);
+		def->data.items.str = xcalloc(expr->constant.string.len, 1);
 		def->data.items.sz = expr->constant.string.len;
 		memcpy(def->data.items.str, expr->constant.string.value,
 			expr->constant.string.len);

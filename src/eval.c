@@ -411,8 +411,8 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 		for (struct array_constant *arr = in->constant.array; arr;
 				arr = arr->next) {
 			struct array_constant *aconst = *anext =
-				xcalloc(sizeof(struct array_constant), 1);
-			aconst->value = xcalloc(sizeof(struct expression), 1);
+				xcalloc(1, sizeof(struct array_constant));
+			aconst->value = xcalloc(1, sizeof(struct expression));
 			enum eval_result r =
 				eval_expr(ctx, arr->value, aconst->value);
 			if (r != EVAL_OK) {
