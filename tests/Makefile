@@ -1,4 +1,4 @@
 check:
-	@./tests/run
+	@$(hare_env) ./tests/run
 
 .PHONY: check clean-tests

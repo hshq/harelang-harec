@@ -14,52 +14,14 @@
 #include "type_store.h"
 #include "util.h"
 
-static char *
-ident_to_env(const struct identifier *ident)
+void
+write_ident(FILE *out, const struct identifier *ident)
 {
 	if (ident->ns) {
-		char *ns = ident_to_env(ident->ns);
-		if (!ns) {
-			return NULL;
-		}
-		int n = snprintf(NULL, 0, "%s_%s", ns, ident->name);
-		char *str = xcalloc(1, n + 1);
-		snprintf(str, n + 1, "%s_%s", ns, ident->name);
-		free(ns);
-		return str;
-	}
-	return xstrdup(ident->name);
-}
-
-
-static const char *
-open_typedefs(struct identifier *ident)
-{
-	char *env = ident_to_env(ident);
-	char versenv[PATH_MAX+1];
-	snprintf(versenv, sizeof(versenv), "HARE_VERSION_%s", env);
-
-	char *version = getenv(versenv);
-	if (!version) {
-		version = env;
-	} else {
-		version = xstrdup(version);
-		free(env);
-	}
-
-	const struct pathspec paths[] = {
-		{.var = "HARECACHE", .path = "/%s/%s.td"},
-		{.var = "XDG_CACHE_HOME", .path = "/hare/%s/%s.td"},
-		{.var = "HOME", .path = "/.cache/hare/%s/%s.td"}
+		write_ident(out, ident->ns);
+		fprintf(out, "::");
 	};
-	char *pathfmt = getpath(paths, sizeof(paths) / sizeof(paths[0]));
-	assert(pathfmt);
-
-	static char path[PATH_MAX+1];
-	const char *ipath = ident_to_path(ident);
-	snprintf(path, sizeof(path), pathfmt, ipath, version);
-	free(version);
-	return path;
+	fprintf(out, "%s", ident->name);
 }
 
 struct scope *
@@ -79,7 +41,19 @@ module_resolve(struct modcache *cache[],
 	struct lexer lexer = {0};
 	struct ast_unit aunit = {0};
 
-	const char *path = open_typedefs(ident);
+	char env[PATH_MAX+1];
+	FILE *envf = fmemopen(&env, sizeof(env), "w");
+	fprintf(envf, "HARE_TD_");
+	write_ident(envf, ident);
+	fclose(envf);
+
+	char *path = getenv(env);
+	if (!path) {
+		fprintf(stderr, "Could not open module '%s': typedef variable $%s not set\n",
+			identifier_unparse(ident), env);
+		exit(EXIT_FAILURE);
+	}
+
 	FILE *f = fopen(path, "r");
 	if (!f) {
 		fprintf(stderr, "Could not open module '%s' for reading from %s: %s\n",

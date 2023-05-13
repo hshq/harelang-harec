@@ -10,10 +10,12 @@ libhart_srcs+=\
 	rt/rtmain.ha \
 	rt/strcmp.ha
 
+hare_env+=HARE_TD_rt=$(HARECACHE)/rt/rt.td
+
 libhart.a: harec $(libhart_srcs) $(libhart_objs) $(rtstart)
 	@printf 'HAREC\t$@\n'
 	@mkdir -p $(HARECACHE)/rt
-	@./harec -Nrt -t$(HARECACHE)/rt/rt.td -o $@.ssa $(libhart_srcs)
+	@$(hare_env) ./harec -Nrt -t$(HARECACHE)/rt/rt.td -o $@.ssa $(libhart_srcs)
 	@$(QBE) -o $@.s $@.ssa
 	@$(AS) -o $@.o $@.s
 	@$(AR) -csr $@ $@.o $(libhart_objs)

@@ -104,23 +104,6 @@ gen_name(int *id, const char *fmt)
 	return str;
 }
 
-char *
-getpath(const struct pathspec *paths, size_t npaths) {
-	for (size_t i = 0; i < npaths; i++) {
-		const char *var = "";
-		if (paths[i].var) {
-			var = getenv(paths[i].var);
-		}
-		if (var) {
-			char *out = calloc(1,
-				strlen(var) + strlen(paths[i].path) + 1);
-			strcat(strcat(out, var), paths[i].path);
-			return out;
-		}
-	}
-	return NULL;
-}
-
 int
 errline(const char* path, int lineno, int colno)
 {
