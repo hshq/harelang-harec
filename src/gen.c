@@ -762,8 +762,6 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 {
-	assert(expr->assert.message); // Invariant
-	struct gen_value msg;
 	struct qbe_statement failedl, passedl;
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.abort");
 	if (expr->assert.cond) {
@@ -773,8 +771,14 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 		struct qbe_value qcond = mkqval(ctx, &cond);
 		pushi(ctx->current, NULL, Q_JNZ, &qcond, &bpassed, &bfailed, NULL);
 		push(&ctx->current->body, &failedl);
-		msg = gen_expr(ctx, expr->assert.message);
-	} else {
+	}
+
+	struct gen_value msg, gloc;
+	if (expr->assert.message) {
+		struct expression eloc;
+		mkstrconst(&eloc, "%s:%d:%d", sources[expr->loc.file],
+			expr->loc.lineno, expr->loc.colno);
+		gloc = gen_expr(ctx, &eloc);
 		msg = gen_expr(ctx, expr->assert.message);
 	}
 
@@ -782,8 +786,12 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 		gen_defers(ctx, scope);
 	}
 
-	struct qbe_value qmsg = mkqval(ctx, &msg);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qmsg, NULL);
+	if (expr->assert.message) {
+		struct qbe_value qmsg = mkqval(ctx, &msg), qloc = mkqval(ctx, &gloc);
+		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qloc, &qmsg, NULL);
+	} else {
+		gen_fixed_abort(ctx, expr->loc, ABORT_ANON_ASSERTION_FAILED);
+	}
 
 	if (expr->assert.cond) {
 		push(&ctx->current->body, &passedl);

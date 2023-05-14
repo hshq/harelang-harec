@@ -648,6 +648,7 @@ check_expr_assert(struct context *ctx,
 	const struct type *hint)
 {
 	expr->result = &builtin_type_void;
+	expr->type = EXPR_ASSERT;
 
 	struct location loc;
 	if (aexpr->assert.cond != NULL) {
@@ -662,20 +663,37 @@ check_expr_assert(struct context *ctx,
 		loc = aexpr->loc;
 		expr->terminates = !aexpr->assert.is_static;
 	}
+	if (aexpr->assert.message != NULL) {
+		expr->assert.message = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
+		if (type_dealias(expr->assert.message->result)->storage != STORAGE_STRING) {
+			error(ctx, aexpr->assert.message->loc, expr,
+				"Assertion message must be string");
+			return;
+		}
+	}
 
 	if (aexpr->assert.is_static) {
 		expr->type = EXPR_CONSTANT;
 		bool cond = false;
 		if (expr->assert.cond != NULL) {
-			struct expression out = {0};
+			struct expression out = {0}, msgout = {0};
 			enum eval_result r =
 				eval_expr(ctx, expr->assert.cond, &out);
 			if (r != EVAL_OK) {
 				error(ctx, aexpr->assert.cond->loc, expr,
-					"Unable to evaluate static assertion at compile time");
+					"Unable to evaluate static assertion condition at compile time");
 				return;
 			}
-			assert(out.result->storage == STORAGE_BOOL);
+			if (expr->assert.message) {
+				r = eval_expr(ctx, expr->assert.message, &msgout);
+				if (r != EVAL_OK) {
+					error(ctx, aexpr->assert.message->loc, expr,
+						"Unable to evaluate static assertion message at compile time");
+					return;
+				}
+			}
+			assert(type_dealias(out.result)->storage == STORAGE_BOOL);
 			cond = out.constant.bval;
 		}
 		// XXX: Should these abort immediately?
@@ -688,27 +706,6 @@ check_expr_assert(struct context *ctx,
 				error(ctx, loc, expr, "Static assertion failed");
 			}
 		}
-		return;
-	}
-
-	expr->type = EXPR_ASSERT;
-	expr->assert.message = xcalloc(1, sizeof(struct expression));
-	if (aexpr->assert.message != NULL) {
-		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
-		if (expr->assert.message->result->storage != STORAGE_STRING) {
-			error(ctx, aexpr->assert.message->loc, expr,
-				"Assertion message must be string");
-			return;
-		}
-
-		assert(expr->assert.message->type == EXPR_CONSTANT);
-		mkstrconst(expr->assert.message, "%s:%d:%d: %.*s",
-			sources[loc.file], loc.lineno, loc.colno,
-			expr->assert.message->constant.string.len,
-			expr->assert.message->constant.string.value);
-	} else {
-		mkstrconst(expr->assert.message, "Assertion failed: %s:%d:%d",
-			sources[loc.file], loc.lineno, loc.colno);
 	}
 }
 

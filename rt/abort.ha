@@ -1,6 +1,9 @@
-export @noreturn @symbol("rt.abort") fn _abort(msg: str) void = {
+export @noreturn @symbol("rt.abort") fn _abort(loc: str, msg: str) void = {
 	const prefix = "Abort: ";
+	const sep = ": ";
 	write(2, constchar(prefix), len(prefix));
+	write(2, constchar(loc), len(loc));
+	write(2, constchar(sep), len(sep));
 	write(2, constchar(msg), len(msg));
 	write(2, constchar("\n"), 1);
 	kill(getpid(), SIGABRT);
@@ -14,6 +17,7 @@ const reasons: [_]str = [
 	"static append exceeds slice capacity",	// 3
 	"unreachable code",			// 4
 	"slice allocation capacity smaller than initializer"	// 5
+	"assertion failed",			// 6
 ];
 
 export @noreturn fn abort_fixed(loc: str, i: int) void = {
