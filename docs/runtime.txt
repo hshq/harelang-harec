@@ -12,6 +12,7 @@ harec expects the runtime to provide some features under the "rt" namespace.
 	2: Out of memory
 	3: Static append exceeds slice capacity
 	4: Unreachable code
+	5: Slice allocation capacity smaller than initializer
 
 fn memcpy(dest: *void, src: *void, n: size) void;
 	Copy "n" bytes from "src" to "dest". The memory areas shall not
