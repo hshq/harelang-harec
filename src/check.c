@@ -32,6 +32,28 @@ mkident(struct context *ctx, struct identifier *out, const struct identifier *in
 	}
 }
 
+size_t
+mkstrconst(struct expression *expr, const char *fmt, ...)
+{
+	va_list ap1, ap2;
+	va_start(ap1, fmt);
+	size_t n = vsnprintf(NULL, 0, fmt, ap1);
+	va_end(ap1);
+	char *s = xcalloc(1, n + 1);
+	va_start(ap2, fmt);
+	vsnprintf(s, n + 1, fmt, ap2);
+	va_end(ap2);
+
+	*expr = (struct expression) {
+		.type = EXPR_CONSTANT,
+		.terminates = false,
+		.result = &builtin_type_const_str,
+	};
+	expr->constant.string.value = s;
+	expr->constant.string.len = n;
+	return n;
+}
+
 static char *
 gen_typename(const struct type *type)
 {
@@ -651,31 +673,17 @@ check_expr_assert(struct context *ctx,
 		}
 
 		assert(expr->assert.message->type == EXPR_CONSTANT);
-		size_t n = snprintf(NULL, 0, "%s:%d:%d: ",
+		char fmt[48];
+		snprintf(fmt, 48, "%%s:%%d:%%d: %%.%zds",
+				expr->assert.message->constant.string.len);
+		mkstrconst(expr->assert.message, fmt,
 			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-		size_t s_len = expr->assert.message->constant.string.len;
-		char *s = xcalloc(1, n + s_len + 1);
-		snprintf(s, n + 1, "%s:%d:%d: ", sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-		memcpy(s+n, expr->assert.message->constant.string.value, s_len);
-		s[n + s_len] = '\0';
-
-		expr->assert.message->constant.string.value = s;
-		expr->assert.message->constant.string.len = n + s_len;
+			aexpr->loc.lineno, aexpr->loc.colno,
+			expr->assert.message->constant.string.value);
 	} else {
-		int n = snprintf(NULL, 0, "Assertion failed: %s:%d:%d",
+		mkstrconst(expr->assert.message, "Assertion failed: %s:%d:%d",
 			sources[aexpr->loc.file],
 			aexpr->loc.lineno, aexpr->loc.colno);
-		char *s = xcalloc(1, n + 1);
-		snprintf(s, n, "Assertion failed: %s:%d:%d",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-
-		expr->assert.message->type = EXPR_CONSTANT;
-		expr->assert.message->result = &builtin_type_const_str;
-		expr->assert.message->constant.string.value = s;
-		expr->assert.message->constant.string.len = n - 1;
 	}
 
 	if (expr->assert.is_static) {
@@ -2351,22 +2359,15 @@ check_expr_propagate(struct context *ctx,
 
 	if (aexpr->propagate.abort) {
 		case_err->value->type = EXPR_ASSERT;
-		case_err->value->assert.cond = NULL;
-		case_err->value->assert.is_static = false;
-
-		int n = snprintf(NULL, 0, "Assertion failed: error occured at %s:%d:%d",
+		case_err->value->assert = (struct expression_assert){
+			.cond = NULL,
+			.is_static = false,
+			.message = xcalloc(1, sizeof(struct expression)),
+		};
+		mkstrconst(case_err->value->assert.message,
+			"Assertion failed: error occured at %s:%d:%d",
 			sources[aexpr->loc.file],
 			aexpr->loc.lineno, aexpr->loc.colno);
-		char *s = xcalloc(1, n + 1);
-		snprintf(s, n, "Assertion failed: error occured at %s:%d:%d",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-
-		case_err->value->assert.message = xcalloc(1, sizeof(struct expression));
-		case_err->value->assert.message->type = EXPR_CONSTANT;
-		case_err->value->assert.message->result = &builtin_type_const_str;
-		case_err->value->assert.message->constant.string.value = s;
-		case_err->value->assert.message->constant.string.len = n;
 	} else {
 		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
 			char *res = gen_typename(ctx->fntype->func.result);

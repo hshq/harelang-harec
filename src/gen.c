@@ -175,16 +175,8 @@ static void
 gen_fixed_abort(struct gen_context *ctx,
 	struct location loc, enum fixed_aborts reason)
 {
-	int n = snprintf(NULL, 0, "%s:%d:%d",
-			sources[loc.file], loc.lineno, loc.colno);
-	char *s = xcalloc(1, n + 1);
-	snprintf(s, n, "%s:%d:%d",
-			sources[loc.file], loc.lineno, loc.colno);
-	struct expression eloc = {0};
-	eloc.type = EXPR_CONSTANT;
-	eloc.result = &builtin_type_const_str;
-	eloc.constant.string.value = s;
-	eloc.constant.string.len = n - 1;
+	struct expression eloc;
+	mkstrconst(&eloc, "%s:%d:%d", sources[loc.file], loc.lineno, loc.colno);
 	struct gen_value msg = gen_expr(ctx, &eloc);
 	struct qbe_value qmsg = mkqval(ctx, &msg);
 	struct qbe_value rtabort = mkrtfunc(ctx, "rt.abort_fixed");
@@ -3465,17 +3457,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		char *ident = identifier_unparse(&decl->ident);
 
 		struct qbe_data_item *dataitem = &test->data.items;
-		struct expression expr = {
-			.type = EXPR_CONSTANT,
-			.result = &builtin_type_str,
-			.constant = {
-				.object = NULL,
-				.string = {
-					.value = ident,
-					.len = strlen(ident),
-				},
-			},
-		};
+		struct expression expr;
+		mkstrconst(&expr, "%s", ident);
 		dataitem = gen_data_item(ctx, &expr, dataitem);
 
 		struct qbe_data_item *next = xcalloc(1, sizeof *next);
