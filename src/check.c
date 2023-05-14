@@ -647,47 +647,25 @@ check_expr_assert(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	expr->type = EXPR_ASSERT;
 	expr->result = &builtin_type_void;
-	expr->assert.is_static = aexpr->assert.is_static;
 
+	struct location loc;
 	if (aexpr->assert.cond != NULL) {
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->assert.cond, expr->assert.cond, &builtin_type_bool);
+		loc = aexpr->assert.cond->loc;
 		if (type_dealias(expr->assert.cond->result)->storage != STORAGE_BOOL) {
-			error(ctx, aexpr->assert.cond->loc, expr,
-				"Assertion condition must be boolean");
+			error(ctx, loc, expr, "Assertion condition must be boolean");
 			return;
 		}
 	} else {
-		expr->terminates = true;
+		loc = aexpr->loc;
+		expr->terminates = !aexpr->assert.is_static;
 	}
 
-	expr->assert.message = xcalloc(1, sizeof(struct expression));
-	if (aexpr->assert.message != NULL) {
-		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
-		if (expr->assert.message->result->storage != STORAGE_STRING) {
-			error(ctx, aexpr->assert.message->loc, expr,
-				"Assertion message must be string");
-			return;
-		}
-
-		assert(expr->assert.message->type == EXPR_CONSTANT);
-		char fmt[48];
-		snprintf(fmt, 48, "%%s:%%d:%%d: %%.%zds",
-				expr->assert.message->constant.string.len);
-		mkstrconst(expr->assert.message, fmt,
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno,
-			expr->assert.message->constant.string.value);
-	} else {
-		mkstrconst(expr->assert.message, "Assertion failed: %s:%d:%d",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-	}
-
-	if (expr->assert.is_static) {
-		bool cond;
+	if (aexpr->assert.is_static) {
+		expr->type = EXPR_CONSTANT;
+		bool cond = false;
 		if (expr->assert.cond != NULL) {
 			struct expression out = {0};
 			enum eval_result r =
@@ -699,31 +677,38 @@ check_expr_assert(struct context *ctx,
 			}
 			assert(out.result->storage == STORAGE_BOOL);
 			cond = out.constant.bval;
-		} else {
-			cond = false;
 		}
 		// XXX: Should these abort immediately?
 		if (!cond) {
 			if (aexpr->assert.message != NULL) {
-				char format[40];
-				snprintf(format, 40, "Static assertion failed %%%zds",
-					expr->assert.message->constant.string.len);
-				if (aexpr->assert.cond == NULL) {
-					error(ctx, aexpr->loc, expr, format,
-						expr->assert.message->constant.string.value);
-					return;
-				} else {
-					error(ctx, aexpr->assert.cond->loc,
-						expr, format,
-						expr->assert.message->constant.string.value);
-					return;
-				};
+				error(ctx, loc, expr, "Static assertion failed: %.*s",
+					expr->assert.message->constant.string.len,
+					expr->assert.message->constant.string.value);
 			} else {
-				error(ctx, aexpr->loc, expr,
-					"Static assertion failed");
-				return;
+				error(ctx, loc, expr, "Static assertion failed");
 			}
 		}
+		return;
+	}
+
+	expr->type = EXPR_ASSERT;
+	expr->assert.message = xcalloc(1, sizeof(struct expression));
+	if (aexpr->assert.message != NULL) {
+		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
+		if (expr->assert.message->result->storage != STORAGE_STRING) {
+			error(ctx, aexpr->assert.message->loc, expr,
+				"Assertion message must be string");
+			return;
+		}
+
+		assert(expr->assert.message->type == EXPR_CONSTANT);
+		mkstrconst(expr->assert.message, "%s:%d:%d: %.*s",
+			sources[loc.file], loc.lineno, loc.colno,
+			expr->assert.message->constant.string.len,
+			expr->assert.message->constant.string.value);
+	} else {
+		mkstrconst(expr->assert.message, "Assertion failed: %s:%d:%d",
+			sources[loc.file], loc.lineno, loc.colno);
 	}
 }
 
@@ -2361,7 +2346,6 @@ check_expr_propagate(struct context *ctx,
 		case_err->value->type = EXPR_ASSERT;
 		case_err->value->assert = (struct expression_assert){
 			.cond = NULL,
-			.is_static = false,
 			.message = xcalloc(1, sizeof(struct expression)),
 		};
 		mkstrconst(case_err->value->assert.message,

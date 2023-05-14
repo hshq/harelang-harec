@@ -99,7 +99,6 @@ struct expression_append {
 struct expression_assert {
 	struct expression *cond;
 	struct expression *message;
-	bool is_static;
 };
 
 enum binarithm_operator {

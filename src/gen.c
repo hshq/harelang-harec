@@ -763,10 +763,6 @@ static struct gen_value
 gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 {
 	assert(expr->assert.message); // Invariant
-	if (expr->assert.is_static) {
-		return gv_void;
-	}
-
 	struct gen_value msg;
 	struct qbe_statement failedl, passedl;
 	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.abort");
