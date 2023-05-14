@@ -7,16 +7,6 @@
 #include "types.h"
 #include "scope.h"
 
-enum fixed_aborts {
-	ABORT_OOB = 0,
-	ABORT_TYPE_ASSERTION = 1,
-	ABORT_ALLOC_FAILURE = 2,
-	ABORT_STATIC_EXCEEDED = 3,
-	ABORT_UNREACHABLE = 4,
-	ABORT_CAP_TOO_SMALL = 5,
-	ABORT_ANON_ASSERTION_FAILED = 6,
-};
-
 struct gen_arch {
 	const struct qbe_type *ptr;
 	const struct qbe_type *sz;

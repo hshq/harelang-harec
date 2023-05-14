@@ -96,9 +96,21 @@ struct expression_append {
 	bool is_static, is_multi;
 };
 
+enum fixed_aborts {
+	ABORT_OOB = 0,
+	ABORT_TYPE_ASSERTION = 1,
+	ABORT_ALLOC_FAILURE = 2,
+	ABORT_STATIC_EXCEEDED = 3,
+	ABORT_UNREACHABLE = 4,
+	ABORT_CAP_TOO_SMALL = 5,
+	ABORT_ANON_ASSERTION_FAILED = 6,
+	ABORT_PROPAGATE_ERROR_OCCURED = 7,
+};
+
 struct expression_assert {
 	struct expression *cond;
 	struct expression *message;
+	enum fixed_aborts fixed_reason;
 };
 
 enum binarithm_operator {

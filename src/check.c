@@ -663,7 +663,9 @@ check_expr_assert(struct context *ctx,
 		loc = aexpr->loc;
 		expr->terminates = !aexpr->assert.is_static;
 	}
-	if (aexpr->assert.message != NULL) {
+	if (aexpr->assert.message == NULL) {
+		expr->assert.fixed_reason = ABORT_ANON_ASSERTION_FAILED;
+	} else {
 		expr->assert.message = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
 		if (type_dealias(expr->assert.message->result)->storage != STORAGE_STRING) {
@@ -2343,12 +2345,9 @@ check_expr_propagate(struct context *ctx,
 		case_err->value->type = EXPR_ASSERT;
 		case_err->value->assert = (struct expression_assert){
 			.cond = NULL,
-			.message = xcalloc(1, sizeof(struct expression)),
+			.message = NULL,
+			.fixed_reason = ABORT_PROPAGATE_ERROR_OCCURED,
 		};
-		mkstrconst(case_err->value->assert.message,
-			"Assertion failed: error occured at %s:%d:%d",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
 	} else {
 		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
 			char *res = gen_typename(ctx->fntype->func.result);

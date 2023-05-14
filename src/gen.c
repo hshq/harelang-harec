@@ -790,7 +790,7 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 		struct qbe_value qmsg = mkqval(ctx, &msg), qloc = mkqval(ctx, &gloc);
 		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qloc, &qmsg, NULL);
 	} else {
-		gen_fixed_abort(ctx, expr->loc, ABORT_ANON_ASSERTION_FAILED);
+		gen_fixed_abort(ctx, expr->loc, expr->assert.fixed_reason);
 	}
 
 	if (expr->assert.cond) {

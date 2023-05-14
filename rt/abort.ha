@@ -18,6 +18,7 @@ const reasons: [_]str = [
 	"unreachable code",			// 4
 	"slice allocation capacity smaller than initializer"	// 5
 	"assertion failed",			// 6
+	"error occured",			// 7
 ];
 
 export @noreturn fn abort_fixed(loc: str, i: int) void = {
