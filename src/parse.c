@@ -539,7 +539,7 @@ parse_struct_union_type(struct lexer *lexer)
 				while (i->ns != NULL) {
 					i = i->ns;
 				}
-				i->ns = xcalloc(sizeof(struct identifier), 1);
+				i->ns = xcalloc(1, sizeof(struct identifier));
 				i->ns->name = name;
 				break;
 			default:
@@ -587,7 +587,7 @@ parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 	next->type = first;
 	struct token tok = {0};
 	while (tok.token != T_RPAREN) {
-		next->next = xcalloc(sizeof(struct ast_tagged_union_type), 1);
+		next->next = xcalloc(1, sizeof(struct ast_tagged_union_type));
 		next = next->next;
 		next->type = parse_type(lexer);
 		switch (lex(lexer, &tok)) {
@@ -614,7 +614,7 @@ parse_tuple_type(struct lexer *lexer, struct ast_type *first)
 	next->type = first;
 	struct token tok = {0};
 	while (tok.token != T_RPAREN) {
-		next->next = xcalloc(sizeof(struct ast_tuple_type), 1);
+		next->next = xcalloc(1, sizeof(struct ast_tuple_type));
 		next = next->next;
 		next->type = parse_type(lexer);
 		switch (lex(lexer, &tok)) {
@@ -932,7 +932,7 @@ static struct ast_field_value *
 parse_field_value(struct lexer *lexer)
 {
 	struct ast_field_value *exp =
-		xcalloc(sizeof(struct ast_field_value), 1);
+		xcalloc(1, sizeof(struct ast_field_value));
 	char *name;
 	struct token tok = {0};
 	struct identifier ident = {0};
@@ -957,7 +957,7 @@ parse_field_value(struct lexer *lexer)
 			while (i->ns != NULL) {
 				i = i->ns;
 			}
-			i->ns = xcalloc(sizeof(struct identifier), 1);
+			i->ns = xcalloc(1, sizeof(struct identifier));
 			i->ns->name = name;
 			exp->initializer = parse_struct_literal(lexer, ident);
 			break;

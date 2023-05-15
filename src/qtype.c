@@ -108,7 +108,7 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 			++n;
 		}
 		struct struct_field **tfields =
-			xcalloc(sizeof(struct struct_field *), n);
+			xcalloc(n, sizeof(struct struct_field *));
 		size_t i = 0;
 		for (struct struct_field *tfield = type->struct_union.fields;
 				tfield; tfield = tfield->next, ++i) {

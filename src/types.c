@@ -540,7 +540,7 @@ type_create_const(enum type_storage storage, intmax_t min, intmax_t max)
 	// our own list of iconsts and free them separately. Whatever, it
 	// doesn't really matter that much.
 	static uint32_t id = 0;
-	struct type *type = xcalloc(sizeof(struct type), 1);
+	struct type *type = xcalloc(1, sizeof(struct type));
 	type->storage = storage;
 	type->size = SIZE_UNDEFINED;
 	type->align = ALIGN_UNDEFINED;

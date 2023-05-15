@@ -515,7 +515,7 @@ check_expr_append_insert(struct context *ctx,
 	expr->result = &builtin_type_void;
 	expr->append.is_static = aexpr->append.is_static;
 	expr->append.is_multi = aexpr->append.is_multi;
-	expr->append.object = xcalloc(sizeof(struct expression), 1);
+	expr->append.object = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->append.object, expr->append.object, NULL);
 	if (expr->append.object->type != EXPR_ACCESS) {
 		error(ctx, aexpr->append.object->loc, expr,
@@ -562,7 +562,7 @@ check_expr_append_insert(struct context *ctx,
 		return;
 	}
 
-	expr->append.value = xcalloc(sizeof(struct expression), 1);
+	expr->append.value = xcalloc(1, sizeof(struct expression));
 
 	if (!expr->append.is_multi && !aexpr->append.length) {
 		check_expression(ctx, aexpr->append.value, expr->append.value,
@@ -594,7 +594,7 @@ check_expr_append_insert(struct context *ctx,
 				"Value must be an expandable array in append with length");
 			return;
 		}
-		struct expression *len = xcalloc(sizeof(struct expression), 1);
+		struct expression *len = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->append.length, len, &builtin_type_size);
 		if (!type_is_assignable(&builtin_type_size, len->result)) {
 			error(ctx, aexpr->append.length->loc, expr,
@@ -1911,7 +1911,7 @@ check_expr_free(struct context *ctx,
 {
 	assert(aexpr->type == EXPR_FREE);
 	expr->type = EXPR_FREE;
-	expr->free.expr = xcalloc(sizeof(struct expression), 1);
+	expr->free.expr = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL);
 	enum type_storage storage = type_dealias(expr->free.expr->result)->storage;
 	if (storage != STORAGE_SLICE && storage != STORAGE_STRING

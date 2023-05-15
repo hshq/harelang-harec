@@ -189,8 +189,8 @@ emit_struct(const struct type *type, FILE *out)
 			f; f = f->next) {
 		++n;
 	}
-	const struct struct_field **fields = xcalloc(
-		sizeof(const struct struct_field *), n);
+	const struct struct_field **fields = xcalloc(n,
+		sizeof(const struct struct_field *));
 	n = 0;
 	for (const struct struct_field *f = type->struct_union.fields;
 			f; f = f->next) {

@@ -280,11 +280,6 @@ struct expression_measure {
 	};
 };
 
-struct expression_propagate {
-	struct expression *value;
-	bool abort;
-};
-
 struct expression_return {
 	struct expression *value;
 };
@@ -370,7 +365,6 @@ struct expression {
 		struct expression_if _if;
 		struct expression_match match;
 		struct expression_measure measure;
-		struct expression_propagate propagate;
 		struct expression_return _return;
 		struct expression_switch _switch;
 		struct expression_struct _struct;
