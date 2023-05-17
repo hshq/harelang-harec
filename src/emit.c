@@ -214,13 +214,13 @@ emit_func(struct qbe_def *def, FILE *out)
 	while (param) {
 		emit_qtype(param->type, true, out);
 		fprintf(out, " %%%s", param->name);
-		if (param->next) {
+		if (param->next || def->func.variadic) {
 			fprintf(out, ", ");
 		}
 		param = param->next;
 	}
 	if (def->func.variadic) {
-		fprintf(out, ", ...");
+		fprintf(out, "...");
 	}
 	fprintf(out, ") {\n");
 
