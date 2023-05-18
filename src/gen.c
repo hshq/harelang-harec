@@ -3375,7 +3375,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		next = &param->next;
 	}
 
-	pushl(&qdef->func, &ctx->id, "body.%d");
+	struct qbe_statement lbody;
+	mklabel(ctx, &lbody, "body.%d");
+	push(&ctx->current->body, &lbody);
 	struct gen_value ret = gen_expr(ctx, decl->func.body);
 
 	if (decl->func.body->terminates) {

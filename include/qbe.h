@@ -264,11 +264,8 @@ struct qbe_program {
 
 void qbe_append_def(struct qbe_program *prog, struct qbe_def *def);
 
-void geni(struct qbe_statement *stmt, const struct qbe_value *out, enum qbe_instr instr, ...);
-const char *genl(struct qbe_statement *stmt, int *id, const char *fmt);
 void pushi(struct qbe_func *func, const struct qbe_value *out, enum qbe_instr instr, ...);
 void pushprei(struct qbe_func *func, const struct qbe_value *out, enum qbe_instr instr, ...);
-const char *pushl(struct qbe_func *func, int *id, const char *fmt);
 void pushc(struct qbe_func *func, const char *fmt, ...);
 void push(struct qbe_statements *stmts, struct qbe_statement *stmt);
 

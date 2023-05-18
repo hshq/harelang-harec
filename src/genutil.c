@@ -79,10 +79,17 @@ mkrtfunc(struct gen_context *ctx, const char *name)
 struct qbe_value
 mklabel(struct gen_context *ctx, struct qbe_statement *stmt, const char *fmt)
 {
-	struct qbe_value val;
-	val.kind = QV_LABEL;
-	val.name = xstrdup(genl(stmt, &ctx->id, fmt));
-	return val;
+	size_t n = snprintf(NULL, 0, fmt, ctx->id);
+	char *l = xcalloc(1, n + 1);
+	snprintf(l, n + 1, fmt, ctx->id);
+
+	stmt->label = l;
+	stmt->type = Q_LABEL;
+	ctx->id++;
+	return (struct qbe_value){
+		.kind = QV_LABEL,
+		.name = xstrdup(l),
+	};
 }
 
 void

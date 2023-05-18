@@ -177,28 +177,6 @@ va_geni(struct qbe_statement *stmt, enum qbe_instr instr,
 }
 
 void
-geni(struct qbe_statement *stmt, const struct qbe_value *out,
-		enum qbe_instr instr, ...)
-{
-	va_list ap;
-	va_start(ap, instr);
-	va_geni(stmt, instr, out, ap);
-	va_end(ap);
-}
-
-const char *
-genl(struct qbe_statement *stmt, int *id, const char *fmt)
-{
-	stmt->type = Q_LABEL;
-	int n = snprintf(NULL, 0, fmt, *id);
-	char *l = xcalloc(1, n + 1);
-	snprintf(l, n + 1, fmt, *id);
-	stmt->label = l;
-	*id = *id + 1;
-	return l;
-}
-
-void
 push(struct qbe_statements *stmts, struct qbe_statement *stmt)
 {
 	if (!stmts->stmts) {
@@ -245,15 +223,6 @@ pushprei(struct qbe_func *func, const struct qbe_value *out,
 	va_geni(&stmt, instr, out, ap);
 	va_end(ap);
 	push(&func->prelude, &stmt);
-}
-
-const char *
-pushl(struct qbe_func *func, int *id, const char *fmt)
-{
-	struct qbe_statement stmt = {0};
-	const char *l = genl(&stmt, id, fmt);
-	push(&func->body, &stmt);
-	return l;
 }
 
 void
