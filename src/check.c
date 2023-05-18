@@ -39,7 +39,7 @@ gen_typename(const struct type *type)
 	char *ptr = NULL;
 	FILE *f = open_memstream(&ptr, &sz);
 	if (f == NULL) {
-		fprintf(stderr, "Unable to open memstream: %s\n",
+		xfprintf(stderr, "Unable to open memstream: %s\n",
 			strerror(errno));
 		exit(EXIT_FAILURE);
 	}
@@ -54,7 +54,7 @@ handle_errors(struct errors *errors)
 	struct errors *error = errors;
 	bool first = true;
 	while (error) {
-		fprintf(stderr, "%s:%d:%d: error: %s\n", sources[error->loc.file],
+		xfprintf(stderr, "%s:%d:%d: error: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
 		if (first) {
 			errline(sources[error->loc.file], error->loc.lineno, error->loc.colno);
@@ -4303,7 +4303,7 @@ check_internal(struct type_store *ts,
 	unit->declarations = ctx.decls;
 
 	if (!(scan_only || unit->declarations)) {
-		fprintf(stderr, "Error: module contains no declarations\n");
+		xfprintf(stderr, "Error: module contains no declarations\n");
 		exit(EXIT_FAILURE);
 	}
 

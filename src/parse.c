@@ -19,7 +19,7 @@ static void
 synassert_msg(bool cond, const char *msg, struct token *tok)
 {
 	if (!cond) {
-		fprintf(stderr, "%s:%d:%d: syntax error: %s (found '%s')\n",
+		xfprintf(stderr, "%s:%d:%d: syntax error: %s (found '%s')\n",
 			sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
 			msg, token_str(tok));
 		errline(sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
@@ -31,18 +31,18 @@ static noreturn void
 vsynerr(struct token *tok, va_list ap)
 {
 	enum lexical_token t = va_arg(ap, enum lexical_token);
-	fprintf(stderr,
+	xfprintf(stderr,
 		"%s:%d:%d: syntax error: unexpected '%s' %s",
 		sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
 		token_str(tok), t == T_EOF ? "\n" : ", expected " );
 	while (t != T_EOF) {
 		if (t == T_LITERAL || t == T_NAME) {
-			fprintf(stderr, "%s", lexical_token_str(t));
+			xfprintf(stderr, "%s", lexical_token_str(t));
 		} else {
-			fprintf(stderr, "'%s'", lexical_token_str(t));
+			xfprintf(stderr, "'%s'", lexical_token_str(t));
 		}
 		t = va_arg(ap, enum lexical_token);
-		fprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
+		xfprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
 	}
 	errline(sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
 	exit(EXIT_FAILURE);
