@@ -19,9 +19,9 @@ write_ident(FILE *out, const struct identifier *ident)
 {
 	if (ident->ns) {
 		write_ident(out, ident->ns);
-		fprintf(out, "::");
+		xfprintf(out, "::");
 	};
-	fprintf(out, "%s", ident->name);
+	xfprintf(out, "%s", ident->name);
 }
 
 struct scope *
@@ -43,20 +43,20 @@ module_resolve(struct modcache *cache[],
 
 	char env[PATH_MAX+1];
 	FILE *envf = fmemopen(&env, sizeof(env), "w");
-	fprintf(envf, "HARE_TD_");
+	xfprintf(envf, "HARE_TD_");
 	write_ident(envf, ident);
 	fclose(envf);
 
 	char *path = getenv(env);
 	if (!path) {
-		fprintf(stderr, "Could not open module '%s': typedef variable $%s not set\n",
+		xfprintf(stderr, "Could not open module '%s': typedef variable $%s not set\n",
 			identifier_unparse(ident), env);
 		exit(EXIT_FAILURE);
 	}
 
 	FILE *f = fopen(path, "r");
 	if (!f) {
-		fprintf(stderr, "Could not open module '%s' for reading from %s: %s\n",
+		xfprintf(stderr, "Could not open module '%s' for reading from %s: %s\n",
 				identifier_unparse(ident), path,
 				strerror(errno));
 		exit(EXIT_FAILURE);

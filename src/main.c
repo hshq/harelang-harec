@@ -19,7 +19,7 @@
 static void
 usage(const char *argv_0)
 {
-	fprintf(stderr,
+	xfprintf(stderr,
 		"Usage: %s [-a arch] [-D ident[:type]=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
 		argv_0);
 }
@@ -131,14 +131,14 @@ main(int argc, char *argv[])
 			struct stat buf;
 			if (in && fstat(fileno(in), &buf) == 0
 				&& S_ISDIR(buf.st_mode) != 0) {
-				fprintf(stderr, "Unable to open %s for reading: Is a directory\n",
+				xfprintf(stderr, "Unable to open %s for reading: Is a directory\n",
 					path);
 				return EXIT_FAILURE;
 			}
 		}
 
 		if (!in) {
-			fprintf(stderr, "Unable to open %s for reading: %s\n",
+			xfprintf(stderr, "Unable to open %s for reading: %s\n",
 					path, strerror(errno));
 			return EXIT_FAILURE;
 		}
@@ -159,7 +159,7 @@ main(int argc, char *argv[])
 	if (typedefs) {
 		FILE *out = fopen(typedefs, "w");
 		if (!out) {
-			fprintf(stderr, "Unable to open %s for writing: %s\n",
+			xfprintf(stderr, "Unable to open %s for writing: %s\n",
 					typedefs, strerror(errno));
 			return EXIT_FAILURE;
 		}
@@ -176,7 +176,7 @@ main(int argc, char *argv[])
 	} else {
 		out = fopen(output, "w");
 		if (!out) {
-			fprintf(stderr, "Unable to open %s for writing: %s\n",
+			xfprintf(stderr, "Unable to open %s for writing: %s\n",
 					output, strerror(errno));
 			return EXIT_FAILURE;
 		}

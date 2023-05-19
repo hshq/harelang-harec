@@ -65,8 +65,16 @@ fn cvafn(n: int, ...) void = {
 	};
 };
 
+fn cvafn2(...) void = {
+	let ap = vastart();
+	defer vaend(ap);
+	assert(vaarg(ap): int == 1337);
+	assert(vaarg(ap): int == 42);
+};
+
 fn cvaargs() void = {
 	cvafn(3, 1, 2, 3);
+	cvafn2(1337, 42);
 };
 
 fn reject() void = {

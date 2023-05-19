@@ -1,7 +1,9 @@
 #ifndef HARE_UTIL_H
 #define HARE_UTIL_H
 #include <assert.h>
+#include <stdarg.h>
 #include <stdint.h>
+#include <stdio.h>
 
 extern const char **sources;
 
@@ -12,6 +14,8 @@ uint32_t fnv1a_u32(uint32_t hash, uint32_t u32);
 uint32_t fnv1a_u64(uint32_t hash, uint64_t u64);
 uint32_t fnv1a_size(uint32_t hash, size_t sz);
 uint32_t fnv1a_s(uint32_t hash, const char *str);
+int xfprintf(FILE *restrict f, const char *restrict fmt, ...);
+int xvfprintf(FILE *restrict f, const char *restrict fmt, va_list ap);
 void *xcalloc(size_t n, size_t s);
 void *xrealloc(void *p, size_t s);
 char *xstrdup(const char *s);

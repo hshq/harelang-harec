@@ -32,7 +32,7 @@ type_dealias(const struct type *type)
 {
 	while (type->storage == STORAGE_ALIAS) {
 		if (type->alias.type == NULL) {
-			fprintf(stderr, "Cannot dealias incomplete type %s\n",
+			xfprintf(stderr, "Cannot dealias incomplete type %s\n",
 				identifier_unparse(&type->alias.ident));
 			assert(0);
 		}
@@ -1090,7 +1090,7 @@ builtin_types_init(const char *target)
 		builtin_type_valist.size = 24;
 		builtin_type_valist.align = 8;
 	} else {
-		fprintf(stderr, "Unsupported or unrecognized target: %s", target);
+		xfprintf(stderr, "Unsupported or unrecognized target: %s", target);
 		exit(EXIT_FAILURE);
 	}
 	struct type *builtins[] = {

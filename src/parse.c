@@ -19,7 +19,7 @@ static void
 synassert_msg(bool cond, const char *msg, struct token *tok)
 {
 	if (!cond) {
-		fprintf(stderr, "%s:%d:%d: syntax error: %s (found '%s')\n",
+		xfprintf(stderr, "%s:%d:%d: syntax error: %s (found '%s')\n",
 			sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
 			msg, token_str(tok));
 		errline(sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
@@ -31,18 +31,18 @@ static noreturn void
 vsynerr(struct token *tok, va_list ap)
 {
 	enum lexical_token t = va_arg(ap, enum lexical_token);
-	fprintf(stderr,
+	xfprintf(stderr,
 		"%s:%d:%d: syntax error: unexpected '%s' %s",
 		sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
 		token_str(tok), t == T_EOF ? "\n" : ", expected " );
 	while (t != T_EOF) {
 		if (t == T_LITERAL || t == T_NAME) {
-			fprintf(stderr, "%s", lexical_token_str(t));
+			xfprintf(stderr, "%s", lexical_token_str(t));
 		} else {
-			fprintf(stderr, "'%s'", lexical_token_str(t));
+			xfprintf(stderr, "'%s'", lexical_token_str(t));
 		}
 		t = va_arg(ap, enum lexical_token);
-		fprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
+		xfprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
 	}
 	errline(sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
 	exit(EXIT_FAILURE);
@@ -255,75 +255,70 @@ static void
 parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 {
 	struct token tok = {0}, tok2 = {0};
-	bool more = true;
+	want(lexer, T_LPAREN, NULL);
 	type->params = mkfuncparams(&lexer->loc);
-	struct ast_function_parameters *next = type->params;
-	while (more) {
+	struct ast_function_parameters **next = &type->params;
+	for (;;) {
 		switch (lex(lexer, &tok)) {
 		case T_NAME:
 			// Assumes ownership of tok.name.
 			switch (lex(lexer, &tok2)) {
 			case T_COLON:
-				next->name = tok.name;
-				next->type = parse_type(lexer);
+				(*next)->name = tok.name;
+				(*next)->type = parse_type(lexer);
 				break;
 			case T_DOUBLE_COLON:
-				next->type = parse_type(lexer);
-				synassert(next->type->storage == STORAGE_ALIAS,
+				(*next)->type = parse_type(lexer);
+				synassert((*next)->type->storage == STORAGE_ALIAS,
 						&tok, T_NAME, T_EOF);
 				struct identifier *ident =
 					xcalloc(1, sizeof(struct identifier));
 				struct identifier *ns;
 				ident->name = tok.name;
-				for (ns = &next->type->alias; ns->ns; ns = ns->ns);
+				for (ns = &(*next)->type->alias; ns->ns; ns = ns->ns);
 				ns->ns = ident;
 				break;
 			default:
 				unlex(lexer, &tok2);
-				next->type = mktype(&tok.loc);
-				next->type->storage = STORAGE_ALIAS;
-				next->type->alias.name = tok.name;
+				(*next)->type = mktype(&tok.loc);
+				(*next)->type->storage = STORAGE_ALIAS;
+				(*next)->type->alias.name = tok.name;
 				break;
 			}
 			break;
+		case T_ELLIPSIS:
+			*next = NULL;
+			type->variadism = VARIADISM_C;
+			if (lex(lexer, &tok) != T_COMMA) {
+				unlex(lexer, &tok);
+			}
+			want(lexer, T_RPAREN, NULL);
+			return;
+		case T_RPAREN:
+			*next = NULL;
+			return;
 		default:
 			unlex(lexer, &tok);
-			next->type = parse_type(lexer);
+			(*next)->type = parse_type(lexer);
 			break;
 		}
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
-			switch (lex(lexer, &tok)) {
-			case T_ELLIPSIS:
-				type->variadism = VARIADISM_C;
-				if (lex(lexer, &tok) != T_COMMA) {
-					unlex(lexer, &tok);
-				}
-				more = false;
-				break;
-			case T_RPAREN:
-				more = false;
-				unlex(lexer, &tok);
-				break;
-			default:
-				unlex(lexer, &tok);
-				next->next = mkfuncparams(&lexer->loc);
-				next = next->next;
-				break;
-			}
+			(*next)->next = mkfuncparams(&lexer->loc);
+			next = &(*next)->next;
 			break;
 		case T_ELLIPSIS:
 			type->variadism = VARIADISM_HARE;
 			if (lex(lexer, &tok) != T_COMMA) {
 				unlex(lexer, &tok);
 			}
-			more = false;
-			break;
+			want(lexer, T_RPAREN, NULL);
+			return;
+		case T_RPAREN:
+			return;
 		default:
-			more = false;
-			unlex(lexer, &tok);
-			break;
+			synerr(&tok, T_COMMA, T_ELLIPSIS, T_RPAREN, T_EOF);
 		}
 	}
 }
@@ -331,13 +326,7 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 static void
 parse_prototype(struct lexer *lexer, struct ast_function_type *type)
 {
-	want(lexer, T_LPAREN, NULL);
-	struct token tok = {0};
-	if (lex(lexer, &tok) != T_RPAREN) {
-		unlex(lexer, &tok);
-		parse_parameter_list(lexer, type);
-		want(lexer, T_RPAREN, NULL);
-	}
+	parse_parameter_list(lexer, type);
 	type->result = parse_type(lexer);
 }
 

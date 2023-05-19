@@ -1,7 +1,9 @@
 #include <sys/stat.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -62,6 +64,27 @@ fnv1a_s(uint32_t hash, const char *str)
 		hash = fnv1a(hash, c);
 	}
 	return hash;
+}
+
+int
+xfprintf(FILE *restrict f, const char *restrict fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	int n = xvfprintf(f, fmt, ap);
+	va_end(ap);
+	return n;
+}
+
+int
+xvfprintf(FILE *restrict f, const char *restrict fmt, va_list ap)
+{
+	int n = vfprintf(f, fmt, ap);
+	if (n < 0) {
+		perror("fprintf");
+		exit(EXIT_FAILURE);
+	}
+	return n;
 }
 
 void *
@@ -151,18 +174,18 @@ errline(const char* path, int lineno, int colno)
 				color = true;
 			}
 		}
-		fprintf(stderr, "\n%d |\t%s", lineno, line);
+		xfprintf(stderr, "\n%d |\t%s", lineno, line);
 		for (int i = lineno; 1 <= i; i /= 10) {
-			fputc(' ', stderr);
+			xfprintf(stderr, " ");
 		}
-		fputs(" |\t", stderr);
+		xfprintf(stderr, " |\t");
 		for (int i = 1; i < colno; i++) {
-			fputc(' ', stderr);
+			xfprintf(stderr, " ");
 		}
 		if (color) {
-			fputs("\x1b[31m^\x1b[0m\n\n", stderr);
+			xfprintf(stderr, "\x1b[31m^\x1b[0m\n\n");
 		} else {
-			fputs("^\n\n", stderr);
+			xfprintf(stderr, "^\n\n");
 		}
 		free(line);
 	}

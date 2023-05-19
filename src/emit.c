@@ -7,6 +7,7 @@
 #include "qbe.h"
 #include "typedef.h"
 #include "types.h"
+#include "util.h"
 
 static void
 emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
@@ -19,13 +20,13 @@ emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
 	case Q_LONG:
 	case Q_SINGLE:
 	case Q_DOUBLE:
-		fprintf(out, "%c", (char)type->stype);
+		xfprintf(out, "%c", (char)type->stype);
 		break;
 	case Q__AGGREGATE:
 		if (aggr) {
-			fprintf(out, ":%s", type->name);
+			xfprintf(out, ":%s", type->name);
 		} else {
-			fprintf(out, "l");
+			xfprintf(out, "l");
 		}
 		break;
 	case Q__VOID:
@@ -51,39 +52,39 @@ qemit_type(const struct qbe_def *def, FILE *out)
 	const struct type *base = def->type.base;
 	if (base) {
 		char *tn = gen_typename(base);
-		fprintf(out, "# %s [id: %u; size: %zu]\n", tn, base->id, base->size);
+		xfprintf(out, "# %s [id: %u; size: %zu]\n", tn, base->id, base->size);
 		free(tn);
-		fprintf(out, "type :%s =", def->name);
+		xfprintf(out, "type :%s =", def->name);
 		if (base->align != (size_t)-1) {
-			fprintf(out, " align %zu", base->align);
+			xfprintf(out, " align %zu", base->align);
 		}
 	} else {
-		fprintf(out, "type :%s =", def->name);
+		xfprintf(out, "type :%s =", def->name);
 	}
-	fprintf(out, " {");
+	xfprintf(out, " {");
 
 	bool is_union = base == NULL || type_dealias(base)->storage == STORAGE_UNION;
 	const struct qbe_field *field = &def->type.fields;
 	while (field) {
 		if (is_union) {
-			fprintf(out, " {");
+			xfprintf(out, " {");
 		}
 		if (field->type) {
-			fprintf(out, " ");
+			xfprintf(out, " ");
 			emit_qtype(field->type, true, out);
 		}
 		if (field->count) {
-			fprintf(out, " %zu", field->count);
+			xfprintf(out, " %zu", field->count);
 		}
 		if (is_union) {
-			fprintf(out, " }");
+			xfprintf(out, " }");
 		} else if (field->next) {
-			fprintf(out, ",");
+			xfprintf(out, ",");
 		}
 		field = field->next;
 	}
 
-	fprintf(out, " }\n\n");
+	xfprintf(out, " }\n\n");
 }
 
 static void
@@ -94,11 +95,11 @@ emit_const(struct qbe_value *val, FILE *out)
 	case Q_HALF:
 	case Q_WORD:
 	case Q_SINGLE:
-		fprintf(out, "%" PRIu32, val->wval);
+		xfprintf(out, "%" PRIu32, val->wval);
 		break;
 	case Q_LONG:
 	case Q_DOUBLE:
-		fprintf(out, "%" PRIu64, val->lval);
+		xfprintf(out, "%" PRIu64, val->lval);
 		break;
 	case Q__VOID:
 	case Q__AGGREGATE:
@@ -115,18 +116,18 @@ emit_value(struct qbe_value *val, FILE *out)
 		break;
 	case QV_GLOBAL:
 		if (val->threadlocal) {
-			fprintf(out, "thread ");
+			xfprintf(out, "thread ");
 		}
-		fprintf(out, "$%s", val->name);
+		xfprintf(out, "$%s", val->name);
 		break;
 	case QV_LABEL:
-		fprintf(out, "@%s", val->name);
+		xfprintf(out, "@%s", val->name);
 		break;
 	case QV_TEMPORARY:
-		fprintf(out, "%%%s", val->name);
+		xfprintf(out, "%%%s", val->name);
 		break;
 	case QV_VARIADIC:
-		fprintf(out, "...");
+		xfprintf(out, "...");
 		break;
 	}
 }
@@ -134,27 +135,27 @@ emit_value(struct qbe_value *val, FILE *out)
 static void
 emit_call(struct qbe_statement *stmt, FILE *out)
 {
-	fprintf(out, "%s ", qbe_instr[stmt->instr]);
+	xfprintf(out, "%s ", qbe_instr[stmt->instr]);
 
 	struct qbe_arguments *arg = stmt->args;
 	assert(arg);
 	emit_value(&arg->value, out);
-	fprintf(out, "(");
+	xfprintf(out, "(");
 	arg = arg->next;
 
 	bool comma = false;
 	while (arg) {
-		fprintf(out, "%s", comma ? ", " : "");
+		xfprintf(out, "%s", comma ? ", " : "");
 		if (arg->value.kind != QV_VARIADIC) {
 			emit_qtype(arg->value.type, true, out);
-			fprintf(out, " ");
+			xfprintf(out, " ");
 		}
 		emit_value(&arg->value, out);
 		arg = arg->next;
 		comma = true;
 	}
 
-	fprintf(out, ")\n");
+	xfprintf(out, ")\n");
 }
 
 static void
@@ -162,38 +163,38 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 {
 	switch (stmt->type) {
 	case Q_COMMENT:
-		fprintf(out, "\t# %s\n", stmt->comment);
+		xfprintf(out, "\t# %s\n", stmt->comment);
 		break;
 	case Q_INSTR:
-		fprintf(out, "\t");
+		xfprintf(out, "\t");
 		if (stmt->instr == Q_CALL) {
 			if (stmt->out != NULL) {
 				emit_value(stmt->out, out);
-				fprintf(out, " =");
+				xfprintf(out, " =");
 				emit_qtype(stmt->out->type, true, out);
-				fprintf(out, " ");
+				xfprintf(out, " ");
 			}
 			emit_call(stmt, out);
 			break;
 		}
 		if (stmt->out != NULL) {
 			emit_value(stmt->out, out);
-			fprintf(out, " =");
+			xfprintf(out, " =");
 			emit_qtype(stmt->out->type, false, out);
-			fprintf(out, " ");
+			xfprintf(out, " ");
 		}
-		fprintf(out, "%s%s", qbe_instr[stmt->instr],
+		xfprintf(out, "%s%s", qbe_instr[stmt->instr],
 				stmt->args ? " " : "");
 		struct qbe_arguments *arg = stmt->args;
 		while (arg) {
-			fprintf(out, "%s", arg == stmt->args ? "" : ", ");
+			xfprintf(out, "%s", arg == stmt->args ? "" : ", ");
 			emit_value(&arg->value, out);
 			arg = arg->next;
 		}
-		fprintf(out, "\n");
+		xfprintf(out, "\n");
 		break;
 	case Q_LABEL:
-		fprintf(out, "@%s\n", stmt->label);
+		xfprintf(out, "@%s\n", stmt->label);
 		break;
 	}
 }
@@ -202,27 +203,27 @@ static void
 emit_func(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_FUNC);
-	fprintf(out, "section \".text.%s\" \"ax\"%s\nfunction",
+	xfprintf(out, "section \".text.%s\" \"ax\"%s\nfunction",
 			def->name,
 			def->exported ? " export" : "");
 	if (def->func.returns->stype != Q__VOID) {
-		fprintf(out, " ");
+		xfprintf(out, " ");
 		emit_qtype(def->func.returns, true, out);
 	}
-	fprintf(out, " $%s(", def->name);
+	xfprintf(out, " $%s(", def->name);
 	struct qbe_func_param *param = def->func.params;
 	while (param) {
 		emit_qtype(param->type, true, out);
-		fprintf(out, " %%%s", param->name);
-		if (param->next) {
-			fprintf(out, ", ");
+		xfprintf(out, " %%%s", param->name);
+		if (param->next || def->func.variadic) {
+			xfprintf(out, ", ");
 		}
 		param = param->next;
 	}
 	if (def->func.variadic) {
-		fprintf(out, ", ...");
+		xfprintf(out, "...");
 	}
-	fprintf(out, ") {\n");
+	xfprintf(out, ") {\n");
 
 	for (size_t i = 0; i < def->func.prelude.ln; ++i) {
 		struct qbe_statement *stmt = &def->func.prelude.stmts[i];
@@ -234,7 +235,7 @@ emit_func(struct qbe_def *def, FILE *out)
 		emit_stmt(stmt, out);
 	}
 
-	fprintf(out, "}\n\n");
+	xfprintf(out, "}\n\n");
 }
 
 static void
@@ -247,19 +248,19 @@ emit_data_string(const char *str, size_t sz, FILE *out)
 				|| str[i] == '\\') {
 			if (q) {
 				q = false;
-				fprintf(out, "\", ");
+				xfprintf(out, "\", ");
 			}
-			fprintf(out, "b %d%s", str[i], i + 1 < sz ? ", " : "");
+			xfprintf(out, "b %d%s", str[i], i + 1 < sz ? ", " : "");
 		} else {
 			if (!q) {
 				q = true;
-				fprintf(out, "b \"");
+				xfprintf(out, "b \"");
 			}
-			fprintf(out, "%c", str[i]);
+			xfprintf(out, "%c", str[i]);
 		}
 	}
 	if (q) {
-		fprintf(out, "\"");
+		xfprintf(out, "\"");
 	}
 }
 
@@ -304,53 +305,53 @@ emit_data(struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_DATA);
 	if (def->data.section && def->data.secflags) {
-		fprintf(out, "section \"%s\" \"%s\"",
+		xfprintf(out, "section \"%s\" \"%s\"",
 				def->data.section, def->data.secflags);
 	} else if (def->data.section) {
-		fprintf(out, "section \"%s\"", def->data.section);
+		xfprintf(out, "section \"%s\"", def->data.section);
 	} else if (def->data.threadlocal) {
 		if (is_zeroes(&def->data.items)) {
-			fprintf(out, "section \".tbss\" \"awT\"");
+			xfprintf(out, "section \".tbss\" \"awT\"");
 		} else {
-			fprintf(out, "section \".tdata\" \"awT\"");
+			xfprintf(out, "section \".tdata\" \"awT\"");
 		}
 	} else if (is_zeroes(&def->data.items)) {
-		fprintf(out, "section \".bss.%s\"", def->name);
+		xfprintf(out, "section \".bss.%s\"", def->name);
 	} else {
-		fprintf(out, "section \".data.%s\"", def->name);
+		xfprintf(out, "section \".data.%s\"", def->name);
 	}
-	fprintf(out, "%s\ndata $%s = ", def->exported ? " export" : "",
+	xfprintf(out, "%s\ndata $%s = ", def->exported ? " export" : "",
 			def->name);
 	if (def->data.align != ALIGN_UNDEFINED) {
-		fprintf(out, "align %zu ", def->data.align);
+		xfprintf(out, "align %zu ", def->data.align);
 	}
-	fprintf(out, "{ ");
+	xfprintf(out, "{ ");
 
 	struct qbe_data_item *item = &def->data.items;
 	while (item) {
 		switch (item->type) {
 		case QD_VALUE:
 			emit_qtype(item->value.type, true, out);
-			fprintf(out, " ");
+			xfprintf(out, " ");
 			emit_value(&item->value, out);
 			break;
 		case QD_ZEROED:
-			fprintf(out, "z %zu", item->zeroed);
+			xfprintf(out, "z %zu", item->zeroed);
 			break;
 		case QD_STRING:
 			emit_data_string(item->str, item->sz, out);
 			break;
 		case QD_SYMOFFS:
 			// XXX: ARCH
-			fprintf(out, "l $%s + %ld", item->sym, item->offset);
+			xfprintf(out, "l $%s + %ld", item->sym, item->offset);
 			break;
 		}
 
-		fprintf(out, item->next ? ", " : " ");
+		xfprintf(out, item->next ? ", " : " ");
 		item = item->next;
 	}
 
-	fprintf(out, "}\n\n");
+	xfprintf(out, "}\n\n");
 }
 
 static void

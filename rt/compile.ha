@@ -31,6 +31,7 @@ export fn compile(src: const str, flags: compileflag...) exit_status = {
 				append(argv, alloc_constchar(t));
 			};
 		};
+		append(argv, constchar("-o/dev/null\0"));
 		append(argv, constchar("-\0"));
 		append(argv, null);
 

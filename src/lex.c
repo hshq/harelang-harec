@@ -142,15 +142,15 @@ static const char *tokens[] = {
 static noreturn void
 error(struct location *loc, char *fmt, ...)
 {
-	fprintf(stderr, "%s:%d:%d: syntax error: ", sources[loc->file],
+	xfprintf(stderr, "%s:%d:%d: syntax error: ", sources[loc->file],
 			loc->lineno, loc->colno);
 
 	va_list ap;
 	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
+	xvfprintf(stderr, fmt, ap);
 	va_end(ap);
 
-	fputc('\n', stderr);
+	xfprintf(stderr, "\n");
 	errline(sources[loc->file], loc->lineno, loc->colno);
 	exit(EXIT_FAILURE);
 }
@@ -964,7 +964,7 @@ _lex(struct lexer *lexer, struct token *out)
 		break;
 	default:
 		p[utf8_encode(p, c)] = '\0';
-		fprintf(stderr, "%s:%d:%d: error: unexpected code point '%s'\n",
+		xfprintf(stderr, "%s:%d:%d: error: unexpected code point '%s'\n",
 			sources[lexer->loc.file], lexer->loc.lineno,
 			lexer->loc.colno, p);
 		exit(EXIT_FAILURE);
