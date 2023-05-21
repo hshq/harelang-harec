@@ -963,6 +963,70 @@ type_promote(struct type_store *store,
 	assert(0);
 }
 
+static bool
+type_has_default(const struct type *type)
+{
+	switch (type->storage) {
+	case STORAGE_VOID:
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_BOOL:
+	case STORAGE_RUNE:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_ENUM:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_INT:
+	case STORAGE_SIZE:
+	case STORAGE_U8:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_ERROR:
+		return true;
+	case STORAGE_FUNCTION:
+	case STORAGE_TAGGED:
+	case STORAGE_VALIST:
+		return false;
+	case STORAGE_POINTER:
+		return type->pointer.flags & PTR_NULLABLE;
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
+		// TODO: shouldn't be possible to initialize overlapping fields
+		// (@offset)
+		// See also: https://todo.sr.ht/~sircmpwn/hare/513
+		for (struct struct_field *sf = type->struct_union.fields;
+				sf != NULL; sf = sf->next) {
+			if (!type_has_default(sf->type)) {
+				return false;
+			}
+		}
+		return true;
+	case STORAGE_TUPLE:
+		for (const struct type_tuple *t = &type->tuple;
+				t != NULL; t = t->next) {
+			if (!type_has_default(t->type)) {
+				return false;
+			}
+		}
+		return true;
+	case STORAGE_ALIAS:
+		return type_has_default(type_dealias(type));
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+	case STORAGE_NULL:
+	case STORAGE_RCONST:
+		abort(); // unreachable
+	}
+	abort(); // Unreachable
+}
+
 static void
 check_expr_binarithm(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -2607,7 +2671,8 @@ check_struct_exhaustive(struct context *ctx,
 			}
 		}
 
-		if (!found) {
+		if (!found && (!aexpr->_struct.autofill
+					|| !type_has_default(sf->type))) {
 			error(ctx, aexpr->loc, expr,
 				"Field '%s' is uninitialized",
 				sf->name);
@@ -2715,9 +2780,7 @@ check_expr_struct(struct context *ctx,
 
 	if (stype) {
 		expr->result = stype;
-		if (!expr->_struct.autofill) {
-			check_struct_exhaustive(ctx, aexpr, expr, stype);
-		}
+		check_struct_exhaustive(ctx, aexpr, expr, stype);
 	} else {
 		expr->result = type_store_lookup_atype(ctx->store, &satype);
 

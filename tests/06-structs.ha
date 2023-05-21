@@ -118,7 +118,7 @@ type coords = struct { x: int, y: int };
 type coords3 = struct { coords, z: int };
 type embed = struct { a: uint, b: u8 };
 // complex embedded hierarchy
-type me = struct { embed, coords3, f: int, g: (int, str) };
+type me = struct { embed, coords3, f: int, g: (int, str), p: nullable *int };
 let g1: me = me {        b = 4, x = -1, y = -2, z = -3, f = 20, ... };
 let g2: me = me {               x = -1, y = -2, z = -3, f = 20, ... };
 let g3: me = me {                       y = -2, z = -3, f = 20, ... };
@@ -135,12 +135,12 @@ fn autofill() void = {
 	let x = coords { x = 10, ... };
 	assert(x.x == 10 && x.y == 0);
 
-	assert(g1.a == 0 && g1.b == 4 && g1.x == -1 && g1.y == -2 && g1.z == -3 && g1.f == 20 && g1.g.0 == 0 && g1.g.1 == "");
-	assert(g2.a == 0 && g2.b == 0 && g2.x == -1 && g2.y == -2 && g2.z == -3 && g2.f == 20 && g2.g.0 == 0 && g2.g.1 == "");
-	assert(g3.a == 0 && g3.b == 0 && g3.x == 0  && g3.y == -2 && g3.z == -3 && g3.f == 20 && g3.g.0 == 0 && g3.g.1 == "");
-	assert(g4.a == 0 && g4.b == 0 && g4.x == 0  && g4.y == 0  && g4.z == -3 && g4.f == 20 && g4.g.0 == 0 && g4.g.1 == "");
-	assert(g5.a == 0 && g5.b == 0 && g5.x == 0  && g5.y == 0  && g5.z == 0  && g5.f == 20 && g5.g.0 == 0 && g5.g.1 == "");
-	assert(g6.a == 0 && g6.b == 0 && g6.x == 0  && g6.y == 0  && g6.z == 0  && g6.f == 0  && g6.g.0 == 0 && g6.g.1 == "");
+	assert(g1.a == 0 && g1.b == 4 && g1.x == -1 && g1.y == -2 && g1.z == -3 && g1.f == 20 && g1.g.0 == 0 && g1.g.1 == "" && g1.p == null);
+	assert(g2.a == 0 && g2.b == 0 && g2.x == -1 && g2.y == -2 && g2.z == -3 && g2.f == 20 && g2.g.0 == 0 && g2.g.1 == "" && g2.p == null);
+	assert(g3.a == 0 && g3.b == 0 && g3.x == 0  && g3.y == -2 && g3.z == -3 && g3.f == 20 && g3.g.0 == 0 && g3.g.1 == "" && g3.p == null);
+	assert(g4.a == 0 && g4.b == 0 && g4.x == 0  && g4.y == 0  && g4.z == -3 && g4.f == 20 && g4.g.0 == 0 && g4.g.1 == "" && g4.p == null);
+	assert(g5.a == 0 && g5.b == 0 && g5.x == 0  && g5.y == 0  && g5.z == 0  && g5.f == 20 && g5.g.0 == 0 && g5.g.1 == "" && g5.p == null);
+	assert(g6.a == 0 && g6.b == 0 && g6.x == 0  && g6.y == 0  && g6.z == 0  && g6.f == 0  && g6.g.0 == 0 && g6.g.1 == "" && g6.p == null);
 
 	let l1: me = me {        b = 4, x = -1, y = -2, z = -3, f = 20, ... };
 	let l2: me = me {               x = -1, y = -2, z = -3, f = 20, ... };
@@ -149,12 +149,12 @@ fn autofill() void = {
 	let l5: me = me {                                       f = 20, ... };
 	let l6: me = me {                                               ... };
 
-	assert(l1.a == 0 && l1.b == 4 && l1.x == -1 && l1.y == -2 && l1.z == -3 && l1.f == 20 && l1.g.0 == 0 && l1.g.1 == "");
-	assert(l2.a == 0 && l2.b == 0 && l2.x == -1 && l2.y == -2 && l2.z == -3 && l2.f == 20 && l2.g.0 == 0 && l2.g.1 == "");
-	assert(l3.a == 0 && l3.b == 0 && l3.x == 0  && l3.y == -2 && l3.z == -3 && l3.f == 20 && l3.g.0 == 0 && l3.g.1 == "");
-	assert(l4.a == 0 && l4.b == 0 && l4.x == 0  && l4.y == 0  && l4.z == -3 && l4.f == 20 && l4.g.0 == 0 && l4.g.1 == "");
-	assert(l5.a == 0 && l5.b == 0 && l5.x == 0  && l5.y == 0  && l5.z == 0  && l5.f == 20 && l5.g.0 == 0 && l5.g.1 == "");
-	assert(l6.a == 0 && l6.b == 0 && l6.x == 0  && l6.y == 0  && l6.z == 0  && l6.f == 0  && l6.g.0 == 0 && l6.g.1 == "");
+	assert(l1.a == 0 && l1.b == 4 && l1.x == -1 && l1.y == -2 && l1.z == -3 && l1.f == 20 && l1.g.0 == 0 && l1.g.1 == "" && l1.p == null);
+	assert(l2.a == 0 && l2.b == 0 && l2.x == -1 && l2.y == -2 && l2.z == -3 && l2.f == 20 && l2.g.0 == 0 && l2.g.1 == "" && l2.p == null);
+	assert(l3.a == 0 && l3.b == 0 && l3.x == 0  && l3.y == -2 && l3.z == -3 && l3.f == 20 && l3.g.0 == 0 && l3.g.1 == "" && l3.p == null);
+	assert(l4.a == 0 && l4.b == 0 && l4.x == 0  && l4.y == 0  && l4.z == -3 && l4.f == 20 && l4.g.0 == 0 && l4.g.1 == "" && l4.p == null);
+	assert(l5.a == 0 && l5.b == 0 && l5.x == 0  && l5.y == 0  && l5.z == 0  && l5.f == 20 && l5.g.0 == 0 && l5.g.1 == "" && l5.p == null);
+	assert(l6.a == 0 && l6.b == 0 && l6.x == 0  && l6.y == 0  && l6.z == 0  && l6.f == 0  && l6.g.0 == 0 && l6.g.1 == "" && l6.p == null);
 };
 
 fn invariants() void = {
@@ -200,6 +200,19 @@ fn invariants() void = {
 
 	"type s = struct { a: int };"
 	"fn f() void = { let x = s { a = 3 }; x += s { a = 5 }; };",
+
+	// Try to autofill field without default value:
+	"type foo = struct { x: (void | int), y: (void | int) };"
+	"fn test() void = { let x = foo { x = 0, ... }; };",
+
+	"type foo = struct { x: int, y: struct { z: int, a: (void | int) } };"
+	"fn test() void = { let x = foo { x = 0, ... }; };",
+
+	"type foo = struct { x: *int, y: int };"
+	"fn test() void = { let x = foo { ... }; };",
+
+	"type a = *int; type foo = struct { x: a };"
+	"fn test() void = { let x = foo { ... }; };",
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
