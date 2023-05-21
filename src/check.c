@@ -963,8 +963,11 @@ type_promote(struct type_store *store,
 	assert(0);
 }
 
+static void resolve_enum_field(struct context *ctx,
+	struct incomplete_declaration *idel);
+
 static bool
-type_has_default(const struct type *type)
+type_has_default(struct context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_VOID:
@@ -975,7 +978,6 @@ type_has_default(const struct type *type)
 	case STORAGE_RUNE:
 	case STORAGE_F32:
 	case STORAGE_F64:
-	case STORAGE_ENUM:
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -994,6 +996,21 @@ type_has_default(const struct type *type)
 	case STORAGE_TAGGED:
 	case STORAGE_VALIST:
 		return false;
+	case STORAGE_ENUM:
+		for (const struct scope_object *obj = type->_enum.values->objects;
+				obj != NULL; obj = obj->lnext) {
+			if (obj->otype == O_DECL) {
+				continue;
+			}
+			if (obj->otype == O_SCAN) {
+				wrap_resolver(ctx, obj, resolve_enum_field);
+			}
+			assert(obj->otype == O_CONST);
+			if (obj->value->constant.uval == 0) {
+				return true;
+			}
+		}
+		return false;
 	case STORAGE_POINTER:
 		return type->pointer.flags & PTR_NULLABLE;
 	case STORAGE_STRUCT:
@@ -1003,7 +1020,7 @@ type_has_default(const struct type *type)
 		// See also: https://todo.sr.ht/~sircmpwn/hare/513
 		for (struct struct_field *sf = type->struct_union.fields;
 				sf != NULL; sf = sf->next) {
-			if (!type_has_default(sf->type)) {
+			if (!type_has_default(ctx, sf->type)) {
 				return false;
 			}
 		}
@@ -1011,13 +1028,13 @@ type_has_default(const struct type *type)
 	case STORAGE_TUPLE:
 		for (const struct type_tuple *t = &type->tuple;
 				t != NULL; t = t->next) {
-			if (!type_has_default(t->type)) {
+			if (!type_has_default(ctx, t->type)) {
 				return false;
 			}
 		}
 		return true;
 	case STORAGE_ALIAS:
-		return type_has_default(type_dealias(type));
+		return type_has_default(ctx, type_dealias(type));
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_NULL:
@@ -2672,7 +2689,7 @@ check_struct_exhaustive(struct context *ctx,
 		}
 
 		if (!found && (!aexpr->_struct.autofill
-					|| !type_has_default(sf->type))) {
+					|| !type_has_default(ctx, sf->type))) {
 			error(ctx, aexpr->loc, expr,
 				"Field '%s' is uninitialized",
 				sf->name);
@@ -3713,7 +3730,7 @@ end:
 	});
 }
 
-void
+static void
 resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	assert(idecl->type == IDECL_ENUM_FLD);
