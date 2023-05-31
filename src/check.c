@@ -2393,17 +2393,11 @@ check_expr_propagate(struct context *ctx,
 	struct identifier ok_name = {0}, err_name = {0};
 
 	ok_name.name = gen_name(&ctx->id, "ok.%d");
-	const struct scope_object *ok_obj = NULL;
+	err_name.name = gen_name(&ctx->id, "err.%d");
+	const struct scope_object *ok_obj = NULL, *err_obj = NULL;
 	if (result_type->size != 0 && result_type->size != SIZE_UNDEFINED) {
 		ok_obj = scope_insert(scope, O_BIND, &ok_name,
 			&ok_name, result_type, NULL);
-	}
-
-	err_name.name = gen_name(&ctx->id, "err.%d");
-	const struct scope_object *err_obj = NULL;
-	if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
-		err_obj = scope_insert(scope, O_BIND, &err_name,
-			&err_name, return_type, NULL);
 	}
 
 	case_ok->type = result_type;
@@ -2418,8 +2412,6 @@ check_expr_propagate(struct context *ctx,
 		case_ok->value->type = EXPR_CONSTANT;
 	}
 
-	case_err->type = return_type;
-	case_err->object = err_obj;
 	case_err->value = xcalloc(1, sizeof(struct expression));
 
 	if (aexpr->propagate.abort) {
@@ -2430,6 +2422,12 @@ check_expr_propagate(struct context *ctx,
 			.fixed_reason = ABORT_PROPAGATE_ERROR_OCCURED,
 		};
 	} else {
+		if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
+			err_obj = scope_insert(scope, O_BIND, &err_name,
+				&err_name, return_type, NULL);
+		}
+		case_err->type = return_type;
+		case_err->object = err_obj;
 		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
 			char *res = gen_typename(ctx->fntype->func.result);
 			char *ret = gen_typename(return_type);
