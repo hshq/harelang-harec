@@ -281,6 +281,10 @@ fn numeric() void = {
 		assert(_f64[j] == 0f64);
 	};
 
+	// capitalized exponent markers
+	assert(0x0P0 == 0.0);
+	assert(0E0 == 0);
+
 	// double tuple subscript special case
 	let tup = (('a', 'b'), 'c');
 	assert(tup.0.0 == 'a');

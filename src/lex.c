@@ -340,7 +340,9 @@ lex_literal(struct lexer *lexer, struct token *out)
 	static const char matching_states[0x80][6] = {
 		['.'] = {DEC, HEX, 0},
 		['e'] = {DEC, DEC | 1<<FLT, 0},
+		['E'] = {DEC, DEC | 1<<FLT, 0},
 		['p'] = {HEX, HEX | 1<<FLT, 0},
+		['P'] = {HEX, HEX | 1<<FLT, 0},
 		['+'] = {DEC | 1<<EXP | 1<<DIG, DEC | 1<<FLT | 1<<EXP | 1<<DIG, 0},
 		['-'] = {DEC | 1<<EXP | 1<<DIG, DEC | 1<<FLT | 1<<EXP | 1<<DIG, 0},
 		['i'] = {BIN, OCT, HEX, DEC, DEC | 1<<EXP, 0},
@@ -389,9 +391,11 @@ lex_literal(struct lexer *lexer, struct token *out)
 			break;
 		case '-':
 		case 'p':
+		case 'P':
 			state |= 1 << FLT;
 			/* fallthrough */
 		case 'e':
+		case 'E':
 		case '+':
 			state |= DEC | 1 << EXP;
 			exp = lexer->buflen - 1;
