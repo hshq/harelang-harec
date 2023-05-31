@@ -86,11 +86,10 @@ static void
 gen_copy_memcpy(struct gen_context *ctx,
 	struct gen_value dest, struct gen_value src)
 {
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
 	struct qbe_value dtemp = mklval(ctx, &dest);
 	struct qbe_value stemp = mklval(ctx, &src);
 	struct qbe_value sz = constl(dest.type->size);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dtemp, &stemp, &sz, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &dtemp, &stemp, &sz, NULL);
 }
 
 static void
@@ -179,9 +178,8 @@ gen_fixed_abort(struct gen_context *ctx,
 	mkstrconst(&eloc, "%s:%d:%d", sources[loc.file], loc.lineno, loc.colno);
 	struct gen_value msg = gen_expr(ctx, &eloc);
 	struct qbe_value qmsg = mkqval(ctx, &msg);
-	struct qbe_value rtabort = mkrtfunc(ctx, "rt.abort_fixed");
 	struct qbe_value tmp = constl(reason);
-	pushi(ctx->current, NULL, Q_CALL, &rtabort, &qmsg, &tmp, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.fixedabort, &qmsg, &tmp, NULL);
 }
 
 static struct gen_value
@@ -406,14 +404,13 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	struct qbe_value bzero = mklabel(ctx, &lzero, ".%d");
 	struct qbe_value bnonzero = mklabel(ctx, &lnonzero, ".%d");
 
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
 	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value zero = constl(0);
 	pushi(ctx->current, &data, Q_COPY, &zero, NULL);
 	pushi(ctx->current, &cmpres, Q_CNEL, &size, &zero, NULL);
 	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bnonzero, &bzero, NULL);
 	push(&ctx->current->body, &lnonzero);
-	pushi(ctx->current, &data, Q_CALL, &rtfunc, &size, NULL);
+	pushi(ctx->current, &data, Q_CALL, &ctx->rt.malloc, &size, NULL);
 
 	struct qbe_statement linvalid;
 	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
@@ -450,8 +447,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	} else {
 		struct qbe_value copysize = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		pushi(ctx->current, &copysize, Q_MUL, &length, &isize, NULL);
-		struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
-		pushi(ctx->current, NULL, Q_CALL, &rtmemcpy,
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy,
 				&data, &initdata, &copysize, NULL);
 	}
 
@@ -467,8 +463,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	struct qbe_value remain = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	pushi(ctx->current, &remain, Q_SUB, &qcap, &length, NULL);
 	pushi(ctx->current, &remain, Q_MUL, &remain, &isize, NULL);
-	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
-	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &next, &last, &remain, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &remain, NULL);
 }
 
 static struct gen_value
@@ -485,8 +480,7 @@ gen_expr_alloc_init_with(struct gen_context *ctx,
 	struct qbe_value sz = constl(objtype->size);
 	struct gen_value result = mkgtemp(ctx, expr->result, ".%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
-	pushi(ctx->current, &qresult, Q_CALL, &rtfunc, &sz, NULL);
+	pushi(ctx->current, &qresult, Q_CALL, &ctx->rt.malloc, &sz, NULL);
 
 	if (!(type_dealias(expr->result)->pointer.flags & PTR_NULLABLE)) {
 		struct qbe_statement linvalid, lvalid;
@@ -597,8 +591,7 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	struct qbe_value membsz = constl(result->array.members->size);
 	pushi(ctx->current, &sz, Q_MUL, &membsz, &length, NULL);
 
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.malloc");
-	pushi(ctx->current, &newdata, Q_CALL, &rtfunc, &sz, NULL);
+	pushi(ctx->current, &newdata, Q_CALL, &ctx->rt.malloc, &sz, NULL);
 	pushi(ctx->current, &cmpres, Q_CNEL, &newdata, &zero, NULL);
 	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bcopy, &binvalid, NULL);
 
@@ -606,8 +599,7 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
 
 	push(&ctx->current->body, &lcopy);
-	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
-	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &newdata, &srcdata, &sz, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &newdata, &srcdata, &sz, NULL);
 
 	push(&ctx->current->body, &lvalid);
 	pushi(ctx->current, NULL, store, &newdata, &dbase, NULL);
@@ -689,9 +681,8 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	const struct type *mtype = type_dealias(slice.type)->array.members;
 	struct qbe_value membsz = constl(mtype->size);
 	if (!expr->append.is_static) {
-		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
 		struct qbe_value lval = mklval(ctx, &slice);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.ensure, &lval, &membsz, NULL);
 	} else {
 		offs = constl(builtin_type_size.size * 2);
 		pushi(ctx->current, &ptr, Q_ADD, &qslice, &offs, NULL);
@@ -725,11 +716,10 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 		gen_expr_at(ctx, expr->append.value, item);
 	} else if (expr->append.is_multi && valtype->storage == STORAGE_SLICE) {
 		struct qbe_value qsrc = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memmove");
 		struct qbe_value sz = mkqtmp(ctx, ctx->arch.sz, ".%d");
 		pushi(ctx->current, &sz, Q_MUL, &appendlen, &membsz, NULL);
 		pushi(ctx->current, &qsrc, load, &qvalue, NULL);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &ptr, &qsrc, &sz, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memmove, &ptr, &qsrc, &sz, NULL);
 	} else if (expr->append.length != NULL) {
 		// XXX: This could be made more efficient for some cases if
 		// check could determine the length at compile time and lower it
@@ -746,12 +736,11 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 		arlen = constl((valtype->array.length - 1) * mtype->size);
 		pushi(ctx->current, &last, Q_ADD, &ptr, &arlen, NULL);
 
-		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
 		struct qbe_value remain = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		struct qbe_value one = constl(1);
 		pushi(ctx->current, &remain, Q_SUB, &appendlen, &one, NULL);
 		pushi(ctx->current, &remain, Q_MUL, &remain, &membsz, NULL);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &next, &last, &remain, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &remain, NULL);
 	} else {
 		gen_store(ctx, item, value);
 	}
@@ -763,7 +752,6 @@ static struct gen_value
 gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 {
 	struct qbe_statement failedl, passedl;
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.abort");
 	if (expr->assert.cond) {
 		struct qbe_value bfailed = mklabel(ctx, &failedl, "failed.%d");
 		struct qbe_value bpassed = mklabel(ctx, &passedl, "passed.%d");
@@ -788,7 +776,7 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 
 	if (expr->assert.message) {
 		struct qbe_value qmsg = mkqval(ctx, &msg), qloc = mkqval(ctx, &gloc);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qloc, &qmsg, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.abort, &qloc, &qmsg, NULL);
 	} else {
 		gen_fixed_abort(ctx, expr->loc, expr->assert.fixed_reason);
 	}
@@ -846,11 +834,10 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expressio
 	struct qbe_value isize = constl(sltype->size);
 	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &next, Q_ADD, &odata, &isize, NULL);
-	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
 	struct qbe_value one = constl(1);
 	pushi(ctx->current, &olen, Q_SUB, &olen, &one, NULL);
 	pushi(ctx->current, &olen, Q_MUL, &olen, &isize, NULL);
-	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &next, &odata, &olen, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &odata, &olen, NULL);
 	
 	push(&ctx->current->body, &lzero);
 	
@@ -890,14 +877,13 @@ gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
 	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
 	push(&ctx->current->body, &lvalid);
 
-	struct qbe_value rtmemmove = mkrtfunc(ctx, "rt.memmove");
 	struct qbe_value optr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value vptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &optr, Q_LOADL, &qobj, NULL);
 	pushi(ctx->current, &vptr, Q_LOADL, &qval, NULL);
 	tmp = constl(expr->assign.object->result->array.members->size);
 	pushi(ctx->current, &olen, Q_MUL, &olen, &tmp, NULL);
-	pushi(ctx->current, NULL, Q_CALL, &rtmemmove, &optr, &vptr, &olen, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memmove, &optr, &vptr, &olen, NULL);
 
 	return gv_void;
 }
@@ -1034,9 +1020,8 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 
 	assert((ltype->storage == STORAGE_STRING) == (rtype->storage == STORAGE_STRING));
 	if (ltype->storage == STORAGE_STRING) {
-		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.strcmp");
 		pushi(ctx->current, &qresult, Q_CALL,
-			&rtfunc, &qlval, &qrval, NULL);
+			&ctx->rt.strcmp, &qlval, &qrval, NULL);
 		if (expr->binarithm.op == BIN_NEQUAL) {
 			struct qbe_value one = constl(1);
 			pushi(ctx->current, &qresult, Q_XOR, &qresult, &one, NULL);
@@ -1505,11 +1490,10 @@ gen_expr_cast_array_at(struct gen_context *ctx,
 	offs = constl(typein->array.length * membtype->size);
 	pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
 
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memcpy");
 	struct qbe_value dtemp = mklval(ctx, &next);
 	struct qbe_value stemp = mklval(ctx, &item);
 	struct qbe_value sz = constl(remain * membtype->size);
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dtemp, &stemp, &sz, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &dtemp, &stemp, &sz, NULL);
 }
 
 static void
@@ -1880,9 +1864,8 @@ gen_const_array_at(struct gen_context *ctx,
 	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &next, Q_ADD, &base, &nsize, NULL);
 
-	struct qbe_value rtmemcpy = mkrtfunc(ctx, "rt.memcpy");
 	struct qbe_value qlen = constl((arr.length - n) * msize);
-	pushi(ctx->current, NULL, Q_CALL, &rtmemcpy, &next, &last, &qlen, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &qlen, NULL);
 }
 
 static void
@@ -2170,8 +2153,7 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &qlen, Q_SUB, &qlen, &qend, NULL);
 	pushi(ctx->current, &mlen, Q_MUL, &qlen, &membsz, NULL);
 
-	struct qbe_value rtmemmove = mkrtfunc(ctx, "rt.memmove");
-	pushi(ctx->current, NULL, Q_CALL, &rtmemmove, &startptr, &endptr, &mlen,
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memmove, &startptr, &endptr, &mlen,
 		NULL);
 
 	pushi(ctx->current, &qlen, Q_ADD, &qlen, &qstart, NULL);
@@ -2179,9 +2161,8 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, NULL, store, &qlen, &qlenptr, NULL);
 
 	if (!expr->delete.is_static) {
-		struct qbe_value rtunensure = mkrtfunc(ctx, "rt.unensure");
 		qobj = mklval(ctx, &object);
-		pushi(ctx->current, NULL, Q_CALL, &rtunensure, &qobj, &membsz,
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.unensure, &qobj, &membsz,
 			NULL);
 	}
 
@@ -2230,7 +2211,6 @@ static struct gen_value
 gen_expr_free(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct type *type = type_dealias(expr->free.expr->result);
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.free");
 	struct gen_value val = gen_expr(ctx, expr->free.expr);
 	struct qbe_value qval = mkqval(ctx, &val);
 	if (type->storage == STORAGE_SLICE || type->storage == STORAGE_STRING) {
@@ -2238,7 +2218,7 @@ gen_expr_free(struct gen_context *ctx, const struct expression *expr)
 		qval = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 		pushi(ctx->current, &qval, Q_LOADL, &lval, NULL);
 	}
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &qval, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.free, &qval, NULL);
 	return gv_void;
 }
 
@@ -2335,9 +2315,8 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	const struct type *mtype = type_dealias(slice.type)->array.members;
 	struct qbe_value membsz = constl(mtype->size);
 	if (!expr->append.is_static) {
-		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.ensure");
 		struct qbe_value lval = mklval(ctx, &slice);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &lval, &membsz, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.ensure, &lval, &membsz, NULL);
 	} else {
 		offs = constl(builtin_type_size.size * 2);
 		pushi(ctx->current, &ptr, Q_ADD, &qslice, &offs, NULL);
@@ -2370,8 +2349,7 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &ncopy, Q_MUL, &ncopy, &membsz, NULL);
 	pushi(ctx->current, &dest, Q_ADD, &ptr, &nbyte, NULL);
 
-	struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memmove");
-	pushi(ctx->current, NULL, Q_CALL, &rtfunc, &dest, &ptr, &ncopy, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memmove, &dest, &ptr, &ncopy, NULL);
 
 	struct gen_value item = {
 		.kind = GV_TEMP,
@@ -2383,9 +2361,8 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 		gen_expr_at(ctx, expr->append.value, item);
 	} else if (expr->append.is_multi && valtype->storage == STORAGE_SLICE) {
 		struct qbe_value qsrc = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memmove");
 		pushi(ctx->current, &qsrc, load, &qvalue, NULL);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc, &ptr, &qsrc, &nbyte, NULL);
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memmove, &ptr, &qsrc, &nbyte, NULL);
 	} else {
 		gen_store(ctx, item, value);
 	}
@@ -2846,11 +2823,10 @@ gen_expr_struct_at(struct gen_context *ctx,
 	struct qbe_value base = mkqval(ctx, &out);
 
 	if (expr->_struct.autofill) {
-		struct qbe_value rtfunc = mkrtfunc(ctx, "rt.memset");
 		struct qbe_value size =
 			constl(expr->result->size), zero = constl(0);
 		struct qbe_value base = mklval(ctx, &out);
-		pushi(ctx->current, NULL, Q_CALL, &rtfunc,
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memset,
 			&base, &zero, &size, NULL);
 	}
 
@@ -3787,6 +3763,7 @@ gen(const struct unit *unit, struct type_store *store, struct qbe_program *out)
 		},
 	};
 	ctx.out->next = &ctx.out->defs;
+	rtfunc_init(&ctx);
 	const struct declarations *decls = unit->declarations;
 	while (decls) {
 		gen_decl(&ctx, &decls->decl);

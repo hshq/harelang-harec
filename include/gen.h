@@ -53,11 +53,17 @@ struct gen_scope {
 	struct gen_scope *parent;
 };
 
+struct rt {
+	struct qbe_value abort, ensure, fixedabort, free, malloc,
+			 memcpy, memmove, memset, strcmp, unensure;
+};
+
 struct gen_context {
 	struct qbe_program *out;
 	struct gen_arch arch;
 	struct type_store *store;
 	struct identifier *ns;
+	struct rt rt;
 
 	int id;
 
@@ -75,6 +81,7 @@ void gen(const struct unit *unit,
 		struct qbe_program *out);
 
 // genutil.c
+void rtfunc_init(struct gen_context *ctx);
 struct gen_value mkgtemp(struct gen_context *ctx,
 	const struct type *type, const char *fmt);
 struct qbe_value mkqval(struct gen_context *ctx, struct gen_value *value);

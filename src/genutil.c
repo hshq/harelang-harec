@@ -6,6 +6,23 @@
 #include "types.h"
 #include "util.h"
 
+void
+rtfunc_init(struct gen_context *ctx)
+{
+	ctx->rt = (struct rt){
+		.abort = mkrtfunc(ctx, "rt.abort"),
+		.ensure = mkrtfunc(ctx, "rt.ensure"),
+		.fixedabort = mkrtfunc(ctx, "rt.abort_fixed"),
+		.free = mkrtfunc(ctx, "rt.free"),
+		.malloc = mkrtfunc(ctx, "rt.malloc"),
+		.memcpy = mkrtfunc(ctx, "rt.memcpy"),
+		.memmove = mkrtfunc(ctx, "rt.memmove"),
+		.memset = mkrtfunc(ctx, "rt.memset"),
+		.strcmp = mkrtfunc(ctx, "rt.strcmp"),
+		.unensure = mkrtfunc(ctx, "rt.unensure"),
+	};
+}
+
 struct qbe_value
 mkqval(struct gen_context *ctx, struct gen_value *value)
 {
