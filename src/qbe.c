@@ -97,6 +97,7 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_EXTUB] = "extub",
 	[Q_EXTUH] = "extuh",
 	[Q_EXTUW] = "extuw",
+	[Q_HLT] = "hlt",
 	[Q_JMP] = "jmp",
 	[Q_JNZ] = "jnz",
 	[Q_LOADD] = "loadd",

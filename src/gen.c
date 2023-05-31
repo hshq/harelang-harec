@@ -180,6 +180,7 @@ gen_fixed_abort(struct gen_context *ctx,
 	struct qbe_value qmsg = mkqval(ctx, &msg);
 	struct qbe_value tmp = constl(reason);
 	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.fixedabort, &qmsg, &tmp, NULL);
+	pushi(ctx->current, NULL, Q_HLT, NULL);
 }
 
 static struct gen_value
@@ -777,6 +778,7 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 	if (expr->assert.message) {
 		struct qbe_value qmsg = mkqval(ctx, &msg), qloc = mkqval(ctx, &gloc);
 		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.abort, &qloc, &qmsg, NULL);
+		pushi(ctx->current, NULL, Q_HLT, NULL);
 	} else {
 		gen_fixed_abort(ctx, expr->loc, expr->assert.fixed_reason);
 	}

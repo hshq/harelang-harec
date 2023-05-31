@@ -122,6 +122,7 @@ enum qbe_instr {
 	Q_EXTUB,
 	Q_EXTUH,
 	Q_EXTUW,
+	Q_HLT,
 	Q_JMP,
 	Q_JNZ,
 	Q_LOADD,
