@@ -32,6 +32,28 @@ mkident(struct context *ctx, struct identifier *out, const struct identifier *in
 	}
 }
 
+size_t
+mkstrconst(struct expression *expr, const char *fmt, ...)
+{
+	va_list ap1, ap2;
+	va_start(ap1, fmt);
+	size_t n = vsnprintf(NULL, 0, fmt, ap1);
+	va_end(ap1);
+	char *s = xcalloc(1, n + 1);
+	va_start(ap2, fmt);
+	vsnprintf(s, n + 1, fmt, ap2);
+	va_end(ap2);
+
+	*expr = (struct expression) {
+		.type = EXPR_CONSTANT,
+		.terminates = false,
+		.result = &builtin_type_const_str,
+	};
+	expr->constant.string.value = s;
+	expr->constant.string.len = n;
+	return n;
+}
+
 static char *
 gen_typename(const struct type *type)
 {
@@ -625,95 +647,65 @@ check_expr_assert(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	expr->type = EXPR_ASSERT;
 	expr->result = &builtin_type_void;
-	expr->assert.is_static = aexpr->assert.is_static;
+	expr->type = EXPR_ASSERT;
 
+	struct location loc;
 	if (aexpr->assert.cond != NULL) {
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->assert.cond, expr->assert.cond, &builtin_type_bool);
+		loc = aexpr->assert.cond->loc;
 		if (type_dealias(expr->assert.cond->result)->storage != STORAGE_BOOL) {
-			error(ctx, aexpr->assert.cond->loc, expr,
-				"Assertion condition must be boolean");
+			error(ctx, loc, expr, "Assertion condition must be boolean");
 			return;
 		}
 	} else {
-		expr->terminates = true;
+		loc = aexpr->loc;
+		expr->terminates = !aexpr->assert.is_static;
 	}
-
-	expr->assert.message = xcalloc(1, sizeof(struct expression));
-	if (aexpr->assert.message != NULL) {
+	if (aexpr->assert.message == NULL) {
+		expr->assert.fixed_reason = ABORT_ANON_ASSERTION_FAILED;
+	} else {
+		expr->assert.message = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
-		if (expr->assert.message->result->storage != STORAGE_STRING) {
+		if (type_dealias(expr->assert.message->result)->storage != STORAGE_STRING) {
 			error(ctx, aexpr->assert.message->loc, expr,
 				"Assertion message must be string");
 			return;
 		}
-
-		assert(expr->assert.message->type == EXPR_CONSTANT);
-		size_t n = snprintf(NULL, 0, "%s:%d:%d: ",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-		size_t s_len = expr->assert.message->constant.string.len;
-		char *s = xcalloc(1, n + s_len + 1);
-		snprintf(s, n + 1, "%s:%d:%d: ", sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-		memcpy(s+n, expr->assert.message->constant.string.value, s_len);
-		s[n + s_len] = '\0';
-
-		expr->assert.message->constant.string.value = s;
-		expr->assert.message->constant.string.len = n + s_len;
-	} else {
-		int n = snprintf(NULL, 0, "Assertion failed: %s:%d:%d",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-		char *s = xcalloc(1, n + 1);
-		snprintf(s, n, "Assertion failed: %s:%d:%d",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-
-		expr->assert.message->type = EXPR_CONSTANT;
-		expr->assert.message->result = &builtin_type_const_str;
-		expr->assert.message->constant.string.value = s;
-		expr->assert.message->constant.string.len = n - 1;
 	}
 
-	if (expr->assert.is_static) {
-		bool cond;
+	if (aexpr->assert.is_static) {
+		expr->type = EXPR_CONSTANT;
+		bool cond = false;
 		if (expr->assert.cond != NULL) {
-			struct expression out = {0};
+			struct expression out = {0}, msgout = {0};
 			enum eval_result r =
 				eval_expr(ctx, expr->assert.cond, &out);
 			if (r != EVAL_OK) {
 				error(ctx, aexpr->assert.cond->loc, expr,
-					"Unable to evaluate static assertion at compile time");
+					"Unable to evaluate static assertion condition at compile time");
 				return;
 			}
-			assert(out.result->storage == STORAGE_BOOL);
+			if (expr->assert.message) {
+				r = eval_expr(ctx, expr->assert.message, &msgout);
+				if (r != EVAL_OK) {
+					error(ctx, aexpr->assert.message->loc, expr,
+						"Unable to evaluate static assertion message at compile time");
+					return;
+				}
+			}
+			assert(type_dealias(out.result)->storage == STORAGE_BOOL);
 			cond = out.constant.bval;
-		} else {
-			cond = false;
 		}
 		// XXX: Should these abort immediately?
 		if (!cond) {
 			if (aexpr->assert.message != NULL) {
-				char format[40];
-				snprintf(format, 40, "Static assertion failed %%%zds",
-					expr->assert.message->constant.string.len);
-				if (aexpr->assert.cond == NULL) {
-					error(ctx, aexpr->loc, expr, format,
-						expr->assert.message->constant.string.value);
-					return;
-				} else {
-					error(ctx, aexpr->assert.cond->loc,
-						expr, format,
-						expr->assert.message->constant.string.value);
-					return;
-				};
+				error(ctx, loc, expr, "Static assertion failed: %.*s",
+					expr->assert.message->constant.string.len,
+					expr->assert.message->constant.string.value);
 			} else {
-				error(ctx, aexpr->loc, expr,
-					"Static assertion failed");
-				return;
+				error(ctx, loc, expr, "Static assertion failed");
 			}
 		}
 	}
@@ -969,6 +961,87 @@ type_promote(struct type_store *store,
 		assert(0);
 	}
 	assert(0);
+}
+
+static void resolve_enum_field(struct context *ctx,
+	struct incomplete_declaration *idel);
+
+static bool
+type_has_default(struct context *ctx, const struct type *type)
+{
+	switch (type->storage) {
+	case STORAGE_VOID:
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+	case STORAGE_BOOL:
+	case STORAGE_RUNE:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I8:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_INT:
+	case STORAGE_SIZE:
+	case STORAGE_U8:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_ERROR:
+		return true;
+	case STORAGE_FUNCTION:
+	case STORAGE_TAGGED:
+	case STORAGE_VALIST:
+		return false;
+	case STORAGE_ENUM:
+		for (const struct scope_object *obj = type->_enum.values->objects;
+				obj != NULL; obj = obj->lnext) {
+			if (obj->otype == O_DECL) {
+				continue;
+			}
+			if (obj->otype == O_SCAN) {
+				wrap_resolver(ctx, obj, resolve_enum_field);
+			}
+			assert(obj->otype == O_CONST);
+			if (obj->value->constant.uval == 0) {
+				return true;
+			}
+		}
+		return false;
+	case STORAGE_POINTER:
+		return type->pointer.flags & PTR_NULLABLE;
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
+		// TODO: shouldn't be possible to initialize overlapping fields
+		// (@offset)
+		// See also: https://todo.sr.ht/~sircmpwn/hare/513
+		for (struct struct_field *sf = type->struct_union.fields;
+				sf != NULL; sf = sf->next) {
+			if (!type_has_default(ctx, sf->type)) {
+				return false;
+			}
+		}
+		return true;
+	case STORAGE_TUPLE:
+		for (const struct type_tuple *t = &type->tuple;
+				t != NULL; t = t->next) {
+			if (!type_has_default(ctx, t->type)) {
+				return false;
+			}
+		}
+		return true;
+	case STORAGE_ALIAS:
+		return type_has_default(ctx, type_dealias(type));
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+	case STORAGE_NULL:
+	case STORAGE_RCONST:
+		abort(); // unreachable
+	}
+	abort(); // Unreachable
 }
 
 static void
@@ -2320,17 +2393,11 @@ check_expr_propagate(struct context *ctx,
 	struct identifier ok_name = {0}, err_name = {0};
 
 	ok_name.name = gen_name(&ctx->id, "ok.%d");
-	const struct scope_object *ok_obj = NULL;
+	err_name.name = gen_name(&ctx->id, "err.%d");
+	const struct scope_object *ok_obj = NULL, *err_obj = NULL;
 	if (result_type->size != 0 && result_type->size != SIZE_UNDEFINED) {
 		ok_obj = scope_insert(scope, O_BIND, &ok_name,
 			&ok_name, result_type, NULL);
-	}
-
-	err_name.name = gen_name(&ctx->id, "err.%d");
-	const struct scope_object *err_obj = NULL;
-	if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
-		err_obj = scope_insert(scope, O_BIND, &err_name,
-			&err_name, return_type, NULL);
 	}
 
 	case_ok->type = result_type;
@@ -2345,29 +2412,22 @@ check_expr_propagate(struct context *ctx,
 		case_ok->value->type = EXPR_CONSTANT;
 	}
 
-	case_err->type = return_type;
-	case_err->object = err_obj;
 	case_err->value = xcalloc(1, sizeof(struct expression));
 
 	if (aexpr->propagate.abort) {
 		case_err->value->type = EXPR_ASSERT;
-		case_err->value->assert.cond = NULL;
-		case_err->value->assert.is_static = false;
-
-		int n = snprintf(NULL, 0, "Assertion failed: error occured at %s:%d:%d",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-		char *s = xcalloc(1, n + 1);
-		snprintf(s, n, "Assertion failed: error occured at %s:%d:%d",
-			sources[aexpr->loc.file],
-			aexpr->loc.lineno, aexpr->loc.colno);
-
-		case_err->value->assert.message = xcalloc(1, sizeof(struct expression));
-		case_err->value->assert.message->type = EXPR_CONSTANT;
-		case_err->value->assert.message->result = &builtin_type_const_str;
-		case_err->value->assert.message->constant.string.value = s;
-		case_err->value->assert.message->constant.string.len = n;
+		case_err->value->assert = (struct expression_assert){
+			.cond = NULL,
+			.message = NULL,
+			.fixed_reason = ABORT_PROPAGATE_ERROR_OCCURED,
+		};
 	} else {
+		if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
+			err_obj = scope_insert(scope, O_BIND, &err_name,
+				&err_name, return_type, NULL);
+		}
+		case_err->type = return_type;
+		case_err->object = err_obj;
 		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
 			char *res = gen_typename(ctx->fntype->func.result);
 			char *ret = gen_typename(return_type);
@@ -2626,7 +2686,8 @@ check_struct_exhaustive(struct context *ctx,
 			}
 		}
 
-		if (!found) {
+		if (!found && (!aexpr->_struct.autofill
+					|| !type_has_default(ctx, sf->type))) {
 			error(ctx, aexpr->loc, expr,
 				"Field '%s' is uninitialized",
 				sf->name);
@@ -2734,9 +2795,7 @@ check_expr_struct(struct context *ctx,
 
 	if (stype) {
 		expr->result = stype;
-		if (!expr->_struct.autofill) {
-			check_struct_exhaustive(ctx, aexpr, expr, stype);
-		}
+		check_struct_exhaustive(ctx, aexpr, expr, stype);
 	} else {
 		expr->result = type_store_lookup_atype(ctx->store, &satype);
 
@@ -3669,7 +3728,7 @@ end:
 	});
 }
 
-void
+static void
 resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	assert(idecl->type == IDECL_ENUM_FLD);

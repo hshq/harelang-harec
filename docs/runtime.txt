@@ -1,6 +1,6 @@
 harec expects the runtime to provide some features under the "rt" namespace.
 
-@noreturn @symbol("rt.abort") fn _abort(msg: str) void;
+@noreturn @symbol("rt.abort") fn _abort(loc: str, msg: str) void;
 	Print a diagnostic message and terminate the program.
 
 @noreturn fn abort_fixed(reason: int) void;
@@ -13,6 +13,8 @@ harec expects the runtime to provide some features under the "rt" namespace.
 	3: Static append exceeds slice capacity
 	4: Unreachable code
 	5: Slice allocation capacity smaller than initializer
+	6: Generic assertion failure without a message
+	7: Error assertion failed
 
 fn memcpy(dest: *void, src: *void, n: size) void;
 	Copy "n" bytes from "src" to "dest". The memory areas shall not

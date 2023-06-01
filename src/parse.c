@@ -1125,7 +1125,7 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 		want(lexer, T_LPAREN, &tok);
 		exp->assert.cond = parse_expression(lexer);
 		if (lex(lexer, &tok) == T_COMMA) {
-			exp->assert.message = parse_constant(lexer);
+			exp->assert.message = parse_expression(lexer);
 		} else {
 			unlex(lexer, &tok);
 		}
@@ -1135,7 +1135,7 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 		want(lexer, T_LPAREN, &tok);
 		if (lex(lexer, &tok) != T_RPAREN) {
 			unlex(lexer, &tok);
-			exp->assert.message = parse_constant(lexer);
+			exp->assert.message = parse_expression(lexer);
 			want(lexer, T_RPAREN, &tok);
 		}
 		break;

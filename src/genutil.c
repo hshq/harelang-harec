@@ -6,6 +6,23 @@
 #include "types.h"
 #include "util.h"
 
+void
+rtfunc_init(struct gen_context *ctx)
+{
+	ctx->rt = (struct rt){
+		.abort = mkrtfunc(ctx, "rt.abort"),
+		.ensure = mkrtfunc(ctx, "rt.ensure"),
+		.fixedabort = mkrtfunc(ctx, "rt.abort_fixed"),
+		.free = mkrtfunc(ctx, "rt.free"),
+		.malloc = mkrtfunc(ctx, "rt.malloc"),
+		.memcpy = mkrtfunc(ctx, "rt.memcpy"),
+		.memmove = mkrtfunc(ctx, "rt.memmove"),
+		.memset = mkrtfunc(ctx, "rt.memset"),
+		.strcmp = mkrtfunc(ctx, "rt.strcmp"),
+		.unensure = mkrtfunc(ctx, "rt.unensure"),
+	};
+}
+
 struct qbe_value
 mkqval(struct gen_context *ctx, struct gen_value *value)
 {
@@ -79,10 +96,17 @@ mkrtfunc(struct gen_context *ctx, const char *name)
 struct qbe_value
 mklabel(struct gen_context *ctx, struct qbe_statement *stmt, const char *fmt)
 {
-	struct qbe_value val;
-	val.kind = QV_LABEL;
-	val.name = xstrdup(genl(stmt, &ctx->id, fmt));
-	return val;
+	size_t n = snprintf(NULL, 0, fmt, ctx->id);
+	char *l = xcalloc(1, n + 1);
+	snprintf(l, n + 1, fmt, ctx->id);
+
+	stmt->label = l;
+	stmt->type = Q_LABEL;
+	ctx->id++;
+	return (struct qbe_value){
+		.kind = QV_LABEL,
+		.name = xstrdup(l),
+	};
 }
 
 void

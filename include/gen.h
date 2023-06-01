@@ -7,15 +7,6 @@
 #include "types.h"
 #include "scope.h"
 
-enum fixed_aborts {
-	ABORT_OOB = 0,
-	ABORT_TYPE_ASSERTION = 1,
-	ABORT_ALLOC_FAILURE = 2,
-	ABORT_STATIC_EXCEEDED = 3,
-	ABORT_UNREACHABLE = 4,
-	ABORT_CAP_TOO_SMALL = 5,
-};
-
 struct gen_arch {
 	const struct qbe_type *ptr;
 	const struct qbe_type *sz;
@@ -62,11 +53,17 @@ struct gen_scope {
 	struct gen_scope *parent;
 };
 
+struct rt {
+	struct qbe_value abort, ensure, fixedabort, free, malloc,
+			 memcpy, memmove, memset, strcmp, unensure;
+};
+
 struct gen_context {
 	struct qbe_program *out;
 	struct gen_arch arch;
 	struct type_store *store;
 	struct identifier *ns;
+	struct rt rt;
 
 	int id;
 
@@ -84,6 +81,7 @@ void gen(const struct unit *unit,
 		struct qbe_program *out);
 
 // genutil.c
+void rtfunc_init(struct gen_context *ctx);
 struct gen_value mkgtemp(struct gen_context *ctx,
 	const struct type *type, const char *fmt);
 struct qbe_value mkqval(struct gen_context *ctx, struct gen_value *value);

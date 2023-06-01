@@ -15,6 +15,60 @@ fn compile() void = {
 	) as rt::exited != rt::EXIT_SUCCESS);
 };
 
+let global = 0i;
+
+fn foofn() str = {
+	global += 1;
+	return "foo";
+};
+
+def FOO: str = "foo";
+
+type s = str;
+type b = bool;
+
+fn assert_() void = {
+	let foo = "foo";
+	static assert(true, "foo");
+	static assert(true: b, "foo");
+	static assert(true, "foo": s);
+	static assert(true, FOO);
+	static assert(true: b, FOO);
+	static assert(true, FOO: s);
+
+	assert(true, "foo");
+	assert(true: b, "foo");
+	assert(true, "foo": s);
+	assert(true, FOO);
+	assert(true: b, FOO);
+	assert(true, FOO: s);
+	assert(true, foo);
+	assert(true: b, foo);
+	assert(true, foo: s);
+	assert(true, foofn());
+	assert(true: b, foofn());
+	assert(true, foofn(): s);
+
+	assert(global == 0); // no side effects if assertion succeeds
+
+	let failures: [_]str = [
+		// types
+		"fn f() void = { assert(5); };",
+		"fn f() void = { assert(true, 5); };",
+		"fn f() void = { static assert(5); };",
+		"fn f() void = { static assert(true, 5); };",
+
+		// compile-time eval
+		"fn f() void = { let a = true; static assert(a); };",
+		"fn f() void = { let a = \"foo\"; static assert(true, a); };",
+	];
+
+	for (let i = 0z; i < len(failures); i += 1) {
+		assert(rt::compile(failures[i]) as rt::exited != rt::EXIT_SUCCESS);
+	};
+};
+
 export fn main() void = {
+	assert_();
 	compile();
 };

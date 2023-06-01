@@ -117,6 +117,8 @@ struct incomplete_declaration {
 void mkident(struct context *ctx, struct identifier *out,
 		const struct identifier *in, const char *symbol);
 
+size_t mkstrconst(struct expression *expr, const char *fmt, ...);
+
 typedef void (*resolvefn)(struct context *,
 		struct incomplete_declaration *idecl);
 

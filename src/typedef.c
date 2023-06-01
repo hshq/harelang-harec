@@ -74,7 +74,7 @@ emit_const(const struct expression *expr, FILE *out)
 			xfprintf(out, "%s1.0%s / 0.0%s",
 				(val->fval > 0) ? "" : "-", suffix, suffix);
 		} else {
-			xfprintf(out, "%lf%s", val->fval, suffix);
+			xfprintf(out, "%a%s", val->fval, suffix);
 		}
 		break;
 	}
