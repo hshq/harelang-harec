@@ -2415,6 +2415,7 @@ check_expr_propagate(struct context *ctx,
 	case_err->value = xcalloc(1, sizeof(struct expression));
 
 	if (aexpr->propagate.abort) {
+		case_err->value->loc = expr->loc;
 		case_err->value->type = EXPR_ASSERT;
 		case_err->value->assert = (struct expression_assert){
 			.cond = NULL,

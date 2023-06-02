@@ -3358,7 +3358,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	push(&ctx->current->body, &lbody);
 	struct gen_value ret = gen_expr(ctx, decl->func.body);
 
-	if (decl->func.body->terminates) {
+	if (fntype->func.flags & FN_NORETURN) {
+		gen_fixed_abort(ctx, decl->loc, ABORT_NORETURN);
+	} else if (decl->func.body->terminates) {
 		// XXX: This is a bit hacky, to appease qbe
 		size_t ln = ctx->current->body.ln;
 		struct qbe_statement *last = &ctx->current->body.stmts[ln - 1];

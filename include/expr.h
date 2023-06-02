@@ -105,6 +105,7 @@ enum fixed_aborts {
 	ABORT_CAP_TOO_SMALL = 5,
 	ABORT_ANON_ASSERTION_FAILED = 6,
 	ABORT_PROPAGATE_ERROR_OCCURED = 7,
+	ABORT_NORETURN = 8,
 };
 
 struct expression_assert {
