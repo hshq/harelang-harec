@@ -20,7 +20,7 @@ static void
 usage(const char *argv_0)
 {
 	xfprintf(stderr,
-		"Usage: %s [-a arch] [-D ident[:type]=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
+		"Usage: %s [-v] [-a arch] [-D ident[:type]=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
 		argv_0);
 }
 
@@ -65,7 +65,7 @@ main(int argc, char *argv[])
 	struct ast_global_decl *defines = NULL, **next_def = &defines;
 
 	int c;
-	while ((c = getopt(argc, argv, "a:D:ho:Tt:N:")) != -1) {
+	while ((c = getopt(argc, argv, "a:D:ho:Tt:N:v")) != -1) {
 		switch (c) {
 		case 'a':
 			target = optarg;
@@ -97,6 +97,9 @@ main(int argc, char *argv[])
 				lex_finish(&lexer);
 			}
 			break;
+		case 'v':
+			printf("harec %s\n", VERSION);
+			return EXIT_SUCCESS;
 		case 'h':
 		default:
 			usage(argv[0]);

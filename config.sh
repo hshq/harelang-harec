@@ -245,7 +245,8 @@ CFLAGS=${CFLAGS} \\
 	-DPREFIX='"\$(PREFIX)"' \\
 	-DLIBDIR='"\$(LIBDIR)"' \\
 	-DVARLIBDIR='"\$(VARLIBDIR)"' \\
-	-DSYSCONFDIR='"\$(SYSCONFDIR)"'
+	-DSYSCONFDIR='"\$(SYSCONFDIR)"' \\
+	-DVERSION='"'"\$\$(./scripts/version)"'"'
 LDFLAGS=${LDFLAGS}
 HARECACHE=./mod
 
@@ -289,6 +290,7 @@ EOF
 	populate "$srcdir/doc"
 	populate "$srcdir/include"
 	populate "$srcdir/rt"
+	populate "$srcdir/scripts"
 	populate "$srcdir/src"
 	populate "$srcdir/tests"
 	populate "$srcdir/testmod"
