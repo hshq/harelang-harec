@@ -2420,7 +2420,7 @@ check_expr_propagate(struct context *ctx,
 		case_err->value->assert = (struct expression_assert){
 			.cond = NULL,
 			.message = NULL,
-			.fixed_reason = ABORT_PROPAGATE_ERROR_OCCURED,
+			.fixed_reason = ABORT_PROPAGATE_ERROR_OCCURRED,
 		};
 	} else {
 		if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
@@ -3033,7 +3033,7 @@ check_expr_tuple(struct context *ctx,
 		expr->result = type_store_lookup_tuple(ctx->store,
 				aexpr->loc, &result);
 		if (expr->result == &builtin_type_error) {
-			// an error occured
+			// an error occurred
 			return;
 		}
 	}
