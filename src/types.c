@@ -752,6 +752,10 @@ type_is_assignable(const struct type *to, const struct type *from)
 		return true;
 	}
 
+	if (from->storage == STORAGE_ERROR) {
+		return true;
+	}
+
 	if (type_is_constant(from)) {
 		return promote_const(to_orig, from_orig);
 	}

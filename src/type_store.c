@@ -998,6 +998,9 @@ const struct type *
 type_store_lookup_pointer(struct type_store *store, struct location loc,
 	const struct type *referent, unsigned int ptrflags)
 {
+	if (referent->storage == STORAGE_ERROR) {
+		return &builtin_type_error;
+	}
 	if (referent->storage == STORAGE_NULL) {
 		error(store->check_context, loc,
 			"Null type not allowed in this context");
@@ -1021,6 +1024,9 @@ const struct type *
 type_store_lookup_array(struct type_store *store, struct location loc,
 	const struct type *members, size_t len, bool expandable)
 {
+	if (members->storage == STORAGE_ERROR) {
+		return &builtin_type_error;
+	}
 	if (members->storage == STORAGE_NULL) {
 		error(store->check_context, loc,
 			"Null type not allowed in this context");
@@ -1061,6 +1067,9 @@ const struct type *
 type_store_lookup_slice(struct type_store *store, struct location loc,
 	const struct type *members)
 {
+	if (members->storage == STORAGE_ERROR) {
+		return &builtin_type_error;
+	}
 	if (members->storage == STORAGE_NULL) {
 		error(store->check_context, loc,
 			"Null type not allowed in this context");
@@ -1160,6 +1169,9 @@ type_store_tagged_to_union(struct type_store *store, const struct type *tagged)
 	struct struct_field **next = &type.struct_union.fields;
 	for (const struct type_tagged_union *tu = &tagged->tagged;
 			tu; tu = tu->next) {
+		if (tu->type->storage == STORAGE_ERROR) {
+			return &builtin_type_error;
+		}
 		if (tu->type->size == 0) {
 			continue;
 		}
@@ -1190,6 +1202,9 @@ type_store_lookup_tuple(struct type_store *store, struct location loc,
 		.storage = STORAGE_TUPLE,
 	};
 	for (struct type_tuple *t = values; t; t = t->next) {
+		if (t->type->storage == STORAGE_ERROR) {
+			return &builtin_type_error;
+		}
 		if (t->type->storage == STORAGE_NULL) {
 			error(store->check_context, loc,
 				"Null type not allowed in this context");

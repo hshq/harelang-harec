@@ -92,15 +92,21 @@ handle_errors(struct errors *errors)
 }
 
 static void
+mkerror(const struct location loc, struct expression *expr)
+{
+	expr->type = EXPR_CONSTANT;
+	expr->result = &builtin_type_error;
+	expr->constant.uval = 0; // XXX: ival?
+	expr->terminates = false;
+	expr->loc = loc;
+}
+
+static void
 verror(struct context *ctx, const struct location loc, struct expression *expr,
 		char *fmt, va_list ap)
 {
 	if (expr) {
-		expr->type = EXPR_CONSTANT;
-		expr->result = &builtin_type_error;
-		expr->constant.uval = 0; // XXX: ival?
-		expr->terminates = false;
-		expr->loc = loc;
+		mkerror(loc, expr);
 	}
 
 	va_list copy;
@@ -231,6 +237,10 @@ check_expr_access(struct context *ctx,
 			return;
 		}
 		atype = type_dealias(atype);
+		if (atype->storage == STORAGE_ERROR) {
+			mkerror(aexpr->access.array->loc, expr);
+			return;
+		};
 		const struct type *itype =
 			type_dealias(expr->access.index->result);
 		if (atype->storage != STORAGE_ARRAY
@@ -286,6 +296,10 @@ check_expr_access(struct context *ctx,
 			return;
 		}
 		stype = type_dealias(stype);
+		if (stype->storage == STORAGE_ERROR) {
+			mkerror(aexpr->access._struct->loc, expr);
+			return;
+		};
 		if (stype->storage != STORAGE_STRUCT
 				&& stype->storage != STORAGE_UNION) {
 			error(ctx, aexpr->access._struct->loc, expr,
@@ -315,6 +329,10 @@ check_expr_access(struct context *ctx,
 			return;
 		}
 		ttype = type_dealias(ttype);
+		if (ttype->storage == STORAGE_ERROR) {
+			mkerror(aexpr->access.tuple->loc, expr);
+			return;
+		};
 		if (ttype->storage != STORAGE_TUPLE) {
 			error(ctx, aexpr->access.tuple->loc, expr,
 				"Cannot select value from non-tuple object");
@@ -539,6 +557,10 @@ check_expr_append_insert(struct context *ctx,
 	expr->append.is_multi = aexpr->append.is_multi;
 	expr->append.object = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->append.object, expr->append.object, NULL);
+	if (expr->append.object->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	};
 	if (expr->append.object->type != EXPR_ACCESS) {
 		error(ctx, aexpr->append.object->loc, expr,
 			"Expression must operate on an object");
@@ -1361,6 +1383,10 @@ check_expr_call(struct context *ctx,
 		return;
 	}
 	fntype = type_dealias(fntype);
+	if (fntype->storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	};
 	if (fntype->storage != STORAGE_FUNCTION) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot call non-function type");
@@ -1462,6 +1488,10 @@ check_expr_cast(struct context *ctx,
 	}
 
 	const struct type *primary = type_dealias(expr->cast.value->result);
+	if (primary->storage == STORAGE_ERROR) {
+		mkerror(aexpr->cast.value->loc, expr);
+		return;
+	};
 	switch (aexpr->cast.kind) {
 	case C_ASSERTION:
 	case C_TEST:
@@ -1987,6 +2017,10 @@ check_expr_free(struct context *ctx,
 	expr->free.expr = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL);
 	enum type_storage storage = type_dealias(expr->free.expr->result)->storage;
+	if (storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	};
 	if (storage != STORAGE_SLICE && storage != STORAGE_STRING
 			&& storage != STORAGE_POINTER) {
 		error(ctx, aexpr->free.expr->loc, expr,
@@ -2051,6 +2085,10 @@ check_expr_if(struct context *ctx,
 		expr->terminates = false;
 	}
 
+	if (cond->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->match.value->loc, expr);
+		return;
+	}
 	if (type_dealias(cond->result)->storage != STORAGE_BOOL) {
 		error(ctx, aexpr->_if.cond->loc, expr,
 			"Expected if condition to be boolean");
@@ -2074,6 +2112,10 @@ check_expr_match(struct context *ctx,
 	check_expression(ctx, aexpr->match.value, value, NULL); expr->match.value = value;
 
 	const struct type *type = type_dealias(value->result);
+	if (type->storage == STORAGE_ERROR) {
+		mkerror(aexpr->match.value->loc, expr);
+		return;
+	}
 	bool is_ptr = type->storage == STORAGE_POINTER
 		&& type->pointer.flags & PTR_NULLABLE;
 	if (type->storage != STORAGE_TAGGED && !is_ptr) {
@@ -2240,7 +2282,7 @@ check_expr_measure(struct context *ctx,
 		}
 		enum type_storage vstor = type_dealias(atype)->storage;
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
-				|| vstor == STORAGE_STRING;
+			|| vstor == STORAGE_STRING || vstor == STORAGE_ERROR;
 		if (!valid) {
 			char *typename = gen_typename(expr->measure.value->result);
 			error(ctx, aexpr->measure.value->loc, expr,
@@ -2307,6 +2349,10 @@ check_expr_propagate(struct context *ctx,
 	check_expression(ctx, aexpr->propagate.value, lvalue, hint == &builtin_type_void ? NULL : hint);
 
 	const struct type *intype = lvalue->result;
+	if (intype->storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	};
 	if (type_dealias(intype)->storage != STORAGE_TAGGED) {
 		char *typename = gen_typename(intype);
 		error(ctx, aexpr->loc, expr,
