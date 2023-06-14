@@ -134,6 +134,7 @@ enum binarithm_operator {
 	BIN_RSHIFT,	// >>
 	BIN_TIMES,	// *
 	BIN_BXOR,	// ^
+	BIN_LAST = BIN_BXOR,
 };
 
 struct expression_assign {
