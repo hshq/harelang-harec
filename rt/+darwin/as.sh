@@ -17,6 +17,7 @@ then
 	case $(basename -s .s $path) in
 		cpuid_native|fenv|getfp|longjmp|restore|setjmp)
 			sed -r \
+    			-e 's/^(.section ".text.*")$/.text # \1/g' \
 				-e 's/^([ \t]*)(.type[ \t]+.+)$/\1# \2/g' \
 				-e 's/^([ \t]*.global[ \t]+)(rt\..+)$/\1_\2/g' \
 				-e 's/^([ \t]*)(rt\..+:)$/\1_\2/g' \

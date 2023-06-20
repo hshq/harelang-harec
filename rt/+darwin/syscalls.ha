@@ -51,7 +51,8 @@ export fn wexitstatus(status: int) int = (status & 0xff00) >> 8;
 
 export fn wtermsig(status: int) int = status & 0x7f;
 export fn wifsignaled(status: int) bool =
-	wtermsig(status) != 0o177 && wtermsig(status) != 0 && status != 0x13;
+	// wtermsig(status) != 0o177 && wtermsig(status) != 0 && status != 0x13;
+	wtermsig(status) != 0o177 && wtermsig(status) != 0;
 
 export fn kill(pid: int, signal: int) int =
 	syscall2(SYS_kill, pid: u64, signal: u64): int;
