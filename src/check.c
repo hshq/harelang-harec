@@ -146,12 +146,6 @@ lower_implicit_cast(struct context *ctx,
 	if (to == expr->result || expr->result->storage == STORAGE_NEVER) {
 		return expr;
 	}
-	
-	if (type_dealias(ctx, to)->storage == STORAGE_SLICE &&
-		expr->result->storage == STORAGE_ARRAY &&
-		expr->result->array.expandable) {
-		return expr;
-	}
 
 	if (type_dealias(ctx, to)->storage == STORAGE_TAGGED) {
 		const struct type *interim =
@@ -874,7 +868,14 @@ check_expr_assign(struct context *ctx,
 		check_binarithm_op(ctx, object, expr->assign.op);
 	}
 
-	expr->assign.value = lower_implicit_cast(ctx, object->result, value);
+	if (object->type == EXPR_SLICE
+			&& value->result->storage == STORAGE_ARRAY
+			&& value->result->array.expandable) {
+		expr->assign.value = value;
+	} else {
+		expr->assign.value =
+			lower_implicit_cast(ctx, object->result, value);
+	}
 	expr->assign.object = object;
 }
 
