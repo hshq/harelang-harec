@@ -3394,6 +3394,9 @@ check_function(struct context *ctx,
 {
 	const struct ast_function_decl *afndecl = &adecl->function;
 	ctx->fntype = obj->type;
+	if (ctx->fntype->storage == STORAGE_ERROR) {
+		return;
+	}
 
 	struct declaration _decl, *decl = &_decl;
 	decl->decl_type = DECL_FUNC;
