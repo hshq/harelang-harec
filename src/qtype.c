@@ -68,7 +68,7 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	def->type.base = type;
 	def->type.name = def->name;
 
-	const struct type *final = type_dealias(type);
+	const struct type *final = type_dealias(NULL, type);
 	assert((final->storage == STORAGE_STRUCT && final->struct_union.packed)
 			|| type->size == SIZE_UNDEFINED
 			|| type->size == 0
@@ -235,7 +235,7 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		return qtype_lookup(ctx, lower_const(type, NULL), xtype);
+		return qtype_lookup(ctx, lower_const(NULL, type, NULL), xtype);
 	}
 	abort(); // Invariant
 }
@@ -282,7 +282,7 @@ type_is_aggregate(const struct type *type)
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		lower_const(type, NULL);
+		lower_const(NULL, type, NULL);
 		return false;
 	case STORAGE_ERROR:
 		assert(0); // Invariant

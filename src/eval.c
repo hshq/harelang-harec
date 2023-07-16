@@ -94,7 +94,7 @@ eval_access(struct context *ctx, struct expression *in, struct expression *out)
 }
 
 static uintmax_t
-itrunc(const struct type *type, uintmax_t val)
+itrunc(struct context *ctx, const struct type *type, uintmax_t val)
 {
 	switch (type->storage) {
 	case STORAGE_U8:
@@ -130,9 +130,9 @@ itrunc(const struct type *type, uintmax_t val)
 	case STORAGE_NULL:
 		return (uintptr_t)NULL;
 	case STORAGE_ALIAS:
-		return itrunc(type_dealias(type), val);
+		return itrunc(ctx, type_dealias(ctx, type), val);
 	case STORAGE_ENUM:
-		return itrunc(type->alias.type, val);
+		return itrunc(ctx, type->alias.type, val);
 	case STORAGE_ERROR:
 		return val;
 	case STORAGE_F32:
@@ -153,12 +153,12 @@ itrunc(const struct type *type, uintmax_t val)
 }
 
 static double
-ftrunc(const struct type *type, double val)
+ftrunc(struct context *ctx, const struct type *type, double val)
 {
 	if (type->storage == STORAGE_F32) {
 		return (float)val;
 	}
-	assert(type_is_float(type));
+	assert(type_is_float(ctx, type));
 	return val;
 }
 
@@ -179,13 +179,13 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	intmax_t ilval = 0, irval = 0, ival = 0;
 	uintmax_t ulval = 0, urval = 0, uval = 0;
 	double flval = 0, frval = 0, fval = 0;
-	if (type_is_float(lvalue.result)) {
+	if (type_is_float(ctx, lvalue.result)) {
 		flval = lvalue.constant.fval, frval = rvalue.constant.fval;
-	} else if (type_is_signed(lvalue.result)) {
+	} else if (type_is_signed(ctx, lvalue.result)) {
 		ilval = lvalue.constant.ival, irval = rvalue.constant.ival;
-	} else if (type_is_integer(lvalue.result)) {
+	} else if (type_is_integer(ctx, lvalue.result)) {
 		ulval = lvalue.constant.uval, urval = rvalue.constant.uval;
-	} else if (type_dealias(lvalue.result)->storage == STORAGE_BOOL) {
+	} else if (type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL) {
 		blval = lvalue.constant.bval, brval = rvalue.constant.bval;
 	}
 
@@ -194,151 +194,151 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	bool neg = false;
 	switch (in->binarithm.op) {
 	case BIN_BAND:
-		assert(type_is_integer(lvalue.result));
-		if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) & itrunc(rvalue.result, irval);
+		assert(type_is_integer(ctx, lvalue.result));
+		if (type_is_signed(ctx, lvalue.result)) {
+			ival = itrunc(ctx, lvalue.result, ilval) & itrunc(ctx, rvalue.result, irval);
 		} else {
-			uval = itrunc(lvalue.result, ulval) & itrunc(rvalue.result, urval);
+			uval = itrunc(ctx, lvalue.result, ulval) & itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_BOR:
-		assert(type_is_integer(lvalue.result));
-		if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) | itrunc(rvalue.result, irval);
+		assert(type_is_integer(ctx, lvalue.result));
+		if (type_is_signed(ctx, lvalue.result)) {
+			ival = itrunc(ctx, lvalue.result, ilval) | itrunc(ctx, rvalue.result, irval);
 		} else {
-			uval = itrunc(lvalue.result, ulval) | itrunc(rvalue.result, urval);
+			uval = itrunc(ctx, lvalue.result, ulval) | itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_DIV:
-		if (type_is_float(lvalue.result)) {
-			fval = ftrunc(lvalue.result, flval) / ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			intmax_t r = itrunc(rvalue.result, irval);
+		if (type_is_float(ctx, lvalue.result)) {
+			fval = ftrunc(ctx, lvalue.result, flval) / ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			intmax_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			ival = (intmax_t)itrunc(lvalue.result, ilval) / r;
+			ival = (intmax_t)itrunc(ctx, lvalue.result, ilval) / r;
 		} else {
-			assert(type_is_integer(lvalue.result));
-			uintmax_t r = itrunc(rvalue.result, urval);
+			assert(type_is_integer(ctx, lvalue.result));
+			uintmax_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			uval = itrunc(lvalue.result, ulval) / r;
+			uval = itrunc(ctx, lvalue.result, ulval) / r;
 		}
 		break;
 	case BIN_LSHIFT:
-		assert(type_is_integer(lvalue.result));
-		assert(type_is_integer(rvalue.result));
-		assert(!type_is_signed(rvalue.result));
-		uval = itrunc(lvalue.result, ulval) << itrunc(rvalue.result, urval);
+		assert(type_is_integer(ctx, lvalue.result));
+		assert(type_is_integer(ctx, rvalue.result));
+		assert(!type_is_signed(ctx, rvalue.result));
+		uval = itrunc(ctx, lvalue.result, ulval) << itrunc(ctx, rvalue.result, urval);
 		break;
 	case BIN_MINUS:
-		if (type_is_float(lvalue.result)) {
-			fval = ftrunc(lvalue.result, flval) - ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) - itrunc(rvalue.result, irval);
+		if (type_is_float(ctx, lvalue.result)) {
+			fval = ftrunc(ctx, lvalue.result, flval) - ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			ival = itrunc(ctx, lvalue.result, ilval) - itrunc(ctx, rvalue.result, irval);
 		} else {
-			assert(type_is_integer(lvalue.result));
-			uval = itrunc(lvalue.result, ulval) - itrunc(rvalue.result, urval);
+			assert(type_is_integer(ctx, lvalue.result));
+			uval = itrunc(ctx, lvalue.result, ulval) - itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_MODULO:
-		assert(type_is_integer(lvalue.result));
-		if (type_is_signed(lvalue.result)) {
-			intmax_t r = itrunc(rvalue.result, irval);
+		assert(type_is_integer(ctx, lvalue.result));
+		if (type_is_signed(ctx, lvalue.result)) {
+			intmax_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			ival = (intmax_t)itrunc(lvalue.result, ilval) % r;
+			ival = (intmax_t)itrunc(ctx, lvalue.result, ilval) % r;
 		} else {
-			uintmax_t r = itrunc(rvalue.result, urval);
+			uintmax_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			uval = itrunc(lvalue.result, ulval) % r;
+			uval = itrunc(ctx, lvalue.result, ulval) % r;
 		}
 		break;
 	case BIN_PLUS:
-		if (type_is_float(lvalue.result)) {
-			fval = ftrunc(lvalue.result, flval) + ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) + itrunc(rvalue.result, irval);
+		if (type_is_float(ctx, lvalue.result)) {
+			fval = ftrunc(ctx, lvalue.result, flval) + ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			ival = itrunc(ctx, lvalue.result, ilval) + itrunc(ctx, rvalue.result, irval);
 		} else {
-			assert(type_is_integer(lvalue.result));
-			uval = itrunc(lvalue.result, ulval) + itrunc(rvalue.result, urval);
+			assert(type_is_integer(ctx, lvalue.result));
+			uval = itrunc(ctx, lvalue.result, ulval) + itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_RSHIFT:
-		assert(type_is_integer(lvalue.result));
-		assert(type_is_integer(rvalue.result));
-		assert(!type_is_signed(rvalue.result));
-		uval = itrunc(lvalue.result, ulval) >> itrunc(rvalue.result, urval);
+		assert(type_is_integer(ctx, lvalue.result));
+		assert(type_is_integer(ctx, rvalue.result));
+		assert(!type_is_signed(ctx, rvalue.result));
+		uval = itrunc(ctx, lvalue.result, ulval) >> itrunc(ctx, rvalue.result, urval);
 		break;
 	case BIN_TIMES:
-		if (type_is_float(lvalue.result)) {
-			fval = ftrunc(lvalue.result, flval) * ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			ival = (intmax_t)itrunc(lvalue.result, ilval)
-				* (intmax_t)itrunc(rvalue.result, irval);
+		if (type_is_float(ctx, lvalue.result)) {
+			fval = ftrunc(ctx, lvalue.result, flval) * ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			ival = (intmax_t)itrunc(ctx, lvalue.result, ilval)
+				* (intmax_t)itrunc(ctx, rvalue.result, irval);
 		} else {
-			assert(type_is_integer(lvalue.result));
-			uval = itrunc(lvalue.result, ulval) * itrunc(rvalue.result, urval);
+			assert(type_is_integer(ctx, lvalue.result));
+			uval = itrunc(ctx, lvalue.result, ulval) * itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_BXOR:
-		assert(type_is_integer(lvalue.result));
-		if (type_is_signed(lvalue.result)) {
-			ival = itrunc(lvalue.result, ilval) ^ itrunc(rvalue.result, irval);
+		assert(type_is_integer(ctx, lvalue.result));
+		if (type_is_signed(ctx, lvalue.result)) {
+			ival = itrunc(ctx, lvalue.result, ilval) ^ itrunc(ctx, rvalue.result, irval);
 		} else {
-			uval = itrunc(lvalue.result, ulval) ^ itrunc(rvalue.result, urval);
+			uval = itrunc(ctx, lvalue.result, ulval) ^ itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	// Logical arithmetic
 	case BIN_GREATER:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) > ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) > itrunc(rvalue.result, irval);
+		if (type_is_float(ctx, lvalue.result)) {
+			bval = ftrunc(ctx, lvalue.result, flval) > ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			bval = itrunc(ctx, lvalue.result, ilval) > itrunc(ctx, rvalue.result, irval);
 		} else {
-			assert(type_is_integer(lvalue.result));
-			bval = itrunc(lvalue.result, ulval) > itrunc(rvalue.result, urval);
+			assert(type_is_integer(ctx, lvalue.result));
+			bval = itrunc(ctx, lvalue.result, ulval) > itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_GREATEREQ:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) >= ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) >= itrunc(rvalue.result, irval);
+		if (type_is_float(ctx, lvalue.result)) {
+			bval = ftrunc(ctx, lvalue.result, flval) >= ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			bval = itrunc(ctx, lvalue.result, ilval) >= itrunc(ctx, rvalue.result, irval);
 		} else {
-			assert(type_is_integer(lvalue.result));
-			bval = itrunc(lvalue.result, ulval) >= itrunc(rvalue.result, urval);
+			assert(type_is_integer(ctx, lvalue.result));
+			bval = itrunc(ctx, lvalue.result, ulval) >= itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_LAND:
-		assert(type_dealias(lvalue.result)->storage == STORAGE_BOOL
-			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
+		assert(type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL
+			&& type_dealias(ctx, rvalue.result)->storage == STORAGE_BOOL);
 		bval = blval && brval;
 		break;
 	case BIN_NEQUAL:
 		neg = true;
 		/* fallthrough */
 	case BIN_LEQUAL:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) == ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) == itrunc(rvalue.result, irval);
-		} else if (type_is_integer(lvalue.result)
-				|| type_dealias(lvalue.result)->storage == STORAGE_POINTER) {
-			bval = itrunc(lvalue.result, ulval) == itrunc(rvalue.result, urval);
+		if (type_is_float(ctx, lvalue.result)) {
+			bval = ftrunc(ctx, lvalue.result, flval) == ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			bval = itrunc(ctx, lvalue.result, ilval) == itrunc(ctx, rvalue.result, irval);
+		} else if (type_is_integer(ctx, lvalue.result)
+				|| type_dealias(ctx, lvalue.result)->storage == STORAGE_POINTER) {
+			bval = itrunc(ctx, lvalue.result, ulval) == itrunc(ctx, rvalue.result, urval);
 		} else if (lvalue.result->storage == STORAGE_BOOL) {
 			bval = lvalue.constant.bval == rvalue.constant.bval;
 		} else {
-			assert(type_dealias(lvalue.result)->storage == STORAGE_STRING);
+			assert(type_dealias(ctx, lvalue.result)->storage == STORAGE_STRING);
 			if (lvalue.constant.string.len != rvalue.constant.string.len) {
 				bval = false;
 			} else {
@@ -350,47 +350,47 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		bval = bval != neg;
 		break;
 	case BIN_LESS:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) < ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) < itrunc(rvalue.result, irval);
+		if (type_is_float(ctx, lvalue.result)) {
+			bval = ftrunc(ctx, lvalue.result, flval) < ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			bval = itrunc(ctx, lvalue.result, ilval) < itrunc(ctx, rvalue.result, irval);
 		} else {
-			assert(type_is_integer(lvalue.result));
-			bval = itrunc(lvalue.result, ulval) < itrunc(rvalue.result, urval);
+			assert(type_is_integer(ctx, lvalue.result));
+			bval = itrunc(ctx, lvalue.result, ulval) < itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_LESSEQ:
-		if (type_is_float(lvalue.result)) {
-			bval = ftrunc(lvalue.result, flval) <= ftrunc(rvalue.result, frval);
-		} else if (type_is_signed(lvalue.result)) {
-			bval = itrunc(lvalue.result, ilval) <= itrunc(rvalue.result, irval);
+		if (type_is_float(ctx, lvalue.result)) {
+			bval = ftrunc(ctx, lvalue.result, flval) <= ftrunc(ctx, rvalue.result, frval);
+		} else if (type_is_signed(ctx, lvalue.result)) {
+			bval = itrunc(ctx, lvalue.result, ilval) <= itrunc(ctx, rvalue.result, irval);
 		} else {
-			assert(type_is_integer(lvalue.result));
-			bval = itrunc(lvalue.result, ulval) <= itrunc(rvalue.result, urval);
+			assert(type_is_integer(ctx, lvalue.result));
+			bval = itrunc(ctx, lvalue.result, ulval) <= itrunc(ctx, rvalue.result, urval);
 		}
 		break;
 	case BIN_LOR:
-		assert(type_dealias(lvalue.result)->storage == STORAGE_BOOL
-			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
+		assert(type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL
+			&& type_dealias(ctx, rvalue.result)->storage == STORAGE_BOOL);
 		bval = blval || brval;
 		break;
 	case BIN_LXOR:
-		assert(type_dealias(lvalue.result)->storage == STORAGE_BOOL
-			&& type_dealias(rvalue.result)->storage == STORAGE_BOOL);
+		assert(type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL
+			&& type_dealias(ctx, rvalue.result)->storage == STORAGE_BOOL);
 		bval = blval != brval;
 		break;
 	}
-	if (type_is_float(in->result)) {
-		out->constant.fval = ftrunc(in->result, fval);
-	} else if (type_is_signed(in->result)) {
-		out->constant.ival = itrunc(in->result, ival);
-	} else if (type_dealias(in->result)->storage == STORAGE_BOOL
-			|| type_dealias(in->result)->storage == STORAGE_STRING) {
+	if (type_is_float(ctx, in->result)) {
+		out->constant.fval = ftrunc(ctx, in->result, fval);
+	} else if (type_is_signed(ctx, in->result)) {
+		out->constant.ival = itrunc(ctx, in->result, ival);
+	} else if (type_dealias(ctx, in->result)->storage == STORAGE_BOOL
+			|| type_dealias(ctx, in->result)->storage == STORAGE_STRING) {
 		out->constant.bval = bval;
 	} else {
-		assert(type_is_integer(in->result)
-			|| type_dealias(in->result)->storage == STORAGE_POINTER);
-		out->constant.uval = itrunc(in->result, uval);
+		assert(type_is_integer(ctx, in->result)
+			|| type_dealias(ctx, in->result)->storage == STORAGE_POINTER);
+		out->constant.uval = itrunc(ctx, in->result, uval);
 	}
 	return EVAL_OK;
 }
@@ -398,9 +398,9 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 static enum eval_result
 eval_const(struct context *ctx, struct expression *in, struct expression *out)
 {
-	enum type_storage storage = type_dealias(out->result)->storage;
+	enum type_storage storage = type_dealias(ctx, out->result)->storage;
 	if (storage == STORAGE_ENUM) {
-		storage = type_dealias(out->result)->alias.type->storage;
+		storage = type_dealias(ctx, out->result)->alias.type->storage;
 	}
 	switch (storage) {
 	case STORAGE_ALIAS:
@@ -533,7 +533,7 @@ eval_type_assertion(struct context *ctx, struct expression *in,
 		return r;
 	}
 
-	const struct type *from = type_dealias(in->cast.value->result);
+	const struct type *from = type_dealias(ctx, in->cast.value->result);
 	assert(from->storage == STORAGE_TAGGED);
 	if (val.constant.tagged.tag == in->cast.secondary) {
 		out->constant = val.constant.tagged.value->constant;
@@ -554,7 +554,7 @@ eval_type_test(struct context *ctx, struct expression *in,
 		return r;
 	}
 
-	const struct type *from = type_dealias(in->cast.value->result);
+	const struct type *from = type_dealias(ctx, in->cast.value->result);
 	assert(from->storage == STORAGE_TAGGED);
 
 	out->constant.bval = val.constant.tagged.tag == in->cast.secondary;
@@ -571,8 +571,8 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 		return r;
 	}
 
-	const struct type *to = type_dealias(in->result),
-		*from = type_dealias(val.result);
+	const struct type *to = type_dealias(ctx, in->result),
+		*from = type_dealias(ctx, val.result);
 	// The STORAGE_ARRAY exception is to make sure we handle expandable
 	// arrays at this point.
 	if (to->storage == from->storage && to->storage != STORAGE_ARRAY) {
@@ -614,13 +614,13 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_SIZE:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
-		if (type_is_float(val.result)) {
+		if (type_is_float(ctx, val.result)) {
 			out->constant.ival =
-				itrunc(to, (intmax_t)val.constant.fval);
-		} else if (type_is_signed(val.result)) {
-			out->constant.ival = itrunc(to, val.constant.ival);
+				itrunc(ctx, to, (intmax_t)val.constant.fval);
+		} else if (type_is_signed(ctx, val.result)) {
+			out->constant.ival = itrunc(ctx, to, val.constant.ival);
 		} else {
-			out->constant.ival = itrunc(to, val.constant.uval);
+			out->constant.ival = itrunc(ctx, to, val.constant.uval);
 		}
 		return EVAL_OK;
 	case STORAGE_ARRAY:
@@ -638,18 +638,18 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
-		if (type_is_float(val.result)) {
-			out->constant.fval = ftrunc(to, val.constant.fval);
-		} else if (type_is_signed(val.result)) {
+		if (type_is_float(ctx, val.result)) {
+			out->constant.fval = ftrunc(ctx, to, val.constant.fval);
+		} else if (type_is_signed(ctx, val.result)) {
 			out->constant.fval =
-				ftrunc(to, (double)val.constant.ival);
+				ftrunc(ctx, to, (double)val.constant.ival);
 		} else {
 			out->constant.fval =
-				ftrunc(to, (double)val.constant.uval);
+				ftrunc(ctx, to, (double)val.constant.uval);
 		}
 		return EVAL_OK;
 	case STORAGE_TAGGED:
-		subtype = tagged_select_subtype(to, val.result, true);
+		subtype = tagged_select_subtype(ctx, to, val.result, true);
 		out->constant.tagged.value =
 			xcalloc(1, sizeof(struct expression));
 		if (subtype) {
@@ -688,7 +688,7 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 	enum eval_result res;
 	switch (in->measure.op) {
 	case M_LEN:
-		expr_type = type_dealias(type_dereference(in->measure.value->result));
+		expr_type = type_dealias(ctx, type_dereference(ctx, in->measure.value->result));
 		if (expr_type->storage == STORAGE_ARRAY) {
 			out->constant.uval = expr_type->array.length;
 			return EVAL_OK;
@@ -741,7 +741,7 @@ static enum eval_result
 constant_default(struct context *ctx, struct expression *v)
 {
 	struct expression b = {0};
-	switch (type_dealias(v->result)->storage) {
+	switch (type_dealias(ctx, v->result)->storage) {
 	case STORAGE_ERROR:
 	case STORAGE_POINTER:
 	case STORAGE_I16:
@@ -784,14 +784,14 @@ constant_default(struct context *ctx, struct expression *v)
 		v->constant.array->value = xcalloc(1, sizeof(struct expression));
 		v->constant.array->value->type = EXPR_CONSTANT;
 		v->constant.array->value->result =
-			type_dealias(v->result)->array.members;
+			type_dealias(ctx, v->result)->array.members;
 		return constant_default(ctx, v->constant.array->value);
 		break;
 	case STORAGE_TAGGED:
 		return EVAL_INVALID;
 	case STORAGE_TUPLE:;
 		struct tuple_constant **c = &v->constant.tuple;
-		for (const struct type_tuple *t = &type_dealias(v->result)->tuple;
+		for (const struct type_tuple *t = &type_dealias(ctx, v->result)->tuple;
 				t != NULL; t = t->next) {
 			*c = xcalloc(1, sizeof(struct tuple_constant));
 			(*c)->field = t;
@@ -825,14 +825,14 @@ field_compar(const void *_a, const void *_b)
 }
 
 static size_t
-count_struct_fields(const struct type *type)
+count_struct_fields(struct context *ctx, const struct type *type)
 {
 	size_t n = 0;
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
 	for (const struct struct_field *field = type->struct_union.fields;
 			field; field = field->next) {
 		if (!field->name) {
-			n += count_struct_fields(type_dealias(field->type));
+			n += count_struct_fields(ctx, type_dealias(ctx, field->type));
 		} else {
 			++n;
 		}
@@ -848,7 +848,7 @@ autofill_struct(struct context *ctx, const struct type *type, struct struct_cons
 	for (const struct struct_field *field = type->struct_union.fields;
 			field; field = field->next) {
 		if (!field->name) {
-			r = autofill_struct(ctx, type_dealias(field->type), fields);
+			r = autofill_struct(ctx, type_dealias(ctx, field->type), fields);
 			if (r != EVAL_OK) {
 				return r;
 			}
@@ -884,10 +884,10 @@ static enum eval_result
 eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_STRUCT);
-	assert(type_dealias(in->result)->storage != STORAGE_UNION); // TODO
-	const struct type *type = type_dealias(in->result);
+	assert(type_dealias(ctx, in->result)->storage != STORAGE_UNION); // TODO
+	const struct type *type = type_dealias(ctx, in->result);
 
-	size_t n = count_struct_fields(type);
+	size_t n = count_struct_fields(ctx, type);
 	assert(n > 0);
 
 	size_t i = 0;
@@ -896,7 +896,7 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 	for (const struct expr_struct_field *field_in = in->_struct.fields;
 			field_in; field_in = field_in->next, ++i) {
 		const struct struct_field *field =
-			type_get_field(type, field_in->field->name);
+			type_get_field(ctx, type, field_in->field->name);
 		fields[i] = xcalloc(1, sizeof(struct struct_constant));
 		fields[i]->field = field;
 		fields[i]->value = xcalloc(1, sizeof(struct expression));
@@ -931,7 +931,7 @@ static enum eval_result
 eval_tuple(struct context *ctx, struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_TUPLE);
-	const struct type *type = type_dealias(in->result);
+	const struct type *type = type_dealias(ctx, in->result);
 
 	struct tuple_constant *out_tuple_start, *out_tuple;
 	out_tuple_start = out_tuple = xcalloc(1, sizeof(struct tuple_constant));
@@ -999,7 +999,7 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		out->constant.bval = !lvalue.constant.bval;
 		break;
 	case UN_MINUS:
-		if (type_is_float(out->result)) {
+		if (type_is_float(ctx, out->result)) {
 			out->constant.fval = -lvalue.constant.fval;
 		} else {
 			out->constant.ival = -(uintmax_t)lvalue.constant.ival;

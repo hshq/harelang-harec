@@ -59,7 +59,7 @@ emit_const(const struct expression *expr, FILE *out)
 	assert(expr->type == EXPR_CONSTANT);
 	const struct expression_constant *val = &expr->constant;
 	assert(!val->object);
-	switch (type_dealias(expr->result)->storage) {
+	switch (type_dealias(NULL, expr->result)->storage) {
 	case STORAGE_BOOL:
 		xfprintf(out, "%s", val->bval ? "true" : "false");
 		break;
@@ -85,7 +85,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_ICONST:
 	case STORAGE_INT:
 		xfprintf(out, "%" PRIiMAX "%s", val->ival,
-			storage_to_suffix(type_dealias(expr->result)->storage));
+			storage_to_suffix(type_dealias(NULL, expr->result)->storage));
 		break;
 	case STORAGE_NULL:
 		xfprintf(out, "null");
@@ -98,7 +98,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 		xfprintf(out, "%" PRIuMAX "%s", val->uval,
-			storage_to_suffix(type_dealias(expr->result)->storage));
+			storage_to_suffix(type_dealias(NULL, expr->result)->storage));
 		break;
 	case STORAGE_VOID:
 		xfprintf(out, "void");
@@ -120,11 +120,11 @@ emit_const(const struct expression *expr, FILE *out)
 		xfprintf(out, "\"");
 		break;
 	case STORAGE_ENUM: {
-		const struct type *t = type_dealias(expr->result);
+		const struct type *t = type_dealias(NULL, expr->result);
 		char *ident = identifier_unparse(&expr->result->alias.ident);
 		if (t->alias.type->storage == STORAGE_UINTPTR) {
 			xfprintf(out, "%" PRIuMAX ": uintptr", val->uval);
-		} else if (type_is_signed(t->alias.type)) {
+		} else if (type_is_signed(NULL, t->alias.type)) {
 			xfprintf(out, "%" PRIiMAX "%s: %s", val->ival,
 				storage_to_suffix(t->alias.type->storage), ident);
 		} else {
@@ -141,7 +141,7 @@ emit_const(const struct expression *expr, FILE *out)
 		break;
 	case STORAGE_ARRAY: {
 		xfprintf(out, "[");
-		const struct type *t = type_dealias(expr->result);
+		const struct type *t = type_dealias(NULL, expr->result);
 		struct array_constant *item = val->array;
 		if (t->array.expandable) {
 			emit_const(item->value, out);

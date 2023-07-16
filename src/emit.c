@@ -63,7 +63,7 @@ qemit_type(const struct qbe_def *def, FILE *out)
 	}
 	xfprintf(out, " {");
 
-	bool is_union = base == NULL || type_dealias(base)->storage == STORAGE_UNION;
+	bool is_union = base == NULL || type_dealias(NULL, base)->storage == STORAGE_UNION;
 	const struct qbe_field *field = &def->type.fields;
 	while (field) {
 		if (is_union) {

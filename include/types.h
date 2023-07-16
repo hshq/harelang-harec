@@ -45,6 +45,7 @@ enum type_storage {
 	STORAGE_ERROR,
 };
 
+struct context;
 struct type;
 
 #define SIZE_UNDEFINED ((size_t)-1)
@@ -166,35 +167,40 @@ struct dimensions {
 	size_t align;
 };
 
-const struct type *type_dereference(const struct type *type);
-const struct type *type_dealias(const struct type *type);
-const struct struct_field *type_get_field(
+const struct type *type_dereference(struct context *ctx, const struct type *type);
+const struct type *type_dealias(struct context *ctx, const struct type *type);
+const struct struct_field *type_get_field(struct context *ctx,
 	const struct type *type, const char *name);
 const struct type_tuple *type_get_value(
 	const struct type *type, uintmax_t index);
 
-const struct type *tagged_select_subtype(
+const struct type *tagged_select_subtype(struct context *ctx,
 	const struct type *tagged, const struct type *subtype, bool strip);
-bool tagged_subset_compat(const struct type *to, const struct type *from);
+bool tagged_subset_compat(struct context *ctx,
+	const struct type *to, const struct type *from);
 
 const char *type_storage_unparse(enum type_storage storage);
-bool type_is_signed(const struct type *type);
-bool type_is_integer(const struct type *type);
-bool type_is_numeric(const struct type *type);
-bool type_is_float(const struct type *type);
+bool type_is_signed(struct context *ctx, const struct type *type);
+bool type_is_integer(struct context *ctx, const struct type *type);
+bool type_is_numeric(struct context *ctx, const struct type *type);
+bool type_is_float(struct context *ctx, const struct type *type);
 bool type_is_constant(const struct type *type);
-bool type_has_error(const struct type *type);
+bool type_has_error(struct context *ctx, const struct type *type);
 
 uint32_t type_hash(const struct type *type);
 
-const struct type *promote_const(const struct type *a, const struct type *b);
-bool type_is_assignable(const struct type *to, const struct type *from);
-const struct type *type_is_castable(const struct type *to, const struct type *from);
+const struct type *promote_const(struct context *ctx,
+	const struct type *a, const struct type *b);
+bool type_is_assignable(struct context *ctx,
+	const struct type *to, const struct type *from);
+const struct type *type_is_castable(struct context *ctx,
+	const struct type *to, const struct type *from);
 bool type_is_complete(const struct type *type);
 
 const struct type *type_create_const(enum type_storage storage,
 	intmax_t min, intmax_t max);
-const struct type *lower_const(const struct type *old, const struct type *new);
+const struct type *lower_const(struct context *ctx,
+	const struct type *old, const struct type *new);
 void const_refer(const struct type *type, const struct type **ref);
 
 void builtin_types_init(const char *target);
