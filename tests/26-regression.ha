@@ -23,6 +23,11 @@ let global: int = 0;
 
 type mod::t = (size | const size); // needs to have a type id larger than size
 
+// order of these three matters
+type b = struct { c: c };
+type a = struct { b };
+type c = *a;
+
 export fn main() void = {
 	let t = thing {
 		offs = 0,
@@ -123,4 +128,5 @@ export fn main() void = {
 	assert(rt::compile("fn a() void = { static let b = x & struct { a: int = 0 }; };") as rt::exited != rt::EXIT_SUCCESS);
 	let a: (size | mod::t) = 0;
 	assert(0xffu8 + 1 >> 1 == 0);
+	assert(rt::compile("type a = *...b; type b = *...a;") as rt::exited != rt::EXIT_SUCCESS);
 };

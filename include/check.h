@@ -1,6 +1,7 @@
 #ifndef HARE_CHECK_H
 #define HARE_CHECK_H
 #include <stdbool.h>
+#include <stdnoreturn.h>
 #include "identifier.h"
 #include "scope.h"
 #include "types.h"
@@ -108,6 +109,7 @@ struct incomplete_declaration {
 	struct scope *imports; // the scope of this declaration's subunit
 	enum idecl_type type;
 	bool in_progress;
+	bool dealias_in_progress;
 	union {
 		struct ast_decl decl;
 		struct incomplete_enum_field *field;
@@ -153,4 +155,6 @@ void check_expression(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint);
 
+noreturn void error_norec(struct context *ctx, const struct location loc,
+	struct expression *expr, char *fmt, ...);
 #endif

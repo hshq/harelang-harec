@@ -28,14 +28,39 @@ type_dereference(struct context *ctx, const struct type *type)
 	}
 }
 
+void
+complete_alias(struct context *ctx, struct type *type)
+{
+	assert(type->storage == STORAGE_ALIAS);
+	const struct scope_object *obj =
+		scope_lookup(ctx->scope, &type->alias.name);
+	assert(obj != NULL);
+	assert(obj->otype == O_TYPE || obj->otype == O_SCAN);
+	struct incomplete_declaration *idecl =
+		(struct incomplete_declaration *)obj;
+	assert(idecl->type == IDECL_DECL);
+
+	if (idecl->dealias_in_progress) {
+		error_norec(ctx, idecl->decl.loc, NULL,
+			"Circular dependency for '%s'",
+			identifier_unparse(&idecl->obj.name));
+	}
+	idecl->dealias_in_progress = true;
+	type->alias.type =
+		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
+	idecl->dealias_in_progress = false;
+}
+
 const struct type *
 type_dealias(struct context *ctx, const struct type *type)
 {
 	while (type->storage == STORAGE_ALIAS) {
 		if (type->alias.type == NULL) {
-			xfprintf(stderr, "Cannot dealias incomplete type %s\n",
-				identifier_unparse(&type->alias.ident));
-			assert(0);
+			// gen et al. don't have access to the check context,
+			// but by that point all aliases should already be fully
+			// scanned
+			assert(ctx != NULL);
+			complete_alias(ctx, (struct type *)type);
 		}
 		type = type->alias.type;
 	}
