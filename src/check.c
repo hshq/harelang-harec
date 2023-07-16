@@ -3122,6 +3122,10 @@ check_expr_unarithm(struct context *ctx,
 	check_expression(ctx, aexpr->unarithm.operand, operand, NULL);
 	expr->unarithm.operand = operand;
 	expr->unarithm.op = aexpr->unarithm.op;
+	if (operand->result->storage == STORAGE_ERROR) {
+		mkerror(expr->unarithm.operand->loc, expr);
+		return;
+	}
 
 	switch (expr->unarithm.op) {
 	case UN_LNOT:
