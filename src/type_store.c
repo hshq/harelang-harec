@@ -513,11 +513,11 @@ tagged_init(struct type_store *store, struct type *type,
 		next = &tu[i]->next;
 	}
 
-	if (type->align < builtin_type_uint.align) {
-		type->align = builtin_type_uint.align;
+	if (type->align < builtin_type_u32.align) {
+		type->align = builtin_type_u32.align;
 	}
-	type->size += builtin_type_uint.size % type->align
-		+ builtin_type_uint.align;
+	type->size += builtin_type_u32.size % type->align
+		+ builtin_type_u32.align;
 }
 
 static void
@@ -579,11 +579,10 @@ static struct dimensions
 tagged_size(struct type_store *store, const struct ast_type *atype)
 {
 	struct dimensions dim = _tagged_size(store, &atype->tagged_union);
-	if (dim.align < builtin_type_uint.align) {
-		dim.align = builtin_type_uint.align;
+	if (dim.align < builtin_type_u32.align) {
+		dim.align = builtin_type_u32.align;
 	}
-	dim.size += builtin_type_uint.size % dim.align
-		+ builtin_type_uint.align;
+	dim.size += builtin_type_u32.size % dim.align + builtin_type_u32.align;
 	return dim;
 }
 
