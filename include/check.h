@@ -156,5 +156,5 @@ void check_expression(struct context *ctx,
 	const struct type *hint);
 
 noreturn void error_norec(struct context *ctx, const struct location loc,
-	struct expression *expr, char *fmt, ...);
+	char *fmt, ...);
 #endif

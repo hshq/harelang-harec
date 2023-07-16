@@ -41,7 +41,7 @@ complete_alias(struct context *ctx, struct type *type)
 	assert(idecl->type == IDECL_DECL);
 
 	if (idecl->dealias_in_progress) {
-		error_norec(ctx, idecl->decl.loc, NULL,
+		error_norec(ctx, idecl->decl.loc,
 			"Circular dependency for '%s'",
 			identifier_unparse(&idecl->obj.name));
 	}

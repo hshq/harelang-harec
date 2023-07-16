@@ -134,8 +134,7 @@ error(struct context *ctx, const struct location loc, struct expression *expr,
 }
 
 noreturn void
-error_norec(struct context *ctx, const struct location loc,
-	struct expression *expr, char *fmt, ...)
+error_norec(struct context *ctx, const struct location loc, char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -3516,7 +3515,7 @@ incomplete_declaration_create(struct context *ctx, struct location loc,
 	ctx->unit->parent = subunit;
 
 	if (idecl) {
-		error_norec(ctx, loc, NULL, "Duplicate global identifier '%s'",
+		error_norec(ctx, loc, "Duplicate global identifier '%s'",
 			identifier_unparse(ident));
 	}
 	idecl =  xcalloc(1, sizeof(struct incomplete_declaration));
@@ -3820,7 +3819,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		if (!type_is_assignable(ctx, type->alias.type, initializer->result)) {
 			char *inittypename = gen_typename(initializer->result);
 			char *builtintypename = gen_typename(type->alias.type);
-			error_norec(ctx, idecl->field->field->value->loc, initializer,
+			error_norec(ctx, idecl->field->field->value->loc,
 				"Enum value type (%s) is not assignable from initializer type (%s) for value %s",
 				builtintypename, inittypename, idecl->obj.ident.name);
 		}
@@ -3828,7 +3827,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		initializer = lower_implicit_cast(ctx, type, initializer);
 		enum eval_result r = eval_expr(ctx, initializer, value);
 		if (r != EVAL_OK) {
-			error_norec(ctx, idecl->field->field->value->loc, initializer,
+			error_norec(ctx, idecl->field->field->value->loc,
 				"Unable to evaluate constant initializer at compile time");
 		}
 	} else { // implicit value
@@ -3967,9 +3966,8 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 		} else {
 			loc = idecl->decl.loc;
 		}
-		error(ctx, loc, false, "'%s' is not a type",
+		error_norec(ctx, loc, "'%s' is not a type",
 				identifier_unparse(&idecl->obj.name));
-		handle_errors(ctx->errors);
 	}
 	struct dimensions dim = type_store_lookup_dimensions(ctx->store,
 			idecl->decl.type.type);
@@ -3990,9 +3988,8 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 		} else {
 			loc = idecl->decl.loc;
 		}
-		error(ctx, loc, NULL, "'%s' is not a type",
+		error_norec(ctx, loc, "'%s' is not a type",
 				identifier_unparse(&idecl->obj.name));
-		handle_errors(ctx->errors);
 	}
 
 	// 1. compute type dimensions
@@ -4178,9 +4175,8 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 		} else {
 			loc = idecl->decl.loc;
 		}
-		error(ctx, loc, NULL, "Circular dependency for '%s'\n",
+		error_norec(ctx, loc, "Circular dependency for '%s'",
 			identifier_unparse(&idecl->obj.name));
-		handle_errors(ctx->errors);
 	}
 	idecl->in_progress = true;
 
@@ -4226,7 +4222,7 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 			};
 			const struct scope_object *obj = scope_lookup(mod, &ident);
 			if (!obj) {
-				error_norec(ctx, member->loc, NULL, "Unknown object '%s'",
+				error_norec(ctx, member->loc, "Unknown object '%s'",
 						identifier_unparse(&ident));
 			}
 			struct scope_object *new = scope_insert(
