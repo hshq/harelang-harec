@@ -3,38 +3,64 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "check.h"
 #include "expr.h"
 #include "scope.h"
 #include "types.h"
 #include "util.h"
 
 const struct type *
-type_dereference(const struct type *type)
+type_dereference(struct context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_ALIAS:
-		if (type_dealias(type)->storage != STORAGE_POINTER) {
+		if (type_dealias(ctx, type)->storage != STORAGE_POINTER) {
 			return type;
 		}
-		return type_dereference(type_dealias(type));
+		return type_dereference(ctx, type_dealias(ctx, type));
 	case STORAGE_POINTER:
 		if (type->pointer.flags & PTR_NULLABLE) {
 			return NULL;
 		}
-		return type_dereference(type->pointer.referent);
+		return type_dereference(ctx, type->pointer.referent);
 	default:
 		return type;
 	}
 }
 
+void
+complete_alias(struct context *ctx, struct type *type)
+{
+	assert(type->storage == STORAGE_ALIAS);
+	const struct scope_object *obj =
+		scope_lookup(ctx->scope, &type->alias.name);
+	assert(obj != NULL);
+	assert(obj->otype == O_TYPE || obj->otype == O_SCAN);
+	struct incomplete_declaration *idecl =
+		(struct incomplete_declaration *)obj;
+	assert(idecl->type == IDECL_DECL);
+
+	if (idecl->dealias_in_progress) {
+		error_norec(ctx, idecl->decl.loc,
+			"Circular dependency for '%s'",
+			identifier_unparse(&idecl->obj.name));
+	}
+	idecl->dealias_in_progress = true;
+	type->alias.type =
+		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
+	idecl->dealias_in_progress = false;
+}
+
 const struct type *
-type_dealias(const struct type *type)
+type_dealias(struct context *ctx, const struct type *type)
 {
 	while (type->storage == STORAGE_ALIAS) {
 		if (type->alias.type == NULL) {
-			xfprintf(stderr, "Cannot dealias incomplete type %s\n",
-				identifier_unparse(&type->alias.ident));
-			assert(0);
+			// gen et al. don't have access to the check context,
+			// but by that point all aliases should already be fully
+			// scanned
+			assert(ctx != NULL);
+			complete_alias(ctx, (struct type *)type);
 		}
 		type = type->alias.type;
 	}
@@ -54,7 +80,7 @@ type_is_complete(const struct type *type)
 }
 
 const struct struct_field *
-type_get_field(const struct type *type, const char *name)
+type_get_field(struct context *ctx, const struct type *type, const char *name)
 {
 	// TODO: We should consider lowering unions into structs with explicit
 	// offsets
@@ -70,8 +96,8 @@ type_get_field(const struct type *type, const char *name)
 				return field;
 			}
 		} else {
-			const struct struct_field *f =
-				type_get_field(type_dealias(field->type), name);
+			const struct struct_field *f = type_get_field(ctx,
+					type_dealias(ctx, field->type), name);
 			if (f != NULL) {
 				return f;
 			}
@@ -98,12 +124,12 @@ type_get_value(const struct type *type, uintmax_t index)
 
 // Returns true if this type is or contains an error type
 bool
-type_has_error(const struct type *type)
+type_has_error(struct context *ctx, const struct type *type)
 {
 	if (type->flags & TYPE_ERROR) {
 		return true;
 	}
-	type = type_dealias(type);
+	type = type_dealias(ctx, type);
 	if (type->storage != STORAGE_TAGGED) {
 		return false;
 	}
@@ -193,7 +219,7 @@ type_storage_unparse(enum type_storage storage)
 }
 
 bool
-type_is_integer(const struct type *type)
+type_is_integer(struct context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_VOID:
@@ -232,13 +258,13 @@ type_is_integer(const struct type *type)
 	case STORAGE_UINTPTR:
 		return true;
 	case STORAGE_ALIAS:
-		return type_is_integer(type_dealias(type));
+		return type_is_integer(ctx, type_dealias(ctx, type));
 	}
 	assert(0); // Unreachable
 }
 
 bool
-type_is_numeric(const struct type *type)
+type_is_numeric(struct context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_VOID:
@@ -277,26 +303,26 @@ type_is_numeric(const struct type *type)
 	case STORAGE_UINTPTR:
 		return true;
 	case STORAGE_ALIAS:
-		return type_is_numeric(type_dealias(type));
+		return type_is_numeric(ctx, type_dealias(ctx, type));
 	}
 	assert(0); // Unreachable
 }
 
 bool
-type_is_float(const struct type *type)
+type_is_float(struct context *ctx, const struct type *type)
 {
-	type = type_dealias(type);
+	type = type_dealias(ctx, type);
 	return type->storage == STORAGE_F32 || type->storage == STORAGE_F64
 		|| type->storage == STORAGE_FCONST
 		|| type->storage == STORAGE_ERROR;
 }
 
 bool
-type_is_signed(const struct type *type)
+type_is_signed(struct context *ctx, const struct type *type)
 {
-	enum type_storage storage = type_dealias(type)->storage;
+	enum type_storage storage = type_dealias(ctx, type)->storage;
 	if (storage == STORAGE_ENUM) {
-		storage = type_dealias(type)->alias.type->storage;
+		storage = type_dealias(ctx, type)->alias.type->storage;
 	}
 	switch (storage) {
 	case STORAGE_VOID:
@@ -459,10 +485,10 @@ strip_flags(const struct type *t, struct type *secondary)
 }
 
 const struct type *
-tagged_select_subtype(const struct type *tagged, const struct type *subtype,
-		bool strip)
+tagged_select_subtype(struct context *ctx, const struct type *tagged,
+		const struct type *subtype, bool strip)
 {
-	tagged = type_dealias(tagged);
+	tagged = type_dealias(ctx, tagged);
 	assert(tagged->storage == STORAGE_TAGGED);
 
 	struct type _stripped;
@@ -476,10 +502,10 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype,
 			return tu->type;
 		}
 
-		if (type_dealias(tu->type)->storage == STORAGE_VOID) {
+		if (type_dealias(ctx, tu->type)->storage == STORAGE_VOID) {
 			continue;
 		}
-		if (type_is_assignable(tu->type, subtype)) {
+		if (type_is_assignable(ctx, tu->type, subtype)) {
 			selected = tu->type;
 			++nassign;
 		}
@@ -505,10 +531,10 @@ tagged_select_subtype(const struct type *tagged, const struct type *subtype,
 }
 
 static intmax_t
-min_value(const struct type *t)
+min_value(struct context *ctx, const struct type *t)
 {
-	assert(type_is_integer(t));
-	if (!type_is_signed(t)) {
+	assert(type_is_integer(ctx, t));
+	if (!type_is_signed(ctx, t)) {
 		return 0;
 	}
 	if (t->size == sizeof(intmax_t)) {
@@ -518,11 +544,11 @@ min_value(const struct type *t)
 }
 
 static uintmax_t
-max_value(const struct type *t)
+max_value(struct context *ctx, const struct type *t)
 {
-	assert(type_is_integer(t));
+	assert(type_is_integer(ctx, t));
 	size_t bits = t->size * 8;
-	if (type_is_signed(t)) {
+	if (type_is_signed(ctx, t)) {
 		bits--;
 	}
 	if (bits == sizeof(uintmax_t) * 8) {
@@ -576,7 +602,7 @@ const_refer(const struct type *type, const struct type **ref)
 
 // Lower a flexible constant type. If new == NULL, lower it to its default type.
 const struct type *
-lower_const(const struct type *old, const struct type *new) {
+lower_const(struct context *ctx, const struct type *old, const struct type *new) {
 	if (!type_is_constant(old)) {
 		// If new != NULL, we're expected to always do something, and we
 		// can't if it's not a constant
@@ -589,8 +615,8 @@ lower_const(const struct type *old, const struct type *new) {
 			new = &builtin_type_f64;
 			break;
 		case STORAGE_ICONST:
-			if (old->_const.max <= (intmax_t)max_value(&builtin_type_int)
-					&& old->_const.min >= min_value(&builtin_type_int)) {
+			if (old->_const.max <= (intmax_t)max_value(ctx, &builtin_type_int)
+					&& old->_const.min >= min_value(ctx, &builtin_type_int)) {
 				new = &builtin_type_int;
 			} else {
 				new = &builtin_type_i64;
@@ -613,7 +639,8 @@ lower_const(const struct type *old, const struct type *new) {
 
 // Implements the flexible constant promotion algorithm
 const struct type *
-promote_const(const struct type *a, const struct type *b) {
+promote_const(struct context *ctx,
+		const struct type *a, const struct type *b) {
 	if (a->storage == STORAGE_ICONST && b->storage == STORAGE_ICONST) {
 		intmax_t min = a->_const.min < b->_const.min
 			? a->_const.min : b->_const.min;
@@ -621,37 +648,37 @@ promote_const(const struct type *a, const struct type *b) {
 			? a->_const.max : b->_const.max;
 		const struct type *l =
 			type_create_const(STORAGE_ICONST, min, max);
-		lower_const(a, l);
-		lower_const(b, l);
+		lower_const(ctx, a, l);
+		lower_const(ctx, b, l);
 		return l;
 	}
 	if (type_is_constant(a)) {
 		if (a->storage == b->storage) {
 			const struct type *l =
 				type_create_const(a->storage, 0, 0);
-			lower_const(a, l);
-			lower_const(b, l);
+			lower_const(ctx, a, l);
+			lower_const(ctx, b, l);
 			return l;
 		}
 		if (type_is_constant(b)) {
 			return NULL;
 		}
-		return promote_const(b, a);
+		return promote_const(ctx, b, a);
 	}
 	assert(!type_is_constant(a) && type_is_constant(b));
-	if (type_dealias(a)->storage == STORAGE_TAGGED) {
+	if (type_dealias(ctx, a)->storage == STORAGE_TAGGED) {
 		const struct type *tag = NULL;
 		for (const struct type_tagged_union *tu =
-				&type_dealias(a)->tagged; tu; tu = tu->next) {
-			const struct type *p = promote_const(tu->type, b);
+				&type_dealias(ctx, a)->tagged; tu; tu = tu->next) {
+			const struct type *p = promote_const(ctx, tu->type, b);
 			if (!p) {
-				lower_const(b, tag);
+				lower_const(ctx, b, tag);
 				continue;
 			}
 			if (tag) {
 				// Ambiguous
-				b = lower_const(b, NULL);
-				if (type_is_assignable(a, b)) {
+				b = lower_const(ctx, b, NULL);
+				if (type_is_assignable(ctx, a, b)) {
 					return b;
 				}
 				return NULL;
@@ -662,34 +689,34 @@ promote_const(const struct type *a, const struct type *b) {
 	}
 	switch (b->storage) {
 	case STORAGE_FCONST:
-		if (!type_is_float(a)) {
+		if (!type_is_float(ctx, a)) {
 			return NULL;
 		}
-		lower_const(b, a);
+		lower_const(ctx, b, a);
 		return a;
 	case STORAGE_ICONST:
-		if (!type_is_integer(a)) {
+		if (!type_is_integer(ctx, a)) {
 			return NULL;
 		}
-		if (type_is_signed(a) && min_value(a) > b->_const.min) {
+		if (type_is_signed(ctx, a) && min_value(ctx, a) > b->_const.min) {
 			return NULL;
 		}
-		if (b->_const.max > 0 && max_value(a) < (uintmax_t)b->_const.max) {
+		if (b->_const.max > 0 && max_value(ctx, a) < (uintmax_t)b->_const.max) {
 			return NULL;
 		}
-		lower_const(b, a);
+		lower_const(ctx, b, a);
 		return a;
 	case STORAGE_RCONST:
-		if (type_dealias(a)->storage == STORAGE_RUNE) {
-			lower_const(b, a);
+		if (type_dealias(ctx, a)->storage == STORAGE_RUNE) {
+			lower_const(ctx, b, a);
 			return a;
 		}
 		// XXX: This is probably a bit too lenient but I can't think of
 		// a better way to do this
-		if (!type_is_integer(a)) {
+		if (!type_is_integer(ctx, a)) {
 			return NULL;
 		}
-		lower_const(b, a);
+		lower_const(ctx, b, a);
 		return a;
 	default:
 		assert(0); // Invariant
@@ -697,11 +724,11 @@ promote_const(const struct type *a, const struct type *b) {
 }
 
 bool
-tagged_subset_compat(const struct type *superset, const struct type *subset)
+tagged_subset_compat(struct context *ctx, const struct type *superset, const struct type *subset)
 {
 	// Note: this implementation depends on the invariant that tagged union
 	// member types are sorted by their type ID.
-	superset = type_dealias(superset), subset = type_dealias(subset);
+	superset = type_dealias(ctx, superset), subset = type_dealias(ctx, subset);
 	if (superset->storage != STORAGE_TAGGED || subset->storage != STORAGE_TAGGED) {
 		return false;
 	}
@@ -722,7 +749,8 @@ tagged_subset_compat(const struct type *superset, const struct type *subset)
 }
 
 static bool
-struct_subtype(const struct type *to, const struct type *from) {
+struct_subtype(struct context *ctx,
+		const struct type *to, const struct type *from) {
 	if (from->storage != STORAGE_STRUCT) {
 		return false;
 	}
@@ -730,19 +758,20 @@ struct_subtype(const struct type *to, const struct type *from) {
 			f = f->next) {
 		if (f->offset == 0) {
 			return f->type == to
-				|| struct_subtype(to, type_dealias(f->type));
+				|| struct_subtype(ctx, to, type_dealias(ctx, f->type));
 		}
 	}
 	return false;
 }
 
 bool
-type_is_assignable(const struct type *to, const struct type *from)
+type_is_assignable(struct context *ctx,
+		const struct type *to, const struct type *from)
 {
 	const struct type *to_orig = to, *from_orig = from;
-	if (type_dealias(to)->storage != STORAGE_TAGGED) {
-		to = type_dealias(to);
-		from = type_dealias(from);
+	if (type_dealias(ctx, to)->storage != STORAGE_TAGGED) {
+		to = type_dealias(ctx, to);
+		from = type_dealias(ctx, from);
 	}
 
 	// const and non-const types are mutually assignable
@@ -757,7 +786,7 @@ type_is_assignable(const struct type *to, const struct type *from)
 	}
 
 	if (type_is_constant(from)) {
-		return promote_const(to_orig, from_orig);
+		return promote_const(ctx, to_orig, from_orig);
 	}
 
 	struct type _to_secondary, _from_secondary;
@@ -766,14 +795,14 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		return promote_const(to_orig, from_orig);
+		return promote_const(ctx, to_orig, from_orig);
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
-		return type_is_integer(from)
-			&& type_is_signed(from)
+		return type_is_integer(ctx, from)
+			&& type_is_signed(ctx, from)
 			&& to->size >= from->size;
 	case STORAGE_SIZE:
 	case STORAGE_U8:
@@ -781,29 +810,29 @@ type_is_assignable(const struct type *to, const struct type *from)
 	case STORAGE_U32:
 	case STORAGE_U64:
 	case STORAGE_UINT:
-		return type_is_integer(from)
-			&& !type_is_signed(from)
+		return type_is_integer(ctx, from)
+			&& !type_is_signed(ctx, from)
 			&& to->size >= from->size;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		return type_is_float(from);
+		return type_is_float(ctx, from);
 	case STORAGE_POINTER:
-		to_secondary = type_dealias(to->pointer.referent);
+		to_secondary = type_dealias(ctx, to->pointer.referent);
 		to_secondary = strip_flags(to_secondary, &_to_secondary);
 		switch (from->storage) {
 		case STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case STORAGE_POINTER:
-			from_secondary = type_dealias(from->pointer.referent);
+			from_secondary = type_dealias(ctx, from->pointer.referent);
 			from_secondary = strip_flags(from_secondary, &_from_secondary);
-			if (struct_subtype(to->pointer.referent, from_secondary)) {
+			if (struct_subtype(ctx, to->pointer.referent, from_secondary)) {
 				return true;
 			}
 			switch (to_secondary->storage) {
 			case STORAGE_VOID:
 				break;
 			case STORAGE_ARRAY:
-				if (!type_is_assignable(to_secondary, from_secondary)) {
+				if (!type_is_assignable(ctx, to_secondary, from_secondary)) {
 					return false;
 				}
 				break;
@@ -823,13 +852,13 @@ type_is_assignable(const struct type *to, const struct type *from)
 		assert(0); // Unreachable
 	case STORAGE_ALIAS:
 		assert(to->alias.type);
-		return type_is_assignable(to->alias.type, from);
+		return type_is_assignable(ctx, to->alias.type, from);
 	case STORAGE_VOID:
 		return to_orig->id == from_orig->id &&
 			(from_orig->flags & TYPE_ERROR)	== (to_orig->flags & TYPE_ERROR);
 	case STORAGE_SLICE:
 		if (from->storage == STORAGE_POINTER) {
-			from = type_dealias(from->pointer.referent);
+			from = type_dealias(ctx, from->pointer.referent);
 			if (from->storage != STORAGE_ARRAY) {
 				return false;
 			}
@@ -839,10 +868,10 @@ type_is_assignable(const struct type *to, const struct type *from)
 			return false;
 		}
 		to_secondary = strip_flags(
-			type_dealias(to->array.members),
+			type_dealias(ctx, to->array.members),
 			&_to_secondary);
 		from_secondary = strip_flags(
-			type_dealias(from->array.members),
+			type_dealias(ctx, from->array.members),
 			&_from_secondary);
 		if (to->storage == STORAGE_SLICE
 				&& to_secondary->storage == STORAGE_VOID) {
@@ -863,8 +892,8 @@ type_is_assignable(const struct type *to, const struct type *from)
 				&& to->array.members == from->array.members;
 		}
 	case STORAGE_TAGGED:
-		return tagged_select_subtype(to, from_orig, true) != NULL
-			|| tagged_subset_compat(to, from);
+		return tagged_select_subtype(ctx, to, from_orig, true) != NULL
+			|| tagged_subset_compat(ctx, to, from);
 	// The following types are only assignable from themselves, and are
 	// handled above:
 	case STORAGE_BOOL:
@@ -887,22 +916,23 @@ type_is_assignable(const struct type *to, const struct type *from)
 }
 
 static const struct type *
-is_castable_with_tagged(const struct type *to, const struct type *from)
+is_castable_with_tagged(struct context *ctx,
+		const struct type *to, const struct type *from)
 {
-	if (type_dealias(from)->storage == STORAGE_TAGGED
-			&& type_dealias(to)->storage == STORAGE_TAGGED) {
-		if (tagged_subset_compat(to, from) || tagged_subset_compat(from, to)) {
+	if (type_dealias(ctx, from)->storage == STORAGE_TAGGED
+			&& type_dealias(ctx, to)->storage == STORAGE_TAGGED) {
+		if (tagged_subset_compat(ctx, to, from) || tagged_subset_compat(ctx, from, to)) {
 			return to;
 		}
 	}
-	if (type_dealias(to)->storage == STORAGE_TAGGED) {
-		const struct type *subtype = tagged_select_subtype(to, from, true);
+	if (type_dealias(ctx, to)->storage == STORAGE_TAGGED) {
+		const struct type *subtype = tagged_select_subtype(ctx, to, from, true);
 		if (subtype != NULL) {
 			return subtype;
 		}
 	}
-	if (type_dealias(from)->storage == STORAGE_TAGGED) {
-		const struct type *subtype = tagged_select_subtype(from, to, true);
+	if (type_dealias(ctx, from)->storage == STORAGE_TAGGED) {
+		const struct type *subtype = tagged_select_subtype(ctx, from, to, true);
 		if (subtype != NULL) {
 			return subtype;
 		}
@@ -911,22 +941,22 @@ is_castable_with_tagged(const struct type *to, const struct type *from)
 }
 
 const struct type *
-type_is_castable(const struct type *to, const struct type *from)
+type_is_castable(struct context *ctx, const struct type *to, const struct type *from)
 {
 	if (to->storage == STORAGE_VOID) {
 		if (type_is_constant(from)) {
-			lower_const(from, NULL);
+			lower_const(ctx, from, NULL);
 		};
 		return to;
 	}
 
-	if (type_dealias(from)->storage == STORAGE_TAGGED
-			|| type_dealias(to)->storage == STORAGE_TAGGED) {
-		return is_castable_with_tagged(to, from);
+	if (type_dealias(ctx, from)->storage == STORAGE_TAGGED
+			|| type_dealias(ctx, to)->storage == STORAGE_TAGGED) {
+		return is_castable_with_tagged(ctx, to, from);
 	}
 
 	const struct type *to_orig = to, *from_orig = from;
-	to = type_dealias(to), from = type_dealias(from);
+	to = type_dealias(ctx, to), from = type_dealias(ctx, from);
 	if (to == from) {
 		return to_orig;
 	}
@@ -941,7 +971,7 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		return promote_const(from_orig, to_orig);
+		return promote_const(ctx, from_orig, to_orig);
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -951,30 +981,30 @@ type_is_castable(const struct type *to, const struct type *from)
 	case STORAGE_U16:
 	case STORAGE_U64:
 	case STORAGE_UINT:
-		return to->storage == STORAGE_ENUM || type_is_numeric(to)
+		return to->storage == STORAGE_ENUM || type_is_numeric(ctx, to)
 			? to_orig : NULL;
 	case STORAGE_U8:
-		return to->storage == STORAGE_ENUM || type_is_numeric(to)
+		return to->storage == STORAGE_ENUM || type_is_numeric(ctx, to)
 			? to_orig : NULL;
 	case STORAGE_U32:
 		return to->storage == STORAGE_ENUM
-			|| type_is_numeric(to)
+			|| type_is_numeric(ctx, to)
 			|| to->storage == STORAGE_RUNE
 			? to_orig : NULL;
 	case STORAGE_RUNE:
 		return to->storage == STORAGE_U32
 			? to_orig : NULL;
 	case STORAGE_ENUM:
-		return to->storage == STORAGE_ENUM || type_is_integer(from)
+		return to->storage == STORAGE_ENUM || type_is_integer(ctx, from)
 			? to_orig : NULL;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		return type_is_numeric(to)
+		return type_is_numeric(ctx, to)
 			? to_orig : NULL;
 	case STORAGE_UINTPTR:
 		return to->storage == STORAGE_POINTER
 			|| to->storage == STORAGE_NULL
-			|| type_is_numeric(to)
+			|| type_is_numeric(ctx, to)
 			|| to->storage == STORAGE_ENUM
 			? to_orig : NULL;
 	case STORAGE_POINTER:

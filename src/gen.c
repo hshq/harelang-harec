@@ -111,7 +111,7 @@ gen_store(struct gen_context *ctx,
 	struct gen_value object,
 	struct gen_value value)
 {
-	const struct type *ty = type_dealias(object.type);
+	const struct type *ty = type_dealias(NULL, object.type);
 	switch (ty->storage) {
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
@@ -139,7 +139,7 @@ gen_store(struct gen_context *ctx,
 static struct gen_value
 gen_load(struct gen_context *ctx, struct gen_value object)
 {
-	const struct type *ty = type_dealias(object.type);
+	const struct type *ty = type_dealias(NULL, object.type);
 	switch (ty->storage) {
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
@@ -186,8 +186,8 @@ gen_fixed_abort(struct gen_context *ctx,
 static struct gen_value
 gen_autoderef(struct gen_context *ctx, struct gen_value val)
 {
-	while (type_dealias(val.type)->storage == STORAGE_POINTER) {
-		val.type = type_dealias(val.type)->pointer.referent;
+	while (type_dealias(NULL, val.type)->storage == STORAGE_POINTER) {
+		val.type = type_dealias(NULL, val.type)->pointer.referent;
 		val = gen_load(ctx, val);
 	}
 	return val;
@@ -229,7 +229,7 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value qival = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	bool checkbounds = !expr->access.bounds_checked;
 	struct qbe_value length;
-	const struct type *ty = type_dealias(glval.type);
+	const struct type *ty = type_dealias(NULL, glval.type);
 	switch (ty->storage) {
 	case STORAGE_SLICE:;
 		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
@@ -359,7 +359,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	struct gen_value init;
 	struct qbe_value qinit;
 	struct qbe_value length, initdata;
-	const struct type *inittype = type_dealias(expr->alloc.init->result);
+	const struct type *inittype = type_dealias(NULL, expr->alloc.init->result);
 	switch (inittype->storage) {
 	case STORAGE_ARRAY:
 		assert(inittype->array.length != SIZE_UNDEFINED);
@@ -396,7 +396,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 	gen_fixed_abort(ctx, expr->loc, ABORT_CAP_TOO_SMALL);
 	push(&ctx->current->body, &lfits);
 
-	const struct type *sltype = type_dealias(expr->result);
+	const struct type *sltype = type_dealias(NULL, expr->result);
 	struct qbe_value isize = constl(sltype->array.members->size);
 	struct qbe_value size = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	pushi(ctx->current, &size, Q_MUL, &qcap, &isize, NULL);
@@ -474,7 +474,7 @@ gen_expr_alloc_init_with(struct gen_context *ctx,
 	// alloc(init) case
 	assert(expr->alloc.cap == NULL);
 
-	const struct type *objtype = type_dealias(expr->result);
+	const struct type *objtype = type_dealias(NULL, expr->result);
 	assert(objtype->storage == STORAGE_POINTER);
 	objtype = objtype->pointer.referent;
 
@@ -483,7 +483,7 @@ gen_expr_alloc_init_with(struct gen_context *ctx,
 	struct qbe_value qresult = mkqval(ctx, &result);
 	pushi(ctx->current, &qresult, Q_CALL, &ctx->rt.malloc, &sz, NULL);
 
-	if (!(type_dealias(expr->result)->pointer.flags & PTR_NULLABLE)) {
+	if (!(type_dealias(NULL, expr->result)->pointer.flags & PTR_NULLABLE)) {
 		struct qbe_statement linvalid, lvalid;
 		struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value zero = constl(0);
@@ -553,7 +553,7 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	struct qbe_value dbase = mkcopy(ctx, out, ".%d");
 	struct qbe_value offs = constl(builtin_type_size.size);
 
-	const struct type *initres = type_dealias(expr->alloc.init->result);
+	const struct type *initres = type_dealias(NULL, expr->alloc.init->result);
 	struct qbe_value srcdata;
 	struct qbe_value length;
 	if (initres->storage == STORAGE_SLICE) {
@@ -586,7 +586,7 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &balloc, &bvalid, NULL);
 	push(&ctx->current->body, &lalloc);
 
-	const struct type *result = type_dealias(expr->result);
+	const struct type *result = type_dealias(NULL, expr->result);
 	assert(result->storage == STORAGE_SLICE);
 	struct qbe_value sz = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	struct qbe_value membsz = constl(result->array.members->size);
@@ -643,7 +643,7 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &prevlen, load, &lenptr, NULL);
 
 	struct qbe_value appendlen;
-	const struct type *valtype = type_dealias(expr->append.value->result);
+	const struct type *valtype = type_dealias(NULL, expr->append.value->result);
 	if (expr->append.length != NULL) {
 		struct gen_value length = gen_expr(ctx, expr->append.length);
 		appendlen = mkqval(ctx, &length);
@@ -679,7 +679,7 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, NULL, store, &newlen, &lenptr, NULL);
 
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	const struct type *mtype = type_dealias(slice.type)->array.members;
+	const struct type *mtype = type_dealias(NULL, slice.type)->array.members;
 	struct qbe_value membsz = constl(mtype->size);
 	if (!expr->append.is_static) {
 		struct qbe_value lval = mklval(ctx, &slice);
@@ -849,7 +849,7 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expressio
 static struct gen_value
 gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
 {
-	const struct type *vtype = type_dealias(expr->assign.value->result);
+	const struct type *vtype = type_dealias(NULL, expr->assign.value->result);
 	if (vtype->storage == STORAGE_ARRAY && vtype->array.expandable) {
 		return gen_expr_assign_slice_expandable(ctx, expr);
 	}
@@ -896,10 +896,10 @@ extend(struct gen_context *ctx, struct qbe_value v, const struct type *type)
 	enum qbe_instr op;
 	switch (type->size) {
 	case 1:
-		op = type_is_signed(type) ? Q_EXTSB : Q_EXTUB;
+		op = type_is_signed(NULL, type) ? Q_EXTSB : Q_EXTUB;
 		break;
 	case 2:
-		op = type_is_signed(type) ? Q_EXTSH : Q_EXTUH;
+		op = type_is_signed(NULL, type) ? Q_EXTSH : Q_EXTUH;
 		break;
 	default:
 		return v;
@@ -949,8 +949,8 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_UNARITHM:
 		assert(object->unarithm.op == UN_DEREF); // Invariant
 		obj = gen_expr(ctx, object->unarithm.operand);
-		assert(type_dealias(obj.type)->storage == STORAGE_POINTER);
-		obj.type = type_dealias(obj.type)->pointer.referent;
+		assert(type_dealias(NULL, obj.type)->storage == STORAGE_POINTER);
+		obj.type = type_dealias(NULL, obj.type)->pointer.referent;
 		break;
 	default:
 		abort(); // Invariant
@@ -1000,8 +1000,8 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 {
-	const struct type *ltype = type_dealias(expr->binarithm.lvalue->result);
-	const struct type *rtype = type_dealias(expr->binarithm.rvalue->result);
+	const struct type *ltype = type_dealias(NULL, expr->binarithm.lvalue->result);
+	const struct type *rtype = type_dealias(NULL, expr->binarithm.rvalue->result);
 	struct gen_value result = mkgtemp(ctx, expr->result, ".%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
 
@@ -1226,7 +1226,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value lvalue = gen_expr(ctx, expr->call.lvalue);
 	lvalue = gen_autoderef(ctx, lvalue);
 
-	const struct type *rtype = type_dealias(lvalue.type);
+	const struct type *rtype = type_dealias(NULL, lvalue.type);
 	assert(rtype->storage == STORAGE_FUNCTION);
 
 	if (rtype->func.flags & FN_NORETURN) {
@@ -1241,7 +1241,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		.instr = Q_CALL,
 	};
 	struct gen_value rval = gv_void;
-	if (type_dealias(rtype->func.result)->storage != STORAGE_VOID) {
+	if (type_dealias(NULL, rtype->func.result)->storage != STORAGE_VOID) {
 		rval = mkgtemp(ctx, rtype->func.result, "returns.%d");
 		call.out = xcalloc(1, sizeof(struct qbe_value));
 		*call.out = mkqval(ctx, &rval);
@@ -1308,12 +1308,12 @@ gen_type_assertion_or_test(struct gen_context *ctx, const struct expression *exp
 		bfailed = bpassed;
 	}
 	struct gen_value result = {0};
-	if (tagged_select_subtype(expr->cast.value->result, want, true)) {
+	if (tagged_select_subtype(NULL, expr->cast.value->result, want, true)) {
 		result = gen_nested_match_tests(ctx, base, bpassed,
 				bfailed, tag, want);
-	} else if (tagged_subset_compat(expr->cast.value->result, want)) {
+	} else if (tagged_subset_compat(NULL, expr->cast.value->result, want)) {
 		result = gen_subset_match_tests(ctx, bpassed, bfailed, tag,
-				type_dealias(want));
+				type_dealias(NULL, want));
 	} else {
 		abort();
 	}
@@ -1331,9 +1331,9 @@ gen_expr_cast_slice_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
 	const struct type *to = expr->result,
-		*from = type_dealias(expr->cast.value->result);
+		*from = type_dealias(NULL, expr->cast.value->result);
 	if (from->storage == STORAGE_POINTER) {
-		from = type_dealias(from->pointer.referent);
+		from = type_dealias(NULL, from->pointer.referent);
 	}
 	assert(from->storage == STORAGE_ARRAY);
 	assert(from->array.length != SIZE_UNDEFINED);
@@ -1362,8 +1362,8 @@ gen_expr_cast_slice_at(struct gen_context *ctx,
 static bool
 tagged_align_compat(const struct type *object, const struct type *want)
 {
-	assert(type_dealias(object)->storage == STORAGE_TAGGED);
-	assert(type_dealias(want)->storage == STORAGE_TAGGED);
+	assert(type_dealias(NULL, object)->storage == STORAGE_TAGGED);
+	assert(type_dealias(NULL, want)->storage == STORAGE_TAGGED);
 	return object->align == want->align
 		|| want->size == builtin_type_uint.size;
 }
@@ -1374,7 +1374,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 {
 	assert(expr->type == EXPR_CAST);
 	const struct type *to = expr->result, *from = expr->cast.value->result;
-	const struct type *subtype = tagged_select_subtype(to, from, true);
+	const struct type *subtype = tagged_select_subtype(NULL, to, from, true);
 
 	if (!subtype && tagged_align_compat(from, to)) {
 		// Case 1: from is a union whose members are a subset or
@@ -1407,9 +1407,9 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 			return;
 		}
 
-		subtype = tagged_subset_compat(to, from) ? from : to;
+		subtype = tagged_subset_compat(NULL, to, from) ? from : to;
 		const struct type *innertype = type_store_tagged_to_union(
-				ctx->store, type_dealias(subtype));
+				ctx->store, type_dealias(NULL, subtype));
 		struct gen_value iout = mkgtemp(ctx, innertype, ".%d");
 		struct gen_value ival = mkgtemp(ctx, innertype, ".%d");
 		struct qbe_value qiout = mkqval(ctx, &iout);
@@ -1447,27 +1447,27 @@ cast_prefers_at(const struct expression *expr)
 		return false;
 	}
 	// tagged => *; subtype compatible
-	if (type_dealias(from)->storage == STORAGE_TAGGED
-			&& tagged_select_subtype(from, to, true)) {
+	if (type_dealias(NULL, from)->storage == STORAGE_TAGGED
+			&& tagged_select_subtype(NULL, from, to, true)) {
 		return false;
 	}
 	// * => tagged
-	if (type_dealias(to)->storage == STORAGE_TAGGED) {
+	if (type_dealias(NULL, to)->storage == STORAGE_TAGGED) {
 		return true;
 	}
 	// array => array
-	if (type_dealias(to)->storage == STORAGE_ARRAY
-			&& type_dealias(from)->storage == STORAGE_ARRAY) {
+	if (type_dealias(NULL, to)->storage == STORAGE_ARRAY
+			&& type_dealias(NULL, from)->storage == STORAGE_ARRAY) {
 		return true;
 	}
 	// array => slice
-	if (type_dealias(to)->storage == STORAGE_SLICE) {
-		switch (type_dealias(from)->storage) {
+	if (type_dealias(NULL, to)->storage == STORAGE_SLICE) {
+		switch (type_dealias(NULL, from)->storage) {
 		case STORAGE_ARRAY:
 			return true;
 		case STORAGE_POINTER:
-			from = type_dealias(from)->pointer.referent;
-			return type_dealias(from)->storage == STORAGE_ARRAY;
+			from = type_dealias(NULL, from)->pointer.referent;
+			return type_dealias(NULL, from)->storage == STORAGE_ARRAY;
 		default:
 			return false;
 		}
@@ -1479,8 +1479,8 @@ static void
 gen_expr_cast_array_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	const struct type *typeout = type_dealias(expr->result);
-	const struct type *typein = type_dealias(expr->cast.value->result);
+	const struct type *typeout = type_dealias(NULL, expr->result);
+	const struct type *typein = type_dealias(NULL, expr->cast.value->result);
 	gen_expr_at(ctx, expr->cast.value, out);
 	if (!typein->array.expandable) {
 		return;
@@ -1537,7 +1537,7 @@ gen_expr_cast_at(struct gen_context *ctx,
 	}
 
 	const struct type *to = expr->result;
-	switch (type_dealias(to)->storage) {
+	switch (type_dealias(NULL, to)->storage) {
 	case STORAGE_SLICE:
 		gen_expr_cast_slice_at(ctx, expr, out);
 		break;
@@ -1561,12 +1561,12 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		*from = expr->cast.value->result;
 	if (expr->cast.kind != C_CAST) {
 		bool is_valid_tagged, is_valid_pointer;
-		is_valid_tagged = type_dealias(from)->storage == STORAGE_TAGGED
-				&& (tagged_select_subtype(from, to, true)
-				|| tagged_subset_compat(from, to));
-		is_valid_pointer = type_dealias(from)->storage == STORAGE_POINTER
-				&& (type_dealias(to)->storage == STORAGE_POINTER
-				|| type_dealias(to)->storage == STORAGE_NULL);
+		is_valid_tagged = type_dealias(NULL, from)->storage == STORAGE_TAGGED
+				&& (tagged_select_subtype(NULL, from, to, true)
+				|| tagged_subset_compat(NULL, from, to));
+		is_valid_pointer = type_dealias(NULL, from)->storage == STORAGE_POINTER
+				&& (type_dealias(NULL, to)->storage == STORAGE_POINTER
+				|| type_dealias(NULL, to)->storage == STORAGE_NULL);
 		assert(is_valid_tagged || is_valid_pointer);
 		if (expr->cast.kind == C_TEST && is_valid_tagged) {
 			return gen_type_assertion_or_test(ctx, expr,
@@ -1590,17 +1590,17 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 
 	// Special cases
 	bool want_null = false;
-	switch (type_dealias(to)->storage) {
+	switch (type_dealias(NULL, to)->storage) {
 	case STORAGE_NULL:
 		want_null = true;
 		// fallthrough
 	case STORAGE_POINTER:
-		if (type_dealias(from)->storage == STORAGE_SLICE) {
+		if (type_dealias(NULL, from)->storage == STORAGE_SLICE) {
 			struct gen_value value = gen_expr(ctx, expr->cast.value);
 			value.type = to;
 			return gen_load(ctx, value);
 		}
-		if (type_dealias(from)->storage != STORAGE_POINTER) {
+		if (type_dealias(NULL, from)->storage != STORAGE_POINTER) {
 			break;
 		}
 
@@ -1647,7 +1647,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	// Special case: tagged => non-tagged
-	if (type_dealias(from)->storage == STORAGE_TAGGED) {
+	if (type_dealias(NULL, from)->storage == STORAGE_TAGGED) {
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value base = mkcopy(ctx, &value, ".%d");
 		if (expr->cast.kind == C_ASSERTION) {
@@ -1666,7 +1666,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	// Special case: no conversion required
-	if (type_dealias(to)->storage == type_dealias(from)->storage
+	if (type_dealias(NULL, to)->storage == type_dealias(NULL, from)->storage
 			&& to->size == from->size) {
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		value.type = to;
@@ -1680,12 +1680,12 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value intermediate;
 	struct qbe_value qintermediate;
 
-	from = lower_const(from, NULL);
+	from = lower_const(NULL, from, NULL);
 
 	enum qbe_instr op;
-	bool is_signed = type_is_signed(from);
-	enum type_storage fstor = type_dealias(from)->storage,
-		tstor = type_dealias(to)->storage;
+	bool is_signed = type_is_signed(NULL, from);
+	enum type_storage fstor = type_dealias(NULL, from)->storage,
+		tstor = type_dealias(NULL, to)->storage;
 	switch (tstor) {
 	case STORAGE_ENUM:
 	case STORAGE_U8:
@@ -1701,9 +1701,9 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_UINTPTR:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
-		if (type_is_integer(from) && to->size <= from->size) {
+		if (type_is_integer(NULL, from) && to->size <= from->size) {
 			op = Q_COPY;
-		} else if (type_is_integer(from) && to->size > from->size) {
+		} else if (type_is_integer(NULL, from) && to->size > from->size) {
 			switch (from->size) {
 			case 4: op = is_signed ? Q_EXTSW : Q_EXTUW; break;
 			case 2: op = is_signed ? Q_EXTSH : Q_EXTUH; break;
@@ -1715,8 +1715,8 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 			op = Q_COPY;
 		} else if (fstor == STORAGE_RUNE) {
 			op = Q_COPY;
-		} else if (type_is_float(from)) {
-			if (type_is_signed(to)) {
+		} else if (type_is_float(NULL, from)) {
+			if (type_is_signed(NULL, to)) {
 				switch (fstor) {
 				case STORAGE_F32: op = Q_STOSI; break;
 				case STORAGE_F64: op = Q_DTOSI; break;
@@ -1736,14 +1736,14 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		break;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		if (type_is_float(from) && from->size == to->size) {
+		if (type_is_float(NULL, from) && from->size == to->size) {
 			op = Q_COPY;
-		} else if (type_is_float(from) && to->size < from->size) {
+		} else if (type_is_float(NULL, from) && to->size < from->size) {
 			op = Q_TRUNCD;
-		} else if (type_is_float(from) && to->size > from->size) {
+		} else if (type_is_float(NULL, from) && to->size > from->size) {
 			op = Q_EXTS;
-		} else if (type_is_integer(from)) {
-			if (type_is_signed(from)) {
+		} else if (type_is_integer(NULL, from)) {
+			if (type_is_signed(NULL, from)) {
 				switch (from->size) {
 				case 1:
 				case 2:
@@ -1859,7 +1859,7 @@ gen_const_array_at(struct gen_context *ctx,
 	struct qbe_value base = mkqval(ctx, &out);
 
 	size_t n = 0;
-	const struct type *atype = type_dealias(expr->result);
+	const struct type *atype = type_dealias(NULL, expr->result);
 	size_t msize = atype->array.members->size;
 	struct gen_value item = mkgtemp(ctx, atype->array.members, "item.%d");
 	for (const struct array_constant *ac = aexpr; ac; ac = ac->next) {
@@ -1874,7 +1874,7 @@ gen_const_array_at(struct gen_context *ctx,
 		return;
 	}
 	assert(out.type);
-	const struct type_array arr = type_dealias(out.type)->array;
+	const struct type_array arr = type_dealias(NULL, out.type)->array;
 	if (arr.length <= n) {
 		return;
 	}
@@ -1995,12 +1995,12 @@ static void
 gen_expr_const_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	if (!type_is_aggregate(type_dealias(expr->result))) {
+	if (!type_is_aggregate(type_dealias(NULL, expr->result))) {
 		gen_store(ctx, out, gen_expr(ctx, expr));
 		return;
 	}
 
-	switch (type_dealias(expr->result)->storage) {
+	switch (type_dealias(NULL, expr->result)->storage) {
 	case STORAGE_ARRAY:
 		gen_const_array_at(ctx, expr, out);
 		break;
@@ -2024,7 +2024,7 @@ gen_expr_const_at(struct gen_context *ctx,
 static struct gen_value
 gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 {
-	if (type_is_aggregate(type_dealias(expr->result))) {
+	if (type_is_aggregate(type_dealias(NULL, expr->result))) {
 		struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
 		struct qbe_value base = mkqval(ctx, &out);
 		struct qbe_value sz = constl(expr->result->size);
@@ -2040,7 +2040,7 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	};
 
 	// Special cases
-	switch (type_dealias(expr->result)->storage) {
+	switch (type_dealias(NULL, expr->result)->storage) {
 	case STORAGE_BOOL:
 		val.wval = expr->constant.bval ? 1 : 0;
 		return val;
@@ -2119,7 +2119,7 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 		start = gen_expr(ctx, dexpr->access.index);
 	}
 	object = gen_autoderef(ctx, object);
-	assert(type_dealias(object.type)->storage == STORAGE_SLICE);
+	assert(type_dealias(NULL, object.type)->storage == STORAGE_SLICE);
 
 	struct qbe_value qobj = mkqval(ctx, &object);
 	struct qbe_value qlenptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
@@ -2169,7 +2169,7 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value mlen = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &data, load, &qobj, NULL);
 	struct qbe_value membsz =
-		constl(type_dealias(object.type)->array.members->size);
+		constl(type_dealias(NULL, object.type)->array.members->size);
 	pushi(ctx->current, &startptr, Q_MUL, &qstart, &membsz, NULL);
 	pushi(ctx->current, &startptr, Q_ADD, &startptr, &data, NULL);
 	pushi(ctx->current, &endptr, Q_MUL, &qend, &membsz, NULL);
@@ -2234,7 +2234,7 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_free(struct gen_context *ctx, const struct expression *expr)
 {
-	const struct type *type = type_dealias(expr->free.expr->result);
+	const struct type *type = type_dealias(NULL, expr->free.expr->result);
 	struct gen_value val = gen_expr(ctx, expr->free.expr);
 	struct qbe_value qval = mkqval(ctx, &val);
 	if (type->storage == STORAGE_SLICE || type->storage == STORAGE_STRING) {
@@ -2307,7 +2307,7 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &prevlen, load, &lenptr, NULL);
 
 	struct qbe_value appendlen = constl(1);
-	const struct type *valtype = type_dealias(expr->append.value->result);
+	const struct type *valtype = type_dealias(NULL, expr->append.value->result);
 
 	struct gen_value value;
 	struct qbe_value qvalue;
@@ -2336,7 +2336,7 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, NULL, store, &newlen, &lenptr, NULL);
 
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	const struct type *mtype = type_dealias(slice.type)->array.members;
+	const struct type *mtype = type_dealias(NULL, slice.type)->array.members;
 	struct qbe_value membsz = constl(mtype->size);
 	if (!expr->append.is_static) {
 		struct qbe_value lval = mklval(ctx, &slice);
@@ -2421,15 +2421,15 @@ nested_tagged_offset(const struct type *tu, const struct type *target)
 	const struct type *test = tu;
 	struct qbe_value offset = constl(tu->align);
 	do {
-		test = tagged_select_subtype(tu, target, false);
+		test = tagged_select_subtype(NULL, tu, target, false);
 		if (!test) {
 			break;
 		}
-		if (test->id != target->id && type_dealias(test)->id != target->id) {
+		if (test->id != target->id && type_dealias(NULL, test)->id != target->id) {
 			offset.lval += test->align;
 		}
 		tu = test;
-	} while (test->id != target->id && type_dealias(test)->id != target->id);
+	} while (test->id != target->id && type_dealias(NULL, test)->id != target->id);
 	return offset;
 }
 
@@ -2465,10 +2465,10 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		struct qbe_statement lsubtype;
 		struct qbe_value bsubtype = mklabel(ctx, &lsubtype, "subtype.%d");
 
-		if (type_dealias(subtype)->storage != STORAGE_TAGGED) {
+		if (type_dealias(NULL, subtype)->storage != STORAGE_TAGGED) {
 			break;
 		}
-		test = tagged_select_subtype(subtype, type, false);
+		test = tagged_select_subtype(NULL, subtype, type, false);
 		if (!test) {
 			break;
 		}
@@ -2478,7 +2478,7 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		pushi(ctx->current, NULL, Q_JNZ, &qmatch, &bsubtype, &bnext, NULL);
 		push(&ctx->current->body, &lsubtype);
 
-		if (test->id != type->id && type_dealias(test)->id != type->id) {
+		if (test->id != type->id && type_dealias(NULL, test)->id != type->id) {
 			struct qbe_value offs = constl(subtype->align);
 			pushi(ctx->current, &subval, Q_ADD, &subval, &offs, NULL);
 			pushi(ctx->current, &temp, Q_LOADUW, &subval, NULL);
@@ -2486,7 +2486,7 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		}
 
 		subtype = test;
-	} while (test->id != type->id && type_dealias(test)->id != type->id);
+	} while (test->id != type->id && type_dealias(NULL, test)->id != type->id);
 
 	pushi(ctx->current, NULL, Q_JMP, &bmatch, NULL);
 	return match;
@@ -2557,20 +2557,20 @@ gen_match_with_tagged(struct gen_context *ctx,
 		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
 		struct qbe_value bnext = mklabel(ctx, &lnext, "next.%d");
 		const struct type *subtype =
-			tagged_select_subtype(objtype, _case->type, false);
+			tagged_select_subtype(NULL, objtype, _case->type, false);
 		enum match_compat compat = COMPAT_SUBTYPE;
 		if (subtype) {
 			gen_nested_match_tests(ctx, object,
 				bmatch, bnext, tag, _case->type);
 		} else {
-			assert(type_dealias(_case->type)->storage == STORAGE_TAGGED);
-			assert(tagged_subset_compat(objtype, _case->type));
+			assert(type_dealias(NULL, _case->type)->storage == STORAGE_TAGGED);
+			assert(tagged_subset_compat(NULL, objtype, _case->type));
 			if (tagged_align_compat(objtype, _case->type)) {
 				compat = COMPAT_ALIGNED;
 			} else {
 				compat = COMPAT_MISALIGNED;
 			}
-			const struct type *casetype = type_dealias(_case->type);
+			const struct type *casetype = type_dealias(NULL, _case->type);
 			gen_subset_match_tests(ctx, bmatch, bnext, tag, casetype);
 		}
 
@@ -2746,7 +2746,7 @@ gen_expr_match_with(struct gen_context *ctx,
 	struct gen_value *out)
 {
 	const struct type *objtype = expr->match.value->result;
-	switch (type_dealias(objtype)->storage) {
+	switch (type_dealias(NULL, objtype)->storage) {
 	case STORAGE_POINTER:
 		return gen_match_with_nullable(ctx, expr, out);
 	case STORAGE_TAGGED:
@@ -2764,7 +2764,7 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 	const struct expression *value = expr->measure.value;
 	switch (expr->measure.op) {
 	case M_LEN:
-		type = type_dealias(type_dereference(value->result));
+		type = type_dealias(NULL, type_dereference(NULL, value->result));
 		switch (type->storage) {
 		case STORAGE_ARRAY:
 			len = type->array.length;
@@ -2829,7 +2829,7 @@ gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
 		gen_defers(ctx, scope);
 	}
-	if (type_dealias(ret.type)->storage == STORAGE_VOID) {
+	if (type_dealias(NULL, ret.type)->storage == STORAGE_VOID) {
 		pushi(ctx->current, NULL, Q_RET, NULL);
 	} else {
 		struct qbe_value qret = mkqval(ctx, &ret);
@@ -2960,7 +2960,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 {
 	struct gen_value object = gen_expr(ctx, expr->slice.object);
 	object = gen_autoderef(ctx, object);
-	const struct type *srctype = type_dealias(object.type);
+	const struct type *srctype = type_dealias(NULL, object.type);
 
 	bool hasstart = expr->slice.start, hasend = expr->slice.end;
 	bool check_bounds = !expr->slice.bounds_checked && (hasstart || hasend);
@@ -3075,7 +3075,7 @@ gen_expr_tuple_at(struct gen_context *ctx,
 	// TODO: Merge me into constant expressions
 	struct qbe_value base = mkqval(ctx, &out);
 
-	const struct type *type = type_dealias(expr->result);
+	const struct type *type = type_dealias(NULL, expr->result);
 	struct gen_value vtemp = mkgtemp(ctx, &builtin_type_void, "value.%d");
 	const struct expression_tuple *value = &expr->tuple;
 	for (const struct type_tuple *tuple = &type->tuple;
@@ -3113,8 +3113,8 @@ gen_expr_unarithm(struct gen_context *ctx,
 		return val;
 	case UN_DEREF:
 		val = gen_expr(ctx, operand);
-		assert(type_dealias(val.type)->storage == STORAGE_POINTER);
-		val.type = type_dealias(val.type)->pointer.referent;
+		assert(type_dealias(NULL, val.type)->storage == STORAGE_POINTER);
+		val.type = type_dealias(NULL, val.type)->pointer.referent;
 		return gen_load(ctx, val);
 	case UN_BNOT:
 		val = gen_expr(ctx, operand);
@@ -3329,7 +3329,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	mklabel(ctx, &start_label, "start.%d");
 	push(&qdef->func.prelude, &start_label);
 
-	if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
+	if (type_dealias(NULL, fntype->func.result)->storage != STORAGE_VOID) {
 		qdef->func.returns = qtype_lookup(
 			ctx, fntype->func.result, false);
 	} else {
@@ -3390,7 +3390,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		if (last->type != Q_INSTR || last->instr != Q_RET) {
 			pushi(ctx->current, NULL, Q_RET, NULL);
 		}
-	} else if (type_dealias(fntype->func.result)->storage != STORAGE_VOID) {
+	} else if (type_dealias(NULL, fntype->func.result)->storage != STORAGE_VOID) {
 		struct qbe_value qret = mkqval(ctx, &ret);
 		pushi(ctx->current, NULL, Q_RET, &qret, NULL);
 	} else {
@@ -3492,11 +3492,11 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 
 	struct qbe_def *def;
 	const struct expression_constant *constant = &expr->constant;
-	const struct type *type = type_dealias(expr->result);
+	const struct type *type = type_dealias(NULL, expr->result);
 	if (type->storage == STORAGE_ENUM) {
 		type = type->alias.type;
 	}
-	type = lower_const(type, NULL);
+	type = lower_const(NULL, type, NULL);
 	if (constant->object) {
 		item->type = QD_SYMOFFS;
 		item->sym = ident_to_sym(&constant->object->ident);

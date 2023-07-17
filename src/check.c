@@ -133,9 +133,8 @@ error(struct context *ctx, const struct location loc, struct expression *expr,
 	va_end(ap);
 }
 
-static noreturn void
-error_norec(struct context *ctx, const struct location loc,
-	struct expression *expr, char *fmt, ...)
+noreturn void
+error_norec(struct context *ctx, const struct location loc, char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -147,23 +146,24 @@ error_norec(struct context *ctx, const struct location loc,
 }
 
 static struct expression *
-lower_implicit_cast(const struct type *to, struct expression *expr)
+lower_implicit_cast(struct context *ctx,
+		const struct type *to, struct expression *expr)
 {
 	if (to == expr->result || expr->terminates) {
 		return expr;
 	}
 	
-	if (type_dealias(to)->storage == STORAGE_SLICE &&
+	if (type_dealias(ctx, to)->storage == STORAGE_SLICE &&
 		expr->result->storage == STORAGE_ARRAY &&
 		expr->result->array.expandable) {
 		return expr;
 	}
 
-	if (type_dealias(to)->storage == STORAGE_TAGGED) {
+	if (type_dealias(ctx, to)->storage == STORAGE_TAGGED) {
 		const struct type *interim =
-			tagged_select_subtype(to, expr->result, true);
+			tagged_select_subtype(ctx, to, expr->result, true);
 		if (interim) {
-			expr = lower_implicit_cast(interim, expr);
+			expr = lower_implicit_cast(ctx, interim, expr);
 		}
 	}
 
@@ -211,7 +211,7 @@ check_expr_access(struct context *ctx,
 			expr->access.object = obj;
 			break;
 		case O_TYPE:
-			if (type_dealias(obj->type)->storage != STORAGE_VOID) {
+			if (type_dealias(ctx, obj->type)->storage != STORAGE_VOID) {
 				error(ctx, aexpr->loc, expr,
 					"Cannot use non-void type alias '%s' as constant",
 					identifier_unparse(&obj->type->alias.ident));
@@ -230,19 +230,19 @@ check_expr_access(struct context *ctx,
 		check_expression(ctx, aexpr->access.array, expr->access.array, NULL);
 		check_expression(ctx, aexpr->access.index, expr->access.index, &builtin_type_size);
 		const struct type *atype =
-			type_dereference(expr->access.array->result);
+			type_dereference(ctx, expr->access.array->result);
 		if (!atype) {
 			error(ctx, aexpr->access.array->loc, expr,
 				"Cannot dereference nullable pointer for indexing");
 			return;
 		}
-		atype = type_dealias(atype);
+		atype = type_dealias(ctx, atype);
 		if (atype->storage == STORAGE_ERROR) {
 			mkerror(aexpr->access.array->loc, expr);
 			return;
 		};
 		const struct type *itype =
-			type_dealias(expr->access.index->result);
+			type_dealias(ctx, expr->access.index->result);
 		if (atype->storage != STORAGE_ARRAY
 				&& atype->storage != STORAGE_SLICE) {
 			error(ctx, aexpr->access.array->loc, expr,
@@ -256,13 +256,13 @@ check_expr_access(struct context *ctx,
 				"Cannot use index into slice of void");
 			return;
 		}
-		if (!type_is_integer(itype)) {
+		if (!type_is_integer(ctx, itype)) {
 			error(ctx, aexpr->access.index->loc, expr,
 				"Cannot use non-integer %s type as slice/array index",
 				type_storage_unparse(itype->storage));
 			return;
 		}
-		expr->access.index = lower_implicit_cast(
+		expr->access.index = lower_implicit_cast(ctx, 
 			&builtin_type_size, expr->access.index);
 		expr->result = type_store_lookup_with_flags(ctx->store,
 			atype->array.members, atype->flags | atype->array.members->flags);
@@ -289,13 +289,13 @@ check_expr_access(struct context *ctx,
 		expr->access._struct = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->access._struct, expr->access._struct, NULL);
 		const struct type *stype =
-			type_dereference(expr->access._struct->result);
+			type_dereference(ctx, expr->access._struct->result);
 		if (!stype) {
 			error(ctx, aexpr->access._struct->loc, expr,
 				"Cannot dereference nullable pointer for field selection");
 			return;
 		}
-		stype = type_dealias(stype);
+		stype = type_dealias(ctx, stype);
 		if (stype->storage == STORAGE_ERROR) {
 			mkerror(aexpr->access._struct->loc, expr);
 			return;
@@ -306,7 +306,7 @@ check_expr_access(struct context *ctx,
 				"Cannot select field from non-struct, non-union object");
 			return;
 		}
-		expr->access.field = type_get_field(stype, aexpr->access.field);
+		expr->access.field = type_get_field(ctx, stype, aexpr->access.field);
 		if (!expr->access.field) {
 			error(ctx, aexpr->access._struct->loc, expr,
 				"No such struct field '%s'", aexpr->access.field);
@@ -322,13 +322,13 @@ check_expr_access(struct context *ctx,
 		assert(value->type == EXPR_CONSTANT);
 
 		const struct type *ttype =
-			type_dereference(expr->access.tuple->result);
+			type_dereference(ctx, expr->access.tuple->result);
 		if (!ttype) {
 			error(ctx, aexpr->access.tuple->loc, expr,
 				"Cannot dereference nullable pointer for value selection");
 			return;
 		}
-		ttype = type_dealias(ttype);
+		ttype = type_dealias(ctx, ttype);
 		if (ttype->storage == STORAGE_ERROR) {
 			mkerror(aexpr->access.tuple->loc, expr);
 			return;
@@ -338,7 +338,7 @@ check_expr_access(struct context *ctx,
 				"Cannot select value from non-tuple object");
 			return;
 		}
-		if (!type_is_integer(value->result)) {
+		if (!type_is_integer(ctx, value->result)) {
 			error(ctx, aexpr->access.tuple->loc, expr,
 				"Cannot use non-integer constant to select tuple value");
 			return;
@@ -369,7 +369,7 @@ check_expr_alloc_init(struct context *ctx,
 	int ptrflags = 0;
 	const struct type *inithint = NULL;
 	if (hint) {
-		const struct type *htype = type_dealias(hint);
+		const struct type *htype = type_dealias(ctx, hint);
 		switch (htype->storage) {
 		case STORAGE_POINTER:
 			inithint = htype->pointer.referent;
@@ -392,15 +392,15 @@ check_expr_alloc_init(struct context *ctx,
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, inithint);
 
 	const struct type *objtype = expr->alloc.init->result;
-	if (type_dealias(objtype)->storage == STORAGE_ARRAY
-			&& type_dealias(objtype)->array.expandable) {
-		const struct type *atype = type_dealias(objtype);
+	if (type_dealias(ctx, objtype)->storage == STORAGE_ARRAY
+			&& type_dealias(ctx, objtype)->array.expandable) {
+		const struct type *atype = type_dealias(ctx, objtype);
 		if (!inithint) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot infer expandable array length without type hint");
 			return;
 		}
-		const struct type *htype = type_dealias(inithint);
+		const struct type *htype = type_dealias(ctx, inithint);
 		if (htype->storage != STORAGE_ARRAY) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot assign expandable array from non-array type");
@@ -433,16 +433,16 @@ check_expr_alloc_slice(struct context *ctx,
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 
 	const struct type *objtype = expr->alloc.init->result;
-	if (type_dealias(objtype)->storage == STORAGE_ARRAY) {
-		if (type_dealias(objtype)->array.length == SIZE_UNDEFINED) {
+	if (type_dealias(ctx, objtype)->storage == STORAGE_ARRAY) {
+		if (type_dealias(ctx, objtype)->array.length == SIZE_UNDEFINED) {
 			error(ctx, aexpr->alloc.init->loc, expr,
 				"Slice initializer must have defined length");
 			return;
 		}
-	} else if (type_dealias(objtype)->storage != STORAGE_SLICE) {
+	} else if (type_dealias(ctx, objtype)->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->alloc.init->loc, expr,
 			"Slice initializer must be of slice or array type, not %s",
-			type_storage_unparse(type_dealias(objtype)->storage));
+			type_storage_unparse(type_dealias(ctx, objtype)->storage));
 		return;
 	}
 
@@ -451,12 +451,12 @@ check_expr_alloc_slice(struct context *ctx,
 	check_expression(ctx, aexpr->alloc.cap, expr->alloc.cap, caphint);
 
 	const struct type *captype = expr->alloc.cap->result;
-	if (!type_is_assignable(&builtin_type_size, captype)) {
+	if (!type_is_assignable(ctx, &builtin_type_size, captype)) {
 		error(ctx, aexpr->alloc.cap->loc, expr,
 			"Slice capacity must be assignable to size");
 		return;
 	}
-	expr->alloc.cap = lower_implicit_cast(&builtin_type_size, expr->alloc.cap);
+	expr->alloc.cap = lower_implicit_cast(ctx, &builtin_type_size, expr->alloc.cap);
 
 	struct expression cap = {0};
 	if (expr->alloc.init->type == EXPR_CONSTANT
@@ -474,7 +474,7 @@ check_expr_alloc_slice(struct context *ctx,
 		}
 	}
 
-	const struct type *membtype = type_dealias(objtype)->array.members;
+	const struct type *membtype = type_dealias(ctx, objtype)->array.members;
 	expr->result = type_store_lookup_slice(ctx->store,
 		aexpr->alloc.init->loc, membtype);
 
@@ -493,7 +493,7 @@ check_expr_alloc_copy(struct context *ctx,
 	// alloc(init...) case
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 
-	const struct type *result = type_dealias(expr->alloc.init->result);
+	const struct type *result = type_dealias(ctx, expr->alloc.init->result);
 	if (result->storage != STORAGE_ARRAY
 			&& result->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->alloc.init->loc, expr,
@@ -502,7 +502,7 @@ check_expr_alloc_copy(struct context *ctx,
 		return;
 	}
 	if (hint) {
-		const struct type *htype = type_dealias(hint);
+		const struct type *htype = type_dealias(ctx, hint);
 		if (htype->storage != STORAGE_SLICE
 				&& htype->storage != STORAGE_TAGGED) {
 			error(ctx, aexpr->alloc.init->loc, expr,
@@ -513,7 +513,7 @@ check_expr_alloc_copy(struct context *ctx,
 	}
 
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
-	result = type_dealias(expr->alloc.init->result);
+	result = type_dealias(ctx, expr->alloc.init->result);
 	expr->result = type_store_lookup_slice(ctx->store,
 			aexpr->alloc.init->loc, result->array.members);
 }
@@ -583,14 +583,14 @@ check_expr_append_insert(struct context *ctx,
 	default:
 		abort(); // Invariant
 	}
-	sltype = type_dereference(sltypename);
+	sltype = type_dereference(ctx, sltypename);
 	if (!sltype) {
 		error(ctx, aexpr->access.tuple->loc, expr,
 			"Cannot dereference nullable pointer for %s expression",
 			exprtype_name);
 		return;
 	}
-	sltype = type_dealias(sltype);
+	sltype = type_dealias(ctx, sltype);
 
 	if (sltype->storage != STORAGE_SLICE) {
 		char *typename = gen_typename(sltypename);
@@ -611,26 +611,26 @@ check_expr_append_insert(struct context *ctx,
 	if (!expr->append.is_multi && !aexpr->append.length) {
 		check_expression(ctx, aexpr->append.value, expr->append.value,
 				sltype->array.members);
-		if (!type_is_assignable(sltype->array.members,
+		if (!type_is_assignable(ctx, sltype->array.members,
 				expr->append.value->result)) {
 			error(ctx, aexpr->append.value->loc, expr,
 				"Value type must be assignable to object member type");
 			return;
 		}
-		expr->append.value = lower_implicit_cast(
+		expr->append.value = lower_implicit_cast(ctx, 
 			sltype->array.members, expr->append.value);
 		return;
 	}
 
 	check_expression(ctx, aexpr->append.value, expr->append.value, sltype);
-	const struct type *valtype = type_dereference(expr->append.value->result);
+	const struct type *valtype = type_dereference(ctx, expr->append.value->result);
 	if (!valtype) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot dereference nullable pointer for %s expression",
 			exprtype_name);
 		return;
 	}
-	valtype = type_dealias(valtype);
+	valtype = type_dealias(ctx, valtype);
 	if (aexpr->append.length) {
 		if (valtype->storage != STORAGE_ARRAY
 				|| !valtype->array.expandable) {
@@ -640,12 +640,12 @@ check_expr_append_insert(struct context *ctx,
 		}
 		struct expression *len = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->append.length, len, &builtin_type_size);
-		if (!type_is_assignable(&builtin_type_size, len->result)) {
+		if (!type_is_assignable(ctx, &builtin_type_size, len->result)) {
 			error(ctx, aexpr->append.length->loc, expr,
 				"Length parameter must be assignable to size");
 			return;
 		}
-		len = lower_implicit_cast(&builtin_type_size, len);
+		len = lower_implicit_cast(ctx, &builtin_type_size, len);
 		expr->append.length = len;
 	} else {
 		if (valtype->storage != STORAGE_SLICE
@@ -677,7 +677,7 @@ check_expr_assert(struct context *ctx,
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->assert.cond, expr->assert.cond, &builtin_type_bool);
 		loc = aexpr->assert.cond->loc;
-		if (type_dealias(expr->assert.cond->result)->storage != STORAGE_BOOL) {
+		if (type_dealias(ctx, expr->assert.cond->result)->storage != STORAGE_BOOL) {
 			error(ctx, loc, expr, "Assertion condition must be boolean");
 			return;
 		}
@@ -690,7 +690,7 @@ check_expr_assert(struct context *ctx,
 	} else {
 		expr->assert.message = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
-		if (type_dealias(expr->assert.message->result)->storage != STORAGE_STRING) {
+		if (type_dealias(ctx, expr->assert.message->result)->storage != STORAGE_STRING) {
 			error(ctx, aexpr->assert.message->loc, expr,
 				"Assertion message must be string");
 			return;
@@ -717,7 +717,7 @@ check_expr_assert(struct context *ctx,
 					return;
 				}
 			}
-			assert(type_dealias(out.result)->storage == STORAGE_BOOL);
+			assert(type_dealias(ctx, out.result)->storage == STORAGE_BOOL);
 			cond = out.constant.bval;
 		}
 		// XXX: Should these abort immediately?
@@ -737,14 +737,14 @@ static void
 check_binarithm_op(struct context *ctx, struct expression *expr,
 		enum binarithm_operator op)
 {
-	const struct type *dealiased = type_dealias(expr->result);
+	const struct type *dealiased = type_dealias(ctx, expr->result);
 	switch (op) {
 	// Numeric arithmetic
 	case BIN_DIV:
 	case BIN_MINUS:
 	case BIN_PLUS:
 	case BIN_TIMES:
-		if (!type_is_numeric(dealiased)) {
+		if (!type_is_numeric(ctx, dealiased)) {
 			error(ctx, expr->loc, expr,
 				"Cannot perform arithmetic on non-numeric %s type",
 				type_storage_unparse(dealiased->storage));
@@ -757,7 +757,7 @@ check_binarithm_op(struct context *ctx, struct expression *expr,
 	case BIN_MODULO:
 	case BIN_RSHIFT:
 	case BIN_BXOR:
-		if (!type_is_integer(dealiased)) {
+		if (!type_is_integer(ctx, dealiased)) {
 			error(ctx, expr->loc, expr,
 				"Cannot perform operation on non-integer %s type",
 				type_storage_unparse(dealiased->storage));
@@ -779,7 +779,7 @@ check_binarithm_op(struct context *ctx, struct expression *expr,
 	case BIN_LESS:
 	case BIN_LESSEQ:
 		expr->result = &builtin_type_bool;
-		if (!type_is_numeric(dealiased)) {
+		if (!type_is_numeric(ctx, dealiased)) {
 			error(ctx, expr->loc, expr,
 				"Cannot perform comparison on non-numeric %s type",
 				type_storage_unparse(dealiased->storage));
@@ -788,7 +788,7 @@ check_binarithm_op(struct context *ctx, struct expression *expr,
 	case BIN_LEQUAL:
 	case BIN_NEQUAL:
 		expr->result = &builtin_type_bool;
-		if (!type_is_numeric(dealiased) &&
+		if (!type_is_numeric(ctx, dealiased) &&
 				dealiased->storage != STORAGE_POINTER
 				&& dealiased->storage != STORAGE_STRING
 				&& dealiased->storage != STORAGE_BOOL
@@ -823,7 +823,7 @@ check_expr_assign(struct context *ctx,
 			"Cannot assign to constant");
 		return;
 	}
-	if (!type_is_assignable(object->result, value->result)) {
+	if (!type_is_assignable(ctx, object->result, value->result)) {
 		char *valtypename = gen_typename(value->result);
 		char *objtypename = gen_typename(object->result);
 		error(ctx, aexpr->loc, expr,
@@ -837,7 +837,7 @@ check_expr_assign(struct context *ctx,
 		check_binarithm_op(ctx, object, expr->assign.op);
 	}
 
-	expr->assign.value = lower_implicit_cast(object->result, value);
+	expr->assign.value = lower_implicit_cast(ctx, object->result, value);
 	expr->assign.object = object;
 }
 
@@ -863,15 +863,15 @@ type_promote(struct type_store *store,
 		return NULL;
 	}
 
-	da = type_dealias(da);
-	db = type_dealias(db);
+	da = type_dealias(store->check_context, da);
+	db = type_dealias(store->check_context, db);
 
 	if (da == db) {
 		return a->storage == STORAGE_ALIAS ? a : b;
 	}
 
 	if (type_is_constant(da) || type_is_constant(db)) {
-		return promote_const(a, b);
+		return promote_const(store->check_context, a, b);
 	}
 
 	if (db->storage == STORAGE_ENUM && da->storage == db->alias.type->storage) {
@@ -896,7 +896,8 @@ type_promote(struct type_store *store,
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
-		if (!type_is_integer(db) || !type_is_signed(db)
+		if (!type_is_integer(store->check_context, db)
+				|| !type_is_signed(store->check_context, db)
 				|| db->size == da->size) {
 			return NULL;
 		}
@@ -910,14 +911,16 @@ type_promote(struct type_store *store,
 		if (da->storage == STORAGE_SIZE && db->storage == STORAGE_UINTPTR) {
 			return db;
 		}
-		if (!type_is_integer(db) || type_is_signed(db)
+		if (!type_is_integer(store->check_context, db)
+				|| type_is_signed(store->check_context, db)
 				|| db->size == da->size) {
 			return NULL;
 		}
 		return da->size > db->size ? a : b;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		if (!type_is_float(db) || db->size == da->size) {
+		if (!type_is_float(store->check_context, db)
+				|| db->size == da->size) {
 			return NULL;
 		}
 		return da->size > db->size ? a : b;
@@ -1056,7 +1059,7 @@ type_has_default(struct context *ctx, const struct type *type)
 		}
 		return true;
 	case STORAGE_ALIAS:
-		return type_has_default(ctx, type_dealias(type));
+		return type_has_default(ctx, type_dealias(ctx, type));
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_NULL:
@@ -1093,8 +1096,8 @@ check_expr_binarithm(struct context *ctx,
 		free(rtypename);
 		return;
 	}
-	expr->binarithm.lvalue = lower_implicit_cast(expr->result, lvalue);
-	expr->binarithm.rvalue = lower_implicit_cast(expr->result, rvalue);
+	expr->binarithm.lvalue = lower_implicit_cast(ctx, expr->result, lvalue);
+	expr->binarithm.rvalue = lower_implicit_cast(ctx, expr->result, rvalue);
 
 	check_binarithm_op(ctx, expr, expr->binarithm.op);
 }
@@ -1114,7 +1117,7 @@ check_binding_unpack(struct context *ctx,
 
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, abinding->initializer, initializer, type);
-	if (type_dealias(initializer->result)->storage != STORAGE_TUPLE) {
+	if (type_dealias(ctx, initializer->result)->storage != STORAGE_TUPLE) {
 		error(ctx, aexpr->loc, expr, "Could not unpack non-tuple type");
 		return;
 	}
@@ -1123,9 +1126,9 @@ check_binding_unpack(struct context *ctx,
 		type = type_store_lookup_with_flags(
 			ctx->store, initializer->result, abinding->flags);
 	}
-	type = type_dealias(type);
+	type = type_dealias(ctx, type);
 
-	binding->initializer = lower_implicit_cast(type, initializer);
+	binding->initializer = lower_implicit_cast(ctx, type, initializer);
 
 	if (abinding->is_static) {
 		struct expression *value = xcalloc(1, sizeof(struct expression));
@@ -1280,19 +1283,19 @@ check_expr_binding(struct context *ctx,
 				"Null is not a valid type for a binding");
 			return;
 		}
-		if (!type_is_assignable(type, initializer->result)) {
+		if (!type_is_assignable(ctx, type, initializer->result)) {
 			error(ctx, aexpr->loc, expr,
 				"Initializer is not assignable to binding type");
 			return;
 		}
 		// XXX: Can we avoid this?
-		type = lower_const(type, NULL);
+		type = lower_const(ctx, type, NULL);
 		if (type->size == 0 || type->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot create binding for type of zero or undefined size");
 			return;
 		}
-		binding->initializer = lower_implicit_cast(type, initializer);
+		binding->initializer = lower_implicit_cast(ctx, type, initializer);
 
 		if (abinding->is_static) {
 			struct expression *value =
@@ -1376,13 +1379,13 @@ check_expr_call(struct context *ctx,
 	check_expression(ctx, aexpr->call.lvalue, lvalue, NULL);
 	expr->call.lvalue = lvalue;
 
-	const struct type *fntype = type_dereference(lvalue->result);
+	const struct type *fntype = type_dereference(ctx, lvalue->result);
 	if (!fntype) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot dereference nullable pointer type for function call");
 		return;
 	}
-	fntype = type_dealias(fntype);
+	fntype = type_dealias(ctx, fntype);
 	if (fntype->storage == STORAGE_ERROR) {
 		mkerror(aexpr->loc, expr);
 		return;
@@ -1409,7 +1412,7 @@ check_expr_call(struct context *ctx,
 				&& !aarg->variadic) {
 			lower_vaargs(ctx, aarg, arg->value,
 				param->type->array.members);
-			arg->value = lower_implicit_cast(param->type, arg->value);
+			arg->value = lower_implicit_cast(ctx, param->type, arg->value);
 			param = NULL;
 			aarg = NULL;
 			break;
@@ -1422,7 +1425,7 @@ check_expr_call(struct context *ctx,
 		check_expression(ctx, aarg->value, arg->value, ptype);
 
 		if (param) {
-			if (!type_is_assignable(ptype, arg->value->result)) {
+			if (!type_is_assignable(ctx, ptype, arg->value->result)) {
 				char *argtypename = gen_typename(arg->value->result);
 				char *paramtypename = gen_typename(param->type);
 				error(ctx, aarg->value->loc, expr,
@@ -1432,7 +1435,7 @@ check_expr_call(struct context *ctx,
 				free(paramtypename);
 				return;
 			}
-			arg->value = lower_implicit_cast(ptype, arg->value);
+			arg->value = lower_implicit_cast(ctx, ptype, arg->value);
 		}
 
 		aarg = aarg->next;
@@ -1448,7 +1451,7 @@ check_expr_call(struct context *ctx,
 		arg->value = xcalloc(1, sizeof(struct expression));
 		lower_vaargs(ctx, NULL, arg->value,
 			param->type->array.members);
-		arg->value = lower_implicit_cast(param->type, arg->value);
+		arg->value = lower_implicit_cast(ctx, param->type, arg->value);
 		param = param->next;
 	}
 
@@ -1487,7 +1490,7 @@ check_expr_cast(struct context *ctx,
 		return;
 	}
 
-	const struct type *primary = type_dealias(expr->cast.value->result);
+	const struct type *primary = type_dealias(ctx, expr->cast.value->result);
 	if (primary->storage == STORAGE_ERROR) {
 		mkerror(aexpr->cast.value->loc, expr);
 		return;
@@ -1521,9 +1524,9 @@ check_expr_cast(struct context *ctx,
 		}
 		// secondary type must be a strict subset or a
 		// member of the primary type
-		if (!((tagged_subset_compat(primary, secondary)
-				|| tagged_select_subtype(primary, secondary, true))
-				&& !tagged_subset_compat(secondary, primary))) {
+		if (!((tagged_subset_compat(ctx, primary, secondary)
+				|| tagged_select_subtype(ctx, primary, secondary, true))
+				&& !tagged_subset_compat(ctx, secondary, primary))) {
 			error(ctx, aexpr->cast.type->loc, expr,
 				"Type is not a valid member of "
 				"the tagged union type");
@@ -1532,7 +1535,7 @@ check_expr_cast(struct context *ctx,
 		break;
 	case C_CAST:;
 		const struct type *intermediary =
-			type_is_castable(secondary, value->result);
+			type_is_castable(ctx, secondary, value->result);
 		if (intermediary == NULL) {
 			char *primarytypename = gen_typename(value->result);
 			char *secondarytypename = gen_typename(secondary);
@@ -1611,7 +1614,7 @@ check_expr_array(struct context *ctx,
 	struct array_constant *cur, **next = &expr->constant.array;
 	const struct type *type = NULL;
 	if (hint) {
-		hint = type_dealias(hint);
+		hint = type_dealias(ctx, hint);
 
 		size_t narray = 0;
 		switch (hint->storage) {
@@ -1622,7 +1625,7 @@ check_expr_array(struct context *ctx,
 		case STORAGE_TAGGED:
 			for (const struct type_tagged_union *tu = &hint->tagged;
 					tu; tu = tu->next) {
-				const struct type *t = type_dealias(tu->type);
+				const struct type *t = type_dealias(ctx, tu->type);
 				if (t->storage == STORAGE_ARRAY
 						|| t->storage == STORAGE_SLICE) {
 					hint = t;
@@ -1655,7 +1658,7 @@ check_expr_array(struct context *ctx,
 				// type to change out from under our feet
 				type = expr->constant.array->value->result;
 			}
-			if (!type_is_assignable(type, value->result)) {
+			if (!type_is_assignable(ctx, type, value->result)) {
 				char *typename1 = gen_typename(type);
 				char *typename2 = gen_typename(value->result);
 				error(ctx, item->value->loc, expr,
@@ -1669,7 +1672,7 @@ check_expr_array(struct context *ctx,
 				// Ditto
 				type = expr->constant.array->value->result;
 			}
-			cur->value = lower_implicit_cast(type, cur->value);
+			cur->value = lower_implicit_cast(ctx, type, cur->value);
 		}
 
 		if (item->expand) {
@@ -1744,7 +1747,7 @@ check_expr_compound(struct context *ctx,
 			scope->results);
 
 	for (struct yield *yield = scope->yields; yield;) {
-		struct expression *lowered = lower_implicit_cast(
+		struct expression *lowered = lower_implicit_cast(ctx, 
 				expr->result, *yield->expression);
 		if (*yield->expression != lowered) {
 			*yield->expression = lowered;
@@ -1886,13 +1889,13 @@ check_expr_delete(struct context *ctx,
 			"Deleted expression must be slicing or indexing expression");
 		return;
 	}
-	otype = type_dereference(otype);
+	otype = type_dereference(ctx, otype);
 	if (!otype) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot dereference nullable pointer for delete expression");
 		return;
 	}
-	otype = type_dealias(otype);
+	otype = type_dealias(ctx, otype);
 	if (otype->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->delete.expr->loc, expr,
 			"delete must operate on a slice");
@@ -1987,7 +1990,7 @@ check_expr_for(struct context *ctx,
 	cond = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_for.cond, cond, &builtin_type_bool);
 	expr->_for.cond = cond;
-	if (type_dealias(cond->result)->storage != STORAGE_BOOL) {
+	if (type_dealias(ctx, cond->result)->storage != STORAGE_BOOL) {
 		error(ctx, aexpr->_for.cond->loc, expr,
 			"Expected for condition to be boolean");
 		return;
@@ -2016,7 +2019,7 @@ check_expr_free(struct context *ctx,
 	expr->type = EXPR_FREE;
 	expr->free.expr = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->free.expr, expr->free.expr, NULL);
-	enum type_storage storage = type_dealias(expr->free.expr->result)->storage;
+	enum type_storage storage = type_dealias(ctx, expr->free.expr->result)->storage;
 	if (storage == STORAGE_ERROR) {
 		mkerror(aexpr->loc, expr);
 		return;
@@ -2058,8 +2061,8 @@ check_expr_if(struct context *ctx,
 			expr->result = true_branch->result;
 		} else if (tt && !ft) {
 			expr->result = false_branch->result;
-		} else if (hint && type_is_assignable(hint, true_branch->result)
-				&& type_is_assignable(hint, false_branch->result)) {
+		} else if (hint && type_is_assignable(ctx, hint, true_branch->result)
+				&& type_is_assignable(ctx, hint, false_branch->result)) {
 			expr->result = hint;
 		} else {
 			struct type_tagged_union _tags = {
@@ -2078,8 +2081,8 @@ check_expr_if(struct context *ctx,
 				return;
 			}
 		}
-		true_branch = lower_implicit_cast(expr->result, true_branch);
-		false_branch = lower_implicit_cast(expr->result, false_branch);
+		true_branch = lower_implicit_cast(ctx, expr->result, true_branch);
+		false_branch = lower_implicit_cast(ctx, expr->result, false_branch);
 	} else {
 		expr->result = &builtin_type_void;
 		expr->terminates = false;
@@ -2089,7 +2092,7 @@ check_expr_if(struct context *ctx,
 		mkerror(aexpr->match.value->loc, expr);
 		return;
 	}
-	if (type_dealias(cond->result)->storage != STORAGE_BOOL) {
+	if (type_dealias(ctx, cond->result)->storage != STORAGE_BOOL) {
 		error(ctx, aexpr->_if.cond->loc, expr,
 			"Expected if condition to be boolean");
 		return;
@@ -2111,7 +2114,7 @@ check_expr_match(struct context *ctx,
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->match.value, value, NULL); expr->match.value = value;
 
-	const struct type *type = type_dealias(value->result);
+	const struct type *type = type_dealias(ctx, value->result);
 	if (type->storage == STORAGE_ERROR) {
 		mkerror(aexpr->match.value->loc, expr);
 		return;
@@ -2156,7 +2159,7 @@ check_expr_match(struct context *ctx,
 			} else {
 				// TODO: Assign a score to tagged compatibility
 				// and choose the branch with the highest score.
-				if (!type_is_assignable(type, ctype)) {
+				if (!type_is_assignable(ctx, type, ctype)) {
 					error(ctx, acase->type->loc, expr,
 						"Invalid type for match case (match is not assignable to this type)");
 					return;
@@ -2238,13 +2241,13 @@ check_expr_match(struct context *ctx,
 		struct match_case *_case = expr->match.cases;
 		struct ast_match_case *acase = aexpr->match.cases;
 		while (_case) {
-			if (!_case->value->terminates && !type_is_assignable(
+			if (!_case->value->terminates && !type_is_assignable(ctx, 
 					expr->result, _case->value->result)) {
 				error(ctx, acase->exprs.expr->loc, expr,
 					"Match case is not assignable to result type");
 				return;
 			}
-			_case->value = lower_implicit_cast(
+			_case->value = lower_implicit_cast(ctx, 
 				expr->result, _case->value);
 			_case = _case->next;
 			acase = acase->next;
@@ -2274,13 +2277,13 @@ check_expr_measure(struct context *ctx,
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
 		const struct type *atype =
-			type_dereference(expr->measure.value->result);
+			type_dereference(ctx, expr->measure.value->result);
 		if (!atype) {
 			error(ctx, aexpr->access.array->loc, expr,
 				"Cannot dereference nullable pointer for len");
 			return;
 		}
-		enum type_storage vstor = type_dealias(atype)->storage;
+		enum type_storage vstor = type_dealias(ctx, atype)->storage;
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
 			|| vstor == STORAGE_STRING || vstor == STORAGE_ERROR;
 		if (!valid) {
@@ -2353,7 +2356,7 @@ check_expr_propagate(struct context *ctx,
 		mkerror(aexpr->loc, expr);
 		return;
 	};
-	if (type_dealias(intype)->storage != STORAGE_TAGGED) {
+	if (type_dealias(ctx, intype)->storage != STORAGE_TAGGED) {
 		char *typename = gen_typename(intype);
 		error(ctx, aexpr->loc, expr,
 			"Cannot use error propagation on non-tagged type %s",
@@ -2382,7 +2385,7 @@ check_expr_propagate(struct context *ctx,
 	struct type_tagged_union *rtagged = &return_tagged,
 		**next_rtag = &rtagged->next;
 
-	const struct type_tagged_union *intu = &type_dealias(intype)->tagged;
+	const struct type_tagged_union *intu = &type_dealias(ctx, intype)->tagged;
 	for (; intu; intu = intu->next) {
 		if (intu->type->flags & TYPE_ERROR) {
 			if (rtagged->type) {
@@ -2475,7 +2478,7 @@ check_expr_propagate(struct context *ctx,
 		}
 		case_err->type = return_type;
 		case_err->object = err_obj;
-		if (!type_is_assignable(ctx->fntype->func.result, return_type)) {
+		if (!type_is_assignable(ctx, ctx->fntype->func.result, return_type)) {
 			char *res = gen_typename(ctx->fntype->func.result);
 			char *ret = gen_typename(return_type);
 			error(ctx, aexpr->loc, expr,
@@ -2498,7 +2501,7 @@ check_expr_propagate(struct context *ctx,
 		} else {
 			rval->type = EXPR_CONSTANT;
 		}
-		case_err->value->_return.value = lower_implicit_cast(
+		case_err->value->_return.value = lower_implicit_cast(ctx, 
 				ctx->fntype->func.result, rval);
 	}
 	case_err->value->terminates = true;
@@ -2544,7 +2547,7 @@ check_expr_return(struct context *ctx,
 		rval->result = &builtin_type_void;
 	}
 
-	if (!type_is_assignable(ctx->fntype->func.result, rval->result)) {
+	if (!type_is_assignable(ctx, ctx->fntype->func.result, rval->result)) {
 		char *rettypename = gen_typename(rval->result);
 		char *fntypename = gen_typename(ctx->fntype->func.result);
 		error(ctx, aexpr->loc, expr,
@@ -2555,7 +2558,7 @@ check_expr_return(struct context *ctx,
 		return;
 	}
 	if (ctx->fntype->func.result != rval->result) {
-		rval = lower_implicit_cast(
+		rval = lower_implicit_cast(ctx, 
 			ctx->fntype->func.result, rval);
 	}
 	expr->_return.value = rval;
@@ -2564,8 +2567,8 @@ check_expr_return(struct context *ctx,
 static void
 slice_bounds_check(struct context *ctx, struct expression *expr)
 {
-	const struct type *atype = type_dereference(expr->slice.object->result);
-	const struct type *dtype = type_dealias(atype);
+	const struct type *atype = type_dereference(ctx, expr->slice.object->result);
+	const struct type *dtype = type_dealias(ctx, atype);
 
 	struct expression *start = NULL, *end = NULL;
 
@@ -2640,13 +2643,13 @@ check_expr_slice(struct context *ctx,
 	expr->slice.object = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->slice.object, expr->slice.object, NULL);
 	const struct type *atype =
-		type_dereference(expr->slice.object->result);
+		type_dereference(ctx, expr->slice.object->result);
 	if (!atype) {
 		error(ctx, aexpr->slice.object->loc, expr,
 			"Cannot dereference nullable pointer for slicing");
 		return;
 	}
-	const struct type *dtype = type_dealias(atype);
+	const struct type *dtype = type_dealias(ctx, atype);
 	if (dtype->storage != STORAGE_SLICE
 			&& dtype->storage != STORAGE_ARRAY) {
 		error(ctx, aexpr->slice.object->loc, expr,
@@ -2658,28 +2661,28 @@ check_expr_slice(struct context *ctx,
 	if (aexpr->slice.start) {
 		expr->slice.start = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->slice.start, expr->slice.start, &builtin_type_size);
-		itype = type_dealias(expr->slice.start->result);
-		if (!type_is_integer(itype)) {
+		itype = type_dealias(ctx, expr->slice.start->result);
+		if (!type_is_integer(ctx, itype)) {
 			error(ctx, aexpr->slice.start->loc, expr,
 				"Cannot use non-integer %s type as slicing operand",
 				type_storage_unparse(itype->storage));
 			return;
 		}
-		expr->slice.start = lower_implicit_cast(
+		expr->slice.start = lower_implicit_cast(ctx, 
 			&builtin_type_size, expr->slice.start);
 	}
 
 	if (aexpr->slice.end) {
 		expr->slice.end = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->slice.end, expr->slice.end, &builtin_type_size);
-		itype = type_dealias(expr->slice.end->result);
-		if (!type_is_integer(itype)) {
+		itype = type_dealias(ctx, expr->slice.end->result);
+		if (!type_is_integer(ctx, itype)) {
 			error(ctx, aexpr->slice.end->loc, expr,
 				"Cannot use non-integer %s type as slicing operand",
 				type_storage_unparse(itype->storage));
 			return;
 		}
-		expr->slice.end = lower_implicit_cast(
+		expr->slice.end = lower_implicit_cast(ctx, 
 			&builtin_type_size, expr->slice.end);
 	} else if (dtype->storage == STORAGE_ARRAY
 			&& dtype->array.length == SIZE_UNDEFINED) {
@@ -2704,7 +2707,7 @@ check_struct_exhaustive(struct context *ctx,
 	struct expression *expr,
 	const struct type *stype)
 {
-	stype = type_dealias(stype);
+	stype = type_dealias(ctx, stype);
 	if (stype->storage == STORAGE_UNION) {
 		return;
 	}
@@ -2765,7 +2768,7 @@ check_expr_struct(struct context *ctx,
 		}
 		assert(obj->otype == O_TYPE);
 		stype = obj->type;
-		enum type_storage storage = type_dealias(stype)->storage;
+		enum type_storage storage = type_dealias(ctx, stype)->storage;
 		if (storage != STORAGE_STRUCT && storage != STORAGE_UNION) {
 			error(ctx, aexpr->loc, expr,
 				"Object named is not a struct or union type");
@@ -2817,7 +2820,7 @@ check_expr_struct(struct context *ctx,
 					"a named struct literal");
 				return;
 			}
-			sexpr->field = type_get_field(type_dealias(stype),
+			sexpr->field = type_get_field(ctx, type_dealias(ctx, stype),
 					afield->name);
 			if (!sexpr->field) {
 				error(ctx, afield->initializer->loc, expr,
@@ -2828,12 +2831,12 @@ check_expr_struct(struct context *ctx,
 			check_expression(ctx, afield->initializer,
 					sexpr->value, ftype);
 
-			if (!type_is_assignable(sexpr->field->type, sexpr->value->result)) {
+			if (!type_is_assignable(ctx, sexpr->field->type, sexpr->value->result)) {
 				error(ctx, afield->initializer->loc, expr,
 					"Initializer is not assignable to struct field");
 				return;
 			}
-			sexpr->value = lower_implicit_cast(
+			sexpr->value = lower_implicit_cast(ctx, 
 				sexpr->field->type, sexpr->value);
 		}
 
@@ -2849,7 +2852,7 @@ check_expr_struct(struct context *ctx,
 		tfield = &satype.struct_union.fields;
 		sexpr = expr->_struct.fields;
 		while (tfield) {
-			const struct struct_field *field = type_get_field(
+			const struct struct_field *field = type_get_field(ctx, 
 				expr->result, tfield->name);
 			if (!field) {
 				// TODO: Use more specific error location
@@ -2857,14 +2860,14 @@ check_expr_struct(struct context *ctx,
 					"No field by this name exists for this type");
 				return;
 			}
-			if (!type_is_assignable(field->type, sexpr->value->result)) {
+			if (!type_is_assignable(ctx, field->type, sexpr->value->result)) {
 				error(ctx, aexpr->loc, expr,
 					"Cannot initialize struct field '%s' from value of this type",
 					field->name);
 				return;
 			}
 			sexpr->field = field;
-			sexpr->value = lower_implicit_cast(field->type, sexpr->value);
+			sexpr->value = lower_implicit_cast(ctx, field->type, sexpr->value);
 
 			struct ast_struct_union_field *next = tfield->next;
 			if (tfield != &satype.struct_union.fields) {
@@ -2886,17 +2889,17 @@ check_expr_switch(struct context *ctx,
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
-	const struct type *type = type_dealias(value->result);
+	const struct type *type = type_dealias(ctx, value->result);
 	expr->_switch.value = value;
-	if (!type_is_numeric(type)
-			&& type_dealias(type)->storage != STORAGE_POINTER
-			&& type_dealias(type)->storage != STORAGE_STRING
-			&& type_dealias(type)->storage != STORAGE_BOOL
-			&& type_dealias(type)->storage != STORAGE_RCONST
-			&& type_dealias(type)->storage != STORAGE_RUNE) {
+	if (!type_is_numeric(ctx, type)
+			&& type_dealias(ctx, type)->storage != STORAGE_POINTER
+			&& type_dealias(ctx, type)->storage != STORAGE_STRING
+			&& type_dealias(ctx, type)->storage != STORAGE_BOOL
+			&& type_dealias(ctx, type)->storage != STORAGE_RCONST
+			&& type_dealias(ctx, type)->storage != STORAGE_RUNE) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot switch on %s type",
-			type_storage_unparse(type_dealias(type)->storage));
+			type_storage_unparse(type_dealias(ctx, type)->storage));
 		return;
 	}
 
@@ -2921,8 +2924,8 @@ check_expr_switch(struct context *ctx,
 				xcalloc(1, sizeof(struct expression));
 
 			check_expression(ctx, aopt->value, value, type);
-			if (!type_is_assignable(type_dealias(type),
-					type_dealias(value->result))) {
+			if (!type_is_assignable(ctx, type_dealias(ctx, type),
+					type_dealias(ctx, value->result))) {
 				error(ctx, aopt->value->loc, expr,
 					"Invalid type for switch case");
 				return;
@@ -2987,13 +2990,13 @@ check_expr_switch(struct context *ctx,
 		struct switch_case *_case = expr->_switch.cases;
 		struct ast_switch_case *acase = aexpr->_switch.cases;
 		while (_case) {
-			if (!_case->value->terminates && !type_is_assignable(
+			if (!_case->value->terminates && !type_is_assignable(ctx, 
 					expr->result, _case->value->result)) {
 				error(ctx, acase->exprs.expr->loc, expr,
 					"Switch case is not assignable to result type");
 				return;
 			}
-			_case->value = lower_implicit_cast(
+			_case->value = lower_implicit_cast(ctx, 
 				expr->result, _case->value);
 			_case = _case->next;
 			acase = acase->next;
@@ -3017,8 +3020,8 @@ check_expr_tuple(struct context *ctx,
 	expr->type = EXPR_TUPLE;
 
 	const struct type_tuple *ttuple = NULL;
-	if (hint && type_dealias(hint)->storage == STORAGE_TUPLE) {
-		ttuple = &type_dealias(hint)->tuple;
+	if (hint && type_dealias(ctx, hint)->storage == STORAGE_TUPLE) {
+		ttuple = &type_dealias(ctx, hint)->tuple;
 	}
 
 	struct type_tuple result = {0};
@@ -3043,21 +3046,21 @@ check_expr_tuple(struct context *ctx,
 		}
 	}
 
-	if (hint && type_dealias(hint)->storage == STORAGE_TUPLE) {
+	if (hint && type_dealias(ctx, hint)->storage == STORAGE_TUPLE) {
 		expr->result = hint;
-	} else if (hint && type_dealias(hint)->storage == STORAGE_TAGGED) {
+	} else if (hint && type_dealias(ctx, hint)->storage == STORAGE_TAGGED) {
 		for (const struct type_tagged_union *tu =
-				&type_dealias(hint)->tagged;
+				&type_dealias(ctx, hint)->tagged;
 				tu; tu = tu->next) {
-			if (type_dealias(tu->type)->storage != STORAGE_TUPLE) {
+			if (type_dealias(ctx, tu->type)->storage != STORAGE_TUPLE) {
 				continue;
 			}
 			const struct type_tuple *ttuple =
-				&type_dealias(tu->type)->tuple;
+				&type_dealias(ctx, tu->type)->tuple;
 			const struct expression_tuple *etuple = &expr->tuple;
 			bool valid = true;
 			while (etuple) {
-				if (!ttuple || !type_is_assignable(ttuple->type,
+				if (!ttuple || !type_is_assignable(ctx, ttuple->type,
 						etuple->value->result)) {
 					valid = false;
 					break;
@@ -3066,7 +3069,7 @@ check_expr_tuple(struct context *ctx,
 				etuple = etuple->next;
 			}
 			if (!ttuple && valid) {
-				expr->result = type_dealias(tu->type);
+				expr->result = type_dealias(ctx, tu->type);
 				break;
 			}
 		}
@@ -3084,7 +3087,7 @@ check_expr_tuple(struct context *ctx,
 		}
 	}
 
-	ttuple = &type_dealias(expr->result)->tuple;
+	ttuple = &type_dealias(ctx, expr->result)->tuple;
 	struct expression_tuple *etuple = &expr->tuple;
 	const struct ast_expression_tuple *atuple = &aexpr->tuple;
 	while (etuple) {
@@ -3093,12 +3096,12 @@ check_expr_tuple(struct context *ctx,
 				"Too many values for tuple type");
 			return;
 		}
-		if (!type_is_assignable(ttuple->type, etuple->value->result)) {
+		if (!type_is_assignable(ctx, ttuple->type, etuple->value->result)) {
 			error(ctx, atuple->expr->loc, expr,
 				"Value is not assignable to tuple value type");
 			return;
 		}
-		etuple->value = lower_implicit_cast(ttuple->type, etuple->value);
+		etuple->value = lower_implicit_cast(ctx, ttuple->type, etuple->value);
 		etuple = etuple->next;
 		atuple = atuple->next;
 		ttuple = ttuple->next;
@@ -3122,10 +3125,14 @@ check_expr_unarithm(struct context *ctx,
 	check_expression(ctx, aexpr->unarithm.operand, operand, NULL);
 	expr->unarithm.operand = operand;
 	expr->unarithm.op = aexpr->unarithm.op;
+	if (operand->result->storage == STORAGE_ERROR) {
+		mkerror(expr->unarithm.operand->loc, expr);
+		return;
+	}
 
 	switch (expr->unarithm.op) {
 	case UN_LNOT:
-		if (type_dealias(operand->result)->storage != STORAGE_BOOL) {
+		if (type_dealias(ctx, operand->result)->storage != STORAGE_BOOL) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform logical NOT (!) on non-boolean type");
 			return;
@@ -3133,7 +3140,7 @@ check_expr_unarithm(struct context *ctx,
 		expr->result = &builtin_type_bool;
 		break;
 	case UN_BNOT:
-		if (!type_is_integer(operand->result)) {
+		if (!type_is_integer(ctx, operand->result)) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform binary NOT (~) on non-integer type");
 			return;
@@ -3149,11 +3156,11 @@ check_expr_unarithm(struct context *ctx,
 			const struct type *new = type_create_const(
 				STORAGE_ICONST, -old->_const.min,
 				-old->_const.max);
-			lower_const(old, new);
+			lower_const(ctx, old, new);
 		}
 		// Fallthrough
 	case UN_PLUS:
-		if (!type_is_numeric(operand->result)) {
+		if (!type_is_numeric(ctx, operand->result)) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot perform operation on non-numeric type");
 			return;
@@ -3161,7 +3168,7 @@ check_expr_unarithm(struct context *ctx,
 		expr->result = operand->result;
 		break;
 	case UN_ADDRESS:;
-		const struct type *result = type_dealias(operand->result);
+		const struct type *result = type_dealias(ctx, operand->result);
 		if (result->storage == STORAGE_VOID) {
 			error(ctx, aexpr->loc, expr,
 				"Can't take address of void");
@@ -3171,29 +3178,29 @@ check_expr_unarithm(struct context *ctx,
 			ctx->store, aexpr->loc, operand->result, 0);
 		break;
 	case UN_DEREF:
-		if (type_dealias(operand->result)->storage != STORAGE_POINTER) {
+		if (type_dealias(ctx, operand->result)->storage != STORAGE_POINTER) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot de-reference non-pointer type");
 			return;
 		}
-		if (type_dealias(operand->result)->pointer.flags
+		if (type_dealias(ctx, operand->result)->pointer.flags
 				& PTR_NULLABLE) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot dereference nullable pointer type");
 			return;
 		}
-		if (type_dealias(operand->result)->pointer.referent->size == 0) {
+		if (type_dealias(ctx, operand->result)->pointer.referent->size == 0) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot dereference pointer to zero-sized type");
 			return;
 		}
-		if (type_dealias(operand->result)->pointer.referent->size
+		if (type_dealias(ctx, operand->result)->pointer.referent->size
 				== SIZE_UNDEFINED) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot dereference pointer to type of undefined size");
 			return;
 		}
-		expr->result = type_dealias(operand->result)->pointer.referent;
+		expr->result = type_dealias(ctx, operand->result)->pointer.referent;
 		break;
 	}
 }
@@ -3227,7 +3234,7 @@ check_expr_vaarg(struct context *ctx,
 	}
 	expr->vaarg.ap = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->vaarg.ap, expr->vaarg.ap, &builtin_type_valist);
-	if (type_dealias(expr->vaarg.ap->result)->storage != STORAGE_VALIST) {
+	if (type_dealias(ctx, expr->vaarg.ap->result)->storage != STORAGE_VALIST) {
 		error(ctx, aexpr->loc, expr,
 			"Expected vaarg operand to be valist");
 		return;
@@ -3244,7 +3251,7 @@ check_expr_vaend(struct context *ctx,
 	expr->type = EXPR_VAEND;
 	expr->vaarg.ap = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->vaarg.ap, expr->vaarg.ap, &builtin_type_valist);
-	if (type_dealias(expr->vaarg.ap->result)->storage != STORAGE_VALIST) {
+	if (type_dealias(ctx, expr->vaarg.ap->result)->storage != STORAGE_VALIST) {
 		error(ctx, aexpr->loc, expr,
 			"Expected vaend operand to be valist");
 		return;
@@ -3362,11 +3369,11 @@ check_expression(struct context *ctx,
 				"Cannot ignore error here");
 			return;
 		}
-		if (type_dealias(expr->result)->storage != STORAGE_TAGGED) {
+		if (type_dealias(ctx, expr->result)->storage != STORAGE_TAGGED) {
 			return;
 		}
 		const struct type_tagged_union *tu =
-			&type_dealias(expr->result)->tagged;
+			&type_dealias(ctx, expr->result)->tagged;
 		for (; tu; tu = tu->next) {
 			if ((tu->type->flags & TYPE_ERROR) == 0) {
 				continue;
@@ -3441,7 +3448,7 @@ check_function(struct context *ctx,
 	// TODO: Pass errors up and deal with them at the end of check
 	handle_errors(ctx->errors);
 
-	if (!body->terminates && !type_is_assignable(obj->type->func.result, body->result)) {
+	if (!body->terminates && !type_is_assignable(ctx, obj->type->func.result, body->result)) {
 		char *restypename = gen_typename(body->result);
 		char *fntypename = gen_typename(obj->type->func.result);
 		error(ctx, afndecl->body->loc, body,
@@ -3451,7 +3458,7 @@ check_function(struct context *ctx,
 		free(fntypename);
 		return;
 	}
-	decl->func.body = lower_implicit_cast(obj->type->func.result, body);
+	decl->func.body = lower_implicit_cast(ctx, obj->type->func.result, body);
 
 	// TODO: Add function name to errors
 	if (decl->func.flags != 0) {
@@ -3508,7 +3515,7 @@ incomplete_declaration_create(struct context *ctx, struct location loc,
 	ctx->unit->parent = subunit;
 
 	if (idecl) {
-		error_norec(ctx, loc, NULL, "Duplicate global identifier '%s'",
+		error_norec(ctx, loc, "Duplicate global identifier '%s'",
 			identifier_unparse(ident));
 	}
 	idecl =  xcalloc(1, sizeof(struct incomplete_declaration));
@@ -3613,7 +3620,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 	check_expression(ctx, decl->init, init, type);
 	if (!decl->type) {
 		// XXX: Do we need to do anything more here
-		type = lower_const(init->result, NULL);
+		type = lower_const(ctx, init->result, NULL);
 		if (type->storage == STORAGE_NULL) {
 			error(ctx, decl->init->loc, value,
 				"Null is not a valid type for a constant");
@@ -3621,7 +3628,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 			goto end;
 		}
 	}
-	if (!type_is_assignable(type, init->result)) {
+	if (!type_is_assignable(ctx, type, init->result)) {
 		char *typename1 = gen_typename(init->result);
 		char *typename2 = gen_typename(type);
 		error(ctx, decl->init->loc, value,
@@ -3634,9 +3641,9 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 	if (decl->type && decl->type->storage == STORAGE_ARRAY
 			&& decl->type->array.contextual) {
-		type = lower_const(init->result, NULL);
+		type = lower_const(ctx, init->result, NULL);
 	} else {
-		init = lower_implicit_cast(type, init);
+		init = lower_implicit_cast(ctx, type, init);
 	}
 	assert(type->size != SIZE_UNDEFINED);
 
@@ -3723,7 +3730,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 		value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, decl->init, init, type);
 		if (type) {
-			if (!type_is_assignable(type, init->result)) {
+			if (!type_is_assignable(ctx, type, init->result)) {
 				char *typename1 = gen_typename(init->result);
 				char *typename2 = gen_typename(type);
 				error(ctx, decl->init->loc, value,
@@ -3735,12 +3742,12 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 				goto end;
 			}
 		} else {
-			type = lower_const(init->result, NULL);
+			type = lower_const(ctx, init->result, NULL);
 		}
 		if (context) {
 			type = init->result;
 		} else {
-			init = lower_implicit_cast(type, init);
+			init = lower_implicit_cast(ctx, type, init);
 		}
 		assert(type->size != SIZE_UNDEFINED);
 		if (type->storage == STORAGE_NULL) {
@@ -3809,18 +3816,18 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		check_expression(ctx, idecl->field->field->value,
 				initializer, type->alias.type);
 
-		if (!type_is_assignable(type->alias.type, initializer->result)) {
+		if (!type_is_assignable(ctx, type->alias.type, initializer->result)) {
 			char *inittypename = gen_typename(initializer->result);
 			char *builtintypename = gen_typename(type->alias.type);
-			error_norec(ctx, idecl->field->field->value->loc, initializer,
+			error_norec(ctx, idecl->field->field->value->loc,
 				"Enum value type (%s) is not assignable from initializer type (%s) for value %s",
 				builtintypename, inittypename, idecl->obj.ident.name);
 		}
 
-		initializer = lower_implicit_cast(type, initializer);
+		initializer = lower_implicit_cast(ctx, type, initializer);
 		enum eval_result r = eval_expr(ctx, initializer, value);
 		if (r != EVAL_OK) {
-			error_norec(ctx, idecl->field->field->value->loc, initializer,
+			error_norec(ctx, idecl->field->field->value->loc,
 				"Unable to evaluate constant initializer at compile time");
 		}
 	} else { // implicit value
@@ -3828,7 +3835,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		// find previous enum value
 		wrap_resolver(ctx, obj, resolve_enum_field);
 		value->type = EXPR_CONSTANT;
-		if (type_is_signed(type_dealias(type))) {
+		if (type_is_signed(ctx, type_dealias(ctx, type))) {
 			if (obj == NULL) {
 				value->constant.ival = 0;
 			} else {
@@ -3894,7 +3901,7 @@ lookup_enum_type(struct context *ctx, const struct scope_object *obj)
 		return NULL;
 	}
 
-	enum_type = type_dealias(enum_type);
+	enum_type = type_dealias(ctx, enum_type);
 	if (enum_type->storage != STORAGE_ENUM) {
 		return NULL;
 	}
@@ -3959,9 +3966,8 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 		} else {
 			loc = idecl->decl.loc;
 		}
-		error(ctx, loc, false, "'%s' is not a type",
+		error_norec(ctx, loc, "'%s' is not a type",
 				identifier_unparse(&idecl->obj.name));
-		handle_errors(ctx->errors);
 	}
 	struct dimensions dim = type_store_lookup_dimensions(ctx->store,
 			idecl->decl.type.type);
@@ -3982,9 +3988,8 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 		} else {
 			loc = idecl->decl.loc;
 		}
-		error(ctx, loc, NULL, "'%s' is not a type",
+		error_norec(ctx, loc, "'%s' is not a type",
 				identifier_unparse(&idecl->obj.name));
-		handle_errors(ctx->errors);
 	}
 
 	// 1. compute type dimensions
@@ -4014,6 +4019,7 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	idecl->obj.type = alias;
 	((struct type *)alias)->alias.type =
 		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
+	assert(alias->alias.type != NULL);
 
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_TYPE,
@@ -4169,9 +4175,8 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 		} else {
 			loc = idecl->decl.loc;
 		}
-		error(ctx, loc, NULL, "Circular dependency for '%s'\n",
+		error_norec(ctx, loc, "Circular dependency for '%s'",
 			identifier_unparse(&idecl->obj.name));
-		handle_errors(ctx->errors);
 	}
 	idecl->in_progress = true;
 
@@ -4217,7 +4222,7 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 			};
 			const struct scope_object *obj = scope_lookup(mod, &ident);
 			if (!obj) {
-				error_norec(ctx, member->loc, NULL, "Unknown object '%s'",
+				error_norec(ctx, member->loc, "Unknown object '%s'",
 						identifier_unparse(&ident));
 			}
 			struct scope_object *new = scope_insert(
@@ -4225,12 +4230,12 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 					&name, obj->type, obj->value);
 			new->threadlocal = obj->threadlocal;
 			if (obj->otype != O_TYPE
-					|| type_dealias(obj->type)->storage
+					|| type_dealias(ctx, obj->type)->storage
 						!= STORAGE_ENUM) {
 				continue;
 			};
 			struct scope *enum_scope =
-				type_dealias(obj->type)->_enum.values;
+				type_dealias(ctx, obj->type)->_enum.values;
 			for (struct scope_object *o = enum_scope->objects;
 					o; o = o->lnext) {
 				struct identifier value_ident = {
@@ -4263,7 +4268,7 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 				.name = obj->name.name,
 				.ns = mod_ident,
 			};
-			if (type_dealias(obj->type)->storage == STORAGE_ENUM
+			if (type_dealias(ctx, obj->type)->storage == STORAGE_ENUM
 					&& obj->otype == O_CONST) {
 				ns = (struct identifier){
 					.name = obj->name.ns->name,
