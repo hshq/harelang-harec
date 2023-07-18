@@ -298,21 +298,21 @@ lex_name(struct lexer *lexer, struct token *out)
 	return out->token;
 }
 
-static uintmax_t
-compute_exp(uintmax_t n, int exponent, bool _signed)
+static uint64_t
+compute_exp(uint64_t n, int exponent, bool _signed)
 {
 	if (n == 0) {
 		return 0;
 	}
 	for (int i = 0; i < exponent; i++) {
-		uintmax_t old = n;
+		uint64_t old = n;
 		n *= 10;
 		if (n / 10 != old) {
 			errno = ERANGE;
 			return INT64_MAX;
 		}
 	}
-	if (_signed && n > (uintmax_t)INT64_MIN) {
+	if (_signed && n > (uint64_t)INT64_MIN) {
 		errno = ERANGE;
 		return INT64_MAX;
 	}
@@ -481,7 +481,7 @@ want_int:
 		kind = ICONST;
 		out->storage = STORAGE_ICONST;
 	}
-	uintmax_t exponent = 0;
+	uint64_t exponent = 0;
 	errno = 0;
 	if (exp != 0) {
 		exponent = strtoumax(lexer->buf + exp + 1, NULL, 10);
@@ -491,13 +491,13 @@ want_int:
 	if (errno == ERANGE) {
 		error(&out->loc, "Integer literal overflow");
 	}
-	if (kind == ICONST && out->uval > (uintmax_t)INT64_MAX) {
+	if (kind == ICONST && out->uval > (uint64_t)INT64_MAX) {
 		out->storage = STORAGE_U64;
-	} else if (kind == SIGNED && out->uval == (uintmax_t)INT64_MIN) {
+	} else if (kind == SIGNED && out->uval == (uint64_t)INT64_MIN) {
 		// XXX: Hack
 		out->ival = INT64_MIN;
 	} else if (kind != UNSIGNED) {
-		out->ival = (intmax_t)out->uval;
+		out->ival = (int64_t)out->uval;
 	}
 	consume(lexer, -1);
 }

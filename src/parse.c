@@ -813,7 +813,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_SIZE:
-		exp->constant.uval = (uintmax_t)tok.uval;
+		exp->constant.uval = (uint64_t)tok.uval;
 		break;
 	case STORAGE_I8:
 	case STORAGE_I16:
@@ -821,7 +821,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_I64:
 	case STORAGE_ICONST:
 	case STORAGE_INT:
-		exp->constant.ival = (intmax_t)tok.ival;
+		exp->constant.ival = (int64_t)tok.ival;
 		break;
 	case STORAGE_F32:
 	case STORAGE_F64:
