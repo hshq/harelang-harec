@@ -227,7 +227,7 @@ struct qbe_data_item {
 		};
 		struct {
 			char *sym;
-			long offset;
+			int64_t offset;
 		};
 	};
 	struct qbe_data_item *next;
