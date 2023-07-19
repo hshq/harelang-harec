@@ -219,8 +219,8 @@ struct expression_constant {
 	union {
 		bool bval;
 		double fval;
-		intmax_t ival;
-		uintmax_t uval;
+		int64_t ival;
+		uint64_t uval;
 		uint32_t rune;
 		struct {
 			size_t len;

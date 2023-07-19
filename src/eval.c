@@ -93,8 +93,8 @@ eval_access(struct context *ctx, struct expression *in, struct expression *out)
 	return EVAL_OK;
 }
 
-static uintmax_t
-itrunc(struct context *ctx, const struct type *type, uintmax_t val)
+static uint64_t
+itrunc(struct context *ctx, const struct type *type, uint64_t val)
 {
 	switch (type->storage) {
 	case STORAGE_U8:
@@ -176,8 +176,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	}
 
 	bool blval = false, brval = false, bval = false;
-	intmax_t ilval = 0, irval = 0, ival = 0;
-	uintmax_t ulval = 0, urval = 0, uval = 0;
+	int64_t ilval = 0, irval = 0, ival = 0;
+	uint64_t ulval = 0, urval = 0, uval = 0;
 	double flval = 0, frval = 0, fval = 0;
 	if (type_is_float(ctx, lvalue.result)) {
 		flval = lvalue.constant.fval, frval = rvalue.constant.fval;
@@ -213,15 +213,15 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		if (type_is_float(ctx, lvalue.result)) {
 			fval = ftrunc(ctx, lvalue.result, flval) / ftrunc(ctx, rvalue.result, frval);
 		} else if (type_is_signed(ctx, lvalue.result)) {
-			intmax_t r = itrunc(ctx, rvalue.result, irval);
+			int64_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			ival = (intmax_t)itrunc(ctx, lvalue.result, ilval) / r;
+			ival = (int64_t)itrunc(ctx, lvalue.result, ilval) / r;
 		} else {
 			assert(type_is_integer(ctx, lvalue.result));
-			uintmax_t r = itrunc(ctx, rvalue.result, urval);
+			uint64_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
@@ -248,14 +248,14 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 	case BIN_MODULO:
 		assert(type_is_integer(ctx, lvalue.result));
 		if (type_is_signed(ctx, lvalue.result)) {
-			intmax_t r = itrunc(ctx, rvalue.result, irval);
+			int64_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
 			}
-			ival = (intmax_t)itrunc(ctx, lvalue.result, ilval) % r;
+			ival = (int64_t)itrunc(ctx, lvalue.result, ilval) % r;
 		} else {
-			uintmax_t r = itrunc(ctx, rvalue.result, urval);
+			uint64_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
 				error(ctx, in->loc, "division by zero");
 				return EVAL_INVALID;
@@ -283,8 +283,8 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 		if (type_is_float(ctx, lvalue.result)) {
 			fval = ftrunc(ctx, lvalue.result, flval) * ftrunc(ctx, rvalue.result, frval);
 		} else if (type_is_signed(ctx, lvalue.result)) {
-			ival = (intmax_t)itrunc(ctx, lvalue.result, ilval)
-				* (intmax_t)itrunc(ctx, rvalue.result, irval);
+			ival = (int64_t)itrunc(ctx, lvalue.result, ilval)
+				* (int64_t)itrunc(ctx, rvalue.result, irval);
 		} else {
 			assert(type_is_integer(ctx, lvalue.result));
 			uval = itrunc(ctx, lvalue.result, ulval) * itrunc(ctx, rvalue.result, urval);
@@ -616,7 +616,7 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 	case STORAGE_RUNE:
 		if (type_is_float(ctx, val.result)) {
 			out->constant.ival =
-				itrunc(ctx, to, (intmax_t)val.constant.fval);
+				itrunc(ctx, to, (int64_t)val.constant.fval);
 		} else if (type_is_signed(ctx, val.result)) {
 			out->constant.ival = itrunc(ctx, to, val.constant.ival);
 		} else {
@@ -710,7 +710,7 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 			abort(); // Invariant
 		}
 
-		uintmax_t len = 0;
+		uint64_t len = 0;
 		for (struct array_constant *c = obj.constant.array;
 				c != NULL; c = c->next) {
 			len++;
@@ -1002,7 +1002,7 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 		if (type_is_float(ctx, out->result)) {
 			out->constant.fval = -lvalue.constant.fval;
 		} else {
-			out->constant.ival = -(uintmax_t)lvalue.constant.ival;
+			out->constant.ival = -(uint64_t)lvalue.constant.ival;
 		}
 		break;
 	case UN_PLUS:

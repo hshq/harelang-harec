@@ -154,8 +154,8 @@ struct token {
 	union {
 		char *name;
 		uint32_t rune;
-		intmax_t ival;
-		uintmax_t uval;
+		int64_t ival;
+		uint64_t uval;
 		double fval;
 		struct {
 			size_t len;

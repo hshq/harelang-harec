@@ -91,7 +91,7 @@ struct type_func {
 };
 
 struct type_const {
-	intmax_t min, max;
+	int64_t min, max;
 	uint32_t id;
 	const struct type ***refs;
 	size_t nrefs;
@@ -172,7 +172,7 @@ const struct type *type_dealias(struct context *ctx, const struct type *type);
 const struct struct_field *type_get_field(struct context *ctx,
 	const struct type *type, const char *name);
 const struct type_tuple *type_get_value(
-	const struct type *type, uintmax_t index);
+	const struct type *type, uint64_t index);
 
 const struct type *tagged_select_subtype(struct context *ctx,
 	const struct type *tagged, const struct type *subtype, bool strip);
@@ -198,7 +198,7 @@ const struct type *type_is_castable(struct context *ctx,
 bool type_is_complete(const struct type *type);
 
 const struct type *type_create_const(enum type_storage storage,
-	intmax_t min, intmax_t max);
+	int64_t min, int64_t max);
 const struct type *lower_const(struct context *ctx,
 	const struct type *old, const struct type *new);
 void const_refer(const struct type *type, const struct type **ref);

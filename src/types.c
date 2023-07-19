@@ -108,7 +108,7 @@ type_get_field(struct context *ctx, const struct type *type, const char *name)
 }
 
 const struct type_tuple *
-type_get_value(const struct type *type, uintmax_t index)
+type_get_value(const struct type *type, uint64_t index)
 {
 	assert(type->storage == STORAGE_TUPLE);
 	const struct type_tuple *tuple = &type->tuple;
@@ -530,20 +530,20 @@ tagged_select_subtype(struct context *ctx, const struct type *tagged,
 	return NULL;
 }
 
-static intmax_t
+static int64_t
 min_value(struct context *ctx, const struct type *t)
 {
 	assert(type_is_integer(ctx, t));
 	if (!type_is_signed(ctx, t)) {
 		return 0;
 	}
-	if (t->size == sizeof(intmax_t)) {
-		return INTMAX_MIN;
+	if (t->size == sizeof(int64_t)) {
+		return INT64_MIN;
 	}
-	return -((intmax_t)1 << (t->size * 8 - 1));
+	return -((int64_t)1 << (t->size * 8 - 1));
 }
 
-static uintmax_t
+static uint64_t
 max_value(struct context *ctx, const struct type *t)
 {
 	assert(type_is_integer(ctx, t));
@@ -551,14 +551,14 @@ max_value(struct context *ctx, const struct type *t)
 	if (type_is_signed(ctx, t)) {
 		bits--;
 	}
-	if (bits == sizeof(uintmax_t) * 8) {
-		return UINTMAX_MAX;
+	if (bits == sizeof(uint64_t) * 8) {
+		return UINT64_MAX;
 	}
-	return ((uintmax_t)1 << bits) - 1;
+	return ((uint64_t)1 << bits) - 1;
 }
 
 const struct type *
-type_create_const(enum type_storage storage, intmax_t min, intmax_t max)
+type_create_const(enum type_storage storage, int64_t min, int64_t max)
 {
 	// XXX: This'll be impossible to free. The right solution would be to
 	// store iconsts in the type store, but that'd require passing the store
@@ -615,7 +615,7 @@ lower_const(struct context *ctx, const struct type *old, const struct type *new)
 			new = &builtin_type_f64;
 			break;
 		case STORAGE_ICONST:
-			if (old->_const.max <= (intmax_t)max_value(ctx, &builtin_type_int)
+			if (old->_const.max <= (int64_t)max_value(ctx, &builtin_type_int)
 					&& old->_const.min >= min_value(ctx, &builtin_type_int)) {
 				new = &builtin_type_int;
 			} else {
@@ -642,9 +642,9 @@ const struct type *
 promote_const(struct context *ctx,
 		const struct type *a, const struct type *b) {
 	if (a->storage == STORAGE_ICONST && b->storage == STORAGE_ICONST) {
-		intmax_t min = a->_const.min < b->_const.min
+		int64_t min = a->_const.min < b->_const.min
 			? a->_const.min : b->_const.min;
-		intmax_t max = a->_const.max > b->_const.max
+		int64_t max = a->_const.max > b->_const.max
 			? a->_const.max : b->_const.max;
 		const struct type *l =
 			type_create_const(STORAGE_ICONST, min, max);
@@ -701,7 +701,7 @@ promote_const(struct context *ctx,
 		if (type_is_signed(ctx, a) && min_value(ctx, a) > b->_const.min) {
 			return NULL;
 		}
-		if (b->_const.max > 0 && max_value(ctx, a) < (uintmax_t)b->_const.max) {
+		if (b->_const.max > 0 && max_value(ctx, a) < (uint64_t)b->_const.max) {
 			return NULL;
 		}
 		lower_const(ctx, b, a);

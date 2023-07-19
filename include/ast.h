@@ -199,8 +199,8 @@ struct ast_array_constant {
 struct ast_expression_constant {
 	enum type_storage storage;
 	union {
-		intmax_t ival;
-		uintmax_t uval;
+		int64_t ival;
+		uint64_t uval;
 		double fval;
 		uint32_t rune;
 		bool bval;
