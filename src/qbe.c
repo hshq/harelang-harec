@@ -87,6 +87,7 @@ const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_CULTW] = "cultw",
 	[Q_CUOD] = "cuod",
 	[Q_CUOS] = "cuos",
+	[Q_DBGLOC] = "dbgloc",
 	[Q_DIV] = "div",
 	[Q_DTOSI] = "dtosi",
 	[Q_DTOUI] = "dtoui",
