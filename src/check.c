@@ -1841,11 +1841,6 @@ check_expr_defer(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	if (ctx->deferring) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot defer within another defer expression.");
-		return;
-	}
 	expr->type = EXPR_DEFER;
 	expr->result = &builtin_type_void;
 	expr->defer.deferred = xcalloc(1, sizeof(struct expression));
