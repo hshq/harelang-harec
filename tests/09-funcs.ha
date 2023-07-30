@@ -1,3 +1,4 @@
+use rt;
 use rt::{compile, exit, exited, EXIT_SUCCESS};
 
 fn simple() int = return 69;
@@ -36,6 +37,7 @@ let x: int = 42;
 
 @init fn init() void = {
 	x = 1337;
+	rt::status = 42;
 };
 
 @init fn init() void = {
@@ -43,7 +45,7 @@ let x: int = 42;
 };
 
 @fini fn fini() void = {
-	exit(42); // Magic number
+	rt::status = 0;
 };
 
 @fini fn fini() void = {
