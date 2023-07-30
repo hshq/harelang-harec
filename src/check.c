@@ -1846,11 +1846,6 @@ check_expr_defer(struct context *ctx,
 			"Cannot defer within another defer expression.");
 		return;
 	}
-	if (ctx->scope->class == SCOPE_FUNC) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot defer in a function scope");
-		return;
-	}
 	expr->type = EXPR_DEFER;
 	expr->result = &builtin_type_void;
 	expr->defer.deferred = xcalloc(1, sizeof(struct expression));
