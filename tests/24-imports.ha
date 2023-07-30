@@ -80,6 +80,10 @@ fn reject() void = {
 		use modalias = testmod::{valalias = val, val2};
 		export fn main() void = static assert(valalias == 42);
 	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		use testmod::{a = b = val};
+		export fn main() void = void;
+	") as exited != EXIT_SUCCESS);
 };
 
 
