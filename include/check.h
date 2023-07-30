@@ -35,7 +35,6 @@ struct context {
 	struct scope *unit;
 	struct scope *scope;
 	struct scope *defines;
-	bool deferring;
 	int id;
 	struct errors *errors;
 	struct errors **next;
