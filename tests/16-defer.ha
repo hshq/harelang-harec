@@ -49,6 +49,14 @@ fn control() void = {
 		abort();
 	};
 	assert(x == 1);
+
+	defer {
+		yield;
+	};
+	defer {
+		for (true) break;
+		for (false) continue;
+	};
 };
 
 fn reject() void = {
@@ -56,6 +64,10 @@ fn reject() void = {
 		"export fn main() void = defer 0;",
 		"export fn main() void = { if (true) defer 0; };",
 		"export fn main() void = { for (defer 0; true; true) void; };",
+		"export fn main() void = { defer yield; };",
+		"export fn main() void = :outer { defer { yield :outer; }; };",
+		"export fn main() void = for (true) { defer break; };",
+		"export fn main() void = for (true) { defer continue; };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

@@ -1855,8 +1855,10 @@ check_expr_defer(struct context *ctx,
 	expr->result = &builtin_type_void;
 	expr->defer.deferred = xcalloc(1, sizeof(struct expression));
 	ctx->deferring = true;
+	scope_push(&ctx->scope, SCOPE_DEFER);
 	check_expression(ctx, aexpr->defer.deferred, expr->defer.deferred, &builtin_type_void);
 	ctx->deferring = false;
+	scope_pop(&ctx->scope);
 }
 
 static void
@@ -1938,6 +1940,17 @@ check_expr_control(struct context *ctx,
 		// XXX: This error message is bad
 		error(ctx, aexpr->loc, expr, "No eligible loop for operation");
 		return;
+	}
+	struct scope *defer_scope = scope_lookup_ancestor(
+		ctx->scope, SCOPE_DEFER, NULL);
+	if (defer_scope) {
+		defer_scope = scope_lookup_ancestor(
+			defer_scope, want, aexpr->control.label);
+		if (scope == defer_scope) {
+			error(ctx, aexpr->loc, expr,
+				"Cannot jump out of defer expression");
+			return;
+		}
 	}
 	expr->control.scope = scope;
 
