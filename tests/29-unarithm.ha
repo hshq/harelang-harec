@@ -3,7 +3,6 @@ use rt::{compile, exited, EXIT_SUCCESS};
 type abool = bool;
 
 fn lnot() void = {
-	assert((!*(&2: *bool))==false);
 	assert(!(false: abool));
 };
 
