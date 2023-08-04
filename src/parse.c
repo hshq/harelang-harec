@@ -155,6 +155,18 @@ parse_name_list(struct lexer *lexer, struct ast_imports *name)
 		token_finish(&tok);
 
 		switch (lex(lexer, &tok)) {
+		case T_EQUAL:
+			want(lexer, T_NAME, &tok);
+			name->alias = xcalloc(1, sizeof(struct identifier));
+			*name->alias = name->ident;
+			name->ident.name = xstrdup(tok.name);
+			break;
+		default:
+			unlex(lexer, &tok);
+			break;
+		};
+
+		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			switch (lex(lexer, &tok)) {
 			case T_RBRACE:
@@ -166,10 +178,6 @@ parse_name_list(struct lexer *lexer, struct ast_imports *name)
 				*next = name;
 				next = &name->next;
 			}
-			break;
-		case T_EQUAL:
-			name->alias = xcalloc(1, sizeof(struct identifier));
-			*name->alias = name->ident;
 			break;
 		case T_RBRACE:
 			more = false;

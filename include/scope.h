@@ -29,6 +29,7 @@ struct scope_object {
 
 enum scope_class {
 	SCOPE_COMPOUND,
+	SCOPE_DEFER,
 	SCOPE_ENUM,
 	SCOPE_FUNC,
 	SCOPE_LOOP,

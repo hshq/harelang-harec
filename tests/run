@@ -13,14 +13,7 @@ do
 		ntests=$((ntests+1))
 		name="$(basename "$f")"
 		printf '%-20s ...' "$name"
-		if [ "$name" = "09-funcs" ]
-		then
-			expected=42
-		else
-			expected=0
-		fi
-		$f
-		if [ $? -eq $expected ]
+		if $f
 		then
 			npass=$((npass+1))
 			printf 'PASS\n'
