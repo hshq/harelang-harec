@@ -19,6 +19,8 @@ type super3 = struct {
 	bar: int,
 };
 
+type func = fn() void;
+
 fn rules() void = {
 	// Fixed precision ints
 	let _i64: i64 = 0i64;
@@ -80,6 +82,10 @@ fn rules() void = {
 	nptr = &i;
 	let vptr: nullable *void = nptr;
 
+	// Slice conversions
+	let s: []int = [1, 2, 3];
+	let s: []void = s;
+
 	// Struct subtyping
 	let sptr: *subtype = &super1 { ... };
 	let sptr: *subtype = &super2 { ... };
@@ -91,6 +97,24 @@ fn rules() void = {
 	) as exited != EXIT_SUCCESS);
 	assert(compile(
 		"fn test() void = { let x: int = 10; let y: *int = &x; let y: *uint = x; };"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"type i = int;"
+		"fn test() void = { let x = &42; let y: *i = x; };"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"type v = void;"
+		"fn test() void = { let x = &0; let x: *v = x; };"
+	) as exited != EXIT_SUCCESS);
+
+	// Invalid slice conversions
+	assert(compile(
+		"type i = int;"
+		"fn test() void = { let x: []int = [1, 2, 3]; let y: []i = x; };"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"type v = void;"
+		"fn test() void = { let x: []int = [0]; let x: []v = x; };"
 	) as exited != EXIT_SUCCESS);
 
 	// Non-const from const (copy)

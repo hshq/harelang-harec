@@ -403,7 +403,23 @@ check_expr_alloc_init(struct context *ctx,
 			return;
 		}
 		assert(htype->array.members == atype->array.members);
-		objtype = htype;
+		objtype = inithint;
+	}
+	if (type_is_constant(objtype)) {
+		objtype = lower_const(ctx, objtype, inithint);
+	} else if (inithint) {
+		// XXX: this is dumb, but we're gonna get rid of the const flag
+		// anyway so it doesn't matter
+		struct type stripped_objtype = *type_dealias(ctx, objtype);
+		stripped_objtype.flags &= ~TYPE_CONST;
+		stripped_objtype.id = type_hash(&stripped_objtype);
+		struct type stripped_inithint = *type_dealias(ctx, inithint);
+		stripped_inithint.flags &= ~TYPE_CONST;
+		stripped_inithint.id = type_hash(&stripped_inithint);
+
+		if (stripped_objtype.id == stripped_inithint.id) {
+			objtype = inithint;
+		}
 	}
 	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
 			objtype, ptrflags);
@@ -3223,6 +3239,29 @@ check_expr_unarithm(struct context *ctx,
 			error(ctx, aexpr->loc, expr,
 				"Can't take address of void");
 			return;
+		}
+		const struct type *ptrhint = NULL;
+		if (hint && type_dealias(ctx, hint)->storage == STORAGE_POINTER) {
+			ptrhint = type_dealias(ctx, hint)->pointer.referent;
+			if (ptrhint->storage == STORAGE_VOID) {
+				ptrhint = NULL;
+			}
+		}
+		if (type_is_constant(operand->result)) {
+			operand->result = lower_const(ctx, operand->result, ptrhint);
+		} else if (ptrhint) {
+			// XXX: this is dumb, but we're gonna get rid of the
+			// const flag anyway so it doesn't matter
+			struct type stripped_result = *result;
+			stripped_result.flags &= ~TYPE_CONST;
+			stripped_result.id = type_hash(&stripped_result);
+			struct type stripped_ptrhint = *type_dealias(ctx, ptrhint);
+			stripped_ptrhint.flags &= ~TYPE_CONST;
+			stripped_ptrhint.id = type_hash(&stripped_ptrhint);
+
+			if (stripped_result.id == stripped_ptrhint.id) {
+				operand->result = ptrhint;
+			}
 		}
 		expr->result = type_store_lookup_pointer(
 			ctx->store, aexpr->loc, operand->result, 0);
