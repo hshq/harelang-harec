@@ -1736,7 +1736,11 @@ check_expr_compound(struct context *ctx,
 	struct expression *lexpr = NULL;
 	while (alist) {
 		lexpr = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, alist->expr, lexpr, &builtin_type_void);
+		check_expression(ctx, alist->expr, lexpr, NULL);
+		if (type_has_error(ctx, lexpr->result)) {
+			error(ctx, alist->expr->loc, lexpr,
+				"Cannot ignore error here");
+		}
 		list->expr = lexpr;
 
 		alist = alist->next;
@@ -1775,7 +1779,7 @@ check_expr_compound(struct context *ctx,
 		struct ast_expression *yexpr = xcalloc(1, sizeof(struct ast_expression));
 		yexpr->type = EXPR_YIELD;
 		lexpr = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, yexpr, lexpr, &builtin_type_void);
+		check_expression(ctx, yexpr, lexpr, NULL);
 		list->next->expr = lexpr;
 	}
 	expr->result = type_store_reduce_result(ctx->store, aexpr->loc,
@@ -1880,7 +1884,11 @@ check_expr_defer(struct context *ctx,
 	expr->result = &builtin_type_void;
 	expr->defer.deferred = xcalloc(1, sizeof(struct expression));
 	scope_push(&ctx->scope, SCOPE_DEFER);
-	check_expression(ctx, aexpr->defer.deferred, expr->defer.deferred, &builtin_type_void);
+	check_expression(ctx, aexpr->defer.deferred, expr->defer.deferred, NULL);
+	if (type_has_error(ctx, expr->defer.deferred->result)) {
+		error(ctx, aexpr->defer.deferred->loc, expr->defer.deferred,
+			"Cannot ignore error here");
+	}
 	scope_pop(&ctx->scope);
 }
 
@@ -2020,6 +2028,10 @@ check_expr_for(struct context *ctx,
 	if (aexpr->_for.bindings) {
 		bindings = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_for.bindings, bindings, NULL);
+		if (type_has_error(ctx, bindings->result)) {
+			error(ctx, aexpr->_for.bindings->loc, bindings,
+				"Cannot ignore error here");
+		}
 		expr->_for.bindings = bindings;
 	}
 
@@ -2035,11 +2047,19 @@ check_expr_for(struct context *ctx,
 	if (aexpr->_for.afterthought) {
 		afterthought = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_for.afterthought, afterthought, &builtin_type_void);
+		if (type_has_error(ctx, afterthought->result)) {
+			error(ctx, aexpr->_for.afterthought->loc, afterthought,
+				"Cannot ignore error here");
+		}
 		expr->_for.afterthought = afterthought;
 	}
 
 	body = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->_for.body, body, &builtin_type_void);
+	check_expression(ctx, aexpr->_for.body, body, NULL);
+	if (type_has_error(ctx, body->result)) {
+		error(ctx, aexpr->_for.body->loc, body,
+			"Cannot ignore error here");
+	}
 	expr->_for.body = body;
 
 	scope_pop(&ctx->scope);
@@ -3457,26 +3477,6 @@ check_expression(struct context *ctx,
 	}
 	assert(expr->result);
 	const_refer(expr->result, &expr->result);
-	if (hint && hint->storage == STORAGE_VOID) {
-		if ((expr->result->flags & TYPE_ERROR) != 0) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot ignore error here");
-			return;
-		}
-		if (type_dealias(ctx, expr->result)->storage != STORAGE_TAGGED) {
-			return;
-		}
-		const struct type_tagged_union *tu =
-			&type_dealias(ctx, expr->result)->tagged;
-		for (; tu; tu = tu->next) {
-			if ((tu->type->flags & TYPE_ERROR) == 0) {
-				continue;
-			}
-			error(ctx, aexpr->loc, expr,
-				"Cannot ignore error here");
-			return;
-		}
-	}
 }
 
 static void
