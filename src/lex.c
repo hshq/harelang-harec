@@ -140,6 +140,9 @@ static const char *tokens[] = {
 	[T_BXOREQ] = "^=",
 };
 
+static_assert(sizeof(tokens) / sizeof(const char *) == T_LAST_OPERATOR + 1,
+	"tokens array isn't in sync with lexical_token enum");
+
 static noreturn void
 error(struct location *loc, char *fmt, ...)
 {
