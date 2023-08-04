@@ -1739,6 +1739,22 @@ check_expr_compound(struct context *ctx,
 			}
 		}
 	}
+	if (!lexpr->terminates) {
+		// Add implicit `yield void` if control reaches end of compound
+		// expression.
+		struct type_tagged_union *result =
+			xcalloc(1, sizeof(struct type_tagged_union));
+		result->type = &builtin_type_void;
+		result->next = scope->results;
+		scope->results = result;
+
+		list->next = xcalloc(1, sizeof(struct expressions));
+		struct ast_expression *yexpr = xcalloc(1, sizeof(struct ast_expression));
+		yexpr->type = EXPR_YIELD;
+		lexpr = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, yexpr, lexpr, &builtin_type_void);
+		list->next->expr = lexpr;
+	}
 	expr->result = type_store_reduce_result(ctx->store, aexpr->loc,
 			scope->results);
 

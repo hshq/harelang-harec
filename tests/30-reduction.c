@@ -200,4 +200,9 @@ int main(void) {
 		"case => "
 		"	yield 9223372036854775807; "
 		"};");
+
+	test(&ctx, "(int | void)",
+		"{ "
+		"	for (false) yield 42; "
+		"};");
 }
