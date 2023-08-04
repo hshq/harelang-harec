@@ -3730,7 +3730,7 @@ resolve_function(struct context *ctx, struct incomplete_declaration *idecl)
 
 	const struct ast_type fn_atype = {
 		.storage = STORAGE_FUNCTION,
-		.flags = TYPE_CONST,
+		.flags = 0,
 		.func = decl->prototype,
 	};
 	const struct type *fntype = type_store_lookup_atype(
