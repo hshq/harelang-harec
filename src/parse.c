@@ -1177,6 +1177,10 @@ parse_measurement_expression(struct lexer *lexer)
 		exp->measure.op = M_LEN;
 		exp->measure.value = parse_expression(lexer);
 		break;
+	case T_CAP:
+		exp->measure.op = M_CAP;
+		exp->measure.value = parse_expression(lexer);
+		break;
 	case T_OFFSET:
 		exp->measure.op = M_OFFSET;
 		// Let check error out on non-field-accesses
@@ -1580,6 +1584,7 @@ parse_builtin_expression(struct lexer *lexer)
 	case T_ALIGN:
 	case T_SIZE:
 	case T_LEN:
+	case T_CAP:
 	case T_OFFSET:
 		unlex(lexer, &tok);
 		return parse_measurement_expression(lexer);

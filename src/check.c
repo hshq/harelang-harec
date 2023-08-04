@@ -2277,21 +2277,26 @@ check_expr_measure(struct context *ctx,
 	expr->result = &builtin_type_size;
 	expr->measure.op = aexpr->measure.op;
 
+	const struct type *atype;
+	enum type_storage vstor;
 	switch (expr->measure.op) {
 	case M_LEN:
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
-		const struct type *atype =
-			type_dereference(ctx, expr->measure.value->result);
+		atype = type_dereference(ctx, expr->measure.value->result);
 		if (!atype) {
-			error(ctx, aexpr->access.array->loc, expr,
+			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot dereference nullable pointer for len");
 			return;
 		}
-		enum type_storage vstor = type_dealias(ctx, atype)->storage;
-		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
-			|| vstor == STORAGE_STRING || vstor == STORAGE_ERROR;
-		if (!valid) {
+		vstor = type_dealias(ctx, atype)->storage;
+		switch (vstor) {
+		case STORAGE_ARRAY:
+		case STORAGE_SLICE:
+		case STORAGE_STRING:
+		case STORAGE_ERROR:
+			break;
+		default:;
 			char *typename = gen_typename(expr->measure.value->result);
 			error(ctx, aexpr->measure.value->loc, expr,
 				"len argument must be of an array, slice, or str type, but got %s",
@@ -2302,6 +2307,30 @@ check_expr_measure(struct context *ctx,
 		if (atype->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot take length of array type with undefined length");
+			return;
+		}
+		break;
+	case M_CAP:
+		expr->measure.value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
+		atype = type_dereference(ctx, expr->measure.value->result);
+		if (!atype) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot dereference nullable pointer for cap");
+			return;
+		}
+		vstor = type_dealias(ctx, atype)->storage;
+		switch (vstor) {
+		case STORAGE_SLICE:
+		case STORAGE_STRING:
+		case STORAGE_ERROR:
+			break;
+		default:;
+			char *typename = gen_typename(expr->measure.value->result);
+			error(ctx, aexpr->measure.value->loc, expr,
+				"cap argument must be of a slice or str type, but got %s",
+				typename);
+			free(typename);
 			return;
 		}
 		break;

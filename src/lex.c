@@ -33,6 +33,7 @@ static const char *tokens[] = {
 	[T_ASSERT] = "assert",
 	[T_BOOL] = "bool",
 	[T_BREAK] = "break",
+	[T_CAP] = "cap",
 	[T_CASE] = "case",
 	[T_CONST] = "const",
 	[T_CONTINUE] = "continue",

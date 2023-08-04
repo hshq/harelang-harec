@@ -733,6 +733,8 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 				in->measure.value->access.tvalue->offset;
 		}
 		return EVAL_OK;
+	case M_CAP:
+		return EVAL_INVALID;
 	}
 	assert(0);
 }
