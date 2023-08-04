@@ -706,6 +706,9 @@ eval_measurement(struct context *ctx, struct expression *in, struct expression *
 		case STORAGE_STRING:
 			out->constant.uval = obj.constant.string.len;
 			return EVAL_OK;
+		case STORAGE_ERROR:
+			out->constant.uval = 0;
+			return EVAL_OK;
 		default:
 			abort(); // Invariant
 		}

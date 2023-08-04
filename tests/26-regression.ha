@@ -129,4 +129,5 @@ export fn main() void = {
 	let a: (size | mod::t) = 0;
 	assert(0xffu8 + 1 >> 1 == 0);
 	assert(rt::compile("type a = *...b; type b = *...a;") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("def A = len([1]: []str);") as rt::exited != rt::EXIT_SUCCESS);
 };

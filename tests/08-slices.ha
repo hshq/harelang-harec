@@ -58,6 +58,7 @@ fn measurements() void = {
 	assert(cap(x[..0]) == 5);
 	assert(cap(x[1..]) == 4);
 	assert(&x[0]: uintptr: size % size(int) == 0);
+	static assert(len([1, 2, 3, 4, 5]: []int) == 5);
 
 	let x: []int = alloc([], 4);
 	defer free(x);
