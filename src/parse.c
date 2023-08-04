@@ -2202,8 +2202,12 @@ parse_control_expression(struct lexer *lexer)
 		exp->type = EXPR_RETURN;
 		exp->_return.value = NULL;
 		switch (lex(lexer, &tok)) {
-		case T_SEMICOLON:
+		case T_COMMA:
+		case T_ELSE:
+		case T_RBRACE:
+		case T_RBRACKET:
 		case T_RPAREN:
+		case T_SEMICOLON:
 			unlex(lexer, &tok);
 			break;
 		default:
@@ -2216,8 +2220,12 @@ parse_control_expression(struct lexer *lexer)
 		exp->type = EXPR_YIELD;
 		exp->control.value = NULL;
 		switch (lex(lexer, &tok)) {
-		case T_SEMICOLON:
+		case T_COMMA:
+		case T_ELSE:
+		case T_RBRACE:
+		case T_RBRACKET:
 		case T_RPAREN:
+		case T_SEMICOLON:
 			unlex(lexer, &tok);
 			break;
 		case T_COLON:
