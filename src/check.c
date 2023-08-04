@@ -2065,28 +2065,32 @@ check_expr_if(struct context *ctx,
 		} else if (hint && type_is_assignable(ctx, hint, true_branch->result)
 				&& type_is_assignable(ctx, hint, false_branch->result)) {
 			expr->result = hint;
-		} else {
-			struct type_tagged_union _tags = {
-				.type = false_branch->result,
-				.next = NULL,
-			}, tags = {
-				.type = true_branch->result,
-				.next = &_tags,
-			};
-			expr->result =
-				type_store_reduce_result(ctx->store, aexpr->loc,
-						&tags);
-			if (expr->result == NULL) {
-				error(ctx, aexpr->loc, expr,
-					"Invalid result type (dangling or ambiguous null)");
-				return;
-			}
 		}
-		true_branch = lower_implicit_cast(ctx, expr->result, true_branch);
-		false_branch = lower_implicit_cast(ctx, expr->result, false_branch);
 	} else {
-		expr->result = &builtin_type_void;
 		expr->terminates = false;
+		if (hint && type_is_assignable(ctx, hint, true_branch->result)
+				&& type_is_assignable(ctx, hint, &builtin_type_void)) {
+			expr->result = hint;
+		}
+	}
+	if (expr->result == NULL) {
+		struct type_tagged_union _tags = {
+			.type = false_branch ? false_branch->result : &builtin_type_void,
+			.next = NULL,
+		}, tags = {
+			.type = true_branch->result,
+			.next = &_tags,
+		};
+		expr->result = type_store_reduce_result(ctx->store, aexpr->loc, &tags);
+		if (expr->result == NULL) {
+			error(ctx, aexpr->loc, expr,
+				"Invalid result type (dangling or ambiguous null)");
+			return;
+		}
+	}
+	true_branch = lower_implicit_cast(ctx, expr->result, true_branch);
+	if (false_branch != NULL) {
+		false_branch = lower_implicit_cast(ctx, expr->result, false_branch);
 	}
 
 	if (cond->result->storage == STORAGE_ERROR) {

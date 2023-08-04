@@ -80,9 +80,9 @@ int main(void) {
 
 	test(&ctx, "(int | void)", "if (true) 0: int else void: void");
 	test(&ctx, "(nullable *int | void)",
-		"if (true) null: *int "
+		"if (true) null "
 		"else if (true) null: nullable *int "
-		"else if (true) null");
+		"else if (true) null: *int");
 	test(&ctx, "(nullable *int | void)",
 		"match (0u8: (u8 | u16 | u32 | u64)) { "
 		"case u8 => "
@@ -141,6 +141,9 @@ int main(void) {
 	test(&ctx, "",
 		"if (true) null "
 		"else void");
+	test(&ctx, "",
+		"if (true) null: *int "
+		"else if (true) null");
 
 	// However, constants behave differently in if vs switch/match
 
