@@ -5,6 +5,9 @@ type my_struct = struct {
 
 type my_struct_ptr = *my_struct;
 
+type my_int = int;
+type my_u32 = u32;
+
 fn allocation() void = {
 	let x = alloc(1234);
 	assert(*x == 1234);
@@ -16,12 +19,20 @@ fn allocation() void = {
 	};
 	free(y);
 
-	let z: my_struct_ptr = alloc(struct {
-		x: int = 42,
-		y: int = 69,
+	let z: my_struct_ptr = alloc(my_struct {
+		x = 42,
+		y = 69,
 	});
 	assert(z.x == 42 && z.y == 69);
 	free(z);
+
+	let w: *my_int = alloc(1234);
+	assert(*w == 1234);
+	free(w);
+
+	let a: *const my_u32 = alloc(1234u32);
+	assert(*a == 1234);
+	free(a);
 };
 
 fn assignment() void = {

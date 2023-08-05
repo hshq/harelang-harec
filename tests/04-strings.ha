@@ -3,9 +3,13 @@ use rt::{compile, exited, EXIT_SUCCESS};
 fn measurements() void = {
 	const x = "Hello!";
 	assert(len(x) == 6);
+	assert(cap(x) == 6);
 	assert(len("Hello!") == 6);
+	assert(cap("Hello!") == 6);
 	assert(len("Hello!\0") == 7);
+	assert(cap("Hello!\0") == 7);
 	assert(len("He\0llo!") == 7);
+	assert(cap("He\0llo!") == 7);
 	assert(size(str) == size(*u8) + size(size) * 2);
 	const alignment: size =
 		if (size(*u8) > size(size)) size(*u8)

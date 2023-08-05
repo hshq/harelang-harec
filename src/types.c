@@ -751,6 +751,7 @@ tagged_subset_compat(struct context *ctx, const struct type *superset, const str
 static bool
 struct_subtype(struct context *ctx,
 		const struct type *to, const struct type *from) {
+	from = type_dealias(ctx, from);
 	if (from->storage != STORAGE_STRUCT) {
 		return false;
 	}
@@ -817,15 +818,15 @@ type_is_assignable(struct context *ctx,
 	case STORAGE_F64:
 		return type_is_float(ctx, from);
 	case STORAGE_POINTER:
-		to_secondary = type_dealias(ctx, to->pointer.referent);
+		to_secondary = to->pointer.referent;
 		to_secondary = strip_flags(to_secondary, &_to_secondary);
 		switch (from->storage) {
 		case STORAGE_NULL:
 			return to->pointer.flags & PTR_NULLABLE;
 		case STORAGE_POINTER:
-			from_secondary = type_dealias(ctx, from->pointer.referent);
+			from_secondary = from->pointer.referent;
 			from_secondary = strip_flags(from_secondary, &_from_secondary);
-			if (struct_subtype(ctx, to->pointer.referent, from_secondary)) {
+			if (struct_subtype(ctx, to_secondary, from_secondary)) {
 				return true;
 			}
 			switch (to_secondary->storage) {
@@ -868,13 +869,12 @@ type_is_assignable(struct context *ctx,
 			return false;
 		}
 		to_secondary = strip_flags(
-			type_dealias(ctx, to->array.members),
+			to->array.members,
 			&_to_secondary);
 		from_secondary = strip_flags(
-			type_dealias(ctx, from->array.members),
+			from->array.members,
 			&_from_secondary);
-		if (to->storage == STORAGE_SLICE
-				&& to_secondary->storage == STORAGE_VOID) {
+		if (to_secondary->storage == STORAGE_VOID) {
 			return true;
 		}
 		return to_secondary->id == from_secondary->id;

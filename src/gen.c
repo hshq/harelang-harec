@@ -2792,6 +2792,20 @@ gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
 			abort(); // Invariant
 		}
 		break;
+	case M_CAP:
+		type = type_dealias(NULL, type_dereference(NULL, value->result));
+		assert(type->storage == STORAGE_SLICE
+			|| type->storage == STORAGE_STRING);
+		gv = gen_expr(ctx, value);
+		gv = gen_autoderef(ctx, gv);
+		temp = mkgtemp(ctx, &builtin_type_size, ".%d");
+		struct qbe_value qv = mkqval(ctx, &gv),
+			qtemp = mkqval(ctx, &temp),
+			offs = constl(builtin_type_size.size * 2);
+		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
+		pushi(ctx->current, &qtemp, Q_ADD, &qv, &offs, NULL);
+		pushi(ctx->current, &qtemp, load, &qtemp, NULL);
+		return temp;
 	case M_ALIGN:
 		return (struct gen_value){
 			.kind = GV_CONST,

@@ -33,6 +33,7 @@ static const char *tokens[] = {
 	[T_ASSERT] = "assert",
 	[T_BOOL] = "bool",
 	[T_BREAK] = "break",
+	[T_CAP] = "cap",
 	[T_CASE] = "case",
 	[T_CONST] = "const",
 	[T_CONTINUE] = "continue",
@@ -138,6 +139,9 @@ static const char *tokens[] = {
 	[T_BXOR] = "^",
 	[T_BXOREQ] = "^=",
 };
+
+static_assert(sizeof(tokens) / sizeof(const char *) == T_LAST_OPERATOR + 1,
+	"tokens array isn't in sync with lexical_token enum");
 
 static noreturn void
 error(struct location *loc, char *fmt, ...)

@@ -74,14 +74,10 @@ static void
 handle_errors(struct errors *errors)
 {
 	struct errors *error = errors;
-	bool first = true;
 	while (error) {
 		xfprintf(stderr, "%s:%d:%d: error: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
-		if (first) {
-			errline(sources[error->loc.file], error->loc.lineno, error->loc.colno);
-			first = false;
-		}
+		errline(sources[error->loc.file], error->loc.lineno, error->loc.colno);
 		struct errors *next = error->next;
 		free(error);
 		error = next;
@@ -407,7 +403,23 @@ check_expr_alloc_init(struct context *ctx,
 			return;
 		}
 		assert(htype->array.members == atype->array.members);
-		objtype = htype;
+		objtype = inithint;
+	}
+	if (type_is_constant(objtype)) {
+		objtype = lower_const(ctx, objtype, inithint);
+	} else if (inithint) {
+		// XXX: this is dumb, but we're gonna get rid of the const flag
+		// anyway so it doesn't matter
+		struct type stripped_objtype = *type_dealias(ctx, objtype);
+		stripped_objtype.flags &= ~TYPE_CONST;
+		stripped_objtype.id = type_hash(&stripped_objtype);
+		struct type stripped_inithint = *type_dealias(ctx, inithint);
+		stripped_inithint.flags &= ~TYPE_CONST;
+		stripped_inithint.id = type_hash(&stripped_inithint);
+
+		if (stripped_objtype.id == stripped_inithint.id) {
+			objtype = inithint;
+		}
 	}
 	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
 			objtype, ptrflags);
@@ -1743,6 +1755,22 @@ check_expr_compound(struct context *ctx,
 			}
 		}
 	}
+	if (!lexpr->terminates) {
+		// Add implicit `yield void` if control reaches end of compound
+		// expression.
+		struct type_tagged_union *result =
+			xcalloc(1, sizeof(struct type_tagged_union));
+		result->type = &builtin_type_void;
+		result->next = scope->results;
+		scope->results = result;
+
+		list->next = xcalloc(1, sizeof(struct expressions));
+		struct ast_expression *yexpr = xcalloc(1, sizeof(struct ast_expression));
+		yexpr->type = EXPR_YIELD;
+		lexpr = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, yexpr, lexpr, &builtin_type_void);
+		list->next->expr = lexpr;
+	}
 	expr->result = type_store_reduce_result(ctx->store, aexpr->loc,
 			scope->results);
 
@@ -2065,28 +2093,32 @@ check_expr_if(struct context *ctx,
 		} else if (hint && type_is_assignable(ctx, hint, true_branch->result)
 				&& type_is_assignable(ctx, hint, false_branch->result)) {
 			expr->result = hint;
-		} else {
-			struct type_tagged_union _tags = {
-				.type = false_branch->result,
-				.next = NULL,
-			}, tags = {
-				.type = true_branch->result,
-				.next = &_tags,
-			};
-			expr->result =
-				type_store_reduce_result(ctx->store, aexpr->loc,
-						&tags);
-			if (expr->result == NULL) {
-				error(ctx, aexpr->loc, expr,
-					"Invalid result type (dangling or ambiguous null)");
-				return;
-			}
 		}
-		true_branch = lower_implicit_cast(ctx, expr->result, true_branch);
-		false_branch = lower_implicit_cast(ctx, expr->result, false_branch);
 	} else {
-		expr->result = &builtin_type_void;
 		expr->terminates = false;
+		if (hint && type_is_assignable(ctx, hint, true_branch->result)
+				&& type_is_assignable(ctx, hint, &builtin_type_void)) {
+			expr->result = hint;
+		}
+	}
+	if (expr->result == NULL) {
+		struct type_tagged_union _tags = {
+			.type = false_branch ? false_branch->result : &builtin_type_void,
+			.next = NULL,
+		}, tags = {
+			.type = true_branch->result,
+			.next = &_tags,
+		};
+		expr->result = type_store_reduce_result(ctx->store, aexpr->loc, &tags);
+		if (expr->result == NULL) {
+			error(ctx, aexpr->loc, expr,
+				"Invalid result type (dangling or ambiguous null)");
+			return;
+		}
+	}
+	true_branch = lower_implicit_cast(ctx, expr->result, true_branch);
+	if (false_branch != NULL) {
+		false_branch = lower_implicit_cast(ctx, expr->result, false_branch);
 	}
 
 	if (cond->result->storage == STORAGE_ERROR) {
@@ -2273,21 +2305,26 @@ check_expr_measure(struct context *ctx,
 	expr->result = &builtin_type_size;
 	expr->measure.op = aexpr->measure.op;
 
+	const struct type *atype;
+	enum type_storage vstor;
 	switch (expr->measure.op) {
 	case M_LEN:
 		expr->measure.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
-		const struct type *atype =
-			type_dereference(ctx, expr->measure.value->result);
+		atype = type_dereference(ctx, expr->measure.value->result);
 		if (!atype) {
-			error(ctx, aexpr->access.array->loc, expr,
+			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot dereference nullable pointer for len");
 			return;
 		}
-		enum type_storage vstor = type_dealias(ctx, atype)->storage;
-		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
-			|| vstor == STORAGE_STRING || vstor == STORAGE_ERROR;
-		if (!valid) {
+		vstor = type_dealias(ctx, atype)->storage;
+		switch (vstor) {
+		case STORAGE_ARRAY:
+		case STORAGE_SLICE:
+		case STORAGE_STRING:
+		case STORAGE_ERROR:
+			break;
+		default:;
 			char *typename = gen_typename(expr->measure.value->result);
 			error(ctx, aexpr->measure.value->loc, expr,
 				"len argument must be of an array, slice, or str type, but got %s",
@@ -2298,6 +2335,30 @@ check_expr_measure(struct context *ctx,
 		if (atype->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot take length of array type with undefined length");
+			return;
+		}
+		break;
+	case M_CAP:
+		expr->measure.value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
+		atype = type_dereference(ctx, expr->measure.value->result);
+		if (!atype) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot dereference nullable pointer for cap");
+			return;
+		}
+		vstor = type_dealias(ctx, atype)->storage;
+		switch (vstor) {
+		case STORAGE_SLICE:
+		case STORAGE_STRING:
+		case STORAGE_ERROR:
+			break;
+		default:;
+			char *typename = gen_typename(expr->measure.value->result);
+			error(ctx, aexpr->measure.value->loc, expr,
+				"cap argument must be of a slice or str type, but got %s",
+				typename);
+			free(typename);
 			return;
 		}
 		break;
@@ -3179,6 +3240,29 @@ check_expr_unarithm(struct context *ctx,
 				"Can't take address of void");
 			return;
 		}
+		const struct type *ptrhint = NULL;
+		if (hint && type_dealias(ctx, hint)->storage == STORAGE_POINTER) {
+			ptrhint = type_dealias(ctx, hint)->pointer.referent;
+			if (ptrhint->storage == STORAGE_VOID) {
+				ptrhint = NULL;
+			}
+		}
+		if (type_is_constant(operand->result)) {
+			operand->result = lower_const(ctx, operand->result, ptrhint);
+		} else if (ptrhint) {
+			// XXX: this is dumb, but we're gonna get rid of the
+			// const flag anyway so it doesn't matter
+			struct type stripped_result = *result;
+			stripped_result.flags &= ~TYPE_CONST;
+			stripped_result.id = type_hash(&stripped_result);
+			struct type stripped_ptrhint = *type_dealias(ctx, ptrhint);
+			stripped_ptrhint.flags &= ~TYPE_CONST;
+			stripped_ptrhint.id = type_hash(&stripped_ptrhint);
+
+			if (stripped_result.id == stripped_ptrhint.id) {
+				operand->result = ptrhint;
+			}
+		}
 		expr->result = type_store_lookup_pointer(
 			ctx->store, aexpr->loc, operand->result, 0);
 		break;
@@ -3701,7 +3785,7 @@ resolve_function(struct context *ctx, struct incomplete_declaration *idecl)
 
 	const struct ast_type fn_atype = {
 		.storage = STORAGE_FUNCTION,
-		.flags = TYPE_CONST,
+		.flags = 0,
 		.func = decl->prototype,
 	};
 	const struct type *fntype = type_store_lookup_atype(

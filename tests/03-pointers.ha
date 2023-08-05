@@ -1,13 +1,24 @@
 use rt::{compile, exited, EXIT_SUCCESS};
 
+type inta = int;
 type intp = *int;
+type u32a = u32;
+type func = fn() void;
 
 fn basics() void = {
 	let x = 42;
 	let y: intp = &x;
 	assert(*y == 42);
+	let y: *int = y;
+	assert(*y == 42);
 	*y = 1337;
 	assert(x == 1337);
+	let z: *inta = &42;
+	assert(*z == 42);
+	let w: *const u32a = &42u32;
+	assert(*w == 42);
+	let a: *func = &basics;
+	let b: *void = &42;
 
 	assert(size(*int) == size(uintptr));
 	assert(align(*int) == align(uintptr));
@@ -48,6 +59,10 @@ fn casts() void = {
 
 	let a: nullable *int = &4;
 	assert(a is *int);
+
+	let a = &42;
+	let b = a: intp;
+	assert(b == a && *b == 42);
 };
 
 fn reject() void = {

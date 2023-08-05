@@ -32,6 +32,11 @@ fn cast_lowering() void = {
 		yield 10;
 	};
 	assert(x as int == 10);
+
+	let x = {
+		for (false) yield 10;
+	};
+	assert(x is void);
 };
 
 export fn main() void = {
