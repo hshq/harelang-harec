@@ -3513,6 +3513,10 @@ check_function(struct context *ctx,
 		decl->func.body = NULL;
 		goto end; // Prototype
 	}
+	if (afndecl->symbol != NULL && decl->func.flags != 0) {
+		error(ctx, adecl->loc, NULL,
+			"@symbol cannot be used alongside other function attributes");
+	}
 
 	decl->func.scope = scope_push(&ctx->scope, SCOPE_FUNC);
 	struct ast_function_parameters *params = afndecl->prototype.params;
