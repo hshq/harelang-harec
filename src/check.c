@@ -3214,6 +3214,11 @@ check_expr_unarithm(struct context *ctx,
 		expr->result = operand->result;
 		break;
 	case UN_MINUS:
+		if (!type_is_numeric(ctx, operand->result)) {
+			error(ctx, aexpr->unarithm.operand->loc, expr,
+				"Cannot perform operation on non-numeric type");
+			return;
+		}
 		if (operand->result->storage == STORAGE_ICONST) {
 			// Not technically quite right, but we need
 			// operand->result to be lowered with expr->result, and
@@ -3223,13 +3228,6 @@ check_expr_unarithm(struct context *ctx,
 				STORAGE_ICONST, -old->_const.min,
 				-old->_const.max);
 			lower_const(ctx, old, new);
-		}
-		// Fallthrough
-	case UN_PLUS:
-		if (!type_is_numeric(ctx, operand->result)) {
-			error(ctx, aexpr->unarithm.operand->loc, expr,
-				"Cannot perform operation on non-numeric type");
-			return;
 		}
 		expr->result = operand->result;
 		break;

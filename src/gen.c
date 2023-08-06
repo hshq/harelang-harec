@@ -3152,8 +3152,6 @@ gen_expr_unarithm(struct gen_context *ctx,
 		qval = mkqval(ctx, &val), qtmp = mkqval(ctx, &temp);
 		pushi(ctx->current, &qtmp, Q_NEG, &qval, NULL);
 		return temp;
-	case UN_PLUS:
-		return gen_expr(ctx, operand);
 	}
 	abort(); // Invariant
 }

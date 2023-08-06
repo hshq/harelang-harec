@@ -1501,8 +1501,6 @@ static enum unarithm_operator
 unop_for_token(enum lexical_token tok)
 {
 	switch (tok) {
-	case T_PLUS:	// +
-		return UN_PLUS;
 	case T_MINUS:	// -
 		return UN_MINUS;
 	case T_BNOT:	// ~
@@ -1606,7 +1604,6 @@ parse_unary_expression(struct lexer *lexer)
 	struct token tok;
 	struct ast_expression *exp;
 	switch (lex(lexer, &tok)) {
-	case T_PLUS:	// +
 	case T_MINUS:	// -
 	case T_BNOT:	// ~
 	case T_LNOT:	// !
