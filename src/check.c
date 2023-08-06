@@ -3505,6 +3505,11 @@ check_function(struct context *ctx,
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
 
 	if (!adecl->function.body) {
+		if (decl->func.flags != 0) {
+			error(ctx, adecl->loc, NULL,
+				"Function attributes cannot be used on prototypes");
+			return;
+		}
 		decl->func.body = NULL;
 		goto end; // Prototype
 	}
@@ -3565,6 +3570,7 @@ check_function(struct context *ctx,
 		default:
 			error(ctx, adecl->loc, NULL,
 				"Only one of @init, @fini, or @test may be used in a function declaration");
+			return;
 		};
 		if (obj->type->func.result != &builtin_type_void) {
 			error(ctx, adecl->loc, NULL, "%s function must return void", flag);

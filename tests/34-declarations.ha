@@ -298,6 +298,14 @@ fn reject() void = {
 		// binding not directly in compound expression
 		"export fn main() void = let a = 4;",
 		"export fn main() void = { if (true) let a = 4; };",
+
+		// attributes on prototypes
+		"@init fn f() void;",
+		"@fini fn f() void;",
+		"@test fn f() void;",
+
+		// type alias of never
+		"export type t = never;",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
