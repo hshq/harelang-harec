@@ -275,9 +275,6 @@ fn reject() void = {
 		`@symbol("foo") @init fn foo() void = void;`,
 		`@symbol("foo") @fini fn foo() void = void;`,
 		`@symbol("foo") @test fn foo() void = void;`,
-
-		// type alias of never
-		"export type t = never;",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
