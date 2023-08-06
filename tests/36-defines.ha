@@ -19,13 +19,13 @@ fn mandatory() void = {
 fn optional() void = {
 	assert(rt::compile("
 		def TESTDEFINE = 1;
-		fn test() void = {
+		fn main() void = {
 			static assert(TESTDEFINE == 2);
 		};
 	", "-DTESTDEFINE=2") as rt::exited == rt::EXIT_SUCCESS);
 	assert(rt::compile("
 		def TESTDEFINE = 1;
-		fn test() void =  {
+		fn main() void =  {
 			static assert(TESTDEFINE == 1);
 		};
 	") as rt::exited == rt::EXIT_SUCCESS);

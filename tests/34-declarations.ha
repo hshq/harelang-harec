@@ -239,39 +239,6 @@ fn sz() void = {
 	static assert(align(unwrap_B1) == align(unwrap_alias_B3));
 };
 
-fn hosted_main() void = {
-	let pass = [
-		"export fn main() void;",
-		"export fn main() void = void;",
-		`export @symbol("main") fn notmain() void;`,
-		"fn main() void;",
-		`export @symbol("notmain") fn main() int;`,
-		`export let @symbol("notmain") notmain: int;`,
-		"export fn not::main() int;",
-	];
-
-	for (let i = 0z; i < len(pass); i += 1) {
-		assert(compile(pass[i]) as exited == EXIT_SUCCESS);
-	};
-
-	let failures = [
-		"fn main() void = void;",
-		"export fn main(x: int) void;",
-		"export fn main() int;",
-		"export type main = int;",
-		"export def main = 0;",
-		`export @symbol("main") fn f() int;`,
-		"export let main: int;",
-		`export let @symbol("main") notmain: int;`,
-		"type v = void; export fn main() v;",
-	];
-
-	for (let i = 0z; i < len(failures); i += 1) {
-		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
-		assert(compile(failures[i], "-F\0") as exited == EXIT_SUCCESS);
-	};
-};
-
 fn reject() void = {
 	let failures = [
 		"type a = b; type b = a;",
@@ -350,6 +317,5 @@ export fn main() void = {
 	constants();
 	sz();
 	reject();
-	hosted_main();
 	complete_graph();
 };

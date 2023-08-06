@@ -20,7 +20,7 @@ static void
 usage(const char *argv_0)
 {
 	xfprintf(stderr,
-		"Usage: %s [-v] [-a arch] [-D ident[:type]=value] [-F] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
+		"Usage: %s [-v] [-a arch] [-D ident[:type]=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
 		argv_0);
 }
 
@@ -59,13 +59,13 @@ main(int argc, char *argv[])
 {
 	char *output = NULL, *typedefs = NULL;
 	char *target = DEFAULT_TARGET;
-	bool is_test = false, freestanding = false;
+	bool is_test = false;
 	struct unit unit = {0};
 	struct lexer lexer;
 	struct ast_global_decl *defines = NULL, **next_def = &defines;
 
 	int c;
-	while ((c = getopt(argc, argv, "a:D:Fho:Tt:N:v")) != -1) {
+	while ((c = getopt(argc, argv, "a:D:ho:Tt:N:v")) != -1) {
 		switch (c) {
 		case 'a':
 			target = optarg;
@@ -73,9 +73,6 @@ main(int argc, char *argv[])
 		case 'D':
 			*next_def = parse_define(argv[0], optarg);
 			next_def = &(*next_def)->next;
-			break;
-		case 'F':
-			freestanding = true;
 			break;
 		case 'o':
 			output = optarg;
@@ -160,7 +157,7 @@ main(int argc, char *argv[])
 	}
 
 	static struct type_store ts = {0};
-	check(&ts, is_test, freestanding, defines, &aunit, &unit);
+	check(&ts, is_test, defines, &aunit, &unit);
 
 	if (typedefs) {
 		FILE *out = fopen(typedefs, "w");

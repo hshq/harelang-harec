@@ -3667,52 +3667,11 @@ scan_enum_field(struct context *ctx, struct scope *imports,
 }
 
 static void
-check_hosted_main(struct context *ctx, struct location loc,
-	const struct ast_decl *decl, struct identifier ident)
-{
-	if (ctx->freestanding || ctx->is_test) {
-		return;
-	}
-	if (strcmp(ident.name, "main") != 0 || ident.ns != NULL) {
-		return;
-	}
-
-	const struct ast_function_decl *func;
-	if (decl && decl->decl_type == ADECL_FUNC) {
-		func = &decl->function;
-		if (func->flags != 0) {
-			return;
-		}
-	} else {
-		error(ctx, loc, NULL,
-			"main must be a function in hosted environment");
-		return;
-	}
-
-	if (func->body != NULL && !decl->exported) {
-		error(ctx, loc, NULL,
-			"main must be exported in hosted environment");
-		return;
-	}
-	if (func->prototype.params != NULL) {
-		error(ctx, loc, NULL,
-			"main must not have parameters in hosted environment");
-		return;
-	}
-	if (func->prototype.result->storage != STORAGE_VOID) {
-		error(ctx, loc, NULL,
-			"main must return void in hosted environment");
-		return;
-	}
-}
-
-static void
 scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 {
 	for (struct ast_type_decl *t = &decl->type; t; t = t->next) {
 		struct identifier with_ns = {0};
 		mkident(ctx, &with_ns, &t->ident, NULL);
-		check_hosted_main(ctx, decl->loc, NULL, with_ns);
 		struct incomplete_declaration *idecl =
 			incomplete_declaration_create(ctx, decl->loc, ctx->scope,
 					&with_ns, &t->ident);
@@ -4181,7 +4140,6 @@ scan_const(struct context *ctx, struct scope *imports, bool exported,
 {
 	struct identifier with_ns = {0};
 	mkident(ctx, &with_ns, &decl->ident, NULL);
-	check_hosted_main(ctx, loc, NULL, with_ns);
 	struct incomplete_declaration *idecl =
 		incomplete_declaration_create(ctx, loc,
 				ctx->scope, &with_ns, &decl->ident);
@@ -4210,7 +4168,6 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 	case ADECL_GLOBAL:
 		for (struct ast_global_decl *g = &decl->global; g; g = g->next) {
 			mkident(ctx, &ident, &g->ident, g->symbol);
-			check_hosted_main(ctx, decl->loc, NULL, ident);
 			idecl = incomplete_declaration_create(ctx, decl->loc,
 				ctx->scope, &ident, &g->ident);
 			idecl->type = IDECL_DECL;
@@ -4246,7 +4203,6 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 		}
 		idecl = incomplete_declaration_create(ctx, decl->loc,
 			ctx->scope, &ident, name);
-		check_hosted_main(ctx, decl->loc, decl, ident);
 		idecl->type = IDECL_DECL;
 		idecl->decl = (struct ast_decl){
 			.decl_type = ADECL_FUNC,
@@ -4458,7 +4414,6 @@ struct scope *
 check_internal(struct type_store *ts,
 	struct modcache **cache,
 	bool is_test,
-	bool freestanding,
 	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
@@ -4467,7 +4422,6 @@ check_internal(struct type_store *ts,
 	struct context ctx = {0};
 	ctx.ns = unit->ns;
 	ctx.is_test = is_test;
-	ctx.freestanding = freestanding;
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
 	ctx.next = &ctx.errors;
@@ -4596,12 +4550,11 @@ check_internal(struct type_store *ts,
 struct scope *
 check(struct type_store *ts,
 	bool is_test,
-	bool freestanding,
 	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit)
 {
 	struct modcache *modcache[MODCACHE_BUCKETS];
 	memset(modcache, 0, sizeof(modcache));
-	return check_internal(ts, modcache, is_test, freestanding, defines, aunit, unit, false);
+	return check_internal(ts, modcache, is_test, defines, aunit, unit, false);
 }
