@@ -70,8 +70,8 @@ module_resolve(struct modcache *cache[],
 
 	// TODO: Free unused bits
 	struct unit u = {0};
-	struct scope *scope = check_internal(store,
-			cache, NULL, defines, &aunit, &u, true);
+	struct scope *scope = check_internal(store, cache,
+		false, true, defines, &aunit, &u, true);
 
 	sources[0] = old;
 	bucket = &cache[hash % MODCACHE_BUCKETS];
