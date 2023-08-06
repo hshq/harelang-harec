@@ -1112,12 +1112,11 @@ parse_plain_expression(struct lexer *lexer)
 	assert(0); // Unreachable
 }
 
-static struct ast_expression *
-parse_assertion_expression(struct lexer *lexer, bool is_static)
+static void
+parse_assertion(struct lexer *lexer, bool is_static,
+	struct ast_expression_assert *exp)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
-	exp->type = EXPR_ASSERT;
-	exp->assert.is_static = is_static;
+	exp->is_static = is_static;
 
 	struct token tok;
 	switch (lex(lexer, &tok)) {
@@ -1131,9 +1130,9 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 	switch (tok.token) {
 	case T_ASSERT:
 		want(lexer, T_LPAREN, &tok);
-		exp->assert.cond = parse_expression(lexer);
+		exp->cond = parse_expression(lexer);
 		if (lex(lexer, &tok) == T_COMMA) {
-			exp->assert.message = parse_expression(lexer);
+			exp->message = parse_expression(lexer);
 		} else {
 			unlex(lexer, &tok);
 		}
@@ -1143,14 +1142,21 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 		want(lexer, T_LPAREN, &tok);
 		if (lex(lexer, &tok) != T_RPAREN) {
 			unlex(lexer, &tok);
-			exp->assert.message = parse_expression(lexer);
+			exp->message = parse_expression(lexer);
 			want(lexer, T_RPAREN, &tok);
 		}
 		break;
 	default:
 		assert(0); // Invariant
 	}
+}
 
+static struct ast_expression *
+parse_assertion_expression(struct lexer *lexer, bool is_static)
+{
+	struct ast_expression *exp = mkexpr(&lexer->loc);
+	exp->type = EXPR_ASSERT;
+	parse_assertion(lexer, is_static, &exp->assert);
 	return exp;
 }
 
@@ -2625,20 +2631,20 @@ parse_decl(struct lexer *lexer, struct ast_decl *decl)
 	switch (lex(lexer, &tok)) {
 	case T_CONST:
 	case T_LET:
-		decl->decl_type = DECL_GLOBAL;
+		decl->decl_type = ADECL_GLOBAL;
 		parse_global_decl(lexer, tok.token, &decl->global);
 		break;
 	case T_DEF:
-		decl->decl_type = DECL_CONST;
+		decl->decl_type = ADECL_CONST;
 		parse_global_decl(lexer, tok.token, &decl->constant);
 		break;
 	case T_TYPE:
-		decl->decl_type = DECL_TYPE;
+		decl->decl_type = ADECL_TYPE;
 		parse_type_decl(lexer, &decl->type);
 		break;
 	default:
 		unlex(lexer, &tok);
-		decl->decl_type = DECL_FUNC;
+		decl->decl_type = ADECL_FUNC;
 		parse_fn_decl(lexer, &decl->function);
 		break;
 	}
@@ -2656,6 +2662,12 @@ parse_decls(struct lexer *lexer, struct ast_decls **decls)
 		case T_EXPORT:
 			decl->decl.exported = true;
 			break;
+		case T_STATIC:
+			decl->decl.decl_type = ADECL_ASSERT;
+			parse_assertion(lexer, true, &decl->decl.assert);
+			next = &decl->next;
+			want(lexer, T_SEMICOLON, NULL);
+			continue;
 		default:
 			unlex(lexer, &tok);
 			break;
@@ -2666,9 +2678,6 @@ parse_decls(struct lexer *lexer, struct ast_decls **decls)
 		parse_decl(lexer, &decl->decl);
 		next = &decl->next;
 		want(lexer, T_SEMICOLON, NULL);
-		if (lex(lexer, &tok) != T_EOF) {
-			unlex(lexer, &tok);
-		}
 	}
 	free(*next);
 	*next = 0;

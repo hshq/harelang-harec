@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdarg.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdnoreturn.h>
@@ -676,40 +676,38 @@ check_expr_append_insert(struct context *ctx,
 }
 
 static void
-check_expr_assert(struct context *ctx,
-	const struct ast_expression *aexpr,
-	struct expression *expr,
-	const struct type *hint)
+check_assert(struct context *ctx,
+	struct ast_expression_assert e,
+	struct location loc,
+	struct expression *expr)
 {
 	expr->result = &builtin_type_void;
 	expr->type = EXPR_ASSERT;
 
-	struct location loc;
-	if (aexpr->assert.cond != NULL) {
+	if (e.cond != NULL) {
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->assert.cond, expr->assert.cond, &builtin_type_bool);
-		loc = aexpr->assert.cond->loc;
+		check_expression(ctx, e.cond, expr->assert.cond, &builtin_type_bool);
+		loc = e.cond->loc;
 		if (type_dealias(ctx, expr->assert.cond->result)->storage != STORAGE_BOOL) {
 			error(ctx, loc, expr, "Assertion condition must be boolean");
 			return;
 		}
 	} else {
-		loc = aexpr->loc;
-		expr->terminates = !aexpr->assert.is_static;
+		expr->terminates = !e.is_static;
 	}
-	if (aexpr->assert.message == NULL) {
+	if (e.message == NULL) {
 		expr->assert.fixed_reason = ABORT_ANON_ASSERTION_FAILED;
 	} else {
 		expr->assert.message = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->assert.message, expr->assert.message, &builtin_type_str);
+		check_expression(ctx, e.message, expr->assert.message, &builtin_type_str);
 		if (type_dealias(ctx, expr->assert.message->result)->storage != STORAGE_STRING) {
-			error(ctx, aexpr->assert.message->loc, expr,
+			error(ctx, e.message->loc, expr,
 				"Assertion message must be string");
 			return;
 		}
 	}
 
-	if (aexpr->assert.is_static) {
+	if (e.is_static) {
 		expr->type = EXPR_CONSTANT;
 		bool cond = false;
 		if (expr->assert.cond != NULL) {
@@ -717,14 +715,14 @@ check_expr_assert(struct context *ctx,
 			enum eval_result r =
 				eval_expr(ctx, expr->assert.cond, &out);
 			if (r != EVAL_OK) {
-				error(ctx, aexpr->assert.cond->loc, expr,
+				error(ctx, e.cond->loc, expr,
 					"Unable to evaluate static assertion condition at compile time");
 				return;
 			}
 			if (expr->assert.message) {
 				r = eval_expr(ctx, expr->assert.message, &msgout);
 				if (r != EVAL_OK) {
-					error(ctx, aexpr->assert.message->loc, expr,
+					error(ctx, e.message->loc, expr,
 						"Unable to evaluate static assertion message at compile time");
 					return;
 				}
@@ -734,7 +732,7 @@ check_expr_assert(struct context *ctx,
 		}
 		// XXX: Should these abort immediately?
 		if (!cond) {
-			if (aexpr->assert.message != NULL) {
+			if (e.message != NULL) {
 				error(ctx, loc, expr, "Static assertion failed: %.*s",
 					expr->assert.message->constant.string.len,
 					expr->assert.message->constant.string.value);
@@ -743,6 +741,15 @@ check_expr_assert(struct context *ctx,
 			}
 		}
 	}
+}
+
+static void
+check_expr_assert(struct context *ctx,
+	const struct ast_expression *aexpr,
+	struct expression *expr,
+	const struct type *hint)
+{
+	check_assert(ctx, aexpr->assert, aexpr->loc, expr);
 }
 
 static void
@@ -3671,7 +3678,7 @@ check_hosted_main(struct context *ctx, struct location loc,
 	}
 
 	const struct ast_function_decl *func;
-	if (decl && decl->decl_type == DECL_FUNC) {
+	if (decl && decl->decl_type == ADECL_FUNC) {
 		func = &decl->function;
 		if (func->flags != 0) {
 			return;
@@ -3710,7 +3717,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			incomplete_declaration_create(ctx, decl->loc, ctx->scope,
 					&with_ns, &t->ident);
 		idecl->decl = (struct ast_decl){
-			.decl_type = DECL_TYPE,
+			.decl_type = ADECL_TYPE,
 			.loc = decl->loc,
 			.type = *t,
 			.exported = decl->exported,
@@ -4008,7 +4015,7 @@ lookup_enum_type(struct context *ctx, const struct scope_object *obj)
 		}
 
 		if (idecl->type != IDECL_DECL ||
-				idecl->decl.decl_type != DECL_TYPE) {
+				idecl->decl.decl_type != ADECL_TYPE) {
 			return NULL;
 		}
 
@@ -4097,7 +4104,7 @@ scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
 void
 resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != DECL_TYPE) {
+	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != ADECL_TYPE) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
 			loc = idecl->field->field->loc;
@@ -4119,7 +4126,7 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 void
 resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != DECL_TYPE) {
+	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != ADECL_TYPE) {
 		struct location loc;
 		if (idecl->type == IDECL_ENUM_FLD) {
 			loc = idecl->field->field->loc;
@@ -4180,7 +4187,7 @@ scan_const(struct context *ctx, struct scope *imports, bool exported,
 				ctx->scope, &with_ns, &decl->ident);
 	idecl->type = IDECL_DECL;
 	idecl->decl = (struct ast_decl){
-		.decl_type = DECL_CONST,
+		.decl_type = ADECL_CONST,
 		.loc = loc,
 		.constant = *decl,
 		.exported = exported,
@@ -4192,23 +4199,23 @@ scan_const(struct context *ctx, struct scope *imports, bool exported,
 static void
 scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 {
+	struct incomplete_declaration *idecl = {0};
+	struct identifier ident = {0};
 	switch (decl->decl_type) {
-	case DECL_CONST:
+	case ADECL_CONST:
 		for (struct ast_global_decl *g = &decl->constant; g; g = g->next) {
 			scan_const(ctx, imports, decl->exported, decl->loc, g);
 		}
 		break;
-	case DECL_GLOBAL:
+	case ADECL_GLOBAL:
 		for (struct ast_global_decl *g = &decl->global; g; g = g->next) {
-			struct identifier with_ns = {0};
-			mkident(ctx, &with_ns, &g->ident, g->symbol);
-			check_hosted_main(ctx, decl->loc, NULL, with_ns);
-			struct incomplete_declaration *idecl =
-				incomplete_declaration_create(ctx, decl->loc,
-						ctx->scope, &with_ns, &g->ident);
+			mkident(ctx, &ident, &g->ident, g->symbol);
+			check_hosted_main(ctx, decl->loc, NULL, ident);
+			idecl = incomplete_declaration_create(ctx, decl->loc,
+				ctx->scope, &ident, &g->ident);
 			idecl->type = IDECL_DECL;
 			idecl->decl = (struct ast_decl){
-				.decl_type = DECL_GLOBAL,
+				.decl_type = ADECL_GLOBAL,
 				.loc = decl->loc,
 				.global = *g,
 				.exported = decl->exported,
@@ -4216,9 +4223,9 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 			idecl->imports = imports;
 		}
 		break;
-	case DECL_FUNC:;
+	case ADECL_FUNC:;
 		struct ast_function_decl *func = &decl->function;
-		struct identifier ident = {0}, *name = NULL;
+		struct identifier *name = NULL;
 		if (func->flags) {
 			const char *template = NULL;
 			if (func->flags & FN_TEST) {
@@ -4237,21 +4244,37 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 			mkident(ctx, &ident, &func->ident, func->symbol);
 			name = &func->ident;
 		}
-		struct incomplete_declaration *idecl =
-			incomplete_declaration_create(ctx, decl->loc,
-					ctx->scope, &ident, name);
+		idecl = incomplete_declaration_create(ctx, decl->loc,
+			ctx->scope, &ident, name);
 		check_hosted_main(ctx, decl->loc, decl, ident);
 		idecl->type = IDECL_DECL;
 		idecl->decl = (struct ast_decl){
-			.decl_type = DECL_FUNC,
+			.decl_type = ADECL_FUNC,
 			.loc = decl->loc,
 			.function = *func,
 			.exported = decl->exported,
 		};
 		idecl->imports = imports;
 		break;
-	case DECL_TYPE:
+	case ADECL_TYPE:
 		scan_types(ctx, imports, decl);
+		break;
+	case ADECL_ASSERT:;
+		static uint64_t num = 0;
+		int n = snprintf(NULL, 0, "static assert %" SCNu64, num);
+		ident.name = xcalloc(n + 1, sizeof(char));
+		snprintf(ident.name, n + 1, "static assert %" SCNu64, num);
+		++num;
+		idecl = incomplete_declaration_create(ctx, decl->loc,
+			ctx->scope, &ident, &ident);
+		idecl->type = IDECL_DECL;
+		idecl->decl = (struct ast_decl){
+			.decl_type = ADECL_ASSERT,
+			.loc = decl->loc,
+			.assert = decl->assert,
+			.exported = decl->exported,
+		};
+		idecl->imports = imports;
 		break;
 	}
 }
@@ -4268,17 +4291,21 @@ resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 
 	switch (idecl->decl.decl_type) {
-	case DECL_CONST:
+	case ADECL_CONST:
 		resolve_const(ctx, idecl);
 		return;
-	case DECL_GLOBAL:
+	case ADECL_GLOBAL:
 		resolve_global(ctx, idecl);
 		return;
-	case DECL_FUNC:
+	case ADECL_FUNC:
 		resolve_function(ctx, idecl);
 		return;
-	case DECL_TYPE:
+	case ADECL_TYPE:
 		resolve_type(ctx, idecl);
+		return;
+	case ADECL_ASSERT:;
+		struct expression expr = {0};
+		check_assert(ctx, idecl->decl.assert, idecl->decl.loc, &expr);
 		return;
 	}
 	abort();
@@ -4533,7 +4560,7 @@ check_internal(struct type_store *ts,
 			const struct incomplete_declaration *idecl =
 				(struct incomplete_declaration *)shadowed_obj;
 			if (idecl->type == IDECL_DECL &&
-					idecl->decl.decl_type == DECL_CONST) {
+					idecl->decl.decl_type == ADECL_CONST) {
 				continue;
 			}
 		}
@@ -4547,7 +4574,7 @@ check_internal(struct type_store *ts,
 		// populate the expression graph
 		struct incomplete_declaration *idecl =
 			(struct incomplete_declaration *)obj;
-		if (idecl->type == IDECL_DECL && idecl->decl.decl_type == DECL_FUNC) {
+		if (idecl->type == IDECL_DECL && idecl->decl.decl_type == ADECL_FUNC) {
 			ctx.unit->parent = idecl->imports;
 			check_function(&ctx, &idecl->obj, &idecl->decl);
 		}
