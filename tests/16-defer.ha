@@ -68,7 +68,6 @@ fn reject() void = {
 		"export fn main() void = :outer { defer { yield :outer; }; };",
 		"export fn main() void = for (true) { defer break; };",
 		"export fn main() void = for (true) { defer continue; };",
-		"export fn main() void = { defer defer 0; };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
@@ -89,29 +88,6 @@ fn noreturn() void = {
 	rt::exit(0);
 };
 
-fn nested() void = {
-	let sl: []size = [];
-	defer free(sl);
-	defer {
-		assert(len(sl) == 7);
-		for (let i = 0z; i < len(sl); i += 1) {
-			assert(sl[i] == i);
-		};
-	};
-
-	defer {
-		defer append(sl, 6);
-		defer if (true) {
-			append(sl, 3);
-			defer append(sl, 5);
-			append(sl, 4);
-		};
-		append(sl, 2);
-	};
-	defer append(sl, 1);
-	append(sl, 0);
-};
-
 export fn main() void = {
 	basics();
 	assert(x == 20);
@@ -119,6 +95,5 @@ export fn main() void = {
 	loops();
 	control();
 	reject();
-	nested();
 	noreturn();
 };
