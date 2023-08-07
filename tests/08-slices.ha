@@ -54,16 +54,8 @@ fn measurements() void = {
 	assert(align([]int) == (if (align(*[*]int) > align(size)) align(*[*]int)
 		else align(size)));
 	assert(len(x) == 5);
-	assert(cap(x) == 5);
-	assert(cap(x[..0]) == 5);
-	assert(cap(x[1..]) == 4);
 	assert(&x[0]: uintptr: size % size(int) == 0);
 	static assert(len([1, 2, 3, 4, 5]: []int) == 5);
-
-	let x: []int = alloc([], 4);
-	defer free(x);
-	assert(len(x) == 0);
-	assert(cap(x) == 4);
 };
 
 fn indexing() void = {

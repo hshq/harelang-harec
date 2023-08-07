@@ -279,10 +279,9 @@ struct expression_match {
 
 enum measure_operator {
 	M_ALIGN,
-	M_CAP,
 	M_LEN,
-	M_OFFSET,
 	M_SIZE,
+	M_OFFSET,
 };
 
 struct expression_measure {
