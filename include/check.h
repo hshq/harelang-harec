@@ -65,6 +65,13 @@ struct global_decl {
 	bool threadlocal;
 };
 
+enum decl_type {
+	DECL_FUNC,
+	DECL_TYPE,
+	DECL_GLOBAL,
+	DECL_CONST,
+};
+
 struct declaration {
 	enum decl_type decl_type;
 	struct identifier ident;

@@ -27,6 +27,9 @@ def FOO: str = "foo";
 type s = str;
 type b = bool;
 
+static assert(true);
+static assert(true, "msg");
+
 fn assert_() void = {
 	let foo = "foo";
 	static assert(true, "foo");
@@ -61,6 +64,10 @@ fn assert_() void = {
 		// compile-time eval
 		"fn f() void = { let a = true; static assert(a); };",
 		"fn f() void = { let a = \"foo\"; static assert(true, a); };",
+
+		// top-level static assertions
+		"static assert(false);",
+		"export static assert(true);",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

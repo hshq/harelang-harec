@@ -342,7 +342,6 @@ enum unarithm_operator {
 	UN_DEREF,	// *
 	UN_LNOT,	// !
 	UN_MINUS,	// -
-	UN_PLUS,	// +
 };
 
 struct expression_unarithm {

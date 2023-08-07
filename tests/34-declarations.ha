@@ -265,6 +265,16 @@ fn reject() void = {
 		// binding not directly in compound expression
 		"export fn main() void = let a = 4;",
 		"export fn main() void = { if (true) let a = 4; };",
+
+		// attributes on prototypes
+		"@init fn f() void;",
+		"@fini fn f() void;",
+		"@test fn f() void;",
+
+		// @symbol alongsie other attributes
+		`@symbol("foo") @init fn foo() void = void;`,
+		`@symbol("foo") @fini fn foo() void = void;`,
+		`@symbol("foo") @test fn foo() void = void;`,
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

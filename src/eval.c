@@ -1010,9 +1010,6 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 			out->constant.ival = -(uint64_t)lvalue.constant.ival;
 		}
 		break;
-	case UN_PLUS:
-		out->constant = lvalue.constant;
-		break;
 	}
 
 	return EVAL_OK;
