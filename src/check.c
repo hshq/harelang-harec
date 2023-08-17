@@ -901,6 +901,11 @@ type_promote(struct type_store *store,
 	if (db->storage == STORAGE_ENUM && da->storage == db->alias.type->storage) {
 		return b;
 	}
+
+	if (db->storage == STORAGE_ERROR) {
+		return a;
+	}
+
 	switch (da->storage) {
 	case STORAGE_ARRAY:
 		if (da->array.length == SIZE_UNDEFINED && da->array.members) {
