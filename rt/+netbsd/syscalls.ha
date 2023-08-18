@@ -6,7 +6,7 @@ fn syscall4(u64, u64, u64, u64, u64) u64;
 fn syscall5(u64, u64, u64, u64, u64, u64) u64;
 fn syscall6(u64, u64, u64, u64, u64, u64, u64) u64;
 
-export fn write(fd: int, buf: *const void, count: size) size =
+export fn write(fd: int, buf: *const opaque, count: size) size =
 	syscall3(SYS_write, fd: u64, buf: uintptr: u64, count: u64): size;
 
 export fn close(fd: int) int = syscall1(SYS_close, fd: u64): int;
@@ -32,7 +32,7 @@ export fn execve(
 	argv: uintptr: u64,
 	envp: uintptr: u64): int;
 
-export fn wait4(pid: int, status: *int, options: int, rusage: nullable *void) void = {
+export fn wait4(pid: int, status: *int, options: int, rusage: nullable *opaque) void = {
 	syscall4(SYS_compat_50_wait4, pid: u64, status: uintptr: u64,
 		options: u64, rusage: uintptr: u64);
 };
@@ -66,18 +66,18 @@ def PROT_WRITE: uint = 0x02;
 def PROT_EXEC: uint = 0x04;
 
 export fn mmap(
-	addr: nullable *void,
+	addr: nullable *opaque,
 	length: size,
 	prot: uint,
 	flags: uint,
 	fd: int,
 	offs: size
-) *void = {
+) *opaque = {
 	return syscall6(SYS_mmap, addr: uintptr: u64, length: u64, prot: u64,
-		flags: u64, fd: u64, offs: u64): uintptr: *void;
+		flags: u64, fd: u64, offs: u64): uintptr: *opaque;
 };
 
-export fn munmap(addr: *void, length: size) int =
+export fn munmap(addr: *opaque, length: size) int =
 	syscall2(SYS_munmap, addr: uintptr: u64, length: u64): int;
 
 export def SIGABRT: int	= 6;

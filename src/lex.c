@@ -62,6 +62,7 @@ static const char *tokens[] = {
 	[T_NULL] = "null",
 	[T_NULLABLE] = "nullable",
 	[T_OFFSET] = "offset",
+	[T_OPAQUE] = "opaque",
 	[T_RETURN] = "return",
 	[T_RUNE] = "rune",
 	[T_SIZE] = "size",
@@ -1146,6 +1147,7 @@ token_str(const struct token *tok)
 		case STORAGE_FUNCTION:
 		case STORAGE_POINTER:
 		case STORAGE_NULL:
+		case STORAGE_OPAQUE:
 		case STORAGE_RUNE:
 		case STORAGE_SLICE:
 		case STORAGE_STRUCT:

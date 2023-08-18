@@ -124,7 +124,7 @@ export fn main() void = {
 	assert(rt::compile("fn a() [1]int = [1]: []int: [1]int;") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("fn a() void = &*&a;") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("let a = [*&0];") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("fn a() *void = alloc(void);") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("fn a() *opaque = alloc(void);") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("fn a() void = { static let b = x & struct { a: int = 0 }; };") as rt::exited != rt::EXIT_SUCCESS);
 	let a: (size | mod::t) = 0;
 	assert(0xffu8 + 1 >> 1 == 0);

@@ -411,6 +411,9 @@ parse_primitive_type(struct lexer *lexer)
 	case T_VOID:
 		type->storage = STORAGE_VOID;
 		break;
+	case T_OPAQUE:
+		type->storage = STORAGE_OPAQUE;
+		break;
 	case T_VALIST:
 		type->storage = STORAGE_VALIST;
 		break;
@@ -677,6 +680,7 @@ parse_type(struct lexer *lexer)
 	case T_I64:
 	case T_I8:
 	case T_INT:
+	case T_OPAQUE:
 	case T_RUNE:
 	case T_SIZE:
 	case T_STR:
@@ -872,6 +876,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_VALIST:
 		assert(0); // Handled in a different nonterminal
 	case STORAGE_ERROR:
+	case STORAGE_OPAQUE:
 		assert(0); // Invariant
 	}
 	return exp;

@@ -80,11 +80,11 @@ fn rules() void = {
 	// Pointer conversions
 	let nptr: nullable *int = null;
 	nptr = &i;
-	let vptr: nullable *void = nptr;
+	let vptr: nullable *opaque = nptr;
 
 	// Slice conversions
 	let s: []int = [1, 2, 3];
-	let s: []void = s;
+	let s: []opaque = s;
 
 	// Struct subtyping
 	let sptr: *subtype = &super1 { ... };

@@ -247,9 +247,9 @@ check_expr_access(struct context *ctx,
 			return;
 		}
 		if (atype->storage == STORAGE_SLICE
-				&& atype->array.members->storage == STORAGE_VOID) {
+				&& atype->array.members->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->access.array->loc, expr,
-				"Cannot use index into slice of void");
+				"Cannot use index into slice whose member type has undefined size");
 			return;
 		}
 		if (!type_is_integer(ctx, itype)) {
@@ -963,8 +963,8 @@ type_promote(struct type_store *store,
 		if (db->storage != STORAGE_POINTER) {
 			return NULL;
 		}
-		if (da->pointer.referent->storage == STORAGE_VOID ||
-				db->pointer.referent->storage == STORAGE_VOID) {
+		if (da->pointer.referent->storage == STORAGE_OPAQUE ||
+				db->pointer.referent->storage == STORAGE_OPAQUE) {
 			return a;
 		}
 		const struct type *r = type_promote(store,
@@ -997,6 +997,7 @@ type_promote(struct type_store *store,
 	// Cannot be promoted
 	case STORAGE_BOOL:
 	case STORAGE_FUNCTION:
+	case STORAGE_OPAQUE:
 	case STORAGE_RUNE:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
@@ -1047,6 +1048,7 @@ type_has_default(struct context *ctx, const struct type *type)
 	case STORAGE_ERROR:
 		return true;
 	case STORAGE_FUNCTION:
+	case STORAGE_OPAQUE:
 	case STORAGE_TAGGED:
 	case STORAGE_VALIST:
 		return false;
@@ -1872,6 +1874,7 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_UINTPTR:
 	case STORAGE_ALIAS:
 	case STORAGE_FUNCTION:
+	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_RUNE:
 	case STORAGE_SLICE:
@@ -3252,7 +3255,7 @@ check_expr_unarithm(struct context *ctx,
 		const struct type *ptrhint = NULL;
 		if (hint && type_dealias(ctx, hint)->storage == STORAGE_POINTER) {
 			ptrhint = type_dealias(ctx, hint)->pointer.referent;
-			if (ptrhint->storage == STORAGE_VOID) {
+			if (type_dealias(ctx, ptrhint)->storage == STORAGE_OPAQUE) {
 				ptrhint = NULL;
 			}
 		}

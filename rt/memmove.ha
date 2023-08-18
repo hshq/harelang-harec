@@ -1,4 +1,4 @@
-export fn memmove(dest: *void, src: *void, n: size) void = {
+export fn memmove(dest: *opaque, src: *opaque, n: size) void = {
 	let d = dest: *[*]u8, s = src: *[*]u8;
 	if (d: uintptr == s: uintptr) {
 		return;

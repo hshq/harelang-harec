@@ -176,10 +176,12 @@ type_storage_unparse(enum type_storage storage)
 		return "iconst";
 	case STORAGE_INT:
 		return "int";
-	case STORAGE_POINTER:
-		return "pointer";
 	case STORAGE_NULL:
 		return "null";
+	case STORAGE_OPAQUE:
+		return "opaque";
+	case STORAGE_POINTER:
+		return "pointer";
 	case STORAGE_RCONST:
 		return "rconst";
 	case STORAGE_RUNE:
@@ -225,6 +227,7 @@ type_is_integer(struct context *ctx, const struct type *type)
 	case STORAGE_VOID:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
+	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
@@ -270,6 +273,7 @@ type_is_numeric(struct context *ctx, const struct type *type)
 	case STORAGE_VOID:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
+	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
@@ -330,6 +334,7 @@ type_is_signed(struct context *ctx, const struct type *type)
 	case STORAGE_ENUM:
 	case STORAGE_ERROR: // XXX?
 	case STORAGE_FUNCTION:
+	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
@@ -393,6 +398,7 @@ type_hash(const struct type *type)
 	case STORAGE_I64:
 	case STORAGE_INT:
 	case STORAGE_NULL:
+	case STORAGE_OPAQUE:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_U8:
@@ -830,7 +836,7 @@ type_is_assignable(struct context *ctx,
 				return true;
 			}
 			switch (to_secondary->storage) {
-			case STORAGE_VOID:
+			case STORAGE_OPAQUE:
 				break;
 			case STORAGE_ARRAY:
 				if (!type_is_assignable(ctx, to_secondary, from_secondary)) {
@@ -874,7 +880,7 @@ type_is_assignable(struct context *ctx,
 		from_secondary = strip_flags(
 			from->array.members,
 			&_from_secondary);
-		if (to_secondary->storage == STORAGE_VOID) {
+		if (to_secondary->storage == STORAGE_OPAQUE) {
 			return true;
 		}
 		return to_secondary->id == from_secondary->id;
@@ -900,6 +906,7 @@ type_is_assignable(struct context *ctx,
 	case STORAGE_ENUM:
 	case STORAGE_FUNCTION:
 	case STORAGE_NULL:
+	case STORAGE_OPAQUE:
 	case STORAGE_RUNE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
@@ -1031,6 +1038,7 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 	case STORAGE_STRING:
 	case STORAGE_BOOL:
 	case STORAGE_VOID:
+	case STORAGE_OPAQUE:
 	case STORAGE_FUNCTION:
 	case STORAGE_TUPLE:
 	case STORAGE_STRUCT:
@@ -1196,6 +1204,11 @@ builtin_type_i64 = {
 builtin_type_int = {
 	.storage = STORAGE_INT,
 },
+builtin_type_opaque = {
+	.storage = STORAGE_OPAQUE,
+	.size = SIZE_UNDEFINED,
+	.align = ALIGN_UNDEFINED,
+},
 builtin_type_u8 = {
 	.storage = STORAGE_U8,
 	.size = 1,
@@ -1283,6 +1296,12 @@ builtin_type_const_i64 = {
 builtin_type_const_int = {
 	.storage = STORAGE_INT,
 	.flags = TYPE_CONST,
+},
+builtin_type_const_opaque = {
+	.storage = STORAGE_OPAQUE,
+	.flags = TYPE_CONST,
+	.size = SIZE_UNDEFINED,
+	.align = ALIGN_UNDEFINED,
 },
 builtin_type_const_u8 = {
 	.storage = STORAGE_U8,

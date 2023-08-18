@@ -166,6 +166,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_ALIAS:
 	case STORAGE_ERROR:
 	case STORAGE_FUNCTION:
+	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_VALIST:
 		assert(0); // Invariant
@@ -241,6 +242,7 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_I8:
 	case STORAGE_INT:
 	case STORAGE_NULL:
+	case STORAGE_OPAQUE:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:

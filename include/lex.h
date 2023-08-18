@@ -55,6 +55,7 @@ enum lexical_token {
 	T_NULL,
 	T_NULLABLE,
 	T_OFFSET,
+	T_OPAQUE,
 	T_RETURN,
 	T_RUNE,
 	T_SIZE,
