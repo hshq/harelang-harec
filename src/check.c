@@ -842,6 +842,11 @@ check_expr_assign(struct context *ctx,
 			"Cannot assign to constant");
 		return;
 	}
+	if (object->result->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->loc, expr,
+			"Cannot assign to object with undefined size");
+		return;
+	}
 	if (!type_is_assignable(ctx, object->result, value->result)) {
 		char *valtypename = gen_typename(value->result);
 		char *objtypename = gen_typename(object->result);

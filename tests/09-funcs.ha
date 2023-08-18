@@ -98,6 +98,7 @@ fn reject() void = {
 		"fn f(x: int) void = void;"
 		"fn g(x: int) void = void;"
 		"fn test() void = { f + g; };",
+		"fn test() void = { test = test; };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
