@@ -101,6 +101,8 @@ main(int argc, char *argv[])
 			printf("harec %s\n", VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
+			usage(argv[0]);
+			return EXIT_SUCCESS;
 		default:
 			usage(argv[0]);
 			return EXIT_FAILURE;
