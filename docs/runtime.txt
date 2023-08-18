@@ -62,13 +62,9 @@ globals available to the current unit:
 	const @symbol("__fini_array_start") fini_start: [*]*fn() void;
 	const @symbol("__fini_array_end") fini_end: [*]*fn() void;
 
-The runtime must call each initialization function, then call the `main`
-function (of type `fn() void`), then call all of the finalization functions,
-before terminating the program normally.
-
-When building with +test (harec -T +test), @test functions will be emitted, and
-an ELF section, .test_array, will be populated similarly to init_array. The
-startup code can enumerate the available tests like so:
+When building with +test (harec -T), @test functions will be emitted, and an ELF
+section, .test_array, will be populated similarly to init_array. The startup
+code can enumerate the available tests like so:
 
 	type test = struct {
 		name: str,
@@ -80,8 +76,3 @@ startup code can enumerate the available tests like so:
 
 In order to use these symbols, a custom linker script must be used. A sample is
 provided in rt/hare.sc which is compatible with GNU's ld and LLVM's lld.
-
-It is expected that, when built in +test mode, the runtime will execute these
-test functions instead of calling main. Under these conditions, the runtime is
-still expected to call the @init and @fini functions as well, respectively
-before and after running the tests.

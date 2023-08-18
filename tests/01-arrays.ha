@@ -172,6 +172,10 @@ fn reject() void = {
 		as exited == EXIT_FAILURE);
 	assert(compile("fn f() void = { let x = null: *[*]fn ()int; };")
 		as exited == EXIT_FAILURE);
+
+	// assignment to array of undefined size
+	assert(compile("let x: [*]int; fn f() void = { x = []; };")
+		as exited == EXIT_FAILURE);
 };
 
 export fn main() void = {

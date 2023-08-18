@@ -112,6 +112,7 @@ enum qbe_instr {
 	Q_CULTW,
 	Q_CUOD,
 	Q_CUOS,
+	Q_DBGLOC,
 	Q_DIV,
 	Q_DTOSI,
 	Q_DTOUI,
@@ -248,6 +249,7 @@ enum qbe_defkind {
 
 struct qbe_def {
 	char *name;
+	int file;
 	enum qbe_defkind kind;
 	bool exported;
 	union {

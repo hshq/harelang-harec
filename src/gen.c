@@ -3166,6 +3166,11 @@ gen_expr_vastart_at(struct gen_context *ctx,
 static struct gen_value
 gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
+	if (expr->loc.file && expr->loc.lineno) {
+		struct qbe_value qline = constl(expr->loc.lineno);
+		pushi(ctx->current, NULL, Q_DBGLOC, &qline, NULL);
+	}
+
 	switch ((int)expr->type) {
 	case EXPR_ACCESS:
 		return gen_expr_access(ctx, expr);
@@ -3322,6 +3327,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	qdef->name = decl->symbol ? xstrdup(decl->symbol)
 		: ident_to_sym(&decl->ident);
+	qdef->file = decl->loc.file;
 
 	struct qbe_statement start_label = {0};
 	mklabel(ctx, &start_label, "start.%d");
@@ -3755,6 +3761,7 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 	qdef->data.threadlocal = global->threadlocal;
 	qdef->exported = decl->exported;
 	qdef->name = ident_to_sym(&decl->ident);
+	qdef->file = decl->loc.file;
 	gen_data_item(ctx, global->value, &qdef->data.items);
 	qbe_append_def(ctx->out, qdef);
 }

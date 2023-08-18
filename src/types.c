@@ -948,6 +948,8 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 			lower_const(ctx, from, NULL);
 		};
 		return to;
+	} else if (to->storage == STORAGE_ERROR) {
+		return to;
 	}
 
 	if (type_dealias(ctx, from)->storage == STORAGE_TAGGED
@@ -1036,7 +1038,6 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 	case STORAGE_VALIST:
 		return NULL;
 	case STORAGE_ERROR:
-		return to_orig;
 	case STORAGE_TAGGED:
 	case STORAGE_ALIAS:
 		assert(0); // Handled above

@@ -1,7 +1,5 @@
 #include <assert.h>
-#include <errno.h>
 #include <limits.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,36 +17,33 @@ identifier_hash(uint32_t init, const struct identifier *ident)
 	return init;
 }
 
-static int
-_asprintf(char **strp, const char *fmt, ...)
+static void
+identifier_unparse_ex(const struct identifier *ident, const char *delim,
+	size_t delimlen, char **buf, size_t *len, size_t *cap)
 {
-	va_list ap;
-	va_start(ap, fmt);
-	int n = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
-
-	*strp = xcalloc(n + 1, 1);
-
-	va_start(ap, fmt);
-	n = vsnprintf(*strp, n + 1, fmt, ap);
-	va_end(ap);
-	return n;
+	if (ident->ns) {
+		identifier_unparse_ex(ident->ns, delim,
+			delimlen, buf, len, cap);
+		memcpy(*buf + *len, delim, delimlen);
+		*len += delimlen;
+	}
+	size_t namelen = strlen(ident->name);
+	if (*len + namelen + delimlen > *cap) {
+		*cap += namelen + delimlen;
+		*buf = xrealloc(*buf, *cap);
+	}
+	memcpy(*buf + *len, ident->name, namelen + 1);
+	*len += namelen;
 }
 
 char *
 identifier_unparse(const struct identifier *ident)
 {
-	if (ident->ns) {
-		char *ns = identifier_unparse(ident->ns);
-		if (!ns) {
-			return NULL;
-		}
-		char *str = NULL;
-		_asprintf(&str, "%s::%s", ns, ident->name);
-		free(ns);
-		return str;
-	}
-	return xstrdup(ident->name);
+	size_t len = 0;
+	size_t cap = strlen(ident->name) + 1;
+	char *buf = xcalloc(cap, sizeof(char));
+	identifier_unparse_ex(ident, "::", 2, &buf, &len, &cap);
+	return buf;
 }
 
 int
@@ -95,18 +90,11 @@ ident_to_path(const struct identifier *ident)
 char *
 ident_to_sym(const struct identifier *ident)
 {
-	if (ident->ns) {
-		char *ns = ident_to_sym(ident->ns);
-		if (!ns) {
-			return NULL;
-		}
-		int n = snprintf(NULL, 0, "%s.%s", ns, ident->name);
-		char *str = xcalloc(1, n + 1);
-		snprintf(str, n + 1, "%s.%s", ns, ident->name);
-		free(ns);
-		return str;
-	}
-	return xstrdup(ident->name);
+	size_t len = 0;
+	size_t cap = strlen(ident->name) + 1;
+	char *buf = xcalloc(cap, sizeof(char));
+	identifier_unparse_ex(ident, ".", 1, &buf, &len, &cap);
+	return buf;
 }
 
 void

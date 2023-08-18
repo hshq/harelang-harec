@@ -357,6 +357,7 @@ emit_data(struct qbe_def *def, FILE *out)
 static void
 emit_def(struct qbe_def *def, FILE *out)
 {
+	xfprintf(out, "dbgfile \"%s\"\n", sources[def->file]);
 	switch (def->kind) {
 	case Q_TYPE:
 		qemit_type(def, out);
