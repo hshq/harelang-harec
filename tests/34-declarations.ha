@@ -275,6 +275,9 @@ fn reject() void = {
 		`@symbol("foo") @init fn foo() void = void;`,
 		`@symbol("foo") @fini fn foo() void = void;`,
 		`@symbol("foo") @test fn foo() void = void;`,
+
+		// initializing object with undefined size
+		"let a: [*]int = [1, 2, 3];",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

@@ -3832,6 +3832,12 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 		} else {
 			init = lower_implicit_cast(ctx, type, init);
 		}
+		if (type->size == SIZE_UNDEFINED) {
+			error(ctx, decl->init->loc, NULL,
+				"Cannot initialize object with undefined size");
+			type = &builtin_type_error;
+			goto end;
+		}
 		assert(type->size != SIZE_UNDEFINED);
 		if (type->storage == STORAGE_NULL) {
 			error(ctx, decl->init->loc, NULL,
