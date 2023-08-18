@@ -781,8 +781,6 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 	return out->token;
 }
 
-static enum lexical_token _lex(struct lexer *lexer, struct token *out);
-
 static enum lexical_token
 lex2(struct lexer *lexer, struct token *out, uint32_t c)
 {
@@ -818,7 +816,7 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 			break;
 		case '/':
 			while ((c = next(lexer, NULL, false)) != C_EOF && c != '\n') ;
-			return _lex(lexer, out);
+			return lex(lexer, out);
 		default:
 			push(lexer, c, false);
 			out->token = T_DIV;
@@ -890,8 +888,8 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 	return out->token;
 }
 
-static enum lexical_token
-_lex(struct lexer *lexer, struct token *out)
+enum lexical_token
+lex(struct lexer *lexer, struct token *out)
 {
 	if (lexer->un.token != T_NONE) {
 		*out = lexer->un;
@@ -980,12 +978,6 @@ _lex(struct lexer *lexer, struct token *out)
 	}
 
 	return out->token;
-}
-
-enum lexical_token
-lex(struct lexer *lexer, struct token *out)
-{
-	return _lex(lexer, out);
 }
 
 void
