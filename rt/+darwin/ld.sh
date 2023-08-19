@@ -8,10 +8,10 @@ args=
 hasVal=
 for o in $*; do
 	case $o in
-		-T)
+		-T|-z)
 			hasVal="$o"
 			;;
-		--gc-sections|--script=?*|-T?*)
+		--gc-sections|--script=?*)
 			;;
 		*)
 			if [ "$hasVal" != "" ]; then
