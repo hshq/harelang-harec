@@ -73,6 +73,7 @@ store_for_type(struct gen_context *ctx, const struct type *type)
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
 	case STORAGE_NULL:
+	case STORAGE_OPAQUE:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
@@ -140,6 +141,7 @@ load_for_type(struct gen_context *ctx, const struct type *type)
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
 	case STORAGE_NULL:
+	case STORAGE_OPAQUE:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:

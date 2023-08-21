@@ -1807,6 +1807,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
+	case STORAGE_OPAQUE:
 	case STORAGE_RCONST:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
@@ -3736,6 +3737,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
+	case STORAGE_OPAQUE:
 	case STORAGE_RCONST:
 	case STORAGE_NULL:
 	case STORAGE_VALIST:

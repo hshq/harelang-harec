@@ -189,51 +189,51 @@ type unwrap_alias_B3 = ...unwrap_alias_B2, // reverse
 
 fn sz() void = {
 	// size
-	static assert(size(mut_struct_A3) == 2 * size(*void));
-	static assert(size(mut_struct_B3) == 2 * size(*void));
+	static assert(size(mut_struct_A3) == 2 * size(*opaque));
+	static assert(size(mut_struct_B3) == 2 * size(*opaque));
 
-	static assert(size(mut_tagged_A1) == 2 * size(*void));
-	static assert(size(mut_tagged_B1) == 2 * size(*void));
+	static assert(size(mut_tagged_A1) == 2 * size(*opaque));
+	static assert(size(mut_tagged_B1) == 2 * size(*opaque));
 
-	static assert(size(mut_tagged_A3) == 2 * size(*void));
-	static assert(size(mut_tagged_B3) == 2 * size(*void));
+	static assert(size(mut_tagged_A3) == 2 * size(*opaque));
+	static assert(size(mut_tagged_B3) == 2 * size(*opaque));
 
-	static assert(size(mut_tagged_A4) == 3 * size(*void));
-	static assert(size(mut_tagged_B4) == 3 * size(*void));
+	static assert(size(mut_tagged_A4) == 3 * size(*opaque));
+	static assert(size(mut_tagged_B4) == 3 * size(*opaque));
 
-	static assert(size(mut_tuple_A1) == 2 * size(*void));
-	static assert(size(mut_tuple_B1) == 2 * size(*void));
+	static assert(size(mut_tuple_A1) == 2 * size(*opaque));
+	static assert(size(mut_tuple_B1) == 2 * size(*opaque));
 
-	static assert(size(arru8_A) == 8 * size(*void));
-	static assert(size(arru8_B) == 8 * size(*void));
+	static assert(size(arru8_A) == 8 * size(*opaque));
+	static assert(size(arru8_B) == 8 * size(*opaque));
 
-	static assert(size(arru8ptr_A) == 8 * size(*void));
-	static assert(size(arru8ptr_B) == 8 * size(*void));
+	static assert(size(arru8ptr_A) == 8 * size(*opaque));
+	static assert(size(arru8ptr_B) == 8 * size(*opaque));
 
 	static assert(size(unwrap_A1) == size(unwrap_alias_A3));
 	static assert(size(unwrap_B1) == size(unwrap_alias_B3));
 
 	//align
-	static assert(align(mut_struct_A3) == align(*void));
-	static assert(align(mut_struct_B3) == align(*void));
+	static assert(align(mut_struct_A3) == align(*opaque));
+	static assert(align(mut_struct_B3) == align(*opaque));
 
-	static assert(align(mut_tagged_A1) == align(*void));
-	static assert(align(mut_tagged_B1) == align(*void));
+	static assert(align(mut_tagged_A1) == align(*opaque));
+	static assert(align(mut_tagged_B1) == align(*opaque));
 
-	static assert(align(mut_tagged_A3) == align(*void));
-	static assert(align(mut_tagged_B3) == align(*void));
+	static assert(align(mut_tagged_A3) == align(*opaque));
+	static assert(align(mut_tagged_B3) == align(*opaque));
 
-	static assert(align(mut_tagged_A4) == align(*void));
-	static assert(align(mut_tagged_B4) == align(*void));
+	static assert(align(mut_tagged_A4) == align(*opaque));
+	static assert(align(mut_tagged_B4) == align(*opaque));
 
-	static assert(align(mut_tuple_A1) == align(*void));
-	static assert(align(mut_tuple_B1) == align(*void));
+	static assert(align(mut_tuple_A1) == align(*opaque));
+	static assert(align(mut_tuple_B1) == align(*opaque));
 
 	static assert(align(arru8_A) == align(u8));
 	static assert(align(arru8_B) == align(u8));
 
-	static assert(align(arru8ptr_A) == align(*void));
-	static assert(align(arru8ptr_B) == align(*void));
+	static assert(align(arru8ptr_A) == align(*opaque));
+	static assert(align(arru8ptr_B) == align(*opaque));
 
 	static assert(align(unwrap_A1) == align(unwrap_alias_A3));
 	static assert(align(unwrap_B1) == align(unwrap_alias_B3));
@@ -301,16 +301,16 @@ type t_8 = ( *t_0, *t_1, *t_2, *t_3, *t_4, *t_5, *t_6, *t_7,        t_9, );
 type t_9 = ( *t_0, *t_1, *t_2, *t_3, *t_4, *t_5, *t_6, *t_7, *t_8,       );
 
 fn complete_graph() void = {
-	static assert(size(t_9) == 9 * size(*void));
-	static assert(size(t_8) == 17 * size(*void));
-	static assert(size(t_7) == 33 * size(*void));
-	static assert(size(t_6) == 65 * size(*void));
-	static assert(size(t_5) == 129 * size(*void));
-	static assert(size(t_4) == 257 * size(*void));
-	static assert(size(t_3) == 513 * size(*void));
-	static assert(size(t_2) == 1025 * size(*void));
-	static assert(size(t_1) == 2049 * size(*void));
-	static assert(size(t_0) == 4097 * size(*void));
+	static assert(size(t_9) == 9 * size(*opaque));
+	static assert(size(t_8) == 17 * size(*opaque));
+	static assert(size(t_7) == 33 * size(*opaque));
+	static assert(size(t_6) == 65 * size(*opaque));
+	static assert(size(t_5) == 129 * size(*opaque));
+	static assert(size(t_4) == 257 * size(*opaque));
+	static assert(size(t_3) == 513 * size(*opaque));
+	static assert(size(t_2) == 1025 * size(*opaque));
+	static assert(size(t_1) == 2049 * size(*opaque));
+	static assert(size(t_0) == 4097 * size(*opaque));
 };
 
 export fn main() void = {

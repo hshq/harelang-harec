@@ -93,6 +93,8 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return is_const ? &builtin_type_const_i64 : &builtin_type_i64;
 	case STORAGE_INT:
 		return is_const ? &builtin_type_const_int : &builtin_type_int;
+	case STORAGE_OPAQUE:
+		return is_const ? &builtin_type_const_opaque : &builtin_type_opaque;
 	case STORAGE_RUNE:
 		return is_const ? &builtin_type_const_rune : &builtin_type_rune;
 	case STORAGE_SIZE:
@@ -682,6 +684,7 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
+	case STORAGE_OPAQUE:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
 	case STORAGE_STRING:
@@ -1003,6 +1006,11 @@ type_store_lookup_pointer(struct type_store *store, struct location loc,
 	if (referent->storage == STORAGE_NULL) {
 		error(store->check_context, loc,
 			"Null type not allowed in this context");
+		return &builtin_type_error;
+	}
+	if (referent->size == 0) {
+		error(store->check_context, loc,
+			"Can't have pointer to zero-sized type");
 		return &builtin_type_error;
 	}
 	referent = lower_const(store->check_context, referent, NULL);

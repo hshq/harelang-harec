@@ -18,7 +18,7 @@ fn basics() void = {
 	let w: *const u32a = &42u32;
 	assert(*w == 42);
 	let a: *func = &basics;
-	let b: *void = &42;
+	let b: *opaque = &42;
 
 	assert(size(*int) == size(uintptr));
 	assert(align(*int) == align(uintptr));
@@ -38,7 +38,7 @@ fn _nullable() void = {
 
 fn casts() void = {
 	let a: *uint = &4u;
-	let b = a: *void;
+	let b = a: *opaque;
 	let c = b: *uint;
 	assert(a == c && *c == 4);
 
@@ -55,7 +55,7 @@ fn casts() void = {
 
 	let a: nullable *int = null;
 	assert(a is null);
-	assert((a as null): nullable *void == null);
+	assert((a as null): nullable *opaque == null);
 
 	let a: nullable *int = &4;
 	assert(a is *int);
@@ -147,11 +147,30 @@ fn reject() void = {
 		let c: int = *b;
 	") as exited != EXIT_SUCCESS);
 
-	// dereference of a zero-sized type
+	// can't cast to alias of opaque
+	assert(compile("
+		type t = opaque;
+		fn test() void = {
+			let x: *t = &0;
+		};
+	") as exited != EXIT_SUCCESS);
+
+	// can't have pointer to void
 	assert(compile("
 		fn test() void = {
 			let a: *void = &12;
-			*a;
+		};
+	") as exited != EXIT_SUCCESS);
+
+	assert(compile("
+		fn test() void = {
+			let a = &void;
+		};
+	") as exited != EXIT_SUCCESS);
+
+	assert(compile("
+		fn test() void = {
+			&12: *void;
 		};
 	") as exited != EXIT_SUCCESS);
 

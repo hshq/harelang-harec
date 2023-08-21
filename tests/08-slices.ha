@@ -46,6 +46,15 @@ fn casting() void = {
 	for (let i = 0z; i < len(x); i += 1) {
 		assert(x[i] == y[i]);
 	};
+
+	[]: []int: []opaque;
+
+	assert(compile(
+		"fn test() void = { []: []opaque; };"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = { [1]: []opaque; };"
+	) as exited != EXIT_SUCCESS);
 };
 
 fn measurements() void = {
@@ -68,7 +77,7 @@ fn indexing() void = {
 		"fn test() void = { let x = 10; x[10]; };"
 	) as exited != EXIT_SUCCESS);
 	assert(compile(
-		"fn test() void = { let s: []u8 = []; let ss = s: []void; ss[0] = ss[1]; };"
+		"fn test() void = { let s: []u8 = []; let ss = s: []opaque; ss[0] = ss[1]; };"
 	) as exited != EXIT_SUCCESS);
 };
 
@@ -99,11 +108,19 @@ fn assignment() void = {
 	assert(z[0] == 1 && z[1] == 42 && z[2] == 69 && z[3] == 1337 && z[4] == 5);
 	z[2..5] = y;
 	assert(z[0] == 1 && z[1] == 42 && z[2] == 0 && z[3] == 0 && z[4] == 0);
+
+	let x: []int = [];
+	let opaqueslice: []opaque = x;
+	let opaqueslice: []opaque = []: []int;
+
 	assert(compile(
 		"export fn main() void = { let a: []int = [1]; a[..] += a; };"
 	) as exited != EXIT_SUCCESS);
 	assert(compile(
 		"fn f() void = { let a: []int = [1] + [2];"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"type t = opaque; fn f() void = { let x: []int = []; let x: []t = x; };"
 	) as exited != EXIT_SUCCESS);
 };
 
@@ -200,6 +217,19 @@ fn expandable() void = {
 	assert(s[5] == 123);
 };
 
+fn misc_reject() void = {
+	// can't have slice of void
+	assert(compile(
+		"fn test() void = { let x: []void = [12]; };"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = { let x = [void]: []opaque; };"
+	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = { []: []void; };"
+	) as exited != EXIT_SUCCESS);
+};
+
 export fn main() void = {
 	from_array();
 	storage();
@@ -209,4 +239,5 @@ export fn main() void = {
 	slicing();
 	recursive_structure();
 	expandable();
+	misc_reject();
 };

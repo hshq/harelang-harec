@@ -64,7 +64,7 @@ fn assignment() void = {
 		"fn f() void = { let r = 'a'; r = 0; };",
 
 		"type my_enum = enum u8 { FOO }; fn f() void = { let e: my_enum = my_enum::FOO; e = 256; };",
-		"fn f() void = { let p: nullable *void = null; p = 0; };",
+		"fn f() void = { let p: nullable *opaque = null; p = 0; };",
 		"fn f() void = { let b = false; b = 0; };",
 		"fn f() void = { let n = null; n = 0; };",
 		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0; };",
@@ -80,7 +80,7 @@ fn assignment() void = {
 
 		"fn f() void = { let r = 'a'; r = 0.0; };",
 		"type my_enum = enum u8 { FOO }; fn f() void = { let e: my_enum = my_enum::FOO; e = 0.0; };",
-		"fn f() void = { let p: nullable *void = null; p = 0.0; };",
+		"fn f() void = { let p: nullable *opaque = null; p = 0.0; };",
 		"fn f() void = { let b = false; b = 0.0; };",
 		"fn f() void = { let n = null; n = 0.0; };",
 		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0.0; };",
@@ -96,7 +96,7 @@ fn assignment() void = {
 
 		"fn f() void = { let f = 0.0f64; f = 'a'; };",
 
-		"fn f() void = { let p: nullable *void = null; p = 'a'; };",
+		"fn f() void = { let p: nullable *opaque = null; p = 'a'; };",
 		"fn f() void = { let b = false; b = 'a'; };",
 		"fn f() void = { let n = null; n = 'a'; };",
 		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 'a'; };",
