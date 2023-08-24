@@ -155,7 +155,7 @@ error(struct location loc, const char *fmt, ...)
 	va_end(ap);
 
 	xfprintf(stderr, "\n");
-	errline(sources[loc.file], loc.lineno, loc.colno);
+	errline(loc);
 	exit(EXIT_FAILURE);
 }
 

@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "lex.h"
 
 extern const char **sources;
 
@@ -32,6 +33,6 @@ struct pathspec {
 	const char *path;
 };
 
-int errline(const char* path, int lineno, int colno);
+void errline(struct location loc);
 
 #endif

@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdio.h>
 #include <unistd.h>
 #include "util.h"
 // Remove safety macros:
@@ -127,59 +126,46 @@ gen_name(int *id, const char *fmt)
 	return str;
 }
 
-int
-errline(const char* path, int lineno, int colno)
+void
+errline(struct location loc)
 {
-	char* real = realpath(path, NULL);
+	const char *path = sources[loc.file];
 	struct stat filestat;
-	if (stat(real, &filestat) != 0 || !S_ISREG(filestat.st_mode)) {
-		free(real);
-		return -1;
+	if (stat(path, &filestat) == -1 || !S_ISREG(filestat.st_mode)) {
+		return;
 	}
-	free(real);
 
-	FILE* src = fopen(path, "r");
+	FILE *src = fopen(path, "r");
 	if (!src) {
-		return -1;
+		return;
 	}
-	char* line = NULL;
+	char *line = NULL;
 	size_t len = 0;
 	int n = 0;
-	while (n < lineno) {
+	while (n < loc.lineno) {
 		if (getline(&line, &len, src) == -1) {
 			fclose(src);
-			if (line) {
-				free(line);
-			}
-			return -1;
+			free(line);
+			return;
 		}
 		n += 1;
 	}
 	if (line) {
 		bool color = true;
-		const char* no_color = getenv("NO_COLOR");
-		const char* harec_color = getenv("HAREC_COLOR");
-		if (!isatty(fileno(stderr))) {
+		const char *no_color = getenv("NO_COLOR");
+		const char *harec_color = getenv("HAREC_COLOR");
+		if (harec_color) {
+			color = strcmp(harec_color, "0") == 0;
+		} else if ((no_color && *no_color != '\0')
+				|| !isatty(fileno(stderr))) {
 			color = false;
 		}
-		if (no_color != NULL) {
-			if (0 < strlen(no_color)) {
-				color = false;
-			}
-		}
-		if (harec_color != NULL) {
-			if (strcmp(harec_color, "0") == 0) {
-				color = false;
-			} else {
-				color = true;
-			}
-		}
-		xfprintf(stderr, "\n%d |\t%s", lineno, line);
-		for (int i = lineno; 1 <= i; i /= 10) {
+		xfprintf(stderr, "\n%d |\t%s", loc.lineno, line);
+		for (int i = loc.lineno; i > 0; i /= 10) {
 			xfprintf(stderr, " ");
 		}
 		xfprintf(stderr, " |\t");
-		for (int i = 1; i < colno; i++) {
+		for (int i = 1; i < loc.colno; i++) {
 			xfprintf(stderr, " ");
 		}
 		if (color) {
@@ -190,5 +176,4 @@ errline(const char* path, int lineno, int colno)
 		free(line);
 	}
 	fclose(src);
-	return 0;
 }
