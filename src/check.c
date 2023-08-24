@@ -78,6 +78,7 @@ handle_errors(struct errors *errors)
 		xfprintf(stderr, "%s:%d:%d: error: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
 		errline(sources[error->loc.file], error->loc.lineno, error->loc.colno);
+		free(error->msg);
 		struct errors *next = error->next;
 		free(error);
 		error = next;
