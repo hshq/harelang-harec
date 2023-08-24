@@ -110,7 +110,7 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 	size_t sz = vsnprintf(NULL, 0, fmt, copy);
 	va_end(copy);
 
-	char *msg = xcalloc(1, sz + 1);
+	char *msg = xcalloc(sz + 1, 1);
 	vsnprintf(msg, sz + 1, fmt, ap);
 
 	struct errors *next = *ctx->next = xcalloc(1, sizeof(struct errors));
