@@ -144,10 +144,10 @@ static_assert(sizeof(tokens) / sizeof(const char *) == T_LAST_OPERATOR + 1,
 	"tokens array isn't in sync with lexical_token enum");
 
 static noreturn void
-error(struct location *loc, char *fmt, ...)
+error(struct location loc, const char *fmt, ...)
 {
-	xfprintf(stderr, "%s:%d:%d: syntax error: ", sources[loc->file],
-			loc->lineno, loc->colno);
+	xfprintf(stderr, "%s:%d:%d: syntax error: ", sources[loc.file],
+			loc.lineno, loc.colno);
 
 	va_list ap;
 	va_start(ap, fmt);
@@ -155,7 +155,7 @@ error(struct location *loc, char *fmt, ...)
 	va_end(ap);
 
 	xfprintf(stderr, "\n");
-	errline(sources[loc->file], loc->lineno, loc->colno);
+	errline(sources[loc.file], loc.lineno, loc.colno);
 	exit(EXIT_FAILURE);
 }
 
@@ -206,7 +206,7 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 		c = utf8_get(lexer->in);
 		update_lineno(&lexer->loc, c);
 		if (c == UTF8_INVALID && !feof(lexer->in)) {
-			error(&lexer->loc, "Invalid UTF-8 sequence encountered");
+			error(lexer->loc, "Invalid UTF-8 sequence encountered");
 		}
 	}
 	if (loc != NULL) {
@@ -291,7 +291,7 @@ lex_name(struct lexer *lexer, struct token *out)
 			sizeof(tokens[0]), cmp_keyword);
 	if (!token) {
 		if (lexer->buf[0] == '@') {
-			error(&out->loc, "Unknown attribute %s", lexer->buf);
+			error(out->loc, "Unknown attribute %s", lexer->buf);
 		}
 		out->token = T_NAME;
 		out->name = xstrdup(lexer->buf);
@@ -360,7 +360,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 	if (c == '0') {
 		c = next(lexer, NULL, true);
 		if (c <= 0x7F && isdigit(c)) {
-			error(&out->loc, "Leading zero in base 10 literal");
+			error(out->loc, "Leading zero in base 10 literal");
 		} else if (c == 'b') {
 			state = BIN | 1 << DIG;
 			base = 2;
@@ -417,7 +417,7 @@ lex_literal(struct lexer *lexer, struct token *out)
 			goto end;
 		}
 		if (state & 1 << FLT && lexer->require_int) {
-			error(&out->loc, "Expected integer literal");
+			error(out->loc, "Expected integer literal");
 		}
 		last = c;
 		state |= 1 << DIG;
@@ -467,14 +467,14 @@ want_int:
 			}
 		}
 		if (kind == UNKNOWN) {
-			error(&out->loc, "Invalid suffix '%s'", lexer->buf + suff);
+			error(out->loc, "Invalid suffix '%s'", lexer->buf + suff);
 		}
 	}
 	if (state & 1 << FLT) {
 		if (kind == UNKNOWN) {
 			out->storage = STORAGE_FCONST;
 		} else if (kind != FLOAT) {
-			error(&out->loc, "Unexpected decimal point in integer literal");
+			error(out->loc, "Unexpected decimal point in integer literal");
 		}
 		out->fval = strtod(lexer->buf, NULL);
 		consume(lexer, -1);
@@ -493,7 +493,7 @@ want_int:
 	out->uval = strtoumax(lexer->buf + (base == 10 ? 0 : 2), NULL, base);
 	out->uval = compute_exp(out->uval, exponent, kind == SIGNED);
 	if (errno == ERANGE) {
-		error(&out->loc, "Integer literal overflow");
+		error(out->loc, "Integer literal overflow");
 	}
 	if (kind == ICONST && out->uval > (uint64_t)INT64_MAX) {
 		out->storage = STORAGE_U64;
@@ -546,7 +546,7 @@ lex_rune(struct lexer *lexer)
 			buf[2] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				error(&lexer->loc, "Invalid hex literal");
+				error(lexer->loc, "Invalid hex literal");
 			}
 			return c;
 		case 'u':
@@ -557,7 +557,7 @@ lex_rune(struct lexer *lexer)
 			buf[4] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				error(&lexer->loc, "Invalid hex literal");
+				error(lexer->loc, "Invalid hex literal");
 			}
 			return c;
 		case 'U':
@@ -572,13 +572,13 @@ lex_rune(struct lexer *lexer)
 			buf[8] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				error(&lexer->loc, "Invalid hex literal");
+				error(lexer->loc, "Invalid hex literal");
 			}
 			return c;
 		case C_EOF:
-			error(&lexer->loc, "Unexpected end of file");
+			error(lexer->loc, "Unexpected end of file");
 		default:
-			error(&lexer->loc, "Invalid escape '\\%c'", c);
+			error(lexer->loc, "Invalid escape '\\%c'", c);
 		}
 		assert(0);
 	default:
@@ -599,7 +599,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		delim = c;
 		while ((c = next(lexer, NULL, false)) != delim) {
 			if (c == C_EOF) {
-				error(&lexer->loc, "Unexpected end of file");
+				error(lexer->loc, "Unexpected end of file");
 			}
 			push(lexer, c, false);
 			if (delim == '"') {
@@ -619,7 +619,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		c = next(lexer, NULL, false);
 		switch (c) {
 		case '\'':
-			error(&out->loc, "Expected rune before trailing single quote");
+			error(out->loc, "Expected rune before trailing single quote");
 		case '\\':
 			push(lexer, c, false);
 			out->rune = lex_rune(lexer);
@@ -628,7 +628,7 @@ lex_string(struct lexer *lexer, struct token *out)
 			out->rune = c;
 		}
 		if (next(lexer, NULL, false) != '\'') {
-			error(&out->loc, "Expected trailing single quote");
+			error(out->loc, "Expected trailing single quote");
 		}
 		out->token = T_LITERAL;
 		out->storage = STORAGE_RCONST;
