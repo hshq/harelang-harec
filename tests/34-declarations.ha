@@ -271,7 +271,7 @@ fn reject() void = {
 		"@fini fn f() void;",
 		"@test fn f() void;",
 
-		// @symbol alongsie other attributes
+		// @symbol alongside other attributes
 		`@symbol("foo") @init fn foo() void = void;`,
 		`@symbol("foo") @fini fn foo() void = void;`,
 		`@symbol("foo") @test fn foo() void = void;`,
