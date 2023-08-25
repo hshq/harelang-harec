@@ -174,6 +174,12 @@ fn reject() void = {
 		};
 	") as exited != EXIT_SUCCESS);
 
+	assert(compile("
+		fn f() void = {
+			let a: nullable *void = null;
+		};
+	") as exited != EXIT_SUCCESS);
+
 	// arithmetic on pointer types is not allowed
 	assert(compile(`
 		fn f() void = {

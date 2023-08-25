@@ -829,6 +829,12 @@ type_init_from_atype(struct type_store *store,
 		type->pointer.flags = atype->pointer.flags;
 		type->pointer.referent = lookup_atype(
 			store, atype->pointer.referent);
+		if (type->pointer.referent->size == 0) {
+			error(store->check_context, atype->loc,
+				"Can't have pointer to zero-sized type");
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		break;
 	case STORAGE_SLICE:
 		type->size = builtin_type_uintptr.size
