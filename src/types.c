@@ -977,8 +977,13 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 	}
 
 	switch (from->storage) {
-	case STORAGE_FCONST:
 	case STORAGE_ICONST:
+		if (to->storage == STORAGE_RUNE) {
+			lower_const(ctx, from, &builtin_type_u32);
+			return to_orig;
+		}
+		// fallthrough
+	case STORAGE_FCONST:
 	case STORAGE_RCONST:
 		return promote_const(ctx, from_orig, to_orig);
 	case STORAGE_I8:
@@ -987,21 +992,17 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 	case STORAGE_I64:
 	case STORAGE_INT:
 	case STORAGE_SIZE:
+	case STORAGE_U8:
 	case STORAGE_U16:
+	case STORAGE_U32:
 	case STORAGE_U64:
 	case STORAGE_UINT:
-		return to->storage == STORAGE_ENUM || type_is_numeric(ctx, to)
-			? to_orig : NULL;
-	case STORAGE_U8:
-		return to->storage == STORAGE_ENUM || type_is_numeric(ctx, to)
-			? to_orig : NULL;
-	case STORAGE_U32:
 		return to->storage == STORAGE_ENUM
 			|| type_is_numeric(ctx, to)
 			|| to->storage == STORAGE_RUNE
 			? to_orig : NULL;
 	case STORAGE_RUNE:
-		return to->storage == STORAGE_U32
+		return type_is_integer(ctx, to)
 			? to_orig : NULL;
 	case STORAGE_ENUM:
 		return to->storage == STORAGE_ENUM || type_is_integer(ctx, from)

@@ -50,7 +50,7 @@ fn concat() void = {
 		'w', 'o', 'r', 'l', 'd', '!',
 	];
 	for (let i = 0z; i < len(expected); i += 1) {
-		assert(t[i] == expected[i]: u32: u8);
+		assert(t[i] == expected[i]: u8);
 	};
 };
 
