@@ -1898,22 +1898,15 @@ check_expr_defer(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	if (ctx->deferring) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot defer within another defer expression.");
-		return;
-	}
 	expr->type = EXPR_DEFER;
 	expr->result = &builtin_type_void;
 	expr->defer.deferred = xcalloc(1, sizeof(struct expression));
-	ctx->deferring = true;
-	scope_push(&ctx->scope, SCOPE_DEFER);
+	expr->defer.scope = scope_push(&ctx->scope, SCOPE_DEFER);
 	check_expression(ctx, aexpr->defer.deferred, expr->defer.deferred, NULL);
 	if (type_has_error(ctx, expr->defer.deferred->result)) {
 		error(ctx, aexpr->defer.deferred->loc, expr->defer.deferred,
 			"Cannot ignore error here");
 	}
-	ctx->deferring = false;
 	scope_pop(&ctx->scope);
 }
 
@@ -2450,7 +2443,9 @@ check_expr_propagate(struct context *ctx,
 		return;
 	}
 	if (!aexpr->propagate.abort) {
-		if (ctx->deferring) {
+		struct scope *defer = scope_lookup_ancestor(
+			ctx->scope, SCOPE_DEFER, NULL);
+		if (defer) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot use error propagation in a defer expression");
 			return;
@@ -2605,7 +2600,9 @@ check_expr_return(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	if (ctx->deferring) {
+	struct scope *defer = scope_lookup_ancestor(
+		ctx->scope, SCOPE_DEFER, NULL);
+	if (defer) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot return inside a defer expression");
 		return;
@@ -4279,8 +4276,6 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	ctx->unit->parent = NULL;
 	const struct type *fntype = ctx->fntype;
 	ctx->fntype = NULL;
-	bool deferring = ctx->deferring;
-	ctx->deferring = false;
 
 	// ensure this declaration wasn't already scanned
 	if (!obj || obj->otype != O_SCAN) {
@@ -4311,7 +4306,6 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	idecl->in_progress = false;
 exit:
 	// load stored context
-	ctx->deferring = deferring;
 	ctx->fntype = fntype;
 	ctx->unit->parent = subunit;
 	ctx->scope = scope;
