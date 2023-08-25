@@ -219,6 +219,19 @@ fn reject() void = {
 			a += 8i;
 		};
 	`) as exited != EXIT_SUCCESS);
+
+	// type promotion
+	assert(compile(`
+		fn test() void = {
+			let a: *str = &0;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() void = {
+			let a: *str = alloc(0);
+		};
+	`) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {
