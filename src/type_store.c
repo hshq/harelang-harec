@@ -26,7 +26,7 @@ static const struct type *
 lookup_atype(struct type_store *store, const struct ast_type *atype);
 
 static void
-error(struct context *ctx, const struct location loc, char *fmt, ...)
+error(struct context *ctx, const struct location loc, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -829,6 +829,12 @@ type_init_from_atype(struct type_store *store,
 		type->pointer.flags = atype->pointer.flags;
 		type->pointer.referent = lookup_atype(
 			store, atype->pointer.referent);
+		if (type->pointer.referent->size == 0) {
+			error(store->check_context, atype->loc,
+				"Can't have pointer to zero-sized type");
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		break;
 	case STORAGE_SLICE:
 		type->size = builtin_type_uintptr.size
@@ -839,6 +845,12 @@ type_init_from_atype(struct type_store *store,
 		}
 		type->array.members = lookup_atype(
 			store, atype->array.members);
+		if (type->array.members->size == 0) {
+			error(store->check_context, atype->loc,
+				"Type of size 0 is not a valid slice member");
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		type->array.length = SIZE_UNDEFINED;
 		break;
 	case STORAGE_STRUCT:
@@ -1094,13 +1106,7 @@ type_store_lookup_slice(struct type_store *store, struct location loc,
 			"Type of size 0 is not a valid slice member");
 		return &builtin_type_error;
 	}
-	if (members->size == SIZE_UNDEFINED) {
-		error(store->check_context, loc,
-			"Type of undefined size is not a valid slice member");
-		return &builtin_type_error;
-	}
 	assert(members->align != 0);
-	assert(members->align != ALIGN_UNDEFINED);
 
 	struct type slice = {
 		.storage = STORAGE_SLICE,

@@ -100,7 +100,7 @@ mkerror(const struct location loc, struct expression *expr)
 
 static void
 verror(struct context *ctx, const struct location loc, struct expression *expr,
-		char *fmt, va_list ap)
+		const char *fmt, va_list ap)
 {
 	if (expr) {
 		mkerror(loc, expr);
@@ -122,7 +122,7 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 
 static void
 error(struct context *ctx, const struct location loc, struct expression *expr,
-		char *fmt, ...)
+		const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -131,7 +131,7 @@ error(struct context *ctx, const struct location loc, struct expression *expr,
 }
 
 noreturn void
-error_norec(struct context *ctx, const struct location loc, char *fmt, ...)
+error_norec(struct context *ctx, const struct location loc, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -406,8 +406,12 @@ check_expr_alloc_init(struct context *ctx,
 		assert(htype->array.members == atype->array.members);
 		objtype = inithint;
 	}
-	if (type_is_constant(objtype)) {
-		objtype = lower_const(ctx, objtype, inithint);
+	if (type_is_constant(objtype) && inithint) {
+		const struct type *promoted =
+			promote_const(ctx, objtype, inithint);
+		if (promoted) {
+			objtype = promoted;
+		}
 	} else if (inithint) {
 		// XXX: this is dumb, but we're gonna get rid of the const flag
 		// anyway so it doesn't matter
@@ -3260,8 +3264,12 @@ check_expr_unarithm(struct context *ctx,
 				ptrhint = NULL;
 			}
 		}
-		if (type_is_constant(operand->result)) {
-			operand->result = lower_const(ctx, operand->result, ptrhint);
+		if (type_is_constant(operand->result) && ptrhint) {
+			const struct type *promoted =
+				promote_const(ctx, operand->result, ptrhint);
+			if (promoted) {
+				operand->result = promoted;
+			}
 		} else if (ptrhint) {
 			// XXX: this is dumb, but we're gonna get rid of the
 			// const flag anyway so it doesn't matter

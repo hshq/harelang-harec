@@ -174,6 +174,12 @@ fn reject() void = {
 		};
 	") as exited != EXIT_SUCCESS);
 
+	assert(compile("
+		fn f() void = {
+			let a: nullable *void = null;
+		};
+	") as exited != EXIT_SUCCESS);
+
 	// arithmetic on pointer types is not allowed
 	assert(compile(`
 		fn f() void = {
@@ -211,6 +217,19 @@ fn reject() void = {
 		fn f() void = {
 			let a = &12i;
 			a += 8i;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	// type promotion
+	assert(compile(`
+		fn test() void = {
+			let a: *str = &0;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() void = {
+			let a: *str = alloc(0);
 		};
 	`) as exited != EXIT_SUCCESS);
 };

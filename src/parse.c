@@ -1604,6 +1604,10 @@ parse_builtin_expression(struct lexer *lexer)
 	return parse_postfix_expression(lexer, NULL);
 }
 
+static struct ast_expression *parse_compound_expression(struct lexer *lexer);
+static struct ast_expression *parse_match_expression(struct lexer *lexer);
+static struct ast_expression *parse_switch_expression(struct lexer *lexer);
+
 static struct ast_expression *
 parse_unary_expression(struct lexer *lexer)
 {
@@ -1620,6 +1624,14 @@ parse_unary_expression(struct lexer *lexer)
 		exp->unarithm.op = unop_for_token(tok.token);
 		exp->unarithm.operand = parse_unary_expression(lexer);
 		return exp;
+	case T_COLON:
+	case T_LBRACE:
+		unlex(lexer, &tok);
+		return parse_compound_expression(lexer);
+	case T_MATCH:
+		return parse_match_expression(lexer);
+	case T_SWITCH:
+		return parse_switch_expression(lexer);
 	default:
 		unlex(lexer, &tok);
 		return parse_builtin_expression(lexer);
@@ -2332,10 +2344,6 @@ parse_expression(struct lexer *lexer)
 	case T_YIELD:
 	case T_FOR:
 	case T_IF:
-	case T_LBRACE:
-	case T_MATCH:
-	case T_SWITCH:
-	case T_COLON:
 		switch (tok.token) {
 		case T_BREAK:
 		case T_CONTINUE:
@@ -2350,23 +2358,6 @@ parse_expression(struct lexer *lexer)
 			break;
 		case T_IF:
 			value = parse_if_expression(lexer);
-			break;
-		case T_LBRACE:
-		case T_COLON:
-			unlex(lexer, &tok);
-			value = parse_compound_expression(lexer);
-			value = parse_cast_expression(lexer, value);
-			value = parse_bin_expression(lexer, value, 0);
-			break;
-		case T_MATCH:
-			value = parse_match_expression(lexer);
-			value = parse_cast_expression(lexer, value);
-			value = parse_bin_expression(lexer, value, 0);
-			break;
-		case T_SWITCH:
-			value = parse_switch_expression(lexer);
-			value = parse_cast_expression(lexer, value);
-			value = parse_bin_expression(lexer, value, 0);
 			break;
 		default:
 			assert(0);

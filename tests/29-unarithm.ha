@@ -14,6 +14,10 @@ fn addr() void = {
 	assert(*y == 69);
 	let z = &struct { a: int = 42 };
 	assert(z.a == 42);
+	let q = &{ yield 42; };
+	assert(*q == 42);
+	*{ yield q; } = 12;
+	assert(*q == 12);
 	let a = -2;
 	assert(a == 0 - 2);
 	let b = 1-1;
