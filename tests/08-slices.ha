@@ -228,6 +228,9 @@ fn misc_reject() void = {
 	assert(compile(
 		"fn test() void = { []: []void; };"
 	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = { let x: ([]void | void) = void; };"
+	) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {

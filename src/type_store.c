@@ -845,6 +845,12 @@ type_init_from_atype(struct type_store *store,
 		}
 		type->array.members = lookup_atype(
 			store, atype->array.members);
+		if (type->array.members->size == 0) {
+			error(store->check_context, atype->loc,
+				"Type of size 0 is not a valid slice member");
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		type->array.length = SIZE_UNDEFINED;
 		break;
 	case STORAGE_STRUCT:
