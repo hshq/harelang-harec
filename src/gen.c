@@ -182,6 +182,13 @@ static void
 gen_fixed_abort(struct gen_context *ctx,
 	struct location loc, enum fixed_aborts reason)
 {
+	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
+		gen_defers(ctx, scope);
+		if (scope->scope->class == SCOPE_DEFER) {
+			break;
+		}
+	}
+
 	struct expression eloc;
 	mkstrconst(&eloc, "%s:%d:%d", sources[loc.file], loc.lineno, loc.colno);
 	struct gen_value msg = gen_expr(ctx, &eloc);
@@ -779,14 +786,14 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 		msg = gen_expr(ctx, expr->assert.message);
 	}
 
-	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
-		gen_defers(ctx, scope);
-		if (scope->scope->class == SCOPE_DEFER) {
-			break;
-		}
-	}
-
 	if (expr->assert.message) {
+		for (struct gen_scope *scope = ctx->scope;
+				scope; scope = scope->parent) {
+			gen_defers(ctx, scope);
+			if (scope->scope->class == SCOPE_DEFER) {
+				break;
+			}
+		}
 		struct qbe_value qmsg = mkqval(ctx, &msg), qloc = mkqval(ctx, &gloc);
 		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.abort, &qloc, &qmsg, NULL);
 		pushi(ctx->current, NULL, Q_HLT, NULL);

@@ -94,7 +94,11 @@ fn noreturn() void = {
 
 @noreturn fn exit() void = {
 	assert(x == 30);
-	rt::exit(0);
+	x = 0;
+	defer rt::exit(x);
+	(void: !void: (void | !void))!; // void
+	x = 1;
+	abort();
 };
 
 fn nested() void = {
