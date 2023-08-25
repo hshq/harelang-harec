@@ -611,11 +611,17 @@ tuple_init_from_atype(struct type_store *store,
 		if (memb.size == 0) {
 			error(store->check_context, atype->loc,
 				"Type of size 0 is not a valid tuple member");
+			if (type) {
+				*type = builtin_type_error;
+			}
 			return (struct dimensions){0};
 		}
 		if (memb.size == SIZE_UNDEFINED) {
 			error(store->check_context, atype->loc,
 				"Type of undefined size is not a valid tuple member");
+			if (type) {
+				*type = builtin_type_error;
+			}
 			return (struct dimensions){0};
 		}
 		offset = dim.size % memb.align + dim.size;

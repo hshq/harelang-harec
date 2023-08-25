@@ -77,7 +77,8 @@ handle_errors(struct errors *errors)
 	while (error) {
 		xfprintf(stderr, "%s:%d:%d: error: %s\n", sources[error->loc.file],
 			error->loc.lineno, error->loc.colno, error->msg);
-		errline(sources[error->loc.file], error->loc.lineno, error->loc.colno);
+		errline(error->loc);
+		free(error->msg);
 		struct errors *next = error->next;
 		free(error);
 		error = next;
@@ -110,7 +111,7 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 	size_t sz = vsnprintf(NULL, 0, fmt, copy);
 	va_end(copy);
 
-	char *msg = xcalloc(1, sz + 1);
+	char *msg = xcalloc(sz + 1, 1);
 	vsnprintf(msg, sz + 1, fmt, ap);
 
 	struct errors *next = *ctx->next = xcalloc(1, sizeof(struct errors));
