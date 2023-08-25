@@ -6,7 +6,7 @@ fn segmalloc(n: size) nullable *opaque = {
 	return if (p == MAP_FAILED) null else p;
 };
 
-def MAP_FAILED: *void = -1: uintptr: *void;
+def MAP_FAILED: *opaque = -1: uintptr: *opaque;
 
 // Frees a segment allocated with segmalloc.
 fn segfree(p: *opaque, s: size) int = munmap(p, s);
