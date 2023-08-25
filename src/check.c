@@ -100,7 +100,7 @@ mkerror(const struct location loc, struct expression *expr)
 
 static void
 verror(struct context *ctx, const struct location loc, struct expression *expr,
-		char *fmt, va_list ap)
+		const char *fmt, va_list ap)
 {
 	if (expr) {
 		mkerror(loc, expr);
@@ -122,7 +122,7 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 
 static void
 error(struct context *ctx, const struct location loc, struct expression *expr,
-		char *fmt, ...)
+		const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -131,7 +131,7 @@ error(struct context *ctx, const struct location loc, struct expression *expr,
 }
 
 noreturn void
-error_norec(struct context *ctx, const struct location loc, char *fmt, ...)
+error_norec(struct context *ctx, const struct location loc, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);

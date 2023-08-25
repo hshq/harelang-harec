@@ -26,7 +26,7 @@ static const struct type *
 lookup_atype(struct type_store *store, const struct ast_type *atype);
 
 static void
-error(struct context *ctx, const struct location loc, char *fmt, ...)
+error(struct context *ctx, const struct location loc, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);

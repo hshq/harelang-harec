@@ -13,7 +13,7 @@
 #include "util.h"
 
 static void
-error(struct context *ctx, const struct location loc, char *fmt, ...)
+error(struct context *ctx, const struct location loc, const char *fmt, ...)
 {
 	va_list ap, copy;
 	va_start(ap, fmt);
