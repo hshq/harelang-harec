@@ -76,6 +76,7 @@ fn rules() void = {
 	assert(compile("fn test() void = { let _u16: u16 = 42u32; };") as exited != EXIT_SUCCESS);
 	assert(compile("fn test() void = { let _u16: u16 = 42u64; };") as exited != EXIT_SUCCESS);
 	assert(compile("fn test() void = { let _u32: u32 = 42u64; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { let _f32: f32 = 42f64; };") as exited != EXIT_SUCCESS);
 
 	// Pointer conversions
 	let nptr: nullable *int = null;

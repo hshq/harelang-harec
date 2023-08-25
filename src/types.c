@@ -820,7 +820,6 @@ type_is_assignable(struct context *ctx,
 		return type_is_integer(ctx, from)
 			&& !type_is_signed(ctx, from)
 			&& to->size >= from->size;
-	case STORAGE_F32:
 	case STORAGE_F64:
 		return type_is_float(ctx, from);
 	case STORAGE_POINTER:
@@ -904,6 +903,7 @@ type_is_assignable(struct context *ctx,
 	// handled above:
 	case STORAGE_BOOL:
 	case STORAGE_ENUM:
+	case STORAGE_F32:
 	case STORAGE_FUNCTION:
 	case STORAGE_NULL:
 	case STORAGE_OPAQUE:
