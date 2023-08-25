@@ -1106,13 +1106,7 @@ type_store_lookup_slice(struct type_store *store, struct location loc,
 			"Type of size 0 is not a valid slice member");
 		return &builtin_type_error;
 	}
-	if (members->size == SIZE_UNDEFINED) {
-		error(store->check_context, loc,
-			"Type of undefined size is not a valid slice member");
-		return &builtin_type_error;
-	}
 	assert(members->align != 0);
-	assert(members->align != ALIGN_UNDEFINED);
 
 	struct type slice = {
 		.storage = STORAGE_SLICE,
