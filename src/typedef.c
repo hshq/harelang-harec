@@ -266,7 +266,7 @@ emit_type(const struct type *type, FILE *out)
 		if (type->array.length == SIZE_UNDEFINED) {
 			xfprintf(out, "[*]");
 		} else {
-			xfprintf(out, "[%zd]", type->array.length);
+			xfprintf(out, "[%zu]", type->array.length);
 		}
 		ret &= emit_type(type->array.members, out);
 		break;

@@ -348,7 +348,7 @@ emit_data(struct qbe_def *def, FILE *out)
 			break;
 		case QD_SYMOFFS:
 			// XXX: ARCH
-			xfprintf(out, "l $%s + %ld", item->sym, item->offset);
+			xfprintf(out, "l $%s + %" PRIi64, item->sym, item->offset);
 			break;
 		}
 
