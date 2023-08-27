@@ -150,9 +150,19 @@ emit_const(const struct expression *expr, FILE *out)
 		}
 		xfprintf(out, "]");
 		break;
+	case STORAGE_TUPLE:
+		xfprintf(out, "(");
+		for (const struct tuple_constant *item = val->tuple;
+				item; item = item->next) {
+			emit_const(item->value, out);
+			if (item->next) {
+				xfprintf(out, ", ");
+			}
+		}
+		xfprintf(out, ")");
+		break;
 	case STORAGE_SLICE:
 	case STORAGE_STRUCT:
-	case STORAGE_TUPLE:
 	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_ALIAS:
