@@ -52,10 +52,15 @@ qemit_type(const struct qbe_def *def, FILE *out)
 	const struct type *base = def->type.base;
 	if (base) {
 		char *tn = gen_typename(base);
-		xfprintf(out, "# %s [id: %u; size: %zu]\n", tn, base->id, base->size);
+		xfprintf(out, "# %s [id: %u; size: ", tn, base->id);
 		free(tn);
+		if (base->size != SIZE_UNDEFINED) {
+			xfprintf(out, "%zu]\n", base->size);
+		} else {
+			xfprintf(out, "undefined]\n");
+		}
 		xfprintf(out, "type :%s =", def->name);
-		if (base->align != (size_t)-1) {
+		if (base->align != ALIGN_UNDEFINED) {
 			xfprintf(out, " align %zu", base->align);
 		}
 	} else {

@@ -450,8 +450,19 @@ emit_decl_type(struct declaration *decl, FILE *out)
 	} else {
 		emit_exported_type(decl->type->alias.type, out, ident);
 	}
-	xfprintf(out, "; // size: %zd, align: %zd, id: %u\n",
-		decl->type->size, decl->type->align, decl->type->id);
+	xfprintf(out, "; // size: ");
+	if (decl->type->size == SIZE_UNDEFINED) {
+		xfprintf(out, "undefined");
+	} else {
+		xfprintf(out, "%zu", decl->type->size);
+	}
+	xfprintf(out, ", align: ");
+	if (decl->type->align == ALIGN_UNDEFINED) {
+		xfprintf(out, "undefined");
+	} else {
+		xfprintf(out, "%zu", decl->type->align);
+	}
+	xfprintf(out, ", id: %u\n", decl->type->id);
 	free(ident);
 }
 
