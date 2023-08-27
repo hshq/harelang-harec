@@ -15,6 +15,6 @@ enum eval_result {
 
 // Evaluates an expression at compile time.
 enum eval_result eval_expr(struct context *ctx,
-	struct expression *in, struct expression *out);
+	const struct expression *in, struct expression *out);
 
 #endif
