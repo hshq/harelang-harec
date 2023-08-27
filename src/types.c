@@ -383,7 +383,6 @@ type_is_constant(const struct type *type)
 uint32_t
 type_hash(const struct type *type)
 {
-	// XXX: ARCH
 	uint32_t hash = FNV1A_INIT;
 	hash = fnv1a(hash, type->storage);
 	hash = fnv1a(hash, type->flags);
