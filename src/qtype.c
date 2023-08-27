@@ -140,9 +140,9 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		}
 		break;
 	case STORAGE_TAGGED:
-		field->type = &qbe_word; // XXX: ARCH
+		field->type = &qbe_word;
 		field->count = 1;
-		if (type->size != builtin_type_uint.size) {
+		if (type->size != builtin_type_u32.size) {
 			field->next = xcalloc(1, sizeof(struct qbe_field));
 			field = field->next;
 			field->type = tagged_qtype(ctx, type);
