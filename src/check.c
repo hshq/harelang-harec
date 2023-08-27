@@ -1116,8 +1116,6 @@ check_expr_binarithm(struct context *ctx,
 
 	struct expression *lvalue = xcalloc(1, sizeof(struct expression)),
 		*rvalue = xcalloc(1, sizeof(struct expression));
-	// XXX: Should hints be passed down?
-	(void)hint;
 	check_expression(ctx, aexpr->binarithm.lvalue, lvalue, NULL);
 	check_expression(ctx, aexpr->binarithm.rvalue, rvalue, NULL);
 
