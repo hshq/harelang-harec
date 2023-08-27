@@ -68,6 +68,8 @@ fn reject() void = {
 		"export fn main() void = :outer { defer { yield :outer; }; };",
 		"export fn main() void = for (true) { defer break; };",
 		"export fn main() void = for (true) { defer continue; };",
+		"export fn main() void = { defer defer 0; };",
+		"export fn main() void = { defer return; };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
@@ -76,17 +78,107 @@ fn reject() void = {
 };
 
 fn noreturn() void = {
+	defer {
+		defer { abort(); };
+		defer exit();
+	};
+
 	defer x = 30;
 	for (true) {
 		defer x = 20;
-		exit();
+		// above defers are run before this executes, so this is never
+		// actually reached
+		abort();
 	};
 };
 
 @noreturn fn exit() void = {
 	assert(x == 30);
-	rt::exit(0);
+	x = 0;
+	defer rt::exit(x);
+	(void: !void: (void | !void))!; // void
+	x = 1;
+	abort();
 };
+
+fn nested() void = {
+	let sl: []size = [];
+	defer free(sl);
+	defer {
+		assert(len(sl) == 7);
+		for (let i = 0z; i < len(sl); i += 1) {
+			assert(sl[i] == i);
+		};
+	};
+
+	defer {
+		defer append(sl, 6);
+		defer if (true) {
+			append(sl, 3);
+			defer append(sl, 5);
+			append(sl, 4);
+		};
+		append(sl, 2);
+	};
+	defer append(sl, 1);
+	append(sl, 0);
+};
+
+fn spam() void = {
+	// regression test: ensure harec doesn't generate exponential IR here
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+	defer spamfunc()!;
+};
+
+fn spamfunc() (void | !void) = void;
 
 export fn main() void = {
 	basics();
@@ -95,5 +187,7 @@ export fn main() void = {
 	loops();
 	control();
 	reject();
+	nested();
+	spam();
 	noreturn();
 };

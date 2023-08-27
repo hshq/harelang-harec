@@ -59,14 +59,14 @@ emit_const(const struct expression *expr, FILE *out)
 	assert(expr->type == EXPR_CONSTANT);
 	const struct expression_constant *val = &expr->constant;
 	assert(!val->object);
-	switch (type_dealias(NULL, expr->result)->storage) {
+	const struct type *t = type_dealias(NULL, expr->result);
+	switch (t->storage) {
 	case STORAGE_BOOL:
 		xfprintf(out, "%s", val->bval ? "true" : "false");
 		break;
 	case STORAGE_F32:
 	case STORAGE_F64:
-	case STORAGE_FCONST:
-	{
+	case STORAGE_FCONST:;
 		const char *suffix = storage_to_suffix(expr->result->storage);
 		if (isnan(val->fval)) {
 			xfprintf(out, "0.0%s / 0.0%s", suffix, suffix);
@@ -77,7 +77,6 @@ emit_const(const struct expression *expr, FILE *out)
 			xfprintf(out, "%a%s", val->fval, suffix);
 		}
 		break;
-	}
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
@@ -119,8 +118,7 @@ emit_const(const struct expression *expr, FILE *out)
 		};
 		xfprintf(out, "\"");
 		break;
-	case STORAGE_ENUM: {
-		const struct type *t = type_dealias(NULL, expr->result);
+	case STORAGE_ENUM:;
 		char *ident = identifier_unparse(&expr->result->alias.ident);
 		if (t->alias.type->storage == STORAGE_UINTPTR) {
 			xfprintf(out, "%" PRIuMAX ": uintptr", val->uval);
@@ -133,34 +131,38 @@ emit_const(const struct expression *expr, FILE *out)
 		}
 		free(ident);
 		break;
-	}
 	case STORAGE_TAGGED:
 		emit_const(expr->constant.tagged.value, out);
 		xfprintf(out, ": ");
 		emit_type(expr->constant.tagged.tag, out);
 		break;
-	case STORAGE_ARRAY: {
+	case STORAGE_ARRAY:
 		xfprintf(out, "[");
-		const struct type *t = type_dealias(NULL, expr->result);
-		struct array_constant *item = val->array;
-		if (t->array.expandable) {
+		for (const struct array_constant *item = val->array;
+				item; item = item->next) {
 			emit_const(item->value, out);
+			if (item->next) {
+				xfprintf(out, ", ");
+			}
+		}
+		if (t->array.expandable) {
 			xfprintf(out, "...");
-		} else {
-			for (size_t i = 0; i < t->array.length; i += 1) {
-				if (i > 0) {
-					xfprintf(out, ",");
-				}
-				emit_const(item->value, out);
-				item = item->next;
-			};
 		}
 		xfprintf(out, "]");
 		break;
-	}
+	case STORAGE_TUPLE:
+		xfprintf(out, "(");
+		for (const struct tuple_constant *item = val->tuple;
+				item; item = item->next) {
+			emit_const(item->value, out);
+			if (item->next) {
+				xfprintf(out, ", ");
+			}
+		}
+		xfprintf(out, ")");
+		break;
 	case STORAGE_SLICE:
 	case STORAGE_STRUCT:
-	case STORAGE_TUPLE:
 	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_ALIAS:
@@ -266,7 +268,7 @@ emit_type(const struct type *type, FILE *out)
 		if (type->array.length == SIZE_UNDEFINED) {
 			xfprintf(out, "[*]");
 		} else {
-			xfprintf(out, "[%zd]", type->array.length);
+			xfprintf(out, "[%zu]", type->array.length);
 		}
 		ret &= emit_type(type->array.members, out);
 		break;
@@ -450,8 +452,19 @@ emit_decl_type(struct declaration *decl, FILE *out)
 	} else {
 		emit_exported_type(decl->type->alias.type, out, ident);
 	}
-	xfprintf(out, "; // size: %zd, align: %zd, id: %u\n",
-		decl->type->size, decl->type->align, decl->type->id);
+	xfprintf(out, "; // size: ");
+	if (decl->type->size == SIZE_UNDEFINED) {
+		xfprintf(out, "undefined");
+	} else {
+		xfprintf(out, "%zu", decl->type->size);
+	}
+	xfprintf(out, ", align: ");
+	if (decl->type->align == ALIGN_UNDEFINED) {
+		xfprintf(out, "undefined");
+	} else {
+		xfprintf(out, "%zu", decl->type->align);
+	}
+	xfprintf(out, ", id: %u\n", decl->type->id);
 	free(ident);
 }
 

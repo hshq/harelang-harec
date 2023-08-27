@@ -33,7 +33,9 @@ error(struct context *ctx, const struct location loc, const char *fmt, ...)
 }
 
 static enum eval_result
-eval_access(struct context *ctx, struct expression *in, struct expression *out)
+eval_access(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	struct expression tmp = {0};
 	enum eval_result r;
@@ -164,7 +166,9 @@ ftrunc(struct context *ctx, const struct type *type, double val)
 }
 
 static enum eval_result
-eval_binarithm(struct context *ctx, struct expression *in, struct expression *out)
+eval_binarithm(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	struct expression lvalue = {0}, rvalue = {0};
 	enum eval_result r = eval_expr(ctx, in->binarithm.lvalue, &lvalue);
@@ -397,7 +401,9 @@ eval_binarithm(struct context *ctx, struct expression *in, struct expression *ou
 }
 
 static enum eval_result
-eval_const(struct context *ctx, struct expression *in, struct expression *out)
+eval_const(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	enum type_storage storage = type_dealias(ctx, out->result)->storage;
 	if (storage == STORAGE_ENUM) {
@@ -506,7 +512,7 @@ eval_const(struct context *ctx, struct expression *in, struct expression *out)
 static void
 eval_expand_array(struct context *ctx,
 	const struct type *intype, const struct type *outtype,
-	struct expression *in, struct expression *out)
+	const struct expression *in, struct expression *out)
 {
 	assert(in->type == EXPR_CONSTANT);
 	assert(out->type == EXPR_CONSTANT);
@@ -526,7 +532,7 @@ eval_expand_array(struct context *ctx,
 }
 
 static enum eval_result
-eval_type_assertion(struct context *ctx, struct expression *in,
+eval_type_assertion(struct context *ctx, const struct expression *in,
 		struct expression *out)
 {
 	struct expression val = {0};
@@ -547,7 +553,7 @@ eval_type_assertion(struct context *ctx, struct expression *in,
 }
 
 static enum eval_result
-eval_type_test(struct context *ctx, struct expression *in,
+eval_type_test(struct context *ctx, const struct expression *in,
 		struct expression *out)
 {
 	struct expression val = {0};
@@ -565,7 +571,9 @@ eval_type_test(struct context *ctx, struct expression *in,
 }
 
 static enum eval_result
-eval_cast(struct context *ctx, struct expression *in, struct expression *out)
+eval_cast(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	struct expression val = {0};
 	enum eval_result r = eval_expr(ctx, in->cast.value, &val);
@@ -683,7 +691,9 @@ eval_cast(struct context *ctx, struct expression *in, struct expression *out)
 }
 
 static enum eval_result
-eval_measurement(struct context *ctx, struct expression *in, struct expression *out)
+eval_measurement(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	assert(in->type == EXPR_MEASURE);
 	const struct type *expr_type;
@@ -888,7 +898,9 @@ autofill_struct(struct context *ctx, const struct type *type, struct struct_cons
 }
 
 static enum eval_result
-eval_struct(struct context *ctx, struct expression *in, struct expression *out)
+eval_struct(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	assert(in->type == EXPR_STRUCT);
 	assert(type_dealias(ctx, in->result)->storage != STORAGE_UNION); // TODO
@@ -935,7 +947,9 @@ eval_struct(struct context *ctx, struct expression *in, struct expression *out)
 }
 
 static enum eval_result
-eval_tuple(struct context *ctx, struct expression *in, struct expression *out)
+eval_tuple(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	assert(in->type == EXPR_TUPLE);
 	const struct type *type = type_dealias(ctx, in->result);
@@ -966,7 +980,9 @@ eval_tuple(struct context *ctx, struct expression *in, struct expression *out)
 
 
 static enum eval_result
-eval_unarithm(struct context *ctx, struct expression *in, struct expression *out)
+eval_unarithm(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	if (in->unarithm.op == UN_ADDRESS) {
 		if (in->unarithm.operand->result == &builtin_type_error) {
@@ -1018,7 +1034,9 @@ eval_unarithm(struct context *ctx, struct expression *in, struct expression *out
 }
 
 enum eval_result
-eval_expr(struct context *ctx, struct expression *in, struct expression *out)
+eval_expr(struct context *ctx,
+	const struct expression *in,
+	struct expression *out)
 {
 	out->result = in->result;
 	out->type = EXPR_CONSTANT;

@@ -240,6 +240,7 @@ struct expression_control {
 };
 
 struct expression_defer {
+	struct scope *scope;
 	struct expression *deferred;
 };
 

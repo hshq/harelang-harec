@@ -27,21 +27,29 @@ static struct gen_value gen_expr_with(struct gen_context *ctx,
 static void gen_global_decl(struct gen_context *ctx,
 	const struct declaration *decl);
 
+static struct gen_scope *push_scope(struct gen_context *ctx,
+	const struct scope *scope);
+static void pop_scope(struct gen_context *ctx, bool gendefers);
+
 static void
 gen_defers(struct gen_context *ctx, struct gen_scope *scope)
 {
-	if (ctx->deferring || !scope) {
+	if (!scope) {
 		return;
 	}
-	ctx->deferring = true;
 	if (scope->defers) {
 		pushc(ctx->current, "gen defers");
 	}
-	for (struct gen_defer *defer = scope->defers; defer;
-			defer = defer->next) {
-		gen_expr(ctx, defer->expr);
+	struct gen_defer *defers = scope->defers;
+	while (scope->defers) {
+		struct gen_defer *defer = scope->defers;
+		assert(defer->expr->type == EXPR_DEFER);
+		scope->defers = scope->defers->next;
+		push_scope(ctx, defer->expr->defer.scope);
+		gen_expr(ctx, defer->expr->defer.deferred);
+		pop_scope(ctx, false);
 	}
-	ctx->deferring = false;
+	scope->defers = defers;
 }
 
 static struct gen_scope *
@@ -174,6 +182,13 @@ static void
 gen_fixed_abort(struct gen_context *ctx,
 	struct location loc, enum fixed_aborts reason)
 {
+	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
+		gen_defers(ctx, scope);
+		if (scope->scope->class == SCOPE_DEFER) {
+			break;
+		}
+	}
+
 	struct expression eloc;
 	mkstrconst(&eloc, "%s:%d:%d", sources[loc.file], loc.lineno, loc.colno);
 	struct gen_value msg = gen_expr(ctx, &eloc);
@@ -771,11 +786,14 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 		msg = gen_expr(ctx, expr->assert.message);
 	}
 
-	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
-		gen_defers(ctx, scope);
-	}
-
 	if (expr->assert.message) {
+		for (struct gen_scope *scope = ctx->scope;
+				scope; scope = scope->parent) {
+			gen_defers(ctx, scope);
+			if (scope->scope->class == SCOPE_DEFER) {
+				break;
+			}
+		}
 		struct qbe_value qmsg = mkqval(ctx, &msg), qloc = mkqval(ctx, &gloc);
 		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.abort, &qloc, &qmsg, NULL);
 		pushi(ctx->current, NULL, Q_HLT, NULL);
@@ -1233,6 +1251,9 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		for (struct gen_scope *scope = ctx->scope; scope;
 				scope = scope->parent) {
 			gen_defers(ctx, scope);
+			if (scope->scope->class == SCOPE_DEFER) {
+				break;
+			}
 		}
 	}
 
@@ -2093,7 +2114,7 @@ static struct gen_value
 gen_expr_defer(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_defer *defer = xcalloc(1, sizeof(struct gen_defer));
-	defer->expr = expr->defer.deferred;
+	defer->expr = expr;
 	defer->next = ctx->scope->defers;
 	ctx->scope->defers = defer;
 	return gv_void;
