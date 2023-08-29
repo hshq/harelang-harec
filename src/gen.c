@@ -2985,6 +2985,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	const struct type *srctype = type_dealias(NULL, object.type);
 
 	bool hasstart = expr->slice.start, hasend = expr->slice.end;
+	bool haslength = true;
 	bool check_bounds = !expr->slice.bounds_checked && (hasstart || hasend);
 	struct gen_value length;
 	struct qbe_value qlength;
@@ -3004,6 +3005,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 		} else {
 			assert(expr->slice.end);
 			check_bounds = false;
+			haslength = false;
 		}
 		qbase = mkqval(ctx, &object);
 		break;
@@ -3074,7 +3076,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, "newlen.%d");
 	pushi(ctx->current, &newlen, Q_SUB, &qend, &qstart, NULL);
 	struct qbe_value newcap = mkqtmp(ctx, ctx->arch.sz, "newcap.%d");
-	if (check_bounds) {
+	if (haslength) {
 		pushi(ctx->current, &newcap, Q_SUB, &qlength, &qstart, NULL);
 	} else {
 		pushi(ctx->current, &newcap, Q_COPY, &newlen, NULL);

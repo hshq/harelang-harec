@@ -233,6 +233,29 @@ fn misc_reject() void = {
 	) as exited != EXIT_SUCCESS);
 };
 
+fn lencap(s: []int) (size, size) = {
+	let ptr = &s: *struct {
+		data: *[*]int,
+		length: size,
+		capacity: size,
+	};
+	return (ptr.length, ptr.capacity);
+};
+
+fn cap_borrowed() void = {
+	// size defined, cap = size - L
+	let b: [42]int = [0...];
+	let (length, capacity) = lencap(b[20..25]);
+	assert(length == 5);
+	assert(capacity == 22);
+
+	// no size defined, cap = H - L
+	let b2: *[*]int = &b;
+	let (length, capacity) = lencap(b2[20..25]);
+	assert(length == 5);
+	assert(capacity == 5);
+};
+
 export fn main() void = {
 	from_array();
 	storage();
@@ -243,4 +266,5 @@ export fn main() void = {
 	recursive_structure();
 	expandable();
 	misc_reject();
+	cap_borrowed();
 };
