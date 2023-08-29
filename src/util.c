@@ -155,7 +155,7 @@ errline(struct location loc)
 		const char *no_color = getenv("NO_COLOR");
 		const char *harec_color = getenv("HAREC_COLOR");
 		if (harec_color) {
-			color = strcmp(harec_color, "0") == 0;
+			color = strcmp(harec_color, "0") != 0;
 		} else if ((no_color && *no_color != '\0')
 				|| !isatty(fileno(stderr))) {
 			color = false;
