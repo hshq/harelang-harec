@@ -83,10 +83,10 @@ void gen(const struct unit *unit,
 void rtfunc_init(struct gen_context *ctx);
 struct gen_value mkgtemp(struct gen_context *ctx,
 	const struct type *type, const char *fmt);
-struct qbe_value mkqval(struct gen_context *ctx, struct gen_value *value);
-struct qbe_value mklval(struct gen_context *ctx, struct gen_value *value);
+struct qbe_value mkqval(struct gen_context *ctx, const struct gen_value *value);
+struct qbe_value mklval(struct gen_context *ctx, const struct gen_value *value);
 struct qbe_value mkcopy(struct gen_context *ctx,
-	struct gen_value *value, const char *fmt);
+	const struct gen_value *value, const char *fmt);
 struct qbe_value mkqtmp(struct gen_context *ctx,
 	const struct qbe_type *qtype, const char *fmt);
 struct qbe_value mkrtfunc(struct gen_context *ctx, const char *name);

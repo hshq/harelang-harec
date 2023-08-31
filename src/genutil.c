@@ -24,7 +24,7 @@ rtfunc_init(struct gen_context *ctx)
 }
 
 static struct qbe_value
-mkval(struct gen_value *value, const struct qbe_type *type)
+mkval(const struct gen_value *value, const struct qbe_type *type)
 {
 	struct qbe_value qval = {0};
 	switch (value->kind) {
@@ -47,19 +47,19 @@ mkval(struct gen_value *value, const struct qbe_type *type)
 }
 
 struct qbe_value
-mkqval(struct gen_context *ctx, struct gen_value *value)
+mkqval(struct gen_context *ctx, const struct gen_value *value)
 {
 	return mkval(value, qtype_lookup(ctx, value->type, true));
 }
 
 struct qbe_value
-mklval(struct gen_context *ctx, struct gen_value *value)
+mklval(struct gen_context *ctx, const struct gen_value *value)
 {
 	return mkval(value, ctx->arch.ptr);
 }
 
 struct qbe_value
-mkcopy(struct gen_context *ctx, struct gen_value *value, const char *fmt)
+mkcopy(struct gen_context *ctx, const struct gen_value *value, const char *fmt)
 {
 	struct qbe_value qval = mkqval(ctx, value);
 	struct qbe_value copy = mkqtmp(ctx, ctx->arch.ptr, fmt);
