@@ -341,7 +341,7 @@ eval_binarithm(struct context *ctx,
 		} else if (type_is_integer(ctx, lvalue.result)
 				|| type_dealias(ctx, lvalue.result)->storage == STORAGE_POINTER) {
 			bval = itrunc(ctx, lvalue.result, ulval) == itrunc(ctx, rvalue.result, urval);
-		} else if (lvalue.result->storage == STORAGE_BOOL) {
+		} else if (type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL) {
 			bval = lvalue.constant.bval == rvalue.constant.bval;
 		} else {
 			assert(type_dealias(ctx, lvalue.result)->storage == STORAGE_STRING);
@@ -644,7 +644,7 @@ eval_cast(struct context *ctx,
 		}
 		return EVAL_OK;
 	case STORAGE_SLICE:
-		assert(val.result->storage == STORAGE_ARRAY);
+		assert(type_dealias(ctx, val.result)->storage == STORAGE_ARRAY);
 		out->constant = val.constant;
 		return EVAL_OK;
 	case STORAGE_F32:
