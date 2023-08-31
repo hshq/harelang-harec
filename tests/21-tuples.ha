@@ -23,6 +23,14 @@ fn indexing() void = {
 	assert(x.1e+0 == 1337);
 };
 
+fn assignment() void = {
+	let x = (42, 1337z);
+	assert(x.0 == 42 && x.1 == 1337);
+	x.0 = 1337;
+	x.1 = 42;
+	assert(x.0 == 1337 && x.1 == 42);
+};
+
 fn func(in: (int, size)) (int, size) = (in.0 + 1, in.1 + 1);
 fn eval_expr_access() void = {
 	static assert((42, 0).0 == 42 && (42, 0).1 == 0);
@@ -199,6 +207,7 @@ fn _never() void = {
 export fn main() void = {
 	storage();
 	indexing();
+	assignment();
 	funcs();
 	eval_expr_tuple();
 	eval_expr_access();
