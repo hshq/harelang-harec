@@ -176,39 +176,16 @@ emit_const(const struct expression *expr, FILE *out)
 	}
 }
 
-static int
-field_compar(const void *_a, const void *_b)
-{
-	const struct struct_field **a = (const struct struct_field **)_a;
-	const struct struct_field **b = (const struct struct_field **)_b;
-	return (*a)->offset - (*b)->offset;
-}
-
 static void
 emit_struct(const struct type *type, FILE *out)
 {
-	size_t n = 0;
-	for (const struct struct_field *f = type->struct_union.fields;
-			f; f = f->next) {
-		++n;
-	}
-	const struct struct_field **fields = xcalloc(n,
-		sizeof(const struct struct_field *));
-	n = 0;
-	for (const struct struct_field *f = type->struct_union.fields;
-			f; f = f->next) {
-		fields[n++] = f;
-	}
-
-	qsort(fields, n, sizeof(fields[0]), field_compar);
-
 	xfprintf(out, "%s %s{ ",
 			type->storage == STORAGE_STRUCT ? "struct" : "union",
 			type->struct_union.packed ? "@packed " : "");
-	for (size_t i = 0; i < n; ++i) {
-		const struct struct_field *f = fields[i];
+	for (const struct struct_field *f = type->struct_union.fields;
+			f; f = f->next) {
 		if (!type->struct_union.c_compat) {
-			xfprintf(out, "@offset(%zd) ", f->offset);
+			xfprintf(out, "@offset(%zu) ", f->offset);
 		}
 		if (f->name) {
 			xfprintf(out, "%s: ", f->name);

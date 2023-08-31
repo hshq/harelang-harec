@@ -8,14 +8,6 @@
 #include "types.h"
 #include "util.h"
 
-static int
-sf_compar(const void *_a, const void *_b)
-{
-	const struct struct_field **a = (const struct struct_field **)_a;
-	const struct struct_field **b = (const struct struct_field **)_b;
-	return (int)(*a)->offset - (int)(*b)->offset;
-}
-
 static const struct qbe_type *
 tagged_qtype(struct gen_context *ctx, const struct type *type)
 {
@@ -102,30 +94,16 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 			field->count = type->size;
 			break;
 		}
-		size_t n = 0;
 		for (struct struct_field *tfield = type->struct_union.fields;
 				tfield; tfield = tfield->next) {
-			++n;
-		}
-		struct struct_field **tfields =
-			xcalloc(n, sizeof(struct struct_field *));
-		size_t i = 0;
-		for (struct struct_field *tfield = type->struct_union.fields;
-				tfield; tfield = tfield->next, ++i) {
-			tfields[i] = tfield;
-		}
-		qsort(tfields, n, sizeof(struct struct_field *), sf_compar);
-		for (size_t i = 0; i < n; ++i) {
-			struct struct_field *tfield = tfields[i];
 			field->type = qtype_lookup(ctx, tfield->type, true);
 			field->count = 1;
 
-			if (i + 1 < n) {
+			if (tfield->next) {
 				field->next = xcalloc(1, sizeof(struct qbe_field));
 				field = field->next;
 			}
 		}
-		free(tfields);
 		break;
 	case STORAGE_TUPLE:
 		for (const struct type_tuple *tuple = &type->tuple;

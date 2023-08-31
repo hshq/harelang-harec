@@ -156,19 +156,20 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	const struct ast_struct_union_field *afield,
 	bool *ccompat, bool size_only, bool last)
 {
-	while (*fields && (!afield->name || !(*fields)->name || strcmp((*fields)->name, afield->name) < 0)) {
+	// XXX: fuck linked lists all my homies hate linked lists
+	while (*fields && (!afield->name || !(*fields)->name
+			|| strcmp((*fields)->name, afield->name) != 0)) {
 		fields = &(*fields)->next;
 	}
-	struct struct_field *field = *fields;
-	if (field != NULL && afield->name && field->name && strcmp(field->name, afield->name) == 0) {
+	if (*fields != NULL) {
+		assert(afield->name != NULL);
 		error(store->check_context, afield->type->loc,
 			"Duplicate struct/union member '%s'", afield->name);
 		return NULL;
 	}
 	// XXX: leaks if size_only
 	*fields = xcalloc(1, sizeof(struct struct_field));
-	(*fields)->next = field;
-	field = *fields;
+	struct struct_field *field = *fields;
 
 	if (afield->name) {
 		field->name = xstrdup(afield->name);
