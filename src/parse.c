@@ -297,9 +297,6 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 		case T_ELLIPSIS:
 			*next = NULL;
 			type->variadism = VARIADISM_C;
-			if (lex(lexer, &tok) != T_COMMA) {
-				unlex(lexer, &tok);
-			}
 			want(lexer, T_RPAREN, NULL);
 			return;
 		case T_RPAREN:
@@ -318,9 +315,6 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 			break;
 		case T_ELLIPSIS:
 			type->variadism = VARIADISM_HARE;
-			if (lex(lexer, &tok) != T_COMMA) {
-				unlex(lexer, &tok);
-			}
 			want(lexer, T_RPAREN, NULL);
 			return;
 		case T_RPAREN:
