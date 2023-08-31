@@ -978,9 +978,6 @@ parse_struct_literal(struct lexer *lexer, struct identifier ident)
 		case T_ELLIPSIS:
 			synassert(ident.name != NULL, &tok, T_RBRACE, T_EOF);
 			exp->_struct.autofill = true;
-			if (lex(lexer, &tok) != T_COMMA) {
-				unlex(lexer, &tok);
-			}
 			want(lexer, T_RBRACE, &tok);
 			unlex(lexer, &tok);
 			break;
