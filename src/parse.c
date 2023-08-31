@@ -1198,20 +1198,18 @@ parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		arg = *next = xcalloc(1, sizeof(struct ast_call_argument));
 		arg->value = parse_expression(lexer);
 
-		if (lex(lexer, &tok) == T_ELLIPSIS) {
-			arg->variadic = true;
-		} else {
-			unlex(lexer, &tok);
-		}
-
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			break;
+		case T_ELLIPSIS:
+			arg->variadic = true;
+			want(lexer, T_RPAREN, &tok);
+			// fallthrough
 		case T_RPAREN:
 			unlex(lexer, &tok);
 			break;
 		default:
-			synerr(&tok, T_COMMA, T_RPAREN, T_EOF);
+			synerr(&tok, T_COMMA, T_RPAREN, T_ELLIPSIS, T_EOF);
 		}
 
 		next = &arg->next;
