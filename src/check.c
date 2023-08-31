@@ -2916,7 +2916,7 @@ check_expr_switch(struct context *ctx,
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
 	const struct type *type = type_dealias(ctx, value->result);
 	expr->_switch.value = value;
-	if (!type_is_numeric(ctx, type)
+	if (!type_is_integer(ctx, type)
 			&& type_dealias(ctx, type)->storage != STORAGE_POINTER
 			&& type_dealias(ctx, type)->storage != STORAGE_STRING
 			&& type_dealias(ctx, type)->storage != STORAGE_BOOL
