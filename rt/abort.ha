@@ -1,4 +1,7 @@
-export @noreturn @symbol("rt.abort") fn _abort(loc: str, msg: str) void = {
+// _abort and abort_fixed return void instead of never so they don't need to
+// emit another abort at the end. abort() returns never so this isn't an issue
+
+export @symbol("rt.abort") fn _abort(loc: str, msg: str) void = {
 	const prefix = "Abort: ";
 	const sep = ": ";
 	write(2, constchar(prefix), len(prefix));
@@ -19,10 +22,9 @@ const reasons: [_]str = [
 	"slice allocation capacity smaller than initializer",	// 5
 	"assertion failed",			// 6
 	"error occurred",			// 7
-	"return from @noreturn function",	// 8
 ];
 
-export @noreturn fn abort_fixed(loc: str, i: int) void = {
+export fn abort_fixed(loc: str, i: int) void = {
 	const prefix = "Abort: ";
 	const sep = ": ";
 	write(2, constchar(prefix), len(prefix));

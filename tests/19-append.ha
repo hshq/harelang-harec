@@ -102,6 +102,12 @@ fn reject() void = {
 	") as exited != EXIT_SUCCESS); // object member type is nullable pointer
 };
 
+fn _never() void = {
+	let x: []int = [];
+	{ append(x, yield); };
+	{ append(x, [0...], yield); };
+};
+
 export fn main() void = {
 	basics();
 	multi();
@@ -109,4 +115,5 @@ export fn main() void = {
 	withlength();
 	typehints();
 	reject();
+	_never();
 };

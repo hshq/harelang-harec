@@ -106,6 +106,14 @@ fn reject() void = {
 	};
 };
 
+fn neverfunc(x: int) never = if (x == 1) exit(0) else abort();
+
+fn _never() void = {
+	if (false) neverfunc(0);
+	if (true) neverfunc(neverfunc(1));
+	abort();
+};
+
 export fn main() void = {
 	assert(simple() == 69);
 	pointers();
@@ -113,4 +121,5 @@ export fn main() void = {
 	cvaargs();
 	assert(x == 1337);
 	reject();
+	_never();
 };

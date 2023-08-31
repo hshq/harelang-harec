@@ -46,7 +46,6 @@ mkstrconst(struct expression *expr, const char *fmt, ...)
 
 	*expr = (struct expression) {
 		.type = EXPR_CONSTANT,
-		.terminates = false,
 		.result = &builtin_type_const_str,
 	};
 	expr->constant.string.value = s;
@@ -94,7 +93,6 @@ mkerror(const struct location loc, struct expression *expr)
 	expr->type = EXPR_CONSTANT;
 	expr->result = &builtin_type_error;
 	expr->constant.uval = 0; // XXX: ival?
-	expr->terminates = false;
 	expr->loc = loc;
 }
 
@@ -146,7 +144,7 @@ static struct expression *
 lower_implicit_cast(struct context *ctx,
 		const struct type *to, struct expression *expr)
 {
-	if (to == expr->result || expr->terminates) {
+	if (to == expr->result || expr->result->storage == STORAGE_NEVER) {
 		return expr;
 	}
 	
@@ -167,7 +165,6 @@ lower_implicit_cast(struct context *ctx,
 	struct expression *cast = xcalloc(1, sizeof(struct expression));
 	cast->type = EXPR_CAST;
 	cast->result = cast->cast.secondary = to;
-	cast->terminates = false;
 	cast->cast.kind = C_CAST;
 	cast->cast.value = expr;
 	cast->cast.lowered = true;
@@ -698,7 +695,9 @@ check_assert(struct context *ctx,
 			return;
 		}
 	} else {
-		expr->terminates = !e.is_static;
+		if (!e.is_static) {
+			expr->result = &builtin_type_never;
+		}
 	}
 	if (e.message == NULL) {
 		expr->assert.fixed_reason = ABORT_ANON_ASSERTION_FAILED;
@@ -989,6 +988,7 @@ type_promote(struct type_store *store,
 		}
 		return NULL;
 	case STORAGE_ERROR:
+	case STORAGE_NEVER:
 		return b;
 	case STORAGE_UINTPTR:
 		if (db->storage == STORAGE_SIZE
@@ -1053,6 +1053,7 @@ type_has_default(struct context *ctx, const struct type *type)
 	case STORAGE_ERROR:
 		return true;
 	case STORAGE_FUNCTION:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_TAGGED:
 	case STORAGE_VALIST:
@@ -1430,9 +1431,6 @@ check_expr_call(struct context *ctx,
 		return;
 	}
 	expr->result = fntype->func.result;
-	if (fntype->func.flags & FN_NORETURN) {
-		expr->terminates = true;
-	}
 
 	struct call_argument *arg, **next = &expr->call.args;
 	struct ast_call_argument *aarg = aexpr->call.args;
@@ -1518,11 +1516,6 @@ check_expr_cast(struct context *ctx,
 	// different nonterminal
 	check_expression(ctx, aexpr->cast.value, value,
 			secondary == &builtin_type_void ? NULL : secondary);
-	if (value->terminates) {
-		error(ctx, aexpr->cast.value->loc, expr,
-			"Cast must not operate on terminating expression");
-		return;
-	}
 
 	const struct type *primary = type_dealias(ctx, expr->cast.value->result);
 	if (primary->storage == STORAGE_ERROR) {
@@ -1764,24 +1757,13 @@ check_expr_compound(struct context *ctx,
 			list = *next;
 			next = &list->next;
 		}
-		if (alist && lexpr->terminates) {
+		if (alist && lexpr->result->storage == STORAGE_NEVER) {
 			error(ctx, alist->expr->loc, expr,
-				"A terminating expression may not be followed by additional expressions");
+				"Expression with result 'never' may not be followed by additional expressions");
 		}
 	}
 
-	expr->terminates = false;
-	if (lexpr->terminates && scope->yields == NULL) {
-		expr->terminates = true;
-		if (lexpr->type == EXPR_YIELD) {
-			const char *llabel = lexpr->control.label;
-			if (!llabel || (scope->label
-					&& strcmp(llabel, scope->label) == 0)) {
-				expr->terminates = false;
-			}
-		}
-	}
-	if (!lexpr->terminates) {
+	if (lexpr->result->storage != STORAGE_NEVER) {
 		// Add implicit `yield void` if control reaches end of compound
 		// expression.
 		struct type_tagged_union *result =
@@ -1877,6 +1859,7 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_UINTPTR:
 	case STORAGE_ALIAS:
 	case STORAGE_FUNCTION:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_RUNE:
@@ -1964,9 +1947,8 @@ check_expr_control(struct context *ctx,
 	const struct type *hint)
 {
 	expr->type = aexpr->type;
-	expr->result = &builtin_type_void;
+	expr->result = &builtin_type_never;
 	expr->control.label = aexpr->control.label;
-	expr->terminates = true;
 
 	enum scope_class want;
 	switch (expr->type) {
@@ -2120,33 +2102,18 @@ check_expr_if(struct context *ctx,
 
 	true_branch = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_if.true_branch, true_branch, hint);
-
+	const struct type *fresult = &builtin_type_void;
 	if (aexpr->_if.false_branch) {
 		false_branch = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_if.false_branch, false_branch, hint);
-
-		bool tt = true_branch->terminates, ft = false_branch->terminates;
-		if (tt && ft) {
-			expr->terminates = true;
-			expr->result = &builtin_type_void;
-		} else if (!tt && ft) {
-			expr->result = true_branch->result;
-		} else if (tt && !ft) {
-			expr->result = false_branch->result;
-		} else if (hint && type_is_assignable(ctx, hint, true_branch->result)
-				&& type_is_assignable(ctx, hint, false_branch->result)) {
-			expr->result = hint;
-		}
-	} else {
-		expr->terminates = false;
-		if (hint && type_is_assignable(ctx, hint, true_branch->result)
-				&& type_is_assignable(ctx, hint, &builtin_type_void)) {
-			expr->result = hint;
-		}
+		fresult = false_branch->result;
 	}
-	if (expr->result == NULL) {
+	if (hint && type_is_assignable(ctx, hint, true_branch->result)
+			&& type_is_assignable(ctx, hint, fresult)) {
+		expr->result = hint;
+	} else {
 		struct type_tagged_union _tags = {
-			.type = false_branch ? false_branch->result : &builtin_type_void,
+			.type = fresult,
 			.next = NULL,
 		}, tags = {
 			.type = true_branch->result,
@@ -2281,10 +2248,6 @@ check_expr_match(struct context *ctx,
 			scope_pop(&ctx->scope);
 		}
 
-		if (_case->value->terminates) {
-			continue;
-		}
-
 		if (expr->result == NULL) {
 			expr->result = _case->value->result;
 			tagged->type = expr->result;
@@ -2294,11 +2257,6 @@ check_expr_match(struct context *ctx,
 			next_tag = &tagged->next;
 			tagged->type = _case->value->result;
 		}
-	}
-
-	if (expr->result == NULL) {
-		expr->result = &builtin_type_void;
-		expr->terminates = true;
 	}
 
 	if (result_type.next) {
@@ -2317,8 +2275,7 @@ check_expr_match(struct context *ctx,
 		struct match_case *_case = expr->match.cases;
 		struct ast_match_case *acase = aexpr->match.cases;
 		while (_case) {
-			if (!_case->value->terminates && !type_is_assignable(ctx, 
-					expr->result, _case->value->result)) {
+			if (!type_is_assignable(ctx, expr->result, _case->value->result)) {
 				error(ctx, acase->exprs.expr->loc, expr,
 					"Match case is not assignable to result type");
 				return;
@@ -2446,11 +2403,6 @@ check_expr_propagate(struct context *ctx,
 		if (defer) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot use error propagation in a defer expression");
-			return;
-		}
-		if (ctx->fntype->func.flags & FN_NORETURN) {
-			error(ctx, aexpr->loc, expr,
-				"Cannot use error propagation inside @noreturn function");
 			return;
 		}
 	}
@@ -2582,8 +2534,7 @@ check_expr_propagate(struct context *ctx,
 		case_err->value->_return.value = lower_implicit_cast(ctx, 
 				ctx->fntype->func.result, rval);
 	}
-	case_err->value->terminates = true;
-	case_err->value->result = &builtin_type_void;
+	case_err->value->result = &builtin_type_never;
 
 	expr->match.cases = case_ok;
 	case_ok->next = case_err;
@@ -2609,15 +2560,9 @@ check_expr_return(struct context *ctx,
 		error(ctx, aexpr->loc, expr, "Cannot return outside a function body");
 		return;
 	}
-	if (ctx->fntype->func.flags & FN_NORETURN) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot return inside @noreturn function");
-		return;
-	}
 
 	expr->type = EXPR_RETURN;
-	expr->result = &builtin_type_void;
-	expr->terminates = true;
+	expr->result = &builtin_type_never;
 
 	struct expression *rval = xcalloc(1, sizeof(struct expression));
 	if (aexpr->_return.value) {
@@ -3034,10 +2979,6 @@ check_expr_switch(struct context *ctx,
 		};
 		check_expression(ctx, &compound, _case->value, hint);
 
-		if (_case->value->terminates) {
-			continue;
-		}
-
 		if (expr->result == NULL) {
 			expr->result = _case->value->result;
 			tagged->type = expr->result;
@@ -3047,11 +2988,6 @@ check_expr_switch(struct context *ctx,
 			next_tag = &tagged->next;
 			tagged->type = _case->value->result;
 		}
-	}
-
-	if (expr->result == NULL) {
-		expr->result = &builtin_type_void;
-		expr->terminates = true;
 	}
 
 	if (result_type.next) {
@@ -3070,8 +3006,7 @@ check_expr_switch(struct context *ctx,
 		struct switch_case *_case = expr->_switch.cases;
 		struct ast_switch_case *acase = aexpr->_switch.cases;
 		while (_case) {
-			if (!_case->value->terminates && !type_is_assignable(ctx, 
-					expr->result, _case->value->result)) {
+			if (!type_is_assignable(ctx, expr->result, _case->value->result)) {
 				error(ctx, acase->exprs.expr->loc, expr,
 					"Switch case is not assignable to result type");
 				return;
@@ -3542,7 +3477,7 @@ check_function(struct context *ctx,
 	// TODO: Pass errors up and deal with them at the end of check
 	handle_errors(ctx->errors);
 
-	if (!body->terminates && !type_is_assignable(ctx, obj->type->func.result, body->result)) {
+	if (!type_is_assignable(ctx, obj->type->func.result, body->result)) {
 		char *restypename = gen_typename(body->result);
 		char *fntypename = gen_typename(obj->type->func.result);
 		error(ctx, afndecl->body->loc, body,
@@ -3575,9 +3510,6 @@ check_function(struct context *ctx,
 		if (obj->type->func.result != &builtin_type_void) {
 			error(ctx, adecl->loc, NULL, "%s function must return void", flag);
 		}
-		if (obj->type->func.flags & FN_NORETURN) {
-			error(ctx, adecl->loc, NULL, "%s function must return", flag);
-		}
 		if (decl->exported) {
 			error(ctx, adecl->loc, NULL, "%s function cannot be exported", flag);
 		}
@@ -3585,9 +3517,6 @@ check_function(struct context *ctx,
 			error(ctx, adecl->loc, NULL, "%s function cannot have parameters", flag);
 		}
 	}
-	if (obj->type->func.flags & FN_NORETURN && obj->type->func.result != &builtin_type_void) {
-		error(ctx, adecl->loc, NULL, "@noreturn function must return void");
-	};
 
 	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
@@ -4082,13 +4011,14 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 void
 resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 {
+	struct location loc;
+	if (idecl->type == IDECL_ENUM_FLD) {
+		loc = idecl->field->field->loc;
+	} else {
+		loc = idecl->decl.loc;
+	}
+
 	if (idecl->type != IDECL_DECL || idecl->decl.decl_type != ADECL_TYPE) {
-		struct location loc;
-		if (idecl->type == IDECL_ENUM_FLD) {
-			loc = idecl->field->field->loc;
-		} else {
-			loc = idecl->decl.loc;
-		}
 		error_norec(ctx, loc, "'%s' is not a type",
 				identifier_unparse(&idecl->obj.name));
 	}
@@ -4121,6 +4051,10 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	((struct type *)alias)->alias.type =
 		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
 	assert(alias->alias.type != NULL);
+	if (alias->alias.type->storage == STORAGE_NEVER) {
+		error(ctx, loc, NULL, "Can't declare type alias of never");
+		((struct type *)alias)->alias.type = &builtin_type_error;
+	}
 
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_TYPE,

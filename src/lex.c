@@ -18,7 +18,6 @@ static const char *tokens[] = {
 	// Must be alpha sorted and match lex.h
 	[T_ATTR_FINI] = "@fini",
 	[T_ATTR_INIT] = "@init",
-	[T_ATTR_NORETURN] = "@noreturn",
 	[T_ATTR_OFFSET] = "@offset",
 	[T_ATTR_PACKED] = "@packed",
 	[T_ATTR_SYMBOL] = "@symbol",
@@ -59,6 +58,7 @@ static const char *tokens[] = {
 	[T_LEN] = "len",
 	[T_LET] = "let",
 	[T_MATCH] = "match",
+	[T_NEVER] = "never",
 	[T_NULL] = "null",
 	[T_NULLABLE] = "nullable",
 	[T_OFFSET] = "offset",
@@ -1146,6 +1146,7 @@ token_str(const struct token *tok)
 		case STORAGE_ERROR:
 		case STORAGE_FUNCTION:
 		case STORAGE_POINTER:
+		case STORAGE_NEVER:
 		case STORAGE_NULL:
 		case STORAGE_OPAQUE:
 		case STORAGE_RUNE:

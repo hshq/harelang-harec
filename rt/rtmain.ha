@@ -11,7 +11,7 @@ let envp: *[*]nullable *const u8 = null: *[*]nullable *const u8;
 
 export let status = 0;
 
-export @noreturn fn start_ha(iv: *[*]uintptr) void = {
+export fn start_ha(iv: *[*]uintptr) never = {
 	const ninit = (&init_end: uintptr - &init_start: uintptr): size
 		/ size(*fn() void);
 	for (let i = 0z; i < ninit; i += 1) {

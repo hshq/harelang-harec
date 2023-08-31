@@ -191,6 +191,11 @@ fn reject() void = {
 	};
 };
 
+fn _never() void = {
+	{ let x: (int, int) = (yield, 1); };
+	{ let (y, z): (int, int) = (yield, 1); };
+};
+
 export fn main() void = {
 	storage();
 	indexing();
@@ -200,4 +205,5 @@ export fn main() void = {
 	unpacking();
 	regression();
 	reject();
+	_never();
 };

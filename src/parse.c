@@ -414,6 +414,9 @@ parse_primitive_type(struct lexer *lexer)
 	case T_OPAQUE:
 		type->storage = STORAGE_OPAQUE;
 		break;
+	case T_NEVER:
+		type->storage = STORAGE_NEVER;
+		break;
 	case T_VALIST:
 		type->storage = STORAGE_VALIST;
 		break;
@@ -670,7 +673,7 @@ parse_type(struct lexer *lexer)
 		break;
 	}
 	struct ast_type *type = NULL;
-	bool _noreturn = false, nullable = false, unwrap = false;
+	bool nullable = false, unwrap = false;
 	switch (lex(lexer, &tok)) {
 	case T_BOOL:
 	case T_F32:
@@ -680,6 +683,7 @@ parse_type(struct lexer *lexer)
 	case T_I64:
 	case T_I8:
 	case T_INT:
+	case T_NEVER:
 	case T_OPAQUE:
 	case T_RUNE:
 	case T_SIZE:
@@ -744,17 +748,10 @@ parse_type(struct lexer *lexer)
 			break;
 		}
 		break;
-	case T_ATTR_NORETURN:
-		_noreturn = true;
-		want(lexer, T_FN, NULL);
-		// fallthrough
 	case T_FN:
 		type = mktype(&lexer->loc);
 		type->storage = STORAGE_FUNCTION;
 		parse_prototype(lexer, &type->func);
-		if (_noreturn) {
-			type->func.flags |= FN_NORETURN;
-		}
 		break;
 	case T_ELLIPSIS:
 		unwrap = true;
@@ -876,6 +873,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_VALIST:
 		assert(0); // Handled in a different nonterminal
 	case STORAGE_ERROR:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 		assert(0); // Invariant
 	}
@@ -2570,7 +2568,6 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 {
 	struct token tok = {0};
 	bool more = true;
-	bool _noreturn = false;
 	while (more) {
 		switch (lex(lexer, &tok)) {
 		case T_ATTR_FINI:
@@ -2585,9 +2582,6 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 		case T_ATTR_TEST:
 			decl->flags |= FN_TEST;
 			break;
-		case T_ATTR_NORETURN:
-			_noreturn = true;
-			break;
 		default:
 			more = false;
 			unlex(lexer, &tok);
@@ -2597,9 +2591,6 @@ parse_fn_decl(struct lexer *lexer, struct ast_function_decl *decl)
 	want(lexer, T_FN, NULL);
 	parse_identifier(lexer, &decl->ident, false);
 	parse_prototype(lexer, &decl->prototype);
-	if (_noreturn) {
-		decl->prototype.flags |= FN_NORETURN;
-	}
 
 	switch (lex(lexer, &tok)) {
 	case T_EQUAL:

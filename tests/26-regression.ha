@@ -28,6 +28,64 @@ type b = struct { c: c };
 type a = struct { b };
 type c = *a;
 
+fn control_never() void = {
+	let x = {
+		yield yield 0;
+	};
+	assert(x == 0);
+	x = {
+		return yield 1;
+	};
+	assert(x == 1);
+	x = {
+		let x: int = yield 2;
+		abort();
+	};
+	assert(x == 2);
+	{
+		for (true; yield) x += 1;
+	};
+	assert(x == 3);
+	{
+		for (let i: int = yield; true) x += 1;
+	};
+	assert(x == 3);
+	{
+		x = yield;
+		x = 4;
+	};
+	assert(x == 3);
+	{
+		x += yield;
+		abort();
+	};
+	assert({
+		let x = true;
+		x &&= yield x;
+		abort();
+	});
+
+	if (false) {
+		let x: int = abort();
+		x += abort();
+		let x = true;
+		x &&= abort();
+	};
+
+	control_never1() as int;
+	control_never2() as int;
+};
+
+fn control_never1() (int | void) = {
+	return return 0;
+};
+
+fn control_never2() (int | void) = {
+	{
+		yield return 0;
+	};
+};
+
 export fn main() void = {
 	let t = thing {
 		offs = 0,
@@ -130,4 +188,7 @@ export fn main() void = {
 	assert(0xffu8 + 1 >> 1 == 0);
 	assert(rt::compile("type a = *...b; type b = *...a;") as rt::exited != rt::EXIT_SUCCESS);
 	assert(rt::compile("def A = len([1]: []str);") as rt::exited != rt::EXIT_SUCCESS);
+
+	control_never();
+	assert(rt::compile("fn a() void = { abort(): int; };") as rt::exited != rt::EXIT_SUCCESS);
 };

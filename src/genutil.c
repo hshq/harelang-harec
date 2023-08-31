@@ -23,8 +23,8 @@ rtfunc_init(struct gen_context *ctx)
 	};
 }
 
-struct qbe_value
-mkqval(struct gen_context *ctx, struct gen_value *value)
+static struct qbe_value
+mkval(struct gen_value *value, const struct qbe_type *type)
 {
 	struct qbe_value qval = {0};
 	switch (value->kind) {
@@ -42,16 +42,20 @@ mkqval(struct gen_context *ctx, struct gen_value *value)
 		qval.name = value->name;
 		break;
 	}
-	qval.type = qtype_lookup(ctx, value->type, true);
+	qval.type = type;
 	return qval;
+}
+
+struct qbe_value
+mkqval(struct gen_context *ctx, struct gen_value *value)
+{
+	return mkval(value, qtype_lookup(ctx, value->type, true));
 }
 
 struct qbe_value
 mklval(struct gen_context *ctx, struct gen_value *value)
 {
-	struct qbe_value qval = mkqval(ctx, value);
-	qval.type = ctx->arch.ptr;
-	return qval;
+	return mkval(value, ctx->arch.ptr);
 }
 
 struct qbe_value
@@ -120,7 +124,9 @@ branch_copyresult(struct gen_context *ctx,
 	// the caller. This function facilitates that.
 	if (out
 		|| type_dealias(NULL, merged.type)->storage == STORAGE_VOID
-		|| type_dealias(NULL, result.type)->storage == STORAGE_VOID) {
+		|| merged.type->storage == STORAGE_NEVER
+		|| type_dealias(NULL, result.type)->storage == STORAGE_VOID
+		|| result.type->storage == STORAGE_NEVER) {
 		return;
 	}
 	struct qbe_value qmerged = mkqval(ctx, &merged);

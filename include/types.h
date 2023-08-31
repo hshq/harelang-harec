@@ -15,6 +15,7 @@ enum type_storage {
 	STORAGE_I64,
 	STORAGE_I8,
 	STORAGE_INT,
+	STORAGE_NEVER,
 	STORAGE_NULL,
 	STORAGE_OPAQUE,
 	STORAGE_RUNE,
@@ -75,10 +76,6 @@ enum variadism {
 	VARIADISM_HARE,
 };
 
-enum function_flags {
-	FN_NORETURN = 1 << 0,
-};
-
 struct type_func_param {
 	const struct type *type;
 	struct type_func_param *next;
@@ -88,7 +85,6 @@ struct type_func {
 	const struct type *result;
 	enum variadism variadism;
 	struct type_func_param *params;
-	unsigned int flags; // enum function_flags
 };
 
 struct type_const {
@@ -218,6 +214,7 @@ extern struct type
 	builtin_type_i32,
 	builtin_type_i64,
 	builtin_type_int,
+	builtin_type_never,
 	builtin_type_opaque,
 	builtin_type_u8,
 	builtin_type_u16,
@@ -238,6 +235,7 @@ extern struct type
 	builtin_type_const_i32,
 	builtin_type_const_i64,
 	builtin_type_const_int,
+	builtin_type_const_never,
 	builtin_type_const_opaque,
 	builtin_type_const_u8,
 	builtin_type_const_u16,

@@ -84,10 +84,17 @@ fn reject() void = {
 	") as exited != EXIT_SUCCESS); // insert expression doesn't have a length parameter
 };
 
+fn _never() void = {
+	let x: []int = [];
+	insert(x[0], return);
+	abort();
+};
+
 export fn main() void = {
 	basics();
 	multi();
 	_static();
 	typehints();
 	reject();
+	_never();
 };

@@ -177,6 +177,7 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	case STORAGE_VOID:
 	case STORAGE_FUNCTION:
 	case STORAGE_OPAQUE:
+	case STORAGE_NEVER:
 		abort(); // Invariant
 	}
 
@@ -231,6 +232,7 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_VALIST:
 		return ctx->arch.ptr;
 	case STORAGE_ERROR:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_VOID:
 		abort(); // Invariant
@@ -287,6 +289,7 @@ type_is_aggregate(const struct type *type)
 		lower_const(NULL, type, NULL);
 		return false;
 	case STORAGE_ERROR:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 		assert(0); // Invariant
 	}

@@ -77,29 +77,41 @@ fn reject() void = {
 	};
 };
 
-fn noreturn() void = {
-	defer {
-		defer { abort(); };
-		defer exit();
+fn _never() void = {
+	{
+		let x = 0;
+		defer x = 1;
+		abort(if (x == 0) yield else "defer ran too early");
 	};
 
-	defer x = 30;
-	for (true) {
-		defer x = 20;
+	defer {
+		defer abort();
+		defer {
+			let x = 0;
+			defer x = 1;
+			exit(x);
+		};
+	};
+
+	defer x += 1;
+	{
+		x = 0;
+		defer x += 1;
 		// above defers are run before this executes, so this is never
 		// actually reached
 		abort();
 	};
 };
 
-@noreturn fn exit() void = {
-	assert(x == 30);
-	x = 0;
+fn exit(x: int) never = {
+	assert(x == 0);
 	defer rt::exit(x);
 	(void: !void: (void | !void))!; // void
 	x = 1;
 	abort();
 };
+
+@fini fn fini() void = assert(x == 2);
 
 fn nested() void = {
 	let sl: []size = [];
@@ -189,5 +201,5 @@ export fn main() void = {
 	reject();
 	nested();
 	spam();
-	noreturn();
+	_never();
 };

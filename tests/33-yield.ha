@@ -14,7 +14,7 @@ fn basics() void = {
 	assert(y == 20);
 };
 
-fn termination() void = {
+fn _never() void = {
 	:outer {
 		let x: int = if (true) {
 			yield :outer;
@@ -41,6 +41,6 @@ fn cast_lowering() void = {
 
 export fn main() void = {
 	basics();
-	termination();
+	_never();
 	cast_lowering();
 };

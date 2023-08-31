@@ -168,6 +168,7 @@ emit_const(const struct expression *expr, FILE *out)
 	case STORAGE_ALIAS:
 	case STORAGE_ERROR:
 	case STORAGE_FUNCTION:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_VALIST:
@@ -243,6 +244,7 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_I64:
 	case STORAGE_I8:
 	case STORAGE_INT:
+	case STORAGE_NEVER:
 	case STORAGE_NULL:
 	case STORAGE_OPAQUE:
 	case STORAGE_RCONST:
@@ -298,9 +300,6 @@ emit_type(const struct type *type, FILE *out)
 		ret &= emit_struct(type, out);
 		break;
 	case STORAGE_FUNCTION:
-		if (type->func.flags & FN_NORETURN) {
-			xfprintf(out, "@noreturn ");
-		}
 		xfprintf(out, "fn(");
 		for (const struct type_func_param *param = type->func.params;
 				param; param = param->next) {
@@ -379,13 +378,11 @@ emit_decl_func(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	const struct type *fntype = decl->func.type;
-	xfprintf(out, "export");
+	xfprintf(out, "export ");
 	if (decl->symbol) {
-		xfprintf(out, " @symbol(\"%s\")", decl->symbol);
+		xfprintf(out, "@symbol(\"%s\") ", decl->symbol);
 	}
-	xfprintf(out, "%s fn %s(",
-		(fntype->func.flags & FN_NORETURN) ? " @noreturn" : "",
-		ident);
+	xfprintf(out, "fn %s(", ident);
 
 	for (struct type_func_param *param = fntype->func.params;
 			param; param = param->next) {
