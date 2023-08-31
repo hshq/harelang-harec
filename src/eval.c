@@ -343,6 +343,9 @@ eval_binarithm(struct context *ctx,
 			bval = itrunc(ctx, lvalue.result, ulval) == itrunc(ctx, rvalue.result, urval);
 		} else if (type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL) {
 			bval = lvalue.constant.bval == rvalue.constant.bval;
+		} else if (type_dealias(ctx, lvalue.result)->storage == STORAGE_RCONST
+				|| type_dealias(ctx, lvalue.result)->storage == STORAGE_RUNE) {
+			bval = lvalue.constant.rune == rvalue.constant.rune;
 		} else {
 			assert(type_dealias(ctx, lvalue.result)->storage == STORAGE_STRING);
 			if (lvalue.constant.string.len != rvalue.constant.string.len) {

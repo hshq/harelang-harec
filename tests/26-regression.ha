@@ -32,6 +32,7 @@ type d = [3]int;
 type e = bool;
 let x = [1, 2, 3]: d: []int;
 static assert(true: e == true: e);
+static assert('a' == 'a');
 
 fn control_never() void = {
 	let x = {
