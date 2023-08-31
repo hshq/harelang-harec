@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, exited, EXIT_SUCCESS, toutf8};
 
 def ARR: [3]u8 = [1, 2, 3];
 
@@ -310,6 +310,51 @@ fn reject() void = {
 
 	for (let i = 0z; i < len(failures); i += 1) {
 		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+	};
+
+	// usage of unexported type in exported declaration
+	let unexported_type = [
+		("a", "a { ... }"),
+		("[4]a", "[a { ... }, a { ... }, a { ... }, a { ... }]"),
+		("[]a", "[a { ... }]: []a"),
+		("nullable *fn(x: a) void", "null: nullable *fn(x: a) void"),
+		("nullable *fn() a", "null: nullable *fn() a"),
+		("nullable *a", "null: nullable *a"),
+		("struct { x: a }", "struct { x: a = a { ... } }"),
+		("nullable *struct { a }", "null: nullable *struct { a }"),
+		("nullable *union { x: a }", "null: nullable *union { x: a }"),
+		("(int | a)", "a { ... }"),
+		("(int, a)", "(0, a { ... })"),
+	];
+	let exported_decl = [
+		("export type b = ", ";", ""),
+		("export fn b(x: ", ") void = void;", ""),
+		("export fn b() ", " = ", ";"),
+		("export let b: ", ";", ""),
+		("export let b = ", "", ";"),
+		("export def b: ", " = ", ";"),
+		("export def b = ", "", ";"),
+	];
+	let buf: [256]u8 = [0...];
+	for (let i = 0z; i < len(unexported_type); i += 1) {
+		for (let j = 0z; j < len(exported_decl); j += 1) {
+			const t = unexported_type[i];
+			const d = exported_decl[j];
+			let buf = buf[..0];
+			static append(buf, toutf8("type a = struct { x: int };\n")...);
+			static append(buf, toutf8(d.0)...);
+			if (d.1 != "") {
+				static append(buf, toutf8(t.0)...);
+				static append(buf, toutf8(d.1)...);
+			};
+			if (d.2 != "") {
+				static append(buf, toutf8(t.1)...);
+				static append(buf, toutf8(d.2)...);
+			};
+			assert(compile(*(&buf: *str)) as exited != EXIT_SUCCESS);
+			static insert(buf[0], toutf8("export ")...);
+			assert(compile(*(&buf: *str)) as exited == EXIT_SUCCESS);
+		};
 	};
 };
 

@@ -3629,6 +3629,90 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 	}
 }
 
+static void
+unexported_type_error(struct context *ctx,
+	struct location loc, const struct type *type)
+{
+	char *s = gen_typename(type);
+	error(ctx, loc, NULL,
+		"Can't use unexported type %s in exported declaration", s);
+	free(s);
+}
+
+static void
+check_exported_type(struct context *ctx,
+	struct location loc,
+	const struct type *type)
+{
+	switch (type->storage) {
+	case STORAGE_ALIAS:
+		if (!type->alias.exported) {
+			unexported_type_error(ctx, loc, type);
+		}
+		break;
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+		check_exported_type(ctx, loc, type->array.members);
+		break;
+	case STORAGE_FUNCTION:
+		for (const struct type_func_param *param = type->func.params;
+				param; param = param->next) {
+			check_exported_type(ctx, loc, param->type);
+		}
+		check_exported_type(ctx, loc, type->func.result);
+		break;
+	case STORAGE_POINTER:
+		check_exported_type(ctx, loc, type->pointer.referent);
+		break;
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
+		for (const struct struct_field *field = type->struct_union.fields;
+				field; field = field->next) {
+			check_exported_type(ctx, loc, field->type);
+		}
+		break;
+	case STORAGE_TAGGED:
+		for (const struct type_tagged_union *t = &type->tagged;
+				t; t = t->next) {
+			check_exported_type(ctx, loc, t->type);
+		}
+		break;
+	case STORAGE_TUPLE:
+		for (const struct type_tuple *t = &type->tuple; t; t = t->next) {
+			check_exported_type(ctx, loc, t->type);
+		}
+		break;
+	case STORAGE_BOOL:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_INT:
+	case STORAGE_NEVER:
+	case STORAGE_NULL:
+	case STORAGE_OPAQUE:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_STRING:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
+	case STORAGE_ENUM:
+	case STORAGE_VALIST:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+	case STORAGE_RCONST:
+	case STORAGE_ERROR:
+		break;
+	}
+}
+
 void
 resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 {
@@ -3651,6 +3735,11 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 			type = &builtin_type_error;
 			goto end;
 		}
+	}
+	if (idecl->decl.exported) {
+		struct location loc =
+			decl->type ? decl->type->loc : decl->init->loc;
+		check_exported_type(ctx, loc, type);
 	}
 	if (!type_is_assignable(ctx, type, init->result)) {
 		char *typename1 = gen_typename(init->result);
@@ -3750,6 +3839,9 @@ resolve_function(struct context *ctx, struct incomplete_declaration *idecl)
 	};
 	const struct type *fntype = type_store_lookup_atype(
 			ctx->store, &fn_atype);
+	if (idecl->decl.exported) {
+		check_exported_type(ctx, idecl->decl.loc, fntype);
+	}
 
 	idecl->obj.otype = O_DECL;
 	idecl->obj.type = fntype;
@@ -3820,6 +3912,11 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 	}
 
+	if (idecl->decl.exported) {
+		struct location loc =
+			decl->type ? decl->type->loc : decl->init->loc;
+		check_exported_type(ctx, loc, type);
+	}
 end:
 	idecl->obj.otype = O_DECL;
 	idecl->obj.type = type;
@@ -4076,6 +4173,10 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	((struct type *)alias)->alias.type =
 		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
 	assert(alias->alias.type != NULL);
+	if (idecl->decl.exported) {
+		check_exported_type(ctx, idecl->decl.type.type->loc,
+			alias->alias.type);
+	}
 	if (alias->alias.type->storage == STORAGE_NEVER) {
 		error(ctx, loc, NULL, "Can't declare type alias of never");
 		((struct type *)alias)->alias.type = &builtin_type_error;
