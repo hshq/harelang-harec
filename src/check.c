@@ -1078,9 +1078,6 @@ type_has_default(struct context *ctx, const struct type *type)
 		return type->pointer.flags & PTR_NULLABLE;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		// TODO: shouldn't be possible to initialize overlapping fields
-		// (@offset)
-		// See also: https://todo.sr.ht/~sircmpwn/hare/513
 		for (struct struct_field *sf = type->struct_union.fields;
 				sf != NULL; sf = sf->next) {
 			if (!type_has_default(ctx, sf->type)) {

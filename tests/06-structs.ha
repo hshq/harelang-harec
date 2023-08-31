@@ -113,7 +113,7 @@ fn nested() void = {
 	assert(s.y.a.c == 7331);
 };
 
-type coords = struct { x: int, y: int };
+type coords = struct { @offset(0) x: int, @offset(4) y: int };
 
 type coords3 = struct { coords, z: int };
 type embed = struct { a: uint, b: u8 };
@@ -236,6 +236,11 @@ fn invariants() void = {
 	"type foo = struct { x: int, y: bar };"
 	"type bar = enum { A = 1, B, C = -1 };"
 	"fn test() void = { let x = foo { x = 0, ... }; };",
+
+	// Invalid @offsets
+	"type foo = struct { @offset(4) x: int, @offset(0) y: int };",
+
+	"type foo = struct { x: u64, @offset(4) y: u32 };",
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		assert(compile(failures[i]) as exited != EXIT_SUCCESS);

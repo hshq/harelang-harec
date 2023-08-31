@@ -82,8 +82,6 @@ type_is_complete(const struct type *type)
 const struct struct_field *
 type_get_field(struct context *ctx, const struct type *type, const char *name)
 {
-	// TODO: We should consider lowering unions into structs with explicit
-	// offsets
 	if (type->storage == STORAGE_ERROR) {
 		return NULL;
 	};
