@@ -23,7 +23,10 @@ export fn getpid() int = syscall0(SYS_getpid): int;
 export def EXIT_SUCCESS: int = 0;
 export def EXIT_FAILURE: int = 1;
 
-export @noreturn fn exit(status: int) void = { syscall1(SYS_exit, status: u64); };
+export fn exit(status: int) never = {
+	syscall1(SYS_exit, status: u64);
+	abort();
+};
 
 export fn fork() int = sys_fork(SYS_fork): int;
 // export fn fork() int = {

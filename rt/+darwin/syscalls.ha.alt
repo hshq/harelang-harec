@@ -12,9 +12,9 @@ export @symbol("getpid") fn getpid() int;
 export def EXIT_SUCCESS: int = 0;
 export def EXIT_FAILURE: int = 1;
 
-export @noreturn fn exit(status: int) void = c_exit(status);
-@symbol("exit") @noreturn fn c_exit(status: int) void;
-// export @symbol("exit") @noreturn fn exit(status: int) void;
+export fn exit(status: int) never = c_exit(status);
+@symbol("exit") fn c_exit(status: int) never;
+// export @symbol("exit") fn exit(status: int) never;
 
 // export fn fork() int = c_fork(): int;
 // @symbol("fork") fn c_fork() pid_t;
