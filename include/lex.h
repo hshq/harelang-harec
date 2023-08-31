@@ -11,7 +11,6 @@
 enum lexical_token {
 	T_ATTR_FINI,
 	T_ATTR_INIT,
-	T_ATTR_NORETURN,
 	T_ATTR_OFFSET,
 	T_ATTR_PACKED,
 	T_ATTR_SYMBOL,
@@ -52,6 +51,7 @@ enum lexical_token {
 	T_LEN,
 	T_LET,
 	T_MATCH,
+	T_NEVER,
 	T_NULL,
 	T_NULLABLE,
 	T_OFFSET,

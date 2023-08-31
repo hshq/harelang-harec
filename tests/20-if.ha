@@ -1,3 +1,5 @@
+use rt;
+
 fn equality() void = {
 	assert((if (2 == 2) true else false));
 };
@@ -67,6 +69,14 @@ fn alias() void = {
 	abort("unreachable");
 };
 
+fn _never() never = {
+	if (true) {
+		rt::exit(0);
+	} else {
+		abort();
+	};
+};
+
 export fn main() void = {
 	equality();
 	inequality();
@@ -81,4 +91,5 @@ export fn main() void = {
 	or();
 	tagged();
 	alias();
+	_never();
 };

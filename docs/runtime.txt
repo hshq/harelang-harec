@@ -1,9 +1,9 @@
 harec expects the runtime to provide some features under the "rt" namespace.
 
-@noreturn @symbol("rt.abort") fn _abort(loc: str, msg: str) void;
+@symbol("rt.abort") fn _abort(loc: str, msg: str) void;
 	Print a diagnostic message and terminate the program.
 
-@noreturn fn abort_fixed(reason: int) void;
+fn abort_fixed(reason: int) void;
 	Print a diagnostic message from a list of pre-determined abort reasons,
 	and terminate the program. The list of reasons are:
 
@@ -15,7 +15,6 @@ harec expects the runtime to provide some features under the "rt" namespace.
 	5: Slice allocation capacity smaller than initializer
 	6: Generic assertion failure without a message
 	7: Error assertion failed
-	8: Return from @noreturn function
 
 fn memcpy(dest: *opaque, src: *opaque, n: size) void;
 	Copy "n" bytes from "src" to "dest". The memory areas shall not

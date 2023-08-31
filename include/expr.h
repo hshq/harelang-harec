@@ -105,7 +105,6 @@ enum fixed_aborts {
 	ABORT_CAP_TOO_SMALL = 5,
 	ABORT_ANON_ASSERTION_FAILED = 6,
 	ABORT_PROPAGATE_ERROR_OCCURRED = 7,
-	ABORT_NORETURN = 8,
 };
 
 struct expression_assert {
@@ -356,7 +355,6 @@ struct expression_vaarg {
 struct expression {
 	const struct type *result;
 	enum expr_type type;
-	bool terminates;
 	struct location loc; // For fixed aborts
 	union {
 		struct expression_access access;

@@ -93,6 +93,8 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return is_const ? &builtin_type_const_i64 : &builtin_type_i64;
 	case STORAGE_INT:
 		return is_const ? &builtin_type_const_int : &builtin_type_int;
+	case STORAGE_NEVER:
+		return is_const ? &builtin_type_const_never : &builtin_type_never;
 	case STORAGE_OPAQUE:
 		return is_const ? &builtin_type_const_opaque : &builtin_type_opaque;
 	case STORAGE_RUNE:
@@ -690,6 +692,7 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
@@ -794,7 +797,6 @@ type_init_from_atype(struct type_store *store,
 		type->func.result = lookup_atype(store,
 				atype->func.result);
 		type->func.variadism = atype->func.variadism;
-		type->func.flags = atype->func.flags;
 		struct type_func_param *param, **next = &type->func.params;
 		for (struct ast_function_parameters *aparam = atype->func.params;
 				aparam; aparam = aparam->next) {
@@ -1278,19 +1280,21 @@ type_store_lookup_enum(struct type_store *store, const struct ast_type *atype,
 
 // Algorithm:
 // - Deduplicate and collect nested unions
+// - Remove never
 // - Merge *type with nullable *type
 // - If one of the types is null:
 // 	- If there's more than one pointer type, error out
 // 	- If there's one pointer type, make it nullable and drop the null
 // 	- If there are no pointer types, keep the null
 // - If the resulting union only has one type, return that type
+// - Otherwise, if no types remain, return never
 // - Otherwise, return a tagged union of all the selected types
 const struct type *
 type_store_reduce_result(struct type_store *store, struct location loc,
 		struct type_tagged_union *in)
 {
 	if (!in) {
-		return &builtin_type_void;
+		return &builtin_type_never;
 	} else if (!in->next) {
 		return in->type;
 	}
@@ -1324,6 +1328,11 @@ type_store_reduce_result(struct type_store *store, struct location loc,
 					j = &(*j)->next;
 				}
 			}
+		}
+
+		if (it->storage == STORAGE_NEVER) {
+			*tu = i->next;
+			continue;
 		}
 
 		for (struct type_tagged_union *j = in; j != i; j = j->next) {
@@ -1378,7 +1387,9 @@ type_store_reduce_result(struct type_store *store, struct location loc,
 			ptr->type->pointer.referent, PTR_NULLABLE);
 	}
 
-	if (in->next == NULL) {
+	if (in == NULL) {
+		return &builtin_type_never;
+	} else if (in->next == NULL) {
 		return in->type;
 	}
 	return type_store_lookup_tagged(store, loc, in);

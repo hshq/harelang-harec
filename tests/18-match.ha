@@ -27,7 +27,7 @@ fn tagged() void = {
 	};
 };
 
-fn termination() void = {
+fn _never() void = {
 	let x: (int | uint | str) = 1337i;
 	for (true) {
 		let y: int = match (x) {
@@ -240,7 +240,7 @@ fn binding() void = {
 
 export fn main() void = {
 	tagged();
-	termination();
+	_never();
 	_default();
 	pointer();
 	alias();

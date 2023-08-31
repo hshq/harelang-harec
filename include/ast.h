@@ -53,7 +53,6 @@ struct ast_function_type {
 	struct ast_type *result;
 	struct ast_function_parameters *params;
 	enum variadism variadism;
-	unsigned int flags; // enum function_flags (types.h)
 };
 
 struct ast_pointer_type {

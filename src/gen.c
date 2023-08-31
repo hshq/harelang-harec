@@ -27,31 +27,6 @@ static struct gen_value gen_expr_with(struct gen_context *ctx,
 static void gen_global_decl(struct gen_context *ctx,
 	const struct declaration *decl);
 
-static struct gen_scope *push_scope(struct gen_context *ctx,
-	const struct scope *scope);
-static void pop_scope(struct gen_context *ctx, bool gendefers);
-
-static void
-gen_defers(struct gen_context *ctx, struct gen_scope *scope)
-{
-	if (!scope) {
-		return;
-	}
-	if (scope->defers) {
-		pushc(ctx->current, "gen defers");
-	}
-	struct gen_defer *defers = scope->defers;
-	while (scope->defers) {
-		struct gen_defer *defer = scope->defers;
-		assert(defer->expr->type == EXPR_DEFER);
-		scope->defers = scope->defers->next;
-		push_scope(ctx, defer->expr->defer.scope);
-		gen_expr(ctx, defer->expr->defer.deferred);
-		pop_scope(ctx, false);
-	}
-	scope->defers = defers;
-}
-
 static struct gen_scope *
 gen_scope_lookup(struct gen_context *ctx, const struct scope *which)
 {
@@ -75,11 +50,8 @@ push_scope(struct gen_context *ctx, const struct scope *scope)
 }
 
 static void
-pop_scope(struct gen_context *ctx, bool gendefers)
+pop_scope(struct gen_context *ctx)
 {
-	if (gendefers) {
-		gen_defers(ctx, ctx->scope);
-	}
 	struct gen_scope *scope = ctx->scope;
 	ctx->scope = scope->parent;
 	for (struct gen_defer *defer = scope->defers; defer; /* n/a */) {
@@ -88,6 +60,27 @@ pop_scope(struct gen_context *ctx, bool gendefers)
 		defer = next;
 	}
 	free(scope);
+}
+
+static void
+gen_defers(struct gen_context *ctx, struct gen_scope *scope)
+{
+	if (!scope) {
+		return;
+	}
+	if (scope->defers) {
+		pushc(ctx->current, "gen defers");
+	}
+	struct gen_defer *defers = scope->defers;
+	while (scope->defers) {
+		struct gen_defer *defer = scope->defers;
+		assert(defer->expr->type == EXPR_DEFER);
+		scope->defers = scope->defers->next;
+		push_scope(ctx, defer->expr->defer.scope);
+		gen_expr(ctx, defer->expr->defer.deferred);
+		pop_scope(ctx);
+	}
+	scope->defers = defers;
 }
 
 static void
@@ -136,6 +129,9 @@ gen_store(struct gen_context *ctx,
 		break;
 	default:
 		break; // no-op
+	}
+	if (value.type->storage == STORAGE_NEVER) {
+		return; // no storage
 	}
 
 	struct qbe_value qobj = mkqval(ctx, &object),
@@ -661,6 +657,9 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	const struct type *valtype = type_dealias(NULL, expr->append.value->result);
 	if (expr->append.length != NULL) {
 		struct gen_value length = gen_expr(ctx, expr->append.length);
+		if (expr->append.length->result->storage == STORAGE_NEVER) {
+			return gv_void;
+		}
 		appendlen = mkqval(ctx, &length);
 		assert(valtype->storage == STORAGE_ARRAY && valtype->array.expandable);
 	} else if (!expr->append.is_multi) {
@@ -672,6 +671,9 @@ gen_expr_append(struct gen_context *ctx, const struct expression *expr)
 	if (!expr->append.is_multi || valtype->storage != STORAGE_ARRAY) {
 		// We use gen_expr_at for the array case to avoid a copy
 		value = gen_expr(ctx, expr->append.value);
+		if (expr->append.value->result->storage == STORAGE_NEVER) {
+			return gv_void;
+		}
 		qvalue = mkqval(ctx, &value);
 	}
 
@@ -973,8 +975,9 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 	default:
 		abort(); // Invariant
 	}
-	if (expr->assign.op == BIN_LEQUAL) {
-		gen_store(ctx, obj, gen_expr(ctx, value));
+	if (expr->assign.op == BIN_LEQUAL || value->result->storage == STORAGE_NEVER) {
+		struct gen_value rvalue = gen_expr(ctx, value);
+		gen_store(ctx, obj, rvalue);
 	} else if (expr->assign.op == BIN_LAND || expr->assign.op == BIN_LOR) {
 		struct qbe_statement lrval, lshort;
 		struct qbe_value brval = mklabel(ctx, &lrval, ".%d");
@@ -990,9 +993,7 @@ gen_expr_assign(struct gen_context *ctx, const struct expression *expr)
 		}
 		push(&ctx->current->body, &lrval);
 		gen_expr_at(ctx, value, obj);
-		if (!expr->binarithm.rvalue->terminates) {
-			pushi(ctx->current, NULL, Q_JMP, &bshort, NULL);
-		}
+		pushi(ctx->current, NULL, Q_JMP, &bshort, NULL);
 		push(&ctx->current->body, &lshort);
 	} else {
 		struct gen_value lvalue = gen_load(ctx, obj);
@@ -1041,7 +1042,7 @@ gen_expr_binarithm(struct gen_context *ctx, const struct expression *expr)
 		struct gen_value rval = gen_expr(ctx, expr->binarithm.rvalue);
 		struct qbe_value qrval = mkqval(ctx, &rval);
 		pushi(ctx->current, &qresult, Q_COPY, &qrval, NULL);
-		if (!expr->binarithm.rvalue->terminates) {
+		if (expr->binarithm.rvalue->result->storage != STORAGE_NEVER) {
 			pushi(ctx->current, NULL, Q_JMP, &bshort, NULL);
 		}
 		push(&ctx->current->body, &lshort);
@@ -1209,6 +1210,9 @@ gen_expr_control(struct gen_context *ctx, const struct expression *expr)
 			expr->control.value, scope->out);
 		branch_copyresult(ctx, result,
 			scope->result, scope->out);
+		if (expr->control.value->result->storage == STORAGE_NEVER) {
+			return gv_void;
+		}
 	}
 
 	struct gen_scope *deferred = ctx->scope;
@@ -1247,22 +1251,13 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	const struct type *rtype = type_dealias(NULL, lvalue.type);
 	assert(rtype->storage == STORAGE_FUNCTION);
 
-	if (rtype->func.flags & FN_NORETURN) {
-		for (struct gen_scope *scope = ctx->scope; scope;
-				scope = scope->parent) {
-			gen_defers(ctx, scope);
-			if (scope->scope->class == SCOPE_DEFER) {
-				break;
-			}
-		}
-	}
-
 	struct qbe_statement call = {
 		.type = Q_INSTR,
 		.instr = Q_CALL,
 	};
 	struct gen_value rval = gv_void;
-	if (type_dealias(NULL, rtype->func.result)->storage != STORAGE_VOID) {
+	if (type_dealias(NULL, rtype->func.result)->storage != STORAGE_VOID
+			&& rtype->func.result->size != SIZE_UNDEFINED) {
 		rval = mkgtemp(ctx, rtype->func.result, "returns.%d");
 		call.out = xcalloc(1, sizeof(struct qbe_value));
 		*call.out = mkqval(ctx, &rval);
@@ -1279,6 +1274,9 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 			carg; carg = carg->next) {
 		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		struct gen_value arg = gen_expr(ctx, carg->value);
+		if (carg->value->result->storage == STORAGE_NEVER) {
+			return rval;
+		}
 		args->value = mkqval(ctx, &arg);
 		args->value.type = qtype_lookup(ctx, carg->value->result, false);
 		next = &args->next;
@@ -1292,7 +1290,21 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 			next = &args->next;
 		}
 	}
+
+	if (rtype->func.result->storage == STORAGE_NEVER) {
+		for (struct gen_scope *scope = ctx->scope; scope;
+				scope = scope->parent) {
+			gen_defers(ctx, scope);
+			if (scope->scope->class == SCOPE_DEFER) {
+				break;
+			}
+		}
+	}
+
 	push(&ctx->current->body, &call);
+	if (rtype->func.result->storage == STORAGE_NEVER) {
+		pushi(ctx->current, NULL, Q_HLT, NULL);
+	}
 
 	return rval;
 }
@@ -1547,9 +1559,7 @@ gen_expr_cast_at(struct gen_context *ctx,
 {
 	if (!cast_prefers_at(expr)) {
 		struct gen_value result = gen_expr_cast(ctx, expr);
-		if (!expr->terminates) {
-			gen_store(ctx, out, result);
-		}
+		gen_store(ctx, out, result);
 		return;
 	}
 
@@ -1828,6 +1838,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_RCONST:
 	case STORAGE_STRING:
@@ -1867,7 +1878,7 @@ gen_expr_compound_with(struct gen_context *ctx,
 
 	struct gen_value last = gen_expr_with(ctx, exprs->expr, out);
 	branch_copyresult(ctx, last, gvout, out);
-	pop_scope(ctx, !exprs->expr->terminates);
+	pop_scope(ctx);
 	push(&ctx->current->body, &lend);
 	return gvout;
 }
@@ -2245,7 +2256,8 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 		gen_expr(ctx, expr->_for.afterthought);
 	}
 
-	pop_scope(ctx, true);
+	gen_defers(ctx, ctx->scope);
+	pop_scope(ctx);
 
 	pushi(ctx->current, NULL, Q_JMP, &bloop, NULL);
 
@@ -2290,7 +2302,7 @@ gen_expr_if_with(struct gen_context *ctx,
 	push(&ctx->current->body, &ltrue);
 	struct gen_value vtrue = gen_expr_with(ctx, expr->_if.true_branch, out);
 	branch_copyresult(ctx, vtrue, gvout, out);
-	if (!expr->_if.true_branch->terminates) {
+	if (expr->_if.true_branch->result->storage != STORAGE_NEVER) {
 		pushi(ctx->current, NULL, Q_JMP, &bend, NULL);
 	}
 
@@ -2336,6 +2348,9 @@ gen_expr_insert(struct gen_context *ctx, const struct expression *expr)
 	if (!expr->append.is_multi || valtype->storage != STORAGE_ARRAY) {
 		// We use gen_expr_at for the array case to avoid a copy
 		value = gen_expr(ctx, expr->append.value);
+		if (expr->append.value->result->storage == STORAGE_NEVER) {
+			return gv_void;
+		}
 		qvalue = mkqval(ctx, &value);
 	}
 
@@ -2658,7 +2673,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 next:
 		bval = gen_expr_with(ctx, _case->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
-		if (!_case->value->terminates) {
+		if (_case->value->result->storage != STORAGE_NEVER) {
 			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
 		}
 		push(&ctx->current->body, &lnext);
@@ -2739,7 +2754,7 @@ gen_match_with_nullable(struct gen_context *ctx,
 next:
 		bval = gen_expr_with(ctx, _case->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
-		if (!_case->value->terminates) {
+		if (_case->value->result->storage != STORAGE_NEVER) {
 			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
 		}
 		push(&ctx->current->body, &lnext);
@@ -2748,7 +2763,7 @@ next:
 	if (_default) {
 		bval = gen_expr_with(ctx, _default->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
-		if (!_default->value->terminates) {
+		if (_default->value->result->storage != STORAGE_NEVER) {
 			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
 		}
 	}
@@ -2848,6 +2863,9 @@ static struct gen_value
 gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value ret = gen_expr(ctx, expr->_return.value);
+	if (expr->_return.value->result->storage == STORAGE_NEVER) {
+		return gv_void;
+	}
 	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
 		gen_defers(ctx, scope);
 	}
@@ -2952,7 +2970,7 @@ gen_expr_switch_with(struct gen_context *ctx,
 		push(&ctx->current->body, &lmatch);
 		bval = gen_expr_with(ctx, _case->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
-		if (!_case->value->terminates) {
+		if (_case->value->result->storage != STORAGE_NEVER) {
 			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
 		}
 		push(&ctx->current->body, &lnextcase);
@@ -2961,7 +2979,7 @@ gen_expr_switch_with(struct gen_context *ctx,
 	if (_default) {
 		bval = gen_expr_with(ctx, _default->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
-		if (!_default->value->terminates) {
+		if (_default->value->result->storage != STORAGE_NEVER) {
 			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
 		}
 	}
@@ -3195,77 +3213,111 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		pushi(ctx->current, NULL, Q_DBGLOC, &qline, NULL);
 	}
 
+	struct gen_value out;
 	switch ((int)expr->type) {
 	case EXPR_ACCESS:
-		return gen_expr_access(ctx, expr);
+		out = gen_expr_access(ctx, expr);
+		break;
 	case EXPR_ALLOC:
-		return gen_expr_alloc_with(ctx, expr, NULL);
+		out = gen_expr_alloc_with(ctx, expr, NULL);
+		break;
 	case EXPR_APPEND:
-		return gen_expr_append(ctx, expr);
+		out = gen_expr_append(ctx, expr);
+		break;
 	case EXPR_ASSERT:
-		return gen_expr_assert(ctx, expr);
+		out = gen_expr_assert(ctx, expr);
+		break;
 	case EXPR_ASSIGN:
-		return gen_expr_assign(ctx, expr);
+		out = gen_expr_assign(ctx, expr);
+		break;
 	case EXPR_BINARITHM:
-		return gen_expr_binarithm(ctx, expr);
+		out = gen_expr_binarithm(ctx, expr);
+		break;
 	case EXPR_BINDING:
-		return gen_expr_binding(ctx, expr);
+		out = gen_expr_binding(ctx, expr);
+		break;
 	case EXPR_BREAK:
 	case EXPR_CONTINUE:
 	case EXPR_YIELD:
-		return gen_expr_control(ctx, expr);
+		out = gen_expr_control(ctx, expr);
+		break;
 	case EXPR_CALL:
-		return gen_expr_call(ctx, expr);
+		out = gen_expr_call(ctx, expr);
+		break;
 	case EXPR_CAST:
-		return gen_expr_cast(ctx, expr);
+		out = gen_expr_cast(ctx, expr);
+		break;
 	case EXPR_COMPOUND:
-		return gen_expr_compound_with(ctx, expr, NULL);
+		out = gen_expr_compound_with(ctx, expr, NULL);
+		break;
 	case EXPR_CONSTANT:
-		return gen_expr_const(ctx, expr);
+		out = gen_expr_const(ctx, expr);
+		break;
 	case EXPR_DEFER:
-		return gen_expr_defer(ctx, expr);
+		out = gen_expr_defer(ctx, expr);
+		break;
 	case EXPR_DELETE:
-		return gen_expr_delete(ctx, expr);
+		out = gen_expr_delete(ctx, expr);
+		break;
 	case EXPR_FOR:
-		return gen_expr_for(ctx, expr);
+		out = gen_expr_for(ctx, expr);
+		break;
 	case EXPR_FREE:
-		return gen_expr_free(ctx, expr);
+		out = gen_expr_free(ctx, expr);
+		break;
 	case EXPR_IF:
-		return gen_expr_if_with(ctx, expr, NULL);
+		out = gen_expr_if_with(ctx, expr, NULL);
+		break;
 	case EXPR_INSERT:
-		return gen_expr_insert(ctx, expr);
+		out = gen_expr_insert(ctx, expr);
+		break;
 	case EXPR_MATCH:
-		return gen_expr_match_with(ctx, expr, NULL);
+		out = gen_expr_match_with(ctx, expr, NULL);
+		break;
 	case EXPR_MEASURE:
-		return gen_expr_measure(ctx, expr);
+		out = gen_expr_measure(ctx, expr);
+		break;
 	case EXPR_PROPAGATE:
 		assert(0); // Lowered in check (for now?)
 	case EXPR_RETURN:
-		return gen_expr_return(ctx, expr);
+		out = gen_expr_return(ctx, expr);
+		break;
 	case EXPR_SWITCH:
-		return gen_expr_switch_with(ctx, expr, NULL);
+		out = gen_expr_switch_with(ctx, expr, NULL);
+		break;
 	case EXPR_UNARITHM:
-		return gen_expr_unarithm(ctx, expr);
+		out = gen_expr_unarithm(ctx, expr);
+		break;
 	case EXPR_VAARG:
-		return gen_expr_vaarg(ctx, expr);
+		out = gen_expr_vaarg(ctx, expr);
+		break;
 	case EXPR_VAEND:
-		return gv_void; // no-op
+		out = gv_void; // no-op
+		break;
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
 	case EXPR_TUPLE:
 	case EXPR_VASTART:
-		break; // Prefers -at style
+		// Prefers -at style
+		out = mkgtemp(ctx, expr->result, "object.%d");
+		struct qbe_value base = mkqval(ctx, &out);
+		struct qbe_value sz = constl(expr->result->size);
+		enum qbe_instr alloc = alloc_for_align(expr->result->align);
+		pushprei(ctx->current, &base, alloc, &sz, NULL);
+		gen_expr_at(ctx, expr, out);
+		return out;
 	// gen-specific psuedo-expressions
 	case EXPR_GEN_VALUE:
 		return *(struct gen_value *)expr->user;
 	}
 
-	struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
-	struct qbe_value base = mkqval(ctx, &out);
-	struct qbe_value sz = constl(expr->result->size);
-	enum qbe_instr alloc = alloc_for_align(expr->result->align);
-	pushprei(ctx->current, &base, alloc, &sz, NULL);
-	gen_expr_at(ctx, expr, out);
+	if (expr->result->storage == STORAGE_NEVER) {
+		// XXX: This is a bit hacky, to appease qbe
+		struct qbe_statement dummyl;
+		mklabel(ctx, &dummyl, ".%d");
+		push(&ctx->current->body, &dummyl);
+		out.type = &builtin_type_never;
+	}
 	return out;
 }
 
@@ -3315,7 +3367,7 @@ gen_expr_at(struct gen_context *ctx,
 	}
 
 	struct gen_value result = gen_expr(ctx, expr);
-	if (!expr->terminates) {
+	if (expr->result->storage != STORAGE_NEVER) {
 		gen_store(ctx, out, result);
 	}
 }
@@ -3357,7 +3409,8 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	mklabel(ctx, &start_label, "start.%d");
 	push(&qdef->func.prelude, &start_label);
 
-	if (type_dealias(NULL, fntype->func.result)->storage != STORAGE_VOID) {
+	if (type_dealias(NULL, fntype->func.result)->storage != STORAGE_VOID
+			&& fntype->func.result->size != SIZE_UNDEFINED) {
 		qdef->func.returns = qtype_lookup(
 			ctx, fntype->func.result, false);
 	} else {
@@ -3409,9 +3462,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	push(&ctx->current->body, &lbody);
 	struct gen_value ret = gen_expr(ctx, decl->func.body);
 
-	if (fntype->func.flags & FN_NORETURN) {
-		gen_fixed_abort(ctx, decl->loc, ABORT_NORETURN);
-	} else if (decl->func.body->terminates) {
+	if (fntype->func.result->storage == STORAGE_NEVER) {
+		pushi(ctx->current, NULL, Q_HLT, NULL);
+	} else if (decl->func.body->result->storage == STORAGE_NEVER) {
 		// XXX: This is a bit hacky, to appease qbe
 		size_t ln = ctx->current->body.ln;
 		struct qbe_statement *last = &ctx->current->body.stmts[ln - 1];
@@ -3760,6 +3813,7 @@ gen_data_item(struct gen_context *ctx, struct expression *expr,
 	case STORAGE_FCONST:
 	case STORAGE_FUNCTION:
 	case STORAGE_ICONST:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_RCONST:
 	case STORAGE_NULL:

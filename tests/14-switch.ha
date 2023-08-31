@@ -16,7 +16,7 @@ fn basics() void = {
 	};
 };
 
-fn termination() void = {
+fn _never() void = {
 	let x = 42;
 	let y: int = switch (x) {
 	case 42 =>
@@ -70,7 +70,7 @@ fn binding() void = {
 
 export fn main() void = {
 	basics();
-	termination();
+	_never();
 	tagged_result();
 	str_switching();
 	binding();

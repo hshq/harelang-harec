@@ -176,6 +176,8 @@ type_storage_unparse(enum type_storage storage)
 		return "iconst";
 	case STORAGE_INT:
 		return "int";
+	case STORAGE_NEVER:
+		return "never";
 	case STORAGE_NULL:
 		return "null";
 	case STORAGE_OPAQUE:
@@ -227,6 +229,7 @@ type_is_integer(struct context *ctx, const struct type *type)
 	case STORAGE_VOID:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
@@ -273,6 +276,7 @@ type_is_numeric(struct context *ctx, const struct type *type)
 	case STORAGE_VOID:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
@@ -334,6 +338,7 @@ type_is_signed(struct context *ctx, const struct type *type)
 	case STORAGE_ENUM:
 	case STORAGE_ERROR: // XXX?
 	case STORAGE_FUNCTION:
+	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_POINTER:
 	case STORAGE_SLICE:
@@ -396,6 +401,7 @@ type_hash(const struct type *type)
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
+	case STORAGE_NEVER:
 	case STORAGE_NULL:
 	case STORAGE_OPAQUE:
 	case STORAGE_RUNE:
@@ -428,7 +434,6 @@ type_hash(const struct type *type)
 	case STORAGE_FUNCTION:
 		hash = fnv1a_u32(hash, type_hash(type->func.result));
 		hash = fnv1a(hash, type->func.variadism);
-		hash = fnv1a(hash, type->func.flags);
 		for (struct type_func_param *param = type->func.params;
 				param; param = param->next) {
 			hash = fnv1a_u32(hash, type_hash(param->type));
@@ -787,7 +792,7 @@ type_is_assignable(struct context *ctx,
 		return true;
 	}
 
-	if (from->storage == STORAGE_ERROR) {
+	if (from->storage == STORAGE_ERROR || from->storage == STORAGE_NEVER) {
 		return true;
 	}
 
@@ -904,6 +909,7 @@ type_is_assignable(struct context *ctx,
 	case STORAGE_ENUM:
 	case STORAGE_F32:
 	case STORAGE_FUNCTION:
+	case STORAGE_NEVER:
 	case STORAGE_NULL:
 	case STORAGE_OPAQUE:
 	case STORAGE_RUNE:
@@ -1044,6 +1050,7 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
+	case STORAGE_NEVER:
 		return NULL;
 	case STORAGE_ERROR:
 	case STORAGE_TAGGED:
@@ -1204,6 +1211,11 @@ builtin_type_i64 = {
 builtin_type_int = {
 	.storage = STORAGE_INT,
 },
+builtin_type_never = {
+	.storage = STORAGE_NEVER,
+	.size = SIZE_UNDEFINED,
+	.align = ALIGN_UNDEFINED,
+},
 builtin_type_opaque = {
 	.storage = STORAGE_OPAQUE,
 	.size = SIZE_UNDEFINED,
@@ -1296,6 +1308,12 @@ builtin_type_const_i64 = {
 builtin_type_const_int = {
 	.storage = STORAGE_INT,
 	.flags = TYPE_CONST,
+},
+builtin_type_const_never = {
+	.storage = STORAGE_NEVER,
+	.flags = TYPE_CONST,
+	.size = SIZE_UNDEFINED,
+	.align = ALIGN_UNDEFINED,
 },
 builtin_type_const_opaque = {
 	.storage = STORAGE_OPAQUE,
