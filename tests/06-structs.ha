@@ -119,7 +119,7 @@ type coords3 = struct { coords, z: int };
 type embed = struct { a: uint, b: u8 };
 type _enum = enum { A = -1, B, C };
 // complex embedded hierarchy
-type me = struct { embed, coords3, f: int, g: (int, str), h: _enum, p: nullable *int };
+type me = struct { embed, coords3, @offset(24) f: int, g: (int, str), h: _enum, p: nullable *int };
 let g1: me = me {        b = 4, x = -1, y = -2, z = -3, f = 20, ... };
 let g2: me = me {               x = -1, y = -2, z = -3, f = 20, ... };
 let g3: me = me {                       y = -2, z = -3, f = 20, ... };
@@ -130,6 +130,20 @@ let g6: me = me {                                               ... };
 fn named() void = {
 	let x = coords { y = 10, x = 20 };
 	assert(x.x == 20 && x.y == 10);
+};
+
+fn _offset() void = {
+	let x = me { ... };
+	assert(offset(x.a) == 0);
+	assert(offset(x.b) == 4);
+	assert(offset(x.x) == 8);
+	assert(offset(x.y) == 12);
+	assert(offset(x.z) == 16);
+	assert(offset(x.f) == 24);
+	assert(offset(x.g) == 32);
+	assert(offset(x.h) == 64);
+	assert(offset(x.p) == 72);
+	assert(size(me) == 80);
 };
 
 fn autofill() void = {
@@ -282,12 +296,10 @@ export fn main() void = {
 	deref();
 	nested();
 	named();
+	_offset();
 	autofill();
 	invariants();
 	fields();
 	eval();
-	// TODO:
-	// - Union tests
-	// - Embedded structs
-	// - offset()
+	// TODO: more union tests
 };
