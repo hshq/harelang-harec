@@ -11,6 +11,11 @@ def B3: [B2 + 2]int = [B1, B2, 0];
 def B2: int = B1 + 2;
 def B1: int = -1;
 
+// flexible types
+def I = 12;
+def F = 12.0;
+def R = 'x';
+
 fn constants() void = {
 	assert(ARR[0] == 1 && ARR[1] == 2 && ARR[2] == 3);
 	assert(A1 == -1 && B1 == -1);
@@ -19,6 +24,26 @@ fn constants() void = {
 	assert(A3[0] == -1 && B3[0] == -1);
 	assert(A3[1] == 1 && B3[1] == 1);
 	assert(A3[2] == 0 && B3[2] == 0);
+
+	let x = I;
+	assert(x == 12);
+	let x: *int = &x;
+	let x: u8 = I;
+	assert(x == 12);
+	let x: i64 = I;
+	assert(x == 12);
+
+	let x = F;
+	assert(x == 12.0);
+	let x: *f64 = &x;
+	let x: f32 = F;
+	assert(x == 12.0);
+
+	let x = R;
+	assert(x == 'x');
+	let x: *rune = &x;
+	let x: u32 = R;
+	assert(x == 'x');
 };
 
 // elementary self-referential types

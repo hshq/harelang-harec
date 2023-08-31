@@ -198,6 +198,7 @@ check_expr_access(struct context *ctx,
 		case O_CONST:
 			// Lower constants
 			*expr = *obj->value;
+			const_reset_refs(expr->result);
 			break;
 		case O_BIND:
 		case O_DECL:
@@ -3631,7 +3632,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 void
 resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	const struct ast_global_decl *decl = &idecl->decl.global;
+	const struct ast_global_decl *decl = &idecl->decl.constant;
 
 	assert(!decl->symbol); // Invariant
 
@@ -3643,8 +3644,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 		*value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, init, type);
 	if (!decl->type) {
-		// XXX: Do we need to do anything more here
-		type = lower_const(ctx, init->result, NULL);
+		type = init->result;
 		if (type->storage == STORAGE_NULL) {
 			error(ctx, decl->init->loc, value,
 				"Null is not a valid type for a constant");
@@ -3663,13 +3663,14 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 		type = &builtin_type_error;
 		goto end;
 	}
-	if (decl->type && decl->type->storage == STORAGE_ARRAY
-			&& decl->type->array.contextual) {
-		type = lower_const(ctx, init->result, NULL);
-	} else {
-		init = lower_implicit_cast(ctx, type, init);
+	if (decl->type) {
+		if (decl->type->storage == STORAGE_ARRAY
+				&& decl->type->array.contextual) {
+			type = lower_const(ctx, init->result, NULL);
+		} else {
+			init = lower_implicit_cast(ctx, type, init);
+		}
 	}
-	assert(type->size != SIZE_UNDEFINED);
 
 	enum eval_result r = eval_expr(ctx, init, value);
 	if (r != EVAL_OK) {
@@ -3686,11 +3687,34 @@ end:
 	if (!ctx->defines || ctx->errors) {
 		return;
 	}
-	const struct scope_object *shadow_obj =
+	struct scope_object *shadow_obj =
 		scope_lookup(ctx->defines, &idecl->obj.ident);
 	if (shadow_obj && &idecl->obj != shadow_obj) {
 		// Shadowed by define
-		if (idecl->obj.type != shadow_obj->type) {
+		if (type_is_constant(idecl->obj.type)
+				|| type_is_constant(shadow_obj->type)) {
+			const struct type *promoted = promote_const(ctx,
+				idecl->obj.type, shadow_obj->type);
+			if (promoted == NULL) {
+				const char *msg;
+				char *typename = NULL;
+				if (!type_is_constant(idecl->obj.type)) {
+					msg = "Constant of type %s is shadowed by define of incompatible flexible type";
+					typename = gen_typename(idecl->obj.type);
+				} else if (!type_is_constant(shadow_obj->type)) {
+					msg = "Constant of flexible type is shadowed by define of incompatible type %s";
+					typename = gen_typename(shadow_obj->type);
+				} else {
+					msg = "Constant of flexible type is shadowed by define of incompatible flexible type";
+				}
+				error(ctx, idecl->decl.loc, NULL, msg, typename);
+				free(typename);
+			} else {
+				shadow_obj->type = promoted;
+				shadow_obj->value = lower_implicit_cast(ctx,
+					promoted, shadow_obj->value);
+			}
+		} else if (idecl->obj.type != shadow_obj->type) {
 			char *typename = gen_typename(idecl->obj.type);
 			char *shadow_typename = gen_typename(shadow_obj->type);
 			error(ctx, idecl->decl.loc, NULL,
@@ -3699,6 +3723,7 @@ end:
 			free(typename);
 			free(shadow_typename);
 		}
+		idecl->obj.type = shadow_obj->type;
 		idecl->obj.value = shadow_obj->value;
 	}
 	append_decl(ctx, &(struct declaration){

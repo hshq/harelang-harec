@@ -361,12 +361,12 @@ static void
 emit_decl_const(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
-	xfprintf(out, "export def %s: ", ident);
-	if (decl->constant.type) {
+	xfprintf(out, "export def %s", ident);
+	assert(decl->constant.type);
+	if (decl->constant.type->size != SIZE_UNDEFINED) {
+		xfprintf(out, ": ");
 		emit_exported_type(decl->constant.type, out, ident);
-	} else {
-		emit_exported_type(decl->constant.value->result, out, ident);
-	};
+	}
 	free(ident);
 	xfprintf(out, " = ");
 	emit_const(decl->constant.value, out);

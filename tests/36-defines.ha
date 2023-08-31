@@ -41,6 +41,56 @@ fn compatibility() void = {
 	assert(rt::compile("
 		const TEST = 1;
 	", "-DTEST=0") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 0;
+		static assert(TESTDEFINE == 1);
+		let x = TESTDEFINE;
+		let y: *u8 = &x;
+	", "-DTESTDEFINE:u8=1") as rt::exited == rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE: u8 = 0;
+		static assert(TESTDEFINE == 1);
+		let x = TESTDEFINE;
+		let y: *u8 = &x;
+	", "-DTESTDEFINE=1") as rt::exited == rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 0u32;
+		static assert(TESTDEFINE == 'a');
+		let x = TESTDEFINE;
+		let y: *u32 = &x;
+	", "-DTESTDEFINE='a'") as rt::exited == rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 'a';
+		static assert(TESTDEFINE == 0);
+		let x = TESTDEFINE;
+		let y: *u32 = &x;
+	", "-DTESTDEFINE=0u32") as rt::exited == rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 0;
+	", "-DTESTDEFINE='a'") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 0.0;
+	", "-DTESTDEFINE=0") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 0.0;
+		static assert(TESTDEFINE == 1.0);
+		let x = TESTDEFINE;
+		let y: *f32 = &x;
+	", "-DTESTDEFINE=1f32") as rt::exited == rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 0f32;
+		static assert(TESTDEFINE == 1.0);
+		let x = TESTDEFINE;
+		let y: *f32 = &x;
+	", "-DTESTDEFINE=1.0") as rt::exited == rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 255;
+		let x: u8 = TESTDEFINE;
+	", "-DTESTDEFINE=256") as rt::exited != rt::EXIT_SUCCESS);
+	assert(rt::compile("
+		def TESTDEFINE = 256;
+		let x: u8 = TESTDEFINE;
+	", "-DTESTDEFINE=255") as rt::exited != rt::EXIT_SUCCESS);
 };
 
 export fn main() void = {

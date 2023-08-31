@@ -610,6 +610,16 @@ const_refer(const struct type *type, const struct type **ref)
 	constant->nrefs++;
 }
 
+// Sets the number of references for a flexible constant type to zero.
+void
+const_reset_refs(const struct type *type)
+{
+	if (type == NULL || !type_is_constant(type)) {
+		return;
+	}
+	((struct type *)type)->_const.nrefs = 0;
+}
+
 // Lower a flexible constant type. If new == NULL, lower it to its default type.
 const struct type *
 lower_const(struct context *ctx, const struct type *old, const struct type *new) {
