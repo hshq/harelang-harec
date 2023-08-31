@@ -896,21 +896,13 @@ parse_array_literal(struct lexer *lexer)
 		switch (lex(lexer, &tok)) {
 		case T_ELLIPSIS:
 			item->expand = true;
-			lex(lexer, &tok);
-			if (tok.token == T_COMMA) {
-				want(lexer, T_RBRACKET, &tok);
-				unlex(lexer, &tok);
-			} else if (tok.token == T_RBRACKET) {
-				unlex(lexer, &tok);
-			} else {
-				synerr(&tok, T_COMMA, T_RBRACKET, T_EOF);
-			}
+			want(lexer, T_RBRACKET, &tok);
+			// fallthrough
+		case T_RBRACKET:
+			unlex(lexer, &tok);
 			break;
 		case T_COMMA:
 			// Move on
-			break;
-		case T_RBRACKET:
-			unlex(lexer, &tok);
 			break;
 		default:
 			synerr(&tok, T_ELLIPSIS, T_COMMA, T_RBRACKET, T_EOF);
