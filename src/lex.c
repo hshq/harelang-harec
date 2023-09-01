@@ -889,6 +889,60 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 	return out->token;
 }
 
+static const char *
+rune_unparse(uint32_t c)
+{
+	static char buf[11];
+	switch (c) {
+	case '\0':
+		snprintf(buf, sizeof(buf), "\\0");
+		break;
+	case '\a':
+		snprintf(buf, sizeof(buf), "\\a");
+		break;
+	case '\b':
+		snprintf(buf, sizeof(buf), "\\b");
+		break;
+	case '\f':
+		snprintf(buf, sizeof(buf), "\\f");
+		break;
+	case '\n':
+		snprintf(buf, sizeof(buf), "\\n");
+		break;
+	case '\r':
+		snprintf(buf, sizeof(buf), "\\r");
+		break;
+	case '\t':
+		snprintf(buf, sizeof(buf), "\\t");
+		break;
+	case '\v':
+		snprintf(buf, sizeof(buf), "\\v");
+		break;
+	case '\\':
+		snprintf(buf, sizeof(buf), "\\\\");
+		break;
+	case '\'':
+		snprintf(buf, sizeof(buf), "\\'");
+		break;
+	case '"':
+		snprintf(buf, sizeof(buf), "\\\"");
+		break;
+	default:
+		if (c > 0xffff) {
+			snprintf(buf, sizeof(buf), "\\U%08x", c);
+		} else if (c > 0x7F) {
+			snprintf(buf, sizeof(buf), "\\u%04x", c);
+		} else if (!isprint(c)) {
+			snprintf(buf, sizeof(buf), "\\x%02x", c);
+		} else {
+			assert(utf8_cpsize(c) < sizeof(buf));
+			buf[utf8_encode(buf, c)] = '\0';
+		}
+		break;
+	}
+	return buf;
+}
+
 enum lexical_token
 lex(struct lexer *lexer, struct token *out)
 {
@@ -917,7 +971,6 @@ lex(struct lexer *lexer, struct token *out)
 		return lex_name(lexer, out);
 	}
 
-	char p[5];
 	switch (c) {
 	case '"':
 	case '`':
@@ -971,10 +1024,9 @@ lex(struct lexer *lexer, struct token *out)
 		out->token = T_QUESTION;
 		break;
 	default:
-		p[utf8_encode(p, c)] = '\0';
-		xfprintf(stderr, "%s:%d:%d: error: unexpected code point '%s'\n",
+		xfprintf(stderr, "%s:%d:%d: syntax error: unexpected codepoint '%s'\n",
 			sources[lexer->loc.file], lexer->loc.lineno,
-			lexer->loc.colno, p);
+			lexer->loc.colno, rune_unparse(c));
 		exit(EXIT_FAILURE);
 	}
 
@@ -1023,60 +1075,6 @@ lexical_token_str(enum lexical_token tok)
 		assert(tok < sizeof(tokens) / sizeof(tokens[0]));
 		return tokens[tok];
 	}
-}
-
-static const char *
-rune_unparse(uint32_t c)
-{
-	static char buf[11];
-	switch (c) {
-	case '\0':
-		snprintf(buf, sizeof(buf), "\\0");
-		break;
-	case '\a':
-		snprintf(buf, sizeof(buf), "\\a");
-		break;
-	case '\b':
-		snprintf(buf, sizeof(buf), "\\b");
-		break;
-	case '\f':
-		snprintf(buf, sizeof(buf), "\\f");
-		break;
-	case '\n':
-		snprintf(buf, sizeof(buf), "\\n");
-		break;
-	case '\r':
-		snprintf(buf, sizeof(buf), "\\r");
-		break;
-	case '\t':
-		snprintf(buf, sizeof(buf), "\\t");
-		break;
-	case '\v':
-		snprintf(buf, sizeof(buf), "\\v");
-		break;
-	case '\\':
-		snprintf(buf, sizeof(buf), "\\\\");
-		break;
-	case '\'':
-		snprintf(buf, sizeof(buf), "\\'");
-		break;
-	case '"':
-		snprintf(buf, sizeof(buf), "\\\"");
-		break;
-	default:
-		if (c > 0xffff) {
-			snprintf(buf, sizeof(buf), "\\U%08x", c);
-		} else if (c > 0x7F) {
-			snprintf(buf, sizeof(buf), "\\u%04x", c);
-		} else if (!isprint(c)) {
-			snprintf(buf, sizeof(buf), "\\x%02x", c);
-		} else {
-			assert(utf8_cpsize(c) < sizeof(buf));
-			buf[utf8_encode(buf, c)] = '\0';
-		}
-		break;
-	}
-	return buf;
 }
 
 static const char *
