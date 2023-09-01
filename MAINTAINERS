@@ -41,6 +41,10 @@ Maintainers List
           first. When adding to this list, please keep the entries in
           alphabetical order.
 
+OPENBSD SUPPORT
+M:	Lennart Jablonka <humm@ljabl.com>
+T:	*+openbsd*
+
 THE REST
 M:	Drew DeVault <sir@cmpwn.com>
 M:	Ember Sawady <ecs@d2evs.net>
