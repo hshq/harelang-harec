@@ -297,9 +297,6 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 		case T_ELLIPSIS:
 			*next = NULL;
 			type->variadism = VARIADISM_C;
-			if (lex(lexer, &tok) != T_COMMA) {
-				unlex(lexer, &tok);
-			}
 			want(lexer, T_RPAREN, NULL);
 			return;
 		case T_RPAREN:
@@ -318,9 +315,6 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 			break;
 		case T_ELLIPSIS:
 			type->variadism = VARIADISM_HARE;
-			if (lex(lexer, &tok) != T_COMMA) {
-				unlex(lexer, &tok);
-			}
 			want(lexer, T_RPAREN, NULL);
 			return;
 		case T_RPAREN:
@@ -902,21 +896,13 @@ parse_array_literal(struct lexer *lexer)
 		switch (lex(lexer, &tok)) {
 		case T_ELLIPSIS:
 			item->expand = true;
-			lex(lexer, &tok);
-			if (tok.token == T_COMMA) {
-				want(lexer, T_RBRACKET, &tok);
-				unlex(lexer, &tok);
-			} else if (tok.token == T_RBRACKET) {
-				unlex(lexer, &tok);
-			} else {
-				synerr(&tok, T_COMMA, T_RBRACKET, T_EOF);
-			}
+			want(lexer, T_RBRACKET, &tok);
+			// fallthrough
+		case T_RBRACKET:
+			unlex(lexer, &tok);
 			break;
 		case T_COMMA:
 			// Move on
-			break;
-		case T_RBRACKET:
-			unlex(lexer, &tok);
 			break;
 		default:
 			synerr(&tok, T_ELLIPSIS, T_COMMA, T_RBRACKET, T_EOF);
@@ -992,9 +978,6 @@ parse_struct_literal(struct lexer *lexer, struct identifier ident)
 		case T_ELLIPSIS:
 			synassert(ident.name != NULL, &tok, T_RBRACE, T_EOF);
 			exp->_struct.autofill = true;
-			if (lex(lexer, &tok) != T_COMMA) {
-				unlex(lexer, &tok);
-			}
 			want(lexer, T_RBRACE, &tok);
 			unlex(lexer, &tok);
 			break;
@@ -1215,20 +1198,18 @@ parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		arg = *next = xcalloc(1, sizeof(struct ast_call_argument));
 		arg->value = parse_expression(lexer);
 
-		if (lex(lexer, &tok) == T_ELLIPSIS) {
-			arg->variadic = true;
-		} else {
-			unlex(lexer, &tok);
-		}
-
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			break;
+		case T_ELLIPSIS:
+			arg->variadic = true;
+			want(lexer, T_RPAREN, &tok);
+			// fallthrough
 		case T_RPAREN:
 			unlex(lexer, &tok);
 			break;
 		default:
-			synerr(&tok, T_COMMA, T_RPAREN, T_EOF);
+			synerr(&tok, T_COMMA, T_RPAREN, T_ELLIPSIS, T_EOF);
 		}
 
 		next = &arg->next;
