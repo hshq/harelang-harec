@@ -199,6 +199,7 @@ const struct type *type_create_const(enum type_storage storage,
 const struct type *lower_const(struct context *ctx,
 	const struct type *old, const struct type *new);
 void const_refer(const struct type *type, const struct type **ref);
+void const_reset_refs(const struct type *type);
 
 void builtin_types_init(const char *target);
 

@@ -198,6 +198,7 @@ check_expr_access(struct context *ctx,
 		case O_CONST:
 			// Lower constants
 			*expr = *obj->value;
+			const_reset_refs(expr->result);
 			break;
 		case O_BIND:
 		case O_DECL:
@@ -1077,9 +1078,6 @@ type_has_default(struct context *ctx, const struct type *type)
 		return type->pointer.flags & PTR_NULLABLE;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		// TODO: shouldn't be possible to initialize overlapping fields
-		// (@offset)
-		// See also: https://todo.sr.ht/~sircmpwn/hare/513
 		for (struct struct_field *sf = type->struct_union.fields;
 				sf != NULL; sf = sf->next) {
 			if (!type_has_default(ctx, sf->type)) {
@@ -2916,7 +2914,7 @@ check_expr_switch(struct context *ctx,
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
 	const struct type *type = type_dealias(ctx, value->result);
 	expr->_switch.value = value;
-	if (!type_is_numeric(ctx, type)
+	if (!type_is_integer(ctx, type)
 			&& type_dealias(ctx, type)->storage != STORAGE_POINTER
 			&& type_dealias(ctx, type)->storage != STORAGE_STRING
 			&& type_dealias(ctx, type)->storage != STORAGE_BOOL
@@ -3628,10 +3626,94 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 	}
 }
 
+static void
+unexported_type_error(struct context *ctx,
+	struct location loc, const struct type *type)
+{
+	char *s = gen_typename(type);
+	error(ctx, loc, NULL,
+		"Can't use unexported type %s in exported declaration", s);
+	free(s);
+}
+
+static void
+check_exported_type(struct context *ctx,
+	struct location loc,
+	const struct type *type)
+{
+	switch (type->storage) {
+	case STORAGE_ALIAS:
+		if (!type->alias.exported) {
+			unexported_type_error(ctx, loc, type);
+		}
+		break;
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+		check_exported_type(ctx, loc, type->array.members);
+		break;
+	case STORAGE_FUNCTION:
+		for (const struct type_func_param *param = type->func.params;
+				param; param = param->next) {
+			check_exported_type(ctx, loc, param->type);
+		}
+		check_exported_type(ctx, loc, type->func.result);
+		break;
+	case STORAGE_POINTER:
+		check_exported_type(ctx, loc, type->pointer.referent);
+		break;
+	case STORAGE_STRUCT:
+	case STORAGE_UNION:
+		for (const struct struct_field *field = type->struct_union.fields;
+				field; field = field->next) {
+			check_exported_type(ctx, loc, field->type);
+		}
+		break;
+	case STORAGE_TAGGED:
+		for (const struct type_tagged_union *t = &type->tagged;
+				t; t = t->next) {
+			check_exported_type(ctx, loc, t->type);
+		}
+		break;
+	case STORAGE_TUPLE:
+		for (const struct type_tuple *t = &type->tuple; t; t = t->next) {
+			check_exported_type(ctx, loc, t->type);
+		}
+		break;
+	case STORAGE_BOOL:
+	case STORAGE_F32:
+	case STORAGE_F64:
+	case STORAGE_I16:
+	case STORAGE_I32:
+	case STORAGE_I64:
+	case STORAGE_I8:
+	case STORAGE_INT:
+	case STORAGE_NEVER:
+	case STORAGE_NULL:
+	case STORAGE_OPAQUE:
+	case STORAGE_RUNE:
+	case STORAGE_SIZE:
+	case STORAGE_STRING:
+	case STORAGE_U16:
+	case STORAGE_U32:
+	case STORAGE_U64:
+	case STORAGE_U8:
+	case STORAGE_UINT:
+	case STORAGE_UINTPTR:
+	case STORAGE_VOID:
+	case STORAGE_ENUM:
+	case STORAGE_VALIST:
+	case STORAGE_FCONST:
+	case STORAGE_ICONST:
+	case STORAGE_RCONST:
+	case STORAGE_ERROR:
+		break;
+	}
+}
+
 void
 resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 {
-	const struct ast_global_decl *decl = &idecl->decl.global;
+	const struct ast_global_decl *decl = &idecl->decl.constant;
 
 	assert(!decl->symbol); // Invariant
 
@@ -3643,14 +3725,18 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 		*value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, decl->init, init, type);
 	if (!decl->type) {
-		// XXX: Do we need to do anything more here
-		type = lower_const(ctx, init->result, NULL);
+		type = init->result;
 		if (type->storage == STORAGE_NULL) {
 			error(ctx, decl->init->loc, value,
 				"Null is not a valid type for a constant");
 			type = &builtin_type_error;
 			goto end;
 		}
+	}
+	if (idecl->decl.exported) {
+		struct location loc =
+			decl->type ? decl->type->loc : decl->init->loc;
+		check_exported_type(ctx, loc, type);
 	}
 	if (!type_is_assignable(ctx, type, init->result)) {
 		char *typename1 = gen_typename(init->result);
@@ -3663,13 +3749,14 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 		type = &builtin_type_error;
 		goto end;
 	}
-	if (decl->type && decl->type->storage == STORAGE_ARRAY
-			&& decl->type->array.contextual) {
-		type = lower_const(ctx, init->result, NULL);
-	} else {
-		init = lower_implicit_cast(ctx, type, init);
+	if (decl->type) {
+		if (decl->type->storage == STORAGE_ARRAY
+				&& decl->type->array.contextual) {
+			type = lower_const(ctx, init->result, NULL);
+		} else {
+			init = lower_implicit_cast(ctx, type, init);
+		}
 	}
-	assert(type->size != SIZE_UNDEFINED);
 
 	enum eval_result r = eval_expr(ctx, init, value);
 	if (r != EVAL_OK) {
@@ -3686,11 +3773,34 @@ end:
 	if (!ctx->defines || ctx->errors) {
 		return;
 	}
-	const struct scope_object *shadow_obj =
+	struct scope_object *shadow_obj =
 		scope_lookup(ctx->defines, &idecl->obj.ident);
 	if (shadow_obj && &idecl->obj != shadow_obj) {
 		// Shadowed by define
-		if (idecl->obj.type != shadow_obj->type) {
+		if (type_is_constant(idecl->obj.type)
+				|| type_is_constant(shadow_obj->type)) {
+			const struct type *promoted = promote_const(ctx,
+				idecl->obj.type, shadow_obj->type);
+			if (promoted == NULL) {
+				const char *msg;
+				char *typename = NULL;
+				if (!type_is_constant(idecl->obj.type)) {
+					msg = "Constant of type %s is shadowed by define of incompatible flexible type";
+					typename = gen_typename(idecl->obj.type);
+				} else if (!type_is_constant(shadow_obj->type)) {
+					msg = "Constant of flexible type is shadowed by define of incompatible type %s";
+					typename = gen_typename(shadow_obj->type);
+				} else {
+					msg = "Constant of flexible type is shadowed by define of incompatible flexible type";
+				}
+				error(ctx, idecl->decl.loc, NULL, msg, typename);
+				free(typename);
+			} else {
+				shadow_obj->type = promoted;
+				shadow_obj->value = lower_implicit_cast(ctx,
+					promoted, shadow_obj->value);
+			}
+		} else if (idecl->obj.type != shadow_obj->type) {
 			char *typename = gen_typename(idecl->obj.type);
 			char *shadow_typename = gen_typename(shadow_obj->type);
 			error(ctx, idecl->decl.loc, NULL,
@@ -3699,6 +3809,7 @@ end:
 			free(typename);
 			free(shadow_typename);
 		}
+		idecl->obj.type = shadow_obj->type;
 		idecl->obj.value = shadow_obj->value;
 	}
 	append_decl(ctx, &(struct declaration){
@@ -3725,6 +3836,9 @@ resolve_function(struct context *ctx, struct incomplete_declaration *idecl)
 	};
 	const struct type *fntype = type_store_lookup_atype(
 			ctx->store, &fn_atype);
+	if (idecl->decl.exported) {
+		check_exported_type(ctx, idecl->decl.loc, fntype);
+	}
 
 	idecl->obj.otype = O_DECL;
 	idecl->obj.type = fntype;
@@ -3795,6 +3909,11 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 	}
 
+	if (idecl->decl.exported) {
+		struct location loc =
+			decl->type ? decl->type->loc : decl->init->loc;
+		check_exported_type(ctx, loc, type);
+	}
 end:
 	idecl->obj.otype = O_DECL;
 	idecl->obj.type = type;
@@ -4051,6 +4170,10 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	((struct type *)alias)->alias.type =
 		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
 	assert(alias->alias.type != NULL);
+	if (idecl->decl.exported) {
+		check_exported_type(ctx, idecl->decl.type.type->loc,
+			alias->alias.type);
+	}
 	if (alias->alias.type->storage == STORAGE_NEVER) {
 		error(ctx, loc, NULL, "Can't declare type alias of never");
 		((struct type *)alias)->alias.type = &builtin_type_error;

@@ -152,23 +152,24 @@ builtin_for_type(const struct type *type)
 static struct struct_field *
 struct_insert_field(struct type_store *store, struct struct_field **fields,
 	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
-	const struct ast_struct_union_type *atype,
+	size_t *offset, const struct ast_struct_union_type *atype,
 	const struct ast_struct_union_field *afield,
 	bool *ccompat, bool size_only, bool last)
 {
-	while (*fields && (!afield->name || !(*fields)->name || strcmp((*fields)->name, afield->name) < 0)) {
+	// XXX: fuck linked lists all my homies hate linked lists
+	while (*fields && (!afield->name || !(*fields)->name
+			|| strcmp((*fields)->name, afield->name) != 0)) {
 		fields = &(*fields)->next;
 	}
-	struct struct_field *field = *fields;
-	if (field != NULL && afield->name && field->name && strcmp(field->name, afield->name) == 0) {
+	if (*fields != NULL) {
+		assert(afield->name != NULL);
 		error(store->check_context, afield->type->loc,
 			"Duplicate struct/union member '%s'", afield->name);
 		return NULL;
 	}
 	// XXX: leaks if size_only
 	*fields = xcalloc(1, sizeof(struct struct_field));
-	(*fields)->next = field;
-	field = *fields;
+	struct struct_field *field = *fields;
 
 	if (afield->name) {
 		field->name = xstrdup(afield->name);
@@ -200,7 +201,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		*ccompat = false;
 		struct expression in, out;
 		check_expression(store->check_context, afield->offset, &in, NULL);
-		field->offset = 0;
+		field->offset = *offset;
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
 		if (r != EVAL_OK) {
 			error(store->check_context, in.loc,
@@ -211,17 +212,23 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		} else if (type_is_signed(store->check_context, out.result) && out.constant.ival < 0) {
 			error(store->check_context, in.loc,
 				"Field offset must not be less than 0");
+		} else if (out.constant.uval < *offset) {
+			error(store->check_context, in.loc,
+				"Field offset must be greater than or equal to previous field's offset");
+		} else if (out.constant.uval < *size) {
+			error(store->check_context, in.loc,
+				"Fields must not have overlapping storage");
 		} else {
-			field->offset = (size_t)out.constant.uval;
+			field->offset = *offset = (size_t)out.constant.uval;
 		}
 	} else if (atype->packed) {
-		field->offset = *size;
+		field->offset = *offset = *size;
 	} else {
-		size_t offs = *size;
-		if (offs % dim.align) {
-			offs += dim.align - (offs % dim.align);
+		*offset = *size;
+		if (*offset % dim.align) {
+			*offset += dim.align - (*offset % dim.align);
 		}
-		field->offset = offs;
+		field->offset = *offset;
 		assert(field->offset % dim.align == 0);
 	}
 
@@ -299,12 +306,13 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 {
 	// TODO: fields with size SIZE_UNDEFINED
 	size_t usize = 0;
+	size_t offset = 0;
 	assert(storage == STORAGE_STRUCT || storage == STORAGE_UNION);
 	const struct ast_struct_union_field *afield = &atype->fields;
 	while (afield) {
 		bool last = afield->next == NULL;
 		struct struct_field *field = struct_insert_field(store, fields,
-			storage, size, &usize, align, atype, afield,
+			storage, size, &usize, align, &offset, atype, afield,
 			ccompat, size_only, last);
 		if (field == NULL) {
 			return;

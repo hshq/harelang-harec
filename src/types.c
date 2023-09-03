@@ -82,8 +82,6 @@ type_is_complete(const struct type *type)
 const struct struct_field *
 type_get_field(struct context *ctx, const struct type *type, const char *name)
 {
-	// TODO: We should consider lowering unions into structs with explicit
-	// offsets
 	if (type->storage == STORAGE_ERROR) {
 		return NULL;
 	};
@@ -608,6 +606,16 @@ const_refer(const struct type *type, const struct type **ref)
 	}
 	constant->refs[constant->nrefs] = ref;
 	constant->nrefs++;
+}
+
+// Sets the number of references for a flexible constant type to zero.
+void
+const_reset_refs(const struct type *type)
+{
+	if (type == NULL || !type_is_constant(type)) {
+		return;
+	}
+	((struct type *)type)->_const.nrefs = 0;
 }
 
 // Lower a flexible constant type. If new == NULL, lower it to its default type.

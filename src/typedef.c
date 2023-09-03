@@ -176,55 +176,29 @@ emit_const(const struct expression *expr, FILE *out)
 	}
 }
 
-static int
-field_compar(const void *_a, const void *_b)
-{
-	const struct struct_field **a = (const struct struct_field **)_a;
-	const struct struct_field **b = (const struct struct_field **)_b;
-	return (*a)->offset - (*b)->offset;
-}
-
-static bool
+static void
 emit_struct(const struct type *type, FILE *out)
 {
-	bool ret = true;
-	size_t n = 0;
-	for (const struct struct_field *f = type->struct_union.fields;
-			f; f = f->next) {
-		++n;
-	}
-	const struct struct_field **fields = xcalloc(n,
-		sizeof(const struct struct_field *));
-	n = 0;
-	for (const struct struct_field *f = type->struct_union.fields;
-			f; f = f->next) {
-		fields[n++] = f;
-	}
-
-	qsort(fields, n, sizeof(fields[0]), field_compar);
-
 	xfprintf(out, "%s %s{ ",
 			type->storage == STORAGE_STRUCT ? "struct" : "union",
 			type->struct_union.packed ? "@packed " : "");
-	for (size_t i = 0; i < n; ++i) {
-		const struct struct_field *f = fields[i];
+	for (const struct struct_field *f = type->struct_union.fields;
+			f; f = f->next) {
 		if (!type->struct_union.c_compat) {
-			xfprintf(out, "@offset(%zd) ", f->offset);
+			xfprintf(out, "@offset(%zu) ", f->offset);
 		}
 		if (f->name) {
 			xfprintf(out, "%s: ", f->name);
 		}
-		ret &= emit_type(f->type, out);
+		emit_type(f->type, out);
 		xfprintf(out, ", ");
 	}
 	xfprintf(out, "}");
-	return ret;
 }
 
-bool
+void
 emit_type(const struct type *type, FILE *out)
 {
-	bool ret = true;
 	if (type->flags & TYPE_CONST) {
 		xfprintf(out, "const ");
 	}
@@ -264,7 +238,7 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_POINTER:
 		xfprintf(out, "%s*", type->pointer.flags & PTR_NULLABLE
 				? "nullable " : "");
-		ret &= emit_type(type->pointer.referent, out);
+		emit_type(type->pointer.referent, out);
 		break;
 	case STORAGE_ARRAY:
 		if (type->array.length == SIZE_UNDEFINED) {
@@ -272,14 +246,13 @@ emit_type(const struct type *type, FILE *out)
 		} else {
 			xfprintf(out, "[%zu]", type->array.length);
 		}
-		ret &= emit_type(type->array.members, out);
+		emit_type(type->array.members, out);
 		break;
 	case STORAGE_SLICE:
 		xfprintf(out, "[]");
-		ret &= emit_type(type->array.members, out);
+		emit_type(type->array.members, out);
 		break;
 	case STORAGE_ALIAS:
-		ret &= type->alias.exported;
 		ident = identifier_unparse(&type->alias.ident);
 		xfprintf(out, "%s", ident);
 		free(ident);
@@ -288,7 +261,7 @@ emit_type(const struct type *type, FILE *out)
 		xfprintf(out, "(");
 		for (const struct type_tagged_union *tu = &type->tagged;
 				tu; tu = tu->next) {
-			ret &= emit_type(tu->type, out);
+			emit_type(tu->type, out);
 			if (tu->next) {
 				xfprintf(out, " | ");
 			}
@@ -297,30 +270,29 @@ emit_type(const struct type *type, FILE *out)
 		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		ret &= emit_struct(type, out);
+		emit_struct(type, out);
 		break;
 	case STORAGE_FUNCTION:
 		xfprintf(out, "fn(");
 		for (const struct type_func_param *param = type->func.params;
 				param; param = param->next) {
 			if (param->next) {
-				ret &= emit_type(param->type, out);
+				emit_type(param->type, out);
 				xfprintf(out, ", ");
 			} else if (type->func.variadism == VARIADISM_HARE) {
-				ret &= emit_type(param->type->array.members, out);
+				emit_type(param->type->array.members, out);
 				xfprintf(out, "...");
 			} else if (type->func.variadism == VARIADISM_C) {
-				ret &= emit_type(param->type, out);
+				emit_type(param->type, out);
 				xfprintf(out, ", ...");
 			} else {
-				ret &= emit_type(param->type, out);
+				emit_type(param->type, out);
 			}
 		}
 		xfprintf(out, ") ");
-		ret &= emit_type(type->func.result, out);
+		emit_type(type->func.result, out);
 		break;
 	case STORAGE_ENUM:
-		ret &= type->alias.exported;
 		ident = identifier_unparse(&type->alias.ident);
 		xfprintf(out, "%s", ident);
 		free(ident);
@@ -329,7 +301,7 @@ emit_type(const struct type *type, FILE *out)
 		xfprintf(out, "(");
 		for (const struct type_tuple *tuple = &type->tuple;
 				tuple; tuple = tuple->next) {
-			ret &= emit_type(tuple->type, out);
+			emit_type(tuple->type, out);
 			if (tuple->next) {
 				xfprintf(out, ", ");
 			}
@@ -341,32 +313,18 @@ emit_type(const struct type *type, FILE *out)
 			type->_const.max);
 		break;
 	}
-	return ret;
-}
-
-static void
-emit_exported_type(const struct type *type, FILE *out, const char *ident)
-{
-	if (!emit_type(type, out)) {
-		// XXX: Hack
-		((struct type *)type)->alias.exported = true;
-		xfprintf(stderr, "Cannot use unexported type ");
-		emit_type(type, stderr);
-		xfprintf(stderr, " in exported declaration '%s'\n", ident);
-		exit(EXIT_FAILURE);
-	}
 }
 
 static void
 emit_decl_const(struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
-	xfprintf(out, "export def %s: ", ident);
-	if (decl->constant.type) {
-		emit_exported_type(decl->constant.type, out, ident);
-	} else {
-		emit_exported_type(decl->constant.value->result, out, ident);
-	};
+	xfprintf(out, "export def %s", ident);
+	assert(decl->constant.type);
+	if (decl->constant.type->size != SIZE_UNDEFINED) {
+		xfprintf(out, ": ");
+		emit_type(decl->constant.type, out);
+	}
 	free(ident);
 	xfprintf(out, " = ");
 	emit_const(decl->constant.value, out);
@@ -387,21 +345,21 @@ emit_decl_func(struct declaration *decl, FILE *out)
 	for (struct type_func_param *param = fntype->func.params;
 			param; param = param->next) {
 		if (param->next) {
-			emit_exported_type(param->type, out, ident);
+			emit_type(param->type, out);
 			xfprintf(out, ", ");
 		} else if (fntype->func.variadism == VARIADISM_HARE) {
-			emit_exported_type(param->type->array.members, out, ident);
+			emit_type(param->type->array.members, out);
 			xfprintf(out, "...");
 		} else if (fntype->func.variadism == VARIADISM_C) {
-			emit_exported_type(param->type, out, ident);
+			emit_type(param->type, out);
 			xfprintf(out, ", ...");
 		} else {
-			emit_exported_type(param->type, out, ident);
+			emit_type(param->type, out);
 		}
 	}
 
 	xfprintf(out, ") ");
-	emit_exported_type(fntype->func.result, out, ident);
+	emit_type(fntype->func.result, out);
 	xfprintf(out, ";\n");
 	free(ident);
 }
@@ -419,9 +377,9 @@ emit_decl_global(struct declaration *decl, FILE *out)
 	}
 	xfprintf(out, "%s: ", ident);
 	if (decl->constant.type) {
-		emit_exported_type(decl->global.type, out, ident);
+		emit_type(decl->global.type, out);
 	} else {
-		emit_exported_type(decl->global.value->result, out, ident);
+		emit_type(decl->global.value->result, out);
 	};
 	xfprintf(out, ";\n");
 	free(ident);
@@ -447,7 +405,7 @@ emit_decl_type(struct declaration *decl, FILE *out)
 		}
 		xfprintf(out, "}");
 	} else {
-		emit_exported_type(decl->type->alias.type, out, ident);
+		emit_type(decl->type->alias.type, out);
 	}
 	xfprintf(out, "; // size: ");
 	if (decl->type->size == SIZE_UNDEFINED) {

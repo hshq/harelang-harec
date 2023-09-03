@@ -15,6 +15,9 @@ static assert(testmod::val == modalias::valalias);
 static assert(testmod::val2 == modalias::val2);
 static assert(testmod::other::EIGHT == 8);
 
+let x: int = testmod::val;
+let y: u8 = testmod::val;
+
 fn reject() void = {
 	assert(compile("
 		use wrong;

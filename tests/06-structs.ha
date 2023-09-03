@@ -113,13 +113,13 @@ fn nested() void = {
 	assert(s.y.a.c == 7331);
 };
 
-type coords = struct { x: int, y: int };
+type coords = struct { @offset(0) x: int, @offset(4) y: int };
 
 type coords3 = struct { coords, z: int };
 type embed = struct { a: uint, b: u8 };
 type _enum = enum { A = -1, B, C };
 // complex embedded hierarchy
-type me = struct { embed, coords3, f: int, g: (int, str), h: _enum, p: nullable *int };
+type me = struct { embed, coords3, @offset(24) f: int, g: (int, str), h: _enum, p: nullable *int };
 let g1: me = me {        b = 4, x = -1, y = -2, z = -3, f = 20, ... };
 let g2: me = me {               x = -1, y = -2, z = -3, f = 20, ... };
 let g3: me = me {                       y = -2, z = -3, f = 20, ... };
@@ -130,6 +130,20 @@ let g6: me = me {                                               ... };
 fn named() void = {
 	let x = coords { y = 10, x = 20 };
 	assert(x.x == 20 && x.y == 10);
+};
+
+fn _offset() void = {
+	let x = me { ... };
+	assert(offset(x.a) == 0);
+	assert(offset(x.b) == 4);
+	assert(offset(x.x) == 8);
+	assert(offset(x.y) == 12);
+	assert(offset(x.z) == 16);
+	assert(offset(x.f) == 24);
+	assert(offset(x.g) == 32);
+	assert(offset(x.h) == 64);
+	assert(offset(x.p) == 72);
+	assert(size(me) == 80);
 };
 
 fn autofill() void = {
@@ -222,6 +236,11 @@ fn invariants() void = {
 	"type foo = struct { x: int, y: bar };"
 	"type bar = enum { A = 1, B, C = -1 };"
 	"fn test() void = { let x = foo { x = 0, ... }; };",
+
+	// Invalid @offsets
+	"type foo = struct { @offset(4) x: int, @offset(0) y: int };",
+
+	"type foo = struct { x: u64, @offset(4) y: u32 };",
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
@@ -282,12 +301,10 @@ export fn main() void = {
 	deref();
 	nested();
 	named();
+	_offset();
 	autofill();
 	invariants();
 	fields();
 	eval();
-	// TODO:
-	// - Union tests
-	// - Embedded structs
-	// - offset()
+	// TODO: more union tests
 };
