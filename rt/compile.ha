@@ -14,17 +14,19 @@ export fn compile(src: const str, flags: str...) exit_status = {
 		close(1);
 		close(2);
 
-		const path = "./harec\0";
 		let argv: []nullable *const u8 = [];
-		append(argv, constchar(path));
-		for (let i = 0z; i < len(flags); i += 1) {
-			append(argv, constchar(flags[i]));
+		defer for (let i = 0z; i < len(argv); i += 1) {
+			free(argv[i]);
 		};
-		append(argv, constchar("-o/dev/null\0"));
-		append(argv, constchar("-\0"));
+		append(argv, alloc_constchar("./harec"));
+		for (let i = 0z; i < len(flags); i += 1) {
+			append(argv, alloc_constchar(flags[i]));
+		};
+		append(argv, alloc_constchar("-o/dev/null"));
+		append(argv, alloc_constchar("-"));
 		append(argv, null);
 
-		execve(constchar(path), *(&argv: **[*]nullable *const u8), envp);
+		execve(constchar("./harec\0"), *(&argv: **[*]nullable *const u8), envp);
 		abort();
 	} else {
 		assert(child != -1, "fork(2) failed");
