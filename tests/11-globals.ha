@@ -112,13 +112,22 @@ fn static_binding() void = {
 };
 
 const val: u32 = 42;
+const arr: [3]int = [1, 2, 3];
+const _struct = struct { x: u32 = 1, y: u64 = 2 };
 const tup: (u8, str) = (2, "asdf");
 const ptr: *u32 = &val;
-const ptr_tup: *(u8, str) = &tup;
-// TODO const ptr_memb: *str = &tup.1;
+const ptr_arr: *int = &arr[1];
+const ptr_struct = &_struct.y;
+const ptr_tup: *str = &tup.1;
 
 fn pointers() void = {
 	assert(ptr == &val && *ptr == val);
+	assert(ptr_arr == &arr[1] && *ptr_arr == 2);
+	assert(ptr_struct == &_struct.y && *ptr_struct == 2);
+	assert(ptr_tup == &tup.1 && *ptr_tup == "asdf");
+
+	assert(compile("let a = [1, 2, 3]; let b = &a[3];") as exited != EXIT_SUCCESS);
+	assert(compile("let a = (1, 2, 3); let b = &a.3;") as exited != EXIT_SUCCESS);
 };
 
 type foo = (int | uint);

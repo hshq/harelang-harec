@@ -1001,14 +1001,52 @@ eval_unarithm(struct context *ctx,
 		if (in->unarithm.operand->type != EXPR_ACCESS) {
 			return EVAL_INVALID;
 		};
-		// TODO other access types
-		assert(in->unarithm.operand->access.type == ACCESS_IDENTIFIER);
-		if (in->unarithm.operand->access.object->otype != O_DECL) {
-			return EVAL_INVALID;
+		const struct expression_access *access =
+			&in->unarithm.operand->access;
+		struct expression new_in = {0};
+		enum eval_result r;
+		switch (access->type) {
+		case ACCESS_IDENTIFIER:
+			if (access->object->otype != O_DECL) {
+				return EVAL_INVALID;
+			}
+			out->constant.object = access->object;
+			out->constant.ival = 0;
+			return EVAL_OK;
+		case ACCESS_INDEX:
+			new_in = *in;
+			new_in.unarithm.operand = access->array;
+			r = eval_expr(ctx, &new_in, out);
+			if (r != EVAL_OK) {
+				return r;
+			}
+			struct expression index = {0};
+			r = eval_expr(ctx, access->index, &index);
+			if (r != EVAL_OK) {
+				return r;
+			}
+			out->constant.ival += index.constant.uval * type_dealias(ctx,
+				access->array->result)->array.members->size;
+			return EVAL_OK;
+		case ACCESS_FIELD:
+			new_in = *in;
+			new_in.unarithm.operand = access->_struct;
+			r = eval_expr(ctx, &new_in, out);
+			if (r != EVAL_OK) {
+				return r;
+			}
+			out->constant.ival += access->field->offset;
+			return EVAL_OK;
+		case ACCESS_TUPLE:
+			new_in = *in;
+			new_in.unarithm.operand = access->tuple;
+			r = eval_expr(ctx, &new_in, out);
+			if (r != EVAL_OK) {
+				return r;
+			}
+			out->constant.ival += access->tvalue->offset;
+			return EVAL_OK;
 		}
-		out->constant.object = in->unarithm.operand->access.object;
-		out->constant.ival = 0;
-		return EVAL_OK;
 	}
 
 	struct expression lvalue = {0};
