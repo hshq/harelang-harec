@@ -111,8 +111,8 @@ main(int argc, char *argv[])
 
 	builtin_types_init(target);
 
-	size_t ninputs = argc - optind;
-	if (ninputs == 0) {
+	nsources = argc - optind;
+	if (nsources == 0) {
 		usage(argv[0]);
 		return EXIT_FAILURE;
 	}
@@ -121,12 +121,12 @@ main(int argc, char *argv[])
 	struct ast_subunit *subunit = &aunit.subunits;
 	struct ast_subunit **next = &aunit.subunits.next;
 
-	sources = xcalloc(ninputs + 2, sizeof(char **));
-	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * ninputs);
+	sources = xcalloc(nsources + 2, sizeof(char **));
+	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * nsources);
 	sources[0] = "<unknown>";
-	sources[ninputs + 1] = NULL;
+	sources[nsources + 1] = NULL;
 
-	for (size_t i = 0; i < ninputs; ++i) {
+	for (size_t i = 0; i < nsources; ++i) {
 		FILE *in;
 		const char *path = argv[optind + i];
 		if (strcmp(path, "-") == 0) {
@@ -150,7 +150,7 @@ main(int argc, char *argv[])
 
 		lex_init(&lexer, in,  i + 1);
 		parse(&lexer, subunit);
-		if (i + 1 < ninputs) {
+		if (i + 1 < nsources) {
 			*next = xcalloc(1, sizeof(struct ast_subunit));
 			subunit = *next;
 			next = &subunit->next;

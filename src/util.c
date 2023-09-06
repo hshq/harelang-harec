@@ -14,6 +14,7 @@
 #undef strdup
 
 const char **sources;
+size_t nsources;
 
 uint32_t
 fnv1a(uint32_t hash, unsigned char c)
