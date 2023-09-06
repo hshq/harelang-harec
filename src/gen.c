@@ -185,12 +185,12 @@ gen_fixed_abort(struct gen_context *ctx,
 		}
 	}
 
-	struct expression eloc;
-	mkstrconst(&eloc, "%s:%d:%d", sources[loc.file], loc.lineno, loc.colno);
-	struct gen_value msg = gen_expr(ctx, &eloc);
-	struct qbe_value qmsg = mkqval(ctx, &msg);
+	struct qbe_value path = mklval(ctx, &ctx->sources[loc.file]);
+	struct qbe_value line = constl(loc.lineno);
+	struct qbe_value col = constl(loc.colno);
 	struct qbe_value tmp = constl(reason);
-	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.fixedabort, &qmsg, &tmp, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.fixedabort,
+			&path, &line, &col, &tmp, NULL);
 	pushi(ctx->current, NULL, Q_HLT, NULL);
 }
 
@@ -662,16 +662,8 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 		push(&ctx->current->body, &failedl);
 	}
 
-	struct gen_value msg, gloc;
 	if (expr->assert.message) {
-		struct expression eloc;
-		mkstrconst(&eloc, "%s:%d:%d", sources[expr->loc.file],
-			expr->loc.lineno, expr->loc.colno);
-		gloc = gen_expr(ctx, &eloc);
-		msg = gen_expr(ctx, expr->assert.message);
-	}
-
-	if (expr->assert.message) {
+		struct gen_value msg = gen_expr(ctx, expr->assert.message);
 		for (struct gen_scope *scope = ctx->scope;
 				scope; scope = scope->parent) {
 			gen_defers(ctx, scope);
@@ -679,8 +671,13 @@ gen_expr_assert(struct gen_context *ctx, const struct expression *expr)
 				break;
 			}
 		}
-		struct qbe_value qmsg = mkqval(ctx, &msg), qloc = mkqval(ctx, &gloc);
-		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.abort, &qloc, &qmsg, NULL);
+		struct qbe_value path =
+			mklval(ctx, &ctx->sources[expr->loc.file]);
+		struct qbe_value line = constl(expr->loc.lineno);
+		struct qbe_value col = constl(expr->loc.colno);
+		struct qbe_value qmsg = mkqval(ctx, &msg);
+		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.abort,
+				&path, &line, &col, &qmsg, NULL);
 		pushi(ctx->current, NULL, Q_HLT, NULL);
 	} else {
 		gen_fixed_abort(ctx, expr->loc, expr->assert.fixed_reason);
@@ -3774,6 +3771,14 @@ gen(const struct unit *unit, struct type_store *store, struct qbe_program *out)
 	};
 	ctx.out->next = &ctx.out->defs;
 	rtfunc_init(&ctx);
+
+	ctx.sources = xcalloc(nsources + 1, sizeof(struct gen_value));
+	for (size_t i = 1; i <= nsources; i++) {
+		struct expression eloc;
+		mkstrconst(&eloc, "%s", sources[i]);
+		ctx.sources[i] = gen_const_string(&ctx, &eloc);
+	}
+
 	const struct declarations *decls = unit->declarations;
 	while (decls) {
 		gen_decl(&ctx, &decls->decl);
