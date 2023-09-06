@@ -1338,7 +1338,7 @@ type_store_reduce_result(struct type_store *store, struct location loc,
 			}
 		}
 
-		if (it->storage == STORAGE_NEVER) {
+		if (it->storage == STORAGE_NEVER || it->storage == STORAGE_ERROR) {
 			*tu = i->next;
 			continue;
 		}

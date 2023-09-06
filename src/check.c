@@ -446,6 +446,10 @@ check_expr_alloc_slice(struct context *ctx,
 {
 	// alloc(init, capacity) case
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
+	if (expr->alloc.init->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->alloc.init->loc, expr);
+		return;
+	}
 
 	const struct type *objtype = expr->alloc.init->result;
 	if (type_dealias(ctx, objtype)->storage == STORAGE_ARRAY) {
@@ -507,6 +511,10 @@ check_expr_alloc_copy(struct context *ctx,
 {
 	// alloc(init...) case
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
+	if (expr->alloc.init->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->alloc.init->loc, expr);
+		return;
+	}
 
 	const struct type *result = type_dealias(ctx, expr->alloc.init->result);
 	if (result->storage != STORAGE_ARRAY
@@ -2665,6 +2673,10 @@ check_expr_slice(struct context *ctx,
 
 	expr->slice.object = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->slice.object, expr->slice.object, NULL);
+	if (expr->slice.object->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	}
 	const struct type *atype =
 		type_dereference(ctx, expr->slice.object->result);
 	if (!atype) {
