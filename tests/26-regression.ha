@@ -19,8 +19,6 @@ def THING: thing = thing{
 	},
 };
 
-let global: int = 0;
-
 type mod::t = (size | const size); // needs to have a type id larger than size
 
 // order of these three matters
@@ -136,11 +134,6 @@ export fn main() void = {
 		yield p;
 	};
 	*p = 0;
-
-	switch (&global) {
-	case &global => void;
-	case => abort();
-	};
 
 	match (void: (void | !void)) {
 	case void => void;

@@ -10,6 +10,7 @@
 #include "check.h"
 #include "eval.h"
 #include "expr.h"
+#include "identifier.h"
 #include "mod.h"
 #include "scope.h"
 #include "type_store.h"
@@ -2874,6 +2875,116 @@ check_expr_struct(struct context *ctx,
 	}
 }
 
+static int
+casecmp(const void *_a, const void *_b)
+{
+	const struct expression *a = *(const struct expression **)_a;
+	const struct expression *b = *(const struct expression **)_b;
+	assert(a->type == EXPR_CONSTANT && b->type == EXPR_CONSTANT);
+	if (a->result->storage == STORAGE_ERROR) {
+		return b->result->storage == STORAGE_ERROR ? 0 : 1;
+	} else if (b->result->storage == STORAGE_ERROR) {
+		return -1;
+	}
+	assert(a->result->storage == b->result->storage);
+	if (type_is_signed(NULL, a->result)) {
+		return a->constant.ival < b->constant.ival ? -1
+			: a->constant.ival > b->constant.ival ? 1 : 0;
+	} else if (type_is_integer(NULL, a->result)) {
+		return a->constant.uval < b->constant.uval ? -1
+			: a->constant.uval > b->constant.uval ? 1 : 0;
+	} else if (type_dealias(NULL, a->result)->storage == STORAGE_POINTER) {
+		const struct scope_object *obja = a->constant.object;
+		const struct scope_object *objb = b->constant.object;
+		if (obja != objb) {
+			if (obja == NULL) {
+				return -1;
+			} else if (objb == NULL) {
+				return 1;
+			}
+			uint32_t a = identifier_hash(FNV1A_INIT, &obja->name);
+			uint32_t b = identifier_hash(FNV1A_INIT, &objb->name);
+			assert(a != b);
+			return a < b ? -1 : 1;
+		} else {
+			return a->constant.uval < b->constant.uval ? -1
+				: a->constant.uval > b->constant.uval ? 1 : 0;
+		}
+	} else if (type_dealias(NULL, a->result)->storage == STORAGE_STRING) {
+		size_t len = a->constant.string.len < b->constant.string.len
+			? a->constant.string.len : b->constant.string.len;
+		int ret = memcmp(a->constant.string.value,
+			b->constant.string.value, len);
+		if (ret != 0) {
+			return ret;
+		}
+		return a->constant.string.len < b->constant.string.len ? -1
+			: a->constant.string.len > b->constant.string.len ? 1 : 0;
+	} else if (type_dealias(NULL, a->result)->storage == STORAGE_BOOL) {
+		return (int)a->constant.bval - (int)b->constant.bval;
+	} else {
+		assert(type_dealias(NULL, a->result)->storage == STORAGE_RCONST
+			|| type_dealias(NULL, a->result)->storage == STORAGE_RUNE);
+		return a->constant.rune < b->constant.rune ? -1
+			: a->constant.rune > b->constant.rune ? 1 : 0;
+	}
+}
+
+static size_t
+num_cases(struct context *ctx, const struct type *type)
+{
+	type = type_dealias(ctx, type);
+	switch (type->storage) {
+	case STORAGE_BOOL:
+		return 2;
+	case STORAGE_STRING:
+		return -1;
+	case STORAGE_ENUM:;
+		// XXX: O(n^2)
+		size_t n = 0;
+		const struct scope_object *obj = type->_enum.values->objects;
+		assert(obj != NULL);
+		if (obj->otype == O_SCAN) {
+			wrap_resolver(ctx, obj, resolve_enum_field);
+		}
+		for (; obj != NULL; obj = obj->lnext) {
+			if (obj->otype == O_DECL) {
+				continue;
+			}
+			assert(obj->otype == O_CONST);
+			bool should_count = true;
+			for (const struct scope_object *other = obj->lnext;
+					other != NULL; other = other->lnext) {
+				if (other->otype == O_DECL) {
+					continue;
+				}
+				if (other->otype == O_SCAN) {
+					wrap_resolver(ctx, other, resolve_enum_field);
+				}
+				assert(other->otype == O_CONST);
+				if (obj->value->constant.uval
+						== other->value->constant.uval) {
+					should_count = false;
+					break;
+				}
+			}
+			if (should_count) {
+				n++;
+			}
+		}
+		return n;
+	default:
+		assert(type_is_integer(ctx, type)
+			|| type->storage == STORAGE_POINTER
+			|| type->storage == STORAGE_RUNE);
+		assert(!type_is_constant(type));
+		if (type->size >= sizeof(size_t)) {
+			return -1;
+		}
+		return (size_t)1 << (type->size * 8);
+	}
+}
+
 static void
 check_expr_switch(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -2885,12 +2996,12 @@ check_expr_switch(struct context *ctx,
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
 	const struct type *type = type_dealias(ctx, value->result);
+	type = lower_const(ctx, type, NULL);
 	expr->_switch.value = value;
 	if (!type_is_integer(ctx, type)
 			&& type_dealias(ctx, type)->storage != STORAGE_POINTER
 			&& type_dealias(ctx, type)->storage != STORAGE_STRING
 			&& type_dealias(ctx, type)->storage != STORAGE_BOOL
-			&& type_dealias(ctx, type)->storage != STORAGE_RCONST
 			&& type_dealias(ctx, type)->storage != STORAGE_RUNE) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot switch on %s type",
@@ -2902,15 +3013,26 @@ check_expr_switch(struct context *ctx,
 	struct type_tagged_union *tagged = &result_type,
 		**next_tag = &tagged->next;
 
-	// TODO: Test for dupes, exhaustiveness
 	struct switch_case **next = &expr->_switch.cases, *_case = NULL;
-	for (struct ast_switch_case *acase = aexpr->_switch.cases;
-			acase; acase = acase->next) {
+	size_t n = 0;
+	bool has_default_case = false;
+	struct ast_switch_case *acase;
+	for (acase = aexpr->_switch.cases; acase; acase = acase->next) {
 		_case = *next = xcalloc(1, sizeof(struct switch_case));
 		next = &_case->next;
 
+		_case->value = xcalloc(1, sizeof(struct expression));
+
+		if (acase->options == NULL) {
+			if (has_default_case) {
+				error(ctx, acase->exprs.expr->loc, _case->value,
+					"Duplicate default case");
+			}
+			has_default_case = true;
+		}
+
 		struct case_option *opt, **next_opt = &_case->options;
-		for (struct ast_case_option *aopt = acase->options;
+		for (const struct ast_case_option *aopt = acase->options;
 				aopt; aopt = aopt->next) {
 			opt = *next_opt = xcalloc(1, sizeof(struct case_option));
 			struct expression *value =
@@ -2935,9 +3057,8 @@ check_expr_switch(struct context *ctx,
 
 			opt->value = evaled;
 			next_opt = &opt->next;
+			n++;
 		}
-
-		_case->value = xcalloc(1, sizeof(struct expression));
 
 		// Lower to compound
 		// TODO: This should probably be done in a more first-class way
@@ -2960,6 +3081,65 @@ check_expr_switch(struct context *ctx,
 		}
 	}
 
+	struct located_case {
+		struct expression *_case;
+		struct location loc;
+	};
+	struct located_case *cases_array = xcalloc(n, sizeof(struct located_case));
+	size_t i = 0;
+	for (acase = aexpr->_switch.cases, _case = expr->_switch.cases;
+			_case; acase = acase->next, _case = _case->next) {
+		assert(acase);
+		const struct ast_case_option *aopt;
+		const struct case_option *opt;
+		for (aopt = acase->options, opt = _case->options;
+				opt; aopt = aopt->next, opt = opt->next) {
+			assert(aopt);
+			assert(i < n);
+			cases_array[i]._case = opt->value;
+			cases_array[i].loc = aopt->value->loc;
+			i++;
+		}
+		assert(!aopt);
+	}
+	assert(!acase);
+	assert(i == n);
+	qsort(cases_array, n, sizeof(struct located_case), &casecmp);
+	bool has_duplicate = false;
+	for (size_t i = 1; i < n; i++) {
+		if (cases_array[i]._case->result->storage == STORAGE_ERROR) {
+			break;
+		}
+		const struct expression_constant *a = &cases_array[i - 1]._case->constant;
+		const struct expression_constant *b = &cases_array[i]._case->constant;
+		bool equal;
+		if (type_is_integer(ctx, value->result)) {
+			equal = a->uval == b->uval;
+		} else if (type_dealias(ctx, value->result)->storage == STORAGE_POINTER) {
+			equal = a->object == b->object && a->uval == b->uval;
+		} else if (type_dealias(ctx, value->result)->storage == STORAGE_STRING) {
+			equal = a->string.len == b->string.len
+				&& memcmp(a->string.value, b->string.value, a->string.len) == 0;
+		} else if (type_dealias(ctx, value->result)->storage == STORAGE_BOOL) {
+			equal = a->bval == b->bval;
+		} else {
+			assert(type_dealias(ctx, value->result)->storage == STORAGE_RCONST
+				|| type_dealias(ctx, value->result)->storage == STORAGE_RUNE);
+			equal = a->rune == b->rune;
+		}
+		if (equal) {
+			error(ctx, cases_array[i].loc, cases_array[i]._case,
+				"Duplicate switch case");
+			has_duplicate = true;
+		}
+	}
+	free(cases_array);
+	if (!has_default_case && !has_duplicate
+			&& (n == (size_t)-1 || n != num_cases(ctx, value->result))) {
+		error(ctx, aexpr->loc, value,
+			"Switch expression isn't exhaustive");
+	}
+
 	if (result_type.next) {
 		if (hint) {
 			expr->result = hint;
@@ -2973,8 +3153,8 @@ check_expr_switch(struct context *ctx,
 			}
 		}
 
-		struct switch_case *_case = expr->_switch.cases;
-		struct ast_switch_case *acase = aexpr->_switch.cases;
+		_case = expr->_switch.cases;
+		acase = aexpr->_switch.cases;
 		while (_case) {
 			if (!type_is_assignable(ctx, expr->result, _case->value->result)) {
 				error(ctx, acase->exprs.expr->loc, expr,
