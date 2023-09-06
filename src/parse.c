@@ -12,7 +12,6 @@
 #include "lex.h"
 #include "parse.h"
 #include "types.h"
-#include "utf8.h"
 #include "util.h"
 
 static void

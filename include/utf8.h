@@ -1,5 +1,6 @@
 #ifndef HAREC_UTF8_H
 #define HAREC_UTF8_H
+#include <stdio.h>
 
 #define UTF8_MAX_SIZE 4
 
