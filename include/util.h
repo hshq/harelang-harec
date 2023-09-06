@@ -12,7 +12,6 @@ extern const char **sources;
 
 uint32_t fnv1a(uint32_t hash, unsigned char c);
 uint32_t fnv1a_u32(uint32_t hash, uint32_t u32);
-uint32_t fnv1a_u64(uint32_t hash, uint64_t u64);
 uint32_t fnv1a_size(uint32_t hash, size_t sz);
 uint32_t fnv1a_s(uint32_t hash, const char *str);
 int xfprintf(FILE *restrict f, const char *restrict fmt, ...);

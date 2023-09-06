@@ -32,20 +32,6 @@ fnv1a_u32(uint32_t hash, uint32_t u32)
 }
 
 uint32_t
-fnv1a_u64(uint32_t hash, uint64_t u64)
-{
-	hash = fnv1a(hash, (u64) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 8) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 16) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 24) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 32) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 40) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 48) & 0xFF);
-	hash = fnv1a(hash, (u64 >> 54) & 0xFF);
-	return hash;
-}
-
-uint32_t
 fnv1a_size(uint32_t hash, size_t sz)
 {
 	for (size_t i = 0; i < sizeof(sz); i++) {
