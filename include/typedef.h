@@ -2,6 +2,7 @@
 #define HARE_TYPEDEF_H
 #include <stdio.h>
 
+struct type;
 struct unit;
 
 void emit_type(const struct type *type, FILE *out);

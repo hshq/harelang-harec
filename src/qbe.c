@@ -146,7 +146,7 @@ qbe_append_def(struct qbe_program *prog, struct qbe_def *def)
 	prog->next = &def->next;
 }
 
-struct qbe_value *
+static struct qbe_value *
 qval_dup(const struct qbe_value *val)
 {
 	struct qbe_value *new = xcalloc(1, sizeof(struct qbe_value));

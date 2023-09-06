@@ -51,6 +51,18 @@ fn _static() void = {
 	};
 };
 
+fn withlength() void = {
+	let x: []size = alloc([0, 0, 2, 2]);
+	insert(x[2], [1...], 2);
+
+	assert(len(x) == 6);
+	for (let i = 0z; i < len(x); i += 1) {
+		assert(x[i] == i / 2);
+	};
+
+	free(x);
+};
+
 fn typehints() void = {
 	let x: []u8 = [];
 	insert(x[0], 42);
@@ -94,6 +106,7 @@ export fn main() void = {
 	basics();
 	multi();
 	_static();
+	withlength();
 	typehints();
 	reject();
 	_never();

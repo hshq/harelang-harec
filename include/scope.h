@@ -39,8 +39,6 @@ enum scope_class {
 	SCOPE_DEFINES,
 };
 
-struct expression;
-
 struct yield {
 	struct expression **expression;
 	struct yield *next;

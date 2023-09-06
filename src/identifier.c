@@ -66,27 +66,6 @@ identifier_unparse_static(const struct identifier *ident, char *buf, size_t len)
 	return n;
 }
 
-const char *
-ident_to_path(const struct identifier *ident)
-{
-	static char path[PATH_MAX+1];
-	memset(path, 0, sizeof(path));
-	while (ident) {
-		size_t len = strlen(ident->name);
-		size_t oldlen = strlen(path);
-		if (oldlen != 0) {
-			len++;
-		}
-		memmove(path + len, path, oldlen);
-		memcpy(path, ident->name, strlen(ident->name));
-		if (oldlen != 0) {
-			path[strlen(ident->name)] = '/';
-		}
-		ident = ident->ns;
-	}
-	return path;
-}
-
 char *
 ident_to_sym(const struct identifier *ident)
 {

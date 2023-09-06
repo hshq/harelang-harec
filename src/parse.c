@@ -12,7 +12,6 @@
 #include "lex.h"
 #include "parse.h"
 #include "types.h"
-#include "utf8.h"
 #include "util.h"
 
 static void
@@ -102,6 +101,8 @@ mkfuncparams(const struct location *loc)
 	p->loc = *loc;
 	return p;
 }
+
+static struct ast_expression *parse_statement(struct lexer *lexer);
 
 bool
 parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
@@ -1348,8 +1349,6 @@ parse_append_insert(struct lexer *lexer, struct location *loc,
 	if (etype == EXPR_INSERT) {
 		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
 				"expected indexing expression", &tok);
-		want(lexer, T_RPAREN, NULL);
-		return expr;
 	}
 
 	switch (lex(lexer, &tok)) {
@@ -2406,7 +2405,7 @@ parse_expression(struct lexer *lexer)
 	}
 }
 
-struct ast_expression *
+static struct ast_expression *
 parse_statement(struct lexer *lexer)
 {
 	struct token tok;
