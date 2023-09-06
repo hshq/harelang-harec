@@ -231,6 +231,26 @@ gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 	abort(); // Invariant
 }
 
+static void
+gen_indexing_bounds_check(struct gen_context *ctx,
+	struct location loc,
+	enum qbe_instr instr,
+	struct qbe_value *index,
+	struct qbe_value *length)
+{
+	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+	pushi(ctx->current, &valid, instr, index, length, NULL);
+
+	struct qbe_statement linvalid, lvalid;
+	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+
+	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+	push(&ctx->current->body, &linvalid);
+	gen_fixed_abort(ctx, loc, ABORT_OOB);
+	push(&ctx->current->body, &lvalid);
+}
+
 static struct gen_value
 gen_access_index(struct gen_context *ctx, const struct expression *expr)
 {
@@ -273,17 +293,7 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &qival, Q_ADD, &qlval, &qival, NULL);
 
 	if (checkbounds) {
-		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-		pushi(ctx->current, &valid, Q_CULTL, &qindex, &length, NULL);
-
-		struct qbe_statement linvalid, lvalid;
-		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-
-		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
-		push(&ctx->current->body, &linvalid);
-		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-		push(&ctx->current->body, &lvalid);
+		gen_indexing_bounds_check(ctx, expr->loc, Q_CULTL, &qindex, &length);
 	}
 
 	return (struct gen_value){
@@ -2197,6 +2207,7 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 			expr->append.object->access.index);
 		qindex = mkqval(ctx, &index);
 		qindex_ptr = &qindex;
+		gen_indexing_bounds_check(ctx, expr->loc, Q_CULEL, &qindex, &prevlen);
 	}
 
 	struct qbe_value appendlen;
