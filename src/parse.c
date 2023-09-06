@@ -1349,8 +1349,6 @@ parse_append_insert(struct lexer *lexer, struct location *loc,
 	if (etype == EXPR_INSERT) {
 		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
 				"expected indexing expression", &tok);
-		want(lexer, T_RPAREN, NULL);
-		return expr;
 	}
 
 	switch (lex(lexer, &tok)) {
