@@ -21,7 +21,7 @@ let y: u8 = testmod::val;
 fn reject() void = {
 	assert(compile("
 		use wrong;
-		export fn main() void = { testmod::val };
+		export fn main() void = { testmod::val; };
 	") as exited != EXIT_SUCCESS);
 	assert(compile("
 		use testmod::{val};
