@@ -272,8 +272,6 @@ void pushprei(struct qbe_func *func, const struct qbe_value *out, enum qbe_instr
 void pushc(struct qbe_func *func, const char *fmt, ...);
 void push(struct qbe_statements *stmts, struct qbe_statement *stmt);
 
-struct qbe_value *qval_dup(const struct qbe_value *val);
-
 struct qbe_value constl(uint64_t l);
 struct qbe_value constw(uint32_t w);
 struct qbe_value consts(float s);
