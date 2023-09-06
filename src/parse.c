@@ -102,6 +102,8 @@ mkfuncparams(const struct location *loc)
 	return p;
 }
 
+static struct ast_expression *parse_statement(struct lexer *lexer);
+
 bool
 parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 {
@@ -2405,7 +2407,7 @@ parse_expression(struct lexer *lexer)
 	}
 }
 
-struct ast_expression *
+static struct ast_expression *
 parse_statement(struct lexer *lexer)
 {
 	struct token tok;
