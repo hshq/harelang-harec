@@ -27,11 +27,6 @@ char *xstrdup(const char *s);
 
 char *gen_name(int *id, const char *fmt);
 
-struct pathspec {
-	const char *var;
-	const char *path;
-};
-
 void errline(struct location loc);
 
 #endif
