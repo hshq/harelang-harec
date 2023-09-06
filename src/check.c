@@ -819,7 +819,7 @@ check_binarithm_op(struct context *ctx, struct expression *expr,
 				&& dealiased->storage != STORAGE_RCONST
 				&& dealiased->storage != STORAGE_RUNE) {
 			error(ctx, expr->loc, expr,
-				"Cannot perform equality test on %s dealiased",
+				"Cannot perform equality test on %s type",
 				type_storage_unparse(dealiased->storage));
 		}
 		return;
