@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "utf8.h"
 
-uint8_t masks[] = {
+static const uint8_t masks[] = {
 	0x7F,
 	0x1F,
 	0x0F,
@@ -11,7 +11,7 @@ uint8_t masks[] = {
 	0x01
 };
 
-struct {
+static const struct {
 	uint8_t mask;
 	uint8_t result;
 	int octets;
@@ -24,6 +24,17 @@ struct {
 	{ 0xFE, 0xFC, 6 },
 	{ 0x80, 0x80, -1 },
 };
+
+static int
+utf8_size(uint8_t c)
+{
+	for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) {
+		if ((c & sizes[i].mask) == sizes[i].result) {
+			return sizes[i].octets;
+		}
+	}
+	return -1;
+}
 
 size_t
 utf8_cpsize(uint32_t ch)
@@ -41,7 +52,7 @@ utf8_cpsize(uint32_t ch)
 uint32_t
 utf8_decode(const char **char_str)
 {
-	uint8_t **s = (uint8_t **)char_str;
+	const uint8_t **s = (const uint8_t **)char_str;
 
 	uint32_t cp = 0;
 	if (**s < 128) {
@@ -50,7 +61,7 @@ utf8_decode(const char **char_str)
 		++*s;
 		return cp;
 	}
-	int size = utf8_size((char *)*s);
+	int size = utf8_size(**s);
 	if (size == -1) {
 		++*s;
 		return UTF8_INVALID;
@@ -101,18 +112,6 @@ utf8_encode(char *str, uint32_t ch)
 	return len;
 }
 
-int
-utf8_size(const char *s)
-{
-	uint8_t c = (uint8_t)*s;
-	for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); ++i) {
-		if ((c & sizes[i].mask) == sizes[i].result) {
-			return sizes[i].octets;
-		}
-	}
-	return -1;
-}
-
 uint32_t
 utf8_get(FILE *f)
 {
@@ -122,7 +121,7 @@ utf8_get(FILE *f)
 		return UTF8_INVALID;
 	}
 	buffer[0] = (char)c;
-	int size = utf8_size(buffer);
+	int size = utf8_size(c);
 
 	if (size > UTF8_MAX_SIZE) {
 		fseek(f, size - 1, SEEK_CUR);

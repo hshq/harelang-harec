@@ -17,11 +17,6 @@ uint32_t utf8_decode(const char **str);
 size_t utf8_encode(char *str, uint32_t ch);
 
 /**
- * Returns the size of the next UTF-8 codepoint
- */
-int utf8_size(const char *str);
-
-/**
  * Returns the size of a UTF-8 codepoint
  */
 size_t utf8_cpsize(uint32_t ch);
