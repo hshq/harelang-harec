@@ -218,12 +218,12 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 	if (c == C_EOF || !buffer) {
 		return c;
 	}
-	if (lexer->buflen + utf8_cpsize(c) >= lexer->bufsz) {
+	char buf[UTF8_MAX_SIZE];
+	size_t sz = utf8_encode(&buf[0], c);
+	if (lexer->buflen + sz >= lexer->bufsz) {
 		lexer->bufsz *= 2;
 		lexer->buf = xrealloc(lexer->buf, lexer->bufsz);
 	}
-	char buf[UTF8_MAX_SIZE];
-	size_t sz = utf8_encode(&buf[0], c);
 	memcpy(lexer->buf + lexer->buflen, buf, sz);
 	lexer->buflen += sz;
 	lexer->buf[lexer->buflen] = '\0';
@@ -935,7 +935,6 @@ rune_unparse(uint32_t c)
 		} else if (!isprint(c)) {
 			snprintf(buf, sizeof(buf), "\\x%02x", c);
 		} else {
-			assert(utf8_cpsize(c) < sizeof(buf));
 			buf[utf8_encode(buf, c)] = '\0';
 		}
 		break;

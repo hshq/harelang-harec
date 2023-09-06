@@ -36,19 +36,6 @@ utf8_size(uint8_t c)
 	return -1;
 }
 
-size_t
-utf8_cpsize(uint32_t ch)
-{
-	if (ch < 0x80) {
-		return 1;
-	} else if (ch < 0x800) {
-		return 2;
-	} else if (ch < 0x10000) {
-		return 3;
-	}
-	return 4;
-}
-
 uint32_t
 utf8_decode(const char **char_str)
 {
