@@ -729,11 +729,12 @@ promote_const(struct context *ctx,
 			lower_const(ctx, b, a);
 			return a;
 		}
-		// XXX: This is probably a bit too lenient but I can't think of
-		// a better way to do this
 		if (!type_is_integer(ctx, a)) {
 			return NULL;
 		}
+		if (max_value(ctx, a) < (uint64_t)b->_const.max) {
+			return NULL;
+		};
 		lower_const(ctx, b, a);
 		return a;
 	default:

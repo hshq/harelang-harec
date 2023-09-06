@@ -31,7 +31,8 @@ fn assignment() void = {
 	let ftu3: (f32 | f64 | void) = void;
 	let rtu1: (rune | void) = void;
 	let rtu2: (u64 | void) = void;
-	let rtu3: (rune | u64 | void) = void;
+	let rtu3: (u8 | void) = void;
+	let rtu4: (rune | u64 | u8 | void) = void;
 
 	i = 127;
 	u = 18446744073709551615;
@@ -49,9 +50,10 @@ fn assignment() void = {
 	r = 'a';
 	e = 'a';
 	rtu1 = 'a';
-	rtu2 = 'a';
+	rtu2 = '\u0100';
 	rtu3 = 'a';
-	assert(rtu3 is rune);
+	rtu4 = 'a';
+	assert(rtu4 is rune);
 	let u2: uint = 'a';
 	let u2: uintptr = 'a';
 	let z: size = 'a';
@@ -106,6 +108,8 @@ fn assignment() void = {
 
 		"fn f() void = { let rtu4: (u32 | u64 | void) = void; rtu4 = 'a'; };",
 		"fn f() void = { let rtu5: (str | void) = void; rtu5 = 'a'; };",
+
+		"fn f() void = { let i: u8 = '\u0100'; };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

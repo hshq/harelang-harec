@@ -1590,45 +1590,6 @@ check_expr_cast(struct context *ctx,
 		expr->cast.value->cast.kind = C_CAST;
 		expr->cast.value->cast.value = value;
 		expr->cast.value->cast.secondary = intermediary;
-		if (value->result->storage == STORAGE_RCONST) {
-			uint32_t max = 0;
-			switch (secondary->storage) {
-			case STORAGE_RUNE:
-			case STORAGE_U64:
-			case STORAGE_I64:
-			case STORAGE_U32:
-			case STORAGE_UINT:
-			case STORAGE_SIZE:
-			case STORAGE_UINTPTR:
-				break;
-			case STORAGE_I32:
-				max = INT32_MAX;
-				break;
-			case STORAGE_U16:
-				max = UINT16_MAX;
-				break;
-			case STORAGE_I16:
-				max = INT16_MAX;
-				break;
-			case STORAGE_U8:
-				max = UINT8_MAX;
-				break;
-			case STORAGE_I8:
-				max = INT8_MAX;
-				break;
-			default:
-				assert(0); // Invariant
-			}
-
-			if (max != 0 && value->constant.rune > max) {
-				char *typename = gen_typename(secondary);
-				error(ctx, aexpr->cast.type->loc, expr,
-					"Rune does not fit in %s",
-					typename);
-				free(typename);
-				return;
-			}
-		}
 		break;
 	}
 	expr->result = aexpr->cast.kind == C_TEST? &builtin_type_bool : secondary;
