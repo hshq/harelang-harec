@@ -32,17 +32,17 @@ mkident(struct context *ctx, struct identifier *out, const struct identifier *in
 	}
 }
 
-size_t
+void
 mkstrconst(struct expression *expr, const char *fmt, ...)
 {
-	va_list ap1, ap2;
-	va_start(ap1, fmt);
-	size_t n = vsnprintf(NULL, 0, fmt, ap1);
-	va_end(ap1);
-	char *s = xcalloc(1, n + 1);
-	va_start(ap2, fmt);
-	vsnprintf(s, n + 1, fmt, ap2);
-	va_end(ap2);
+	va_list ap;
+	va_start(ap, fmt);
+	size_t n = vsnprintf(NULL, 0, fmt, ap);
+	va_end(ap);
+	char *s = xcalloc(n + 1, n);
+	va_start(ap, fmt);
+	vsnprintf(s, n + 1, fmt, ap);
+	va_end(ap);
 
 	*expr = (struct expression) {
 		.type = EXPR_CONSTANT,
@@ -50,7 +50,6 @@ mkstrconst(struct expression *expr, const char *fmt, ...)
 	};
 	expr->constant.string.value = s;
 	expr->constant.string.len = n;
-	return n;
 }
 
 static char *
