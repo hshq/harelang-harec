@@ -25,12 +25,5 @@ const reasons: [_]str = [
 ];
 
 export fn abort_fixed(loc: str, i: int) void = {
-	const prefix = "Abort: ";
-	const sep = ": ";
-	write(2, constchar(prefix), len(prefix));
-	write(2, constchar(loc), len(loc));
-	write(2, constchar(sep), len(sep));
-	write(2, constchar(reasons[i]), len(reasons[i]));
-	write(2, constchar("\n"), 1);
-	kill(getpid(), SIGABRT);
+	_abort(loc, reasons[i]);
 };

@@ -1925,43 +1925,26 @@ gen_const_array_at(struct gen_context *ctx,
 	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &qlen, NULL);
 }
 
-static void
-gen_const_string_at(struct gen_context *ctx,
-	const struct expression *expr, struct gen_value out)
+static struct qbe_data_item *gen_data_item(struct gen_context *,
+	const struct expression *, struct qbe_data_item *);
+
+static struct gen_value
+gen_const_string(struct gen_context *ctx, const struct expression *expr)
 {
-	const struct expression_constant *constant = &expr->constant;
-	const char *val = constant->string.value;
-	size_t len = constant->string.len;
+	struct qbe_def *str = xcalloc(1, sizeof(struct qbe_def));
+	str->kind = Q_DATA;
+	str->data.align = ALIGN_UNDEFINED;
+	str->exported = false;
+	str->name = gen_name(&ctx->id, "strconst.%d");
+	str->file = expr->loc.file;
+	gen_data_item(ctx, expr, &str->data.items);
+	qbe_append_def(ctx->out, str);
 
-	// TODO: Generate string data structure as global also?
-	struct qbe_value global = mkqtmp(ctx, ctx->arch.ptr, "strdata.%d");
-	global.kind = QV_GLOBAL;
-
-	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
-	def->name = global.name;
-	def->kind = Q_DATA;
-	def->data.align = ALIGN_UNDEFINED;
-	def->data.items.type = QD_STRING;
-	def->data.items.str = xcalloc(len, 1);
-	memcpy(def->data.items.str, val, len);
-	def->data.items.sz = len;
-
-	if (len != 0) {
-		qbe_append_def(ctx->out, def);
-	} else {
-		free(def);
-		global = constl(0);
-	}
-
-	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
-	struct qbe_value strp = mkcopy(ctx, &out, ".%d");
-	struct qbe_value qlen = constl(len);
-	struct qbe_value offs = constl(builtin_type_size.size);
-	pushi(ctx->current, NULL, store, &global, &strp, NULL);
-	pushi(ctx->current, &strp, Q_ADD, &strp, &offs, NULL);
-	pushi(ctx->current, NULL, store, &qlen, &strp, NULL);
-	pushi(ctx->current, &strp, Q_ADD, &strp, &offs, NULL);
-	pushi(ctx->current, NULL, store, &qlen, &strp, NULL);
+	return (struct gen_value){
+		.kind = GV_GLOBAL,
+		.type = expr->result,
+		.name = xstrdup(str->name),
+	};
 }
 
 static void
@@ -2028,17 +2011,9 @@ static void
 gen_expr_const_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	if (!type_is_aggregate(type_dealias(NULL, expr->result))) {
-		gen_store(ctx, out, gen_expr(ctx, expr));
-		return;
-	}
-
 	switch (type_dealias(NULL, expr->result)->storage) {
 	case STORAGE_ARRAY:
 		gen_const_array_at(ctx, expr, out);
-		break;
-	case STORAGE_STRING:
-		gen_const_string_at(ctx, expr, out);
 		break;
 	case STORAGE_STRUCT:
 		gen_const_struct_at(ctx, expr, out);
@@ -2050,23 +2025,13 @@ gen_expr_const_at(struct gen_context *ctx,
 		gen_const_tuple_at(ctx, expr, out);
 		break;
 	default:
-		abort(); // Invariant
+		gen_store(ctx, out, gen_expr(ctx, expr));
 	}
 }
 
 static struct gen_value
 gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 {
-	if (type_is_aggregate(type_dealias(NULL, expr->result))) {
-		struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
-		struct qbe_value base = mkqval(ctx, &out);
-		struct qbe_value sz = constl(expr->result->size);
-		enum qbe_instr alloc = alloc_for_align(expr->result->align);
-		pushprei(ctx->current, &base, alloc, &sz, NULL);
-		gen_expr_at(ctx, expr, out);
-		return out;
-	}
-
 	struct gen_value val = {
 		.kind = GV_CONST,
 		.type = expr->result,
@@ -2082,9 +2047,21 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_NULL:
 		val.lval = 0;
 		return val;
+	case STORAGE_STRING:
+		return gen_const_string(ctx, expr);
 	default:
 		// Moving right along
 		break;
+	}
+
+	if (type_is_aggregate(type_dealias(NULL, expr->result))) {
+		struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
+		struct qbe_value base = mkqval(ctx, &out);
+		struct qbe_value sz = constl(expr->result->size);
+		enum qbe_instr alloc = alloc_for_align(expr->result->align);
+		pushprei(ctx->current, &base, alloc, &sz, NULL);
+		gen_expr_at(ctx, expr, out);
+		return out;
 	}
 
 	if (expr->constant.object != NULL) {
@@ -3384,9 +3361,6 @@ gen_expr_with(struct gen_context *ctx,
 	return gen_expr(ctx, expr);
 }
 
-static struct qbe_data_item *gen_data_item(struct gen_context *,
-	struct expression *, struct qbe_data_item *);
-
 static void
 gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 {
@@ -3566,7 +3540,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 }
 
 static struct qbe_data_item *
-gen_data_item(struct gen_context *ctx, struct expression *expr,
+gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	struct qbe_data_item *item)
 {
 	assert(expr->type == EXPR_CONSTANT);
