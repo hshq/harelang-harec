@@ -185,9 +185,8 @@ check_expr_access(struct context *ctx,
 	case ACCESS_IDENTIFIER:
 		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
 		if (!obj) {
-			char buf[1024];
-			identifier_unparse_static(&aexpr->access.ident,
-				buf, sizeof(buf));
+			char buf[IDENT_BUFSIZ];
+			identifier_unparse_static(&aexpr->access.ident, buf);
 			error(ctx, aexpr->loc, expr,
 				"Unknown object '%s'", buf);
 			return;
