@@ -2998,8 +2998,7 @@ check_expr_switch(struct context *ctx,
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
-	const struct type *type = type_dealias(ctx, value->result);
-	type = lower_const(ctx, type, NULL);
+	const struct type *type = lower_const(ctx, value->result, NULL);
 	expr->_switch.value = value;
 	if (!type_is_integer(ctx, type)
 			&& type_dealias(ctx, type)->storage != STORAGE_POINTER
@@ -3044,8 +3043,7 @@ check_expr_switch(struct context *ctx,
 				xcalloc(1, sizeof(struct expression));
 
 			check_expression(ctx, aopt->value, value, type);
-			if (!type_is_assignable(ctx, type_dealias(ctx, type),
-					type_dealias(ctx, value->result))) {
+			if (!type_is_assignable(ctx, type, value->result)) {
 				error(ctx, aopt->value->loc, expr,
 					"Invalid type for switch case");
 				return;
