@@ -3050,6 +3050,7 @@ check_expr_switch(struct context *ctx,
 					"Invalid type for switch case");
 				return;
 			}
+			value = lower_implicit_cast(ctx, type, value);
 
 			enum eval_result r = eval_expr(ctx, value, evaled);
 			if (r != EVAL_OK) {

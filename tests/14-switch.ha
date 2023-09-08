@@ -1,5 +1,8 @@
 use rt::{compile, exited, EXIT_SUCCESS, toutf8};
 
+type t = int;
+type e = !int;
+
 let x = 1337;
 
 fn basics() void = {
@@ -39,6 +42,24 @@ fn basics() void = {
 	case => abort();
 	};
 
+	// assignability
+	switch (0) {
+	case 0i8 => void;
+	case 1i16 => abort();
+	case 2: !int => abort();
+	case 3: t => abort();
+	case 4: !t => abort();
+	case => abort();
+	};
+
+	// regression test
+	const x: e = 0;
+	switch (x) {
+	case 0 => void;
+	case 1: e => abort();
+	case => abort();
+	};
+
 	assert(compile("
 		fn test() void = switch (0.0) {
 		case 0.0 => void;
@@ -57,6 +78,13 @@ fn basics() void = {
 	assert(compile("
 		fn test() void = switch (&0) {
 		case &0 => void;
+		case => void;
+		};
+	") as exited != EXIT_SUCCESS);
+
+	assert(compile("
+		fn test() void = switch (0i32) {
+		case 0i64 => void;
 		case => void;
 		};
 	") as exited != EXIT_SUCCESS);
