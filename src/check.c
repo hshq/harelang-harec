@@ -1158,6 +1158,10 @@ check_binding_unpack(struct context *ctx,
 
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, abinding->initializer, initializer, type);
+	if (initializer->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	}
 	if (type_dealias(ctx, initializer->result)->storage != STORAGE_TUPLE) {
 		error(ctx, aexpr->loc, expr, "Could not unpack non-tuple type");
 		return;
