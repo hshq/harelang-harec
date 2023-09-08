@@ -20,7 +20,7 @@ static void
 usage(const char *argv_0)
 {
 	xfprintf(stderr,
-		"Usage: %s [-v] [-a arch] [-D ident[:type]=value] [-o output] [-T] [-t typedefs] [-N namespace] input.ha...\n",
+		"Usage: %s [-a arch] [-D ident[:type]=value] [-N namespace] [-o output] [-T] [-t typedefs] [-v] input.ha...\n",
 		argv_0);
 }
 
@@ -65,7 +65,7 @@ main(int argc, char *argv[])
 	struct ast_global_decl *defines = NULL, **next_def = &defines;
 
 	int c;
-	while ((c = getopt(argc, argv, "a:D:ho:Tt:N:v")) != -1) {
+	while ((c = getopt(argc, argv, "a:D:hN:o:Tt:v")) != -1) {
 		switch (c) {
 		case 'a':
 			target = optarg;
@@ -74,15 +74,9 @@ main(int argc, char *argv[])
 			*next_def = parse_define(argv[0], optarg);
 			next_def = &(*next_def)->next;
 			break;
-		case 'o':
-			output = optarg;
-			break;
-		case 'T':
-			is_test = true;
-			break;
-		case 't':
-			typedefs = optarg;
-			break;
+		case 'h':
+			usage(argv[0]);
+			return EXIT_SUCCESS;
 		case 'N':
 			unit.ns = xcalloc(1, sizeof(struct identifier));
 			if (strlen(optarg) == 0) {
@@ -97,11 +91,17 @@ main(int argc, char *argv[])
 				lex_finish(&lexer);
 			}
 			break;
+		case 'o':
+			output = optarg;
+			break;
+		case 'T':
+			is_test = true;
+			break;
+		case 't':
+			typedefs = optarg;
+			break;
 		case 'v':
 			printf("harec %s\n", VERSION);
-			return EXIT_SUCCESS;
-		case 'h':
-			usage(argv[0]);
 			return EXIT_SUCCESS;
 		default:
 			usage(argv[0]);
@@ -111,8 +111,8 @@ main(int argc, char *argv[])
 
 	builtin_types_init(target);
 
-	size_t ninputs = argc - optind;
-	if (ninputs == 0) {
+	nsources = argc - optind;
+	if (nsources == 0) {
 		usage(argv[0]);
 		return EXIT_FAILURE;
 	}
@@ -121,12 +121,12 @@ main(int argc, char *argv[])
 	struct ast_subunit *subunit = &aunit.subunits;
 	struct ast_subunit **next = &aunit.subunits.next;
 
-	sources = xcalloc(ninputs + 2, sizeof(char **));
-	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * ninputs);
+	sources = xcalloc(nsources + 2, sizeof(char **));
+	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * nsources);
 	sources[0] = "<unknown>";
-	sources[ninputs + 1] = NULL;
+	sources[nsources + 1] = NULL;
 
-	for (size_t i = 0; i < ninputs; ++i) {
+	for (size_t i = 0; i < nsources; ++i) {
 		FILE *in;
 		const char *path = argv[optind + i];
 		if (strcmp(path, "-") == 0) {
@@ -150,7 +150,7 @@ main(int argc, char *argv[])
 
 		lex_init(&lexer, in,  i + 1);
 		parse(&lexer, subunit);
-		if (i + 1 < ninputs) {
+		if (i + 1 < nsources) {
 			*next = xcalloc(1, sizeof(struct ast_subunit));
 			subunit = *next;
 			next = &subunit->next;

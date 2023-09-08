@@ -64,6 +64,7 @@ struct gen_context {
 	struct type_store *store;
 	struct identifier *ns;
 	struct rt rt;
+	struct gen_value *sources;
 
 	int id;
 

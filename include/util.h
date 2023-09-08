@@ -7,6 +7,7 @@
 #include "lex.h"
 
 extern const char **sources;
+extern size_t nsources;
 
 #define FNV1A_INIT 2166136261u
 

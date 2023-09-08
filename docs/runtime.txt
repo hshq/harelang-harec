@@ -1,9 +1,9 @@
 harec expects the runtime to provide some features under the "rt" namespace.
 
-@symbol("rt.abort") fn _abort(loc: str, msg: str) void;
+@symbol("rt.abort") fn _abort(path: *str, line: u64, col: u64, msg: str) void;
 	Print a diagnostic message and terminate the program.
 
-fn abort_fixed(reason: int) void;
+fn abort_fixed(path: *str, line: u64, col: u64, reason: u64) void;
 	Print a diagnostic message from a list of pre-determined abort reasons,
 	and terminate the program. The list of reasons are:
 
