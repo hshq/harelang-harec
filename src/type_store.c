@@ -845,6 +845,12 @@ type_init_from_atype(struct type_store *store,
 			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
+		if (type->pointer.referent->storage == STORAGE_NEVER) {
+			error(store->check_context, atype->loc,
+				"Can't have pointer to never");
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		break;
 	case STORAGE_SLICE:
 		type->size = builtin_type_uintptr.size
@@ -1039,6 +1045,11 @@ type_store_lookup_pointer(struct type_store *store, struct location loc,
 	if (referent->size == 0) {
 		error(store->check_context, loc,
 			"Can't have pointer to zero-sized type");
+		return &builtin_type_error;
+	}
+	if (referent->storage == STORAGE_NEVER) {
+		error(store->check_context, loc,
+			"Can't have pointer to never");
 		return &builtin_type_error;
 	}
 	referent = lower_const(store->check_context, referent, NULL);
