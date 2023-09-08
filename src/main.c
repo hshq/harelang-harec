@@ -20,8 +20,17 @@ static void
 usage(const char *argv_0)
 {
 	xfprintf(stderr,
-		"Usage: %s [-a arch] [-D ident[:type]=value] [-N namespace] [-o output] [-T] [-t typedefs] [-v] input.ha...\n",
+		"Usage: %s [-a arch] [-D ident[:type]=value] [-N namespace] [-o output] [-T] [-t typedefs] [-v] input.ha...\n\n",
 		argv_0);
+	xfprintf(stderr,
+		"-a: set target architecture\n"
+		"-D: define a constant\n"
+		"-h: print this help text\n"
+		"-N: override namespace for module\n"
+		"-o: set output file name\n"
+		"-T: emit tests\n"
+		"-t: emit typedefs to file\n"
+		"-v: print version and exit\n");
 }
 
 static struct ast_global_decl *
