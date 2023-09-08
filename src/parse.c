@@ -108,13 +108,19 @@ bool
 parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 {
 	struct token tok = {0};
+	struct location loc = {0};
 	struct identifier *i = ident;
 	*ident = (struct identifier){0};
+	size_t len = 0;
 	bool found_trailing = false;
 	while (!i->name) {
 		switch (lex(lexer, &tok)) {
 		case T_NAME:
+			len += strlen(tok.name);
 			i->name = xstrdup(tok.name);
+			if (loc.file == 0) {
+				loc = tok.loc;
+			}
 			token_finish(&tok);
 			break;
 		default:
@@ -130,6 +136,7 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 		struct identifier *ns;
 		switch (lex(lexer, &tok)) {
 		case T_DOUBLE_COLON:
+			len++;
 			ns = xcalloc(1, sizeof(struct identifier));
 			*ns = *i;
 			i->ns = ns;
@@ -139,6 +146,13 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 			unlex(lexer, &tok);
 			break;
 		}
+	}
+
+	if (len > IDENT_MAX) {
+		xfprintf(stderr, "%s:%d:%d: identifier exceeds maximum length\n",
+			sources[loc.file], loc.lineno, loc.colno);
+		errline(loc);
+		exit(EXIT_FAILURE);
 	}
 	return found_trailing;
 }

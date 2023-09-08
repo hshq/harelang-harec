@@ -4,6 +4,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Maximum length of an identifier, as the sum of the lengths (excluding NUL
+// terminators) of its parts plus one for each namespace deliniation.
+//
+// In other words, the length of "a::b::c" is 5.
+#define IDENT_MAX 255
+
 struct identifier {
 	char *name;
 	struct identifier *ns;
