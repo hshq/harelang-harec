@@ -2889,7 +2889,8 @@ casecmp(const void *_a, const void *_b)
 	} else if (b->result->storage == STORAGE_ERROR) {
 		return -1;
 	}
-	assert(a->result->storage == b->result->storage);
+	assert(type_dealias(NULL, a->result)->storage
+		== type_dealias(NULL, b->result)->storage);
 	if (type_is_signed(NULL, a->result)) {
 		return a->constant.ival < b->constant.ival ? -1
 			: a->constant.ival > b->constant.ival ? 1 : 0;
