@@ -190,4 +190,18 @@ export fn main() void = {
 
 	control_never();
 	assert(rt::compile("fn a() void = { abort(): int; };") as rt::exited != rt::EXIT_SUCCESS);
+
+	// identifier exceeds maximum length
+	let buf: [1024]u8 = [0...];
+	let buf = buf[..0];
+	static append(buf, rt::toutf8("let a")...);
+	// IDENT_MAX (in identifier.h) is defined as 255
+	for (let i = 0z; i < 255 / 2; i += 1) {
+		static append(buf, rt::toutf8("::a")...);
+	};
+	const n = len(buf);
+	static append(buf, rt::toutf8(" = 0;")...);
+	assert(rt::compile(*(&buf: *str)) as rt::exited == rt::EXIT_SUCCESS);
+	static insert(buf[n], rt::toutf8("::a")...);
+	assert(rt::compile(*(&buf: *str)) as rt::exited != rt::EXIT_SUCCESS);
 };

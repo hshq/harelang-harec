@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,22 +46,18 @@ identifier_unparse(const struct identifier *ident)
 }
 
 int
-identifier_unparse_static(const struct identifier *ident, char *buf, size_t len)
+identifier_unparse_static(const struct identifier *ident, char *buf)
 {
-	assert(len < INT_MAX);
 	if (ident->ns) {
-		int prefix = identifier_unparse_static(ident->ns, buf, len);
-		int n = snprintf(&buf[prefix], len - prefix,
+		int prefix = identifier_unparse_static(ident->ns, buf);
+		int n = snprintf(&buf[prefix], IDENT_BUFSIZ - prefix,
 				"::%s", ident->name);
-		if (n >= (int)len) {
-			buf[len - 1] = '\0';
-		}
-		return prefix + n;
+		n += prefix;
+		assert(n < IDENT_BUFSIZ);
+		return n;
 	}
-	int n = snprintf(buf, len, "%s", ident->name);
-	if (n >= (int)len) {
-		buf[len - 1] = '\0';
-	}
+	int n = snprintf(buf, IDENT_BUFSIZ, "%s", ident->name);
+	assert(n < IDENT_BUFSIZ);
 	return n;
 }
 

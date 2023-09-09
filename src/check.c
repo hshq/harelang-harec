@@ -185,9 +185,8 @@ check_expr_access(struct context *ctx,
 	case ACCESS_IDENTIFIER:
 		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
 		if (!obj) {
-			char buf[1024];
-			identifier_unparse_static(&aexpr->access.ident,
-				buf, sizeof(buf));
+			char buf[IDENT_BUFSIZ];
+			identifier_unparse_static(&aexpr->access.ident, buf);
 			error(ctx, aexpr->loc, expr,
 				"Unknown object '%s'", buf);
 			return;
@@ -1158,6 +1157,10 @@ check_binding_unpack(struct context *ctx,
 
 	struct expression *initializer = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, abinding->initializer, initializer, type);
+	if (initializer->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	}
 	if (type_dealias(ctx, initializer->result)->storage != STORAGE_TUPLE) {
 		error(ctx, aexpr->loc, expr, "Could not unpack non-tuple type");
 		return;
@@ -2886,7 +2889,8 @@ casecmp(const void *_a, const void *_b)
 	} else if (b->result->storage == STORAGE_ERROR) {
 		return -1;
 	}
-	assert(a->result->storage == b->result->storage);
+	assert(type_dealias(NULL, a->result)->storage
+		== type_dealias(NULL, b->result)->storage);
 	if (type_is_signed(NULL, a->result)) {
 		return a->constant.ival < b->constant.ival ? -1
 			: a->constant.ival > b->constant.ival ? 1 : 0;
@@ -2995,8 +2999,7 @@ check_expr_switch(struct context *ctx,
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
-	const struct type *type = type_dealias(ctx, value->result);
-	type = lower_const(ctx, type, NULL);
+	const struct type *type = lower_const(ctx, value->result, NULL);
 	expr->_switch.value = value;
 	if (!type_is_integer(ctx, type)
 			&& type_dealias(ctx, type)->storage != STORAGE_POINTER
@@ -3041,12 +3044,12 @@ check_expr_switch(struct context *ctx,
 				xcalloc(1, sizeof(struct expression));
 
 			check_expression(ctx, aopt->value, value, type);
-			if (!type_is_assignable(ctx, type_dealias(ctx, type),
-					type_dealias(ctx, value->result))) {
+			if (!type_is_assignable(ctx, type, value->result)) {
 				error(ctx, aopt->value->loc, expr,
 					"Invalid type for switch case");
 				return;
 			}
+			value = lower_implicit_cast(ctx, type, value);
 
 			enum eval_result r = eval_expr(ctx, value, evaled);
 			if (r != EVAL_OK) {

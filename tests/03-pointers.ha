@@ -232,6 +232,23 @@ fn reject() void = {
 			let a: *str = alloc(0);
 		};
 	`) as exited != EXIT_SUCCESS);
+
+	// pointer to never
+	assert(compile(`
+		fn test() void = {
+			&abort();
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() nullable *never = null;
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() void = {
+			*(&0: *never);
+		};
+	`) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {
