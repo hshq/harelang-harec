@@ -20,12 +20,13 @@ static void
 usage(const char *argv_0)
 {
 	xfprintf(stderr,
-		"Usage: %s [-a arch] [-D ident[:type]=value] [-N namespace] [-o output] [-T] [-t typedefs] [-v] input.ha...\n\n",
+		"Usage: %s [-a arch] [-D ident[:type]=value] [-M path] [-N namespace] [-o output] [-T] [-t typedefs] [-v] input.ha...\n\n",
 		argv_0);
 	xfprintf(stderr,
 		"-a: set target architecture\n"
 		"-D: define a constant\n"
 		"-h: print this help text\n"
+		"-M: set module path prefix, to be stripped from error messages\n"
 		"-N: override namespace for module\n"
 		"-o: set output file name\n"
 		"-T: emit tests\n"
@@ -68,13 +69,14 @@ main(int argc, char *argv[])
 {
 	char *output = NULL, *typedefs = NULL;
 	char *target = DEFAULT_TARGET;
+	char *modpath = NULL;
 	bool is_test = false;
 	struct unit unit = {0};
 	struct lexer lexer;
 	struct ast_global_decl *defines = NULL, **next_def = &defines;
 
 	int c;
-	while ((c = getopt(argc, argv, "a:D:hN:o:Tt:v")) != -1) {
+	while ((c = getopt(argc, argv, "a:D:hM:N:o:Tt:v")) != -1) {
 		switch (c) {
 		case 'a':
 			target = optarg;
@@ -86,6 +88,9 @@ main(int argc, char *argv[])
 		case 'h':
 			usage(argv[0]);
 			return EXIT_SUCCESS;
+		case 'M':
+			modpath = optarg;
+			break;
 		case 'N':
 			unit.ns = xcalloc(1, sizeof(struct identifier));
 			if (strlen(optarg) == 0) {
@@ -133,7 +138,15 @@ main(int argc, char *argv[])
 	sources = xcalloc(nsources + 2, sizeof(char **));
 	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * nsources);
 	sources[0] = "<unknown>";
-	sources[nsources + 1] = NULL;
+
+	if (modpath) {
+		size_t modlen = strlen(modpath);
+		for (size_t i = 1; i <= nsources; i++) {
+			if (strncmp(sources[i], modpath, modlen) == 0) {
+				sources[i] += modlen;
+			}
+		}
+	}
 
 	for (size_t i = 0; i < nsources; ++i) {
 		FILE *in;
