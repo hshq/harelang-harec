@@ -14,15 +14,9 @@
 #include "type_store.h"
 #include "util.h"
 
-void
-write_ident(FILE *out, const struct identifier *ident)
-{
-	if (ident->ns) {
-		write_ident(out, ident->ns);
-		xfprintf(out, "::");
-	};
-	xfprintf(out, "%s", ident->name);
-}
+// unfortunately necessary since this is used in an array declaration, and we
+// don't want a VLA
+#define strlen_HARE_TD_ (sizeof("HARE_TD_") - 1)
 
 struct scope *
 module_resolve(struct modcache *cache[],
@@ -41,11 +35,10 @@ module_resolve(struct modcache *cache[],
 	struct lexer lexer = {0};
 	struct ast_unit aunit = {0};
 
-	char env[PATH_MAX+1];
-	FILE *envf = fmemopen(&env, sizeof(env), "w");
-	xfprintf(envf, "HARE_TD_");
-	write_ident(envf, ident);
-	fclose(envf);
+	// env = "HARE_TD_foo::bar::baz"
+	char env[strlen_HARE_TD_ + IDENT_BUFSIZ];
+	memcpy(env, "HARE_TD_", strlen_HARE_TD_);
+	identifier_unparse_static(ident, &env[strlen_HARE_TD_]);
 
 	char *path = getenv(env);
 	if (!path) {
