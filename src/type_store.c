@@ -890,20 +890,15 @@ type_init_from_atype(struct type_store *store,
 		break;
 	}
 
-	bool packed = false;
-	if (type_is_complete(type)) {
-		const struct type *final = type_dealias(store->check_context, type);
-		if (final->storage == STORAGE_STRUCT) {
-			packed = final->struct_union.packed;
-		}
-	}
-
 	struct dimensions dim = {
 		.size = type->size,
 		.align = type->align,
 	};
-	if (!packed) {
-		add_padding(&dim.size, dim.align);
+	if (type->storage != STORAGE_STRUCT || !type->struct_union.packed) {
+		// padding an alias can only break packed structs
+		if (type->storage != STORAGE_ALIAS) {
+			add_padding(&dim.size, dim.align);
+		};
 	}
 	return dim;
 }

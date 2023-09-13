@@ -192,7 +192,6 @@ bool type_is_assignable(struct context *ctx,
 	const struct type *to, const struct type *from);
 const struct type *type_is_castable(struct context *ctx,
 	const struct type *to, const struct type *from);
-bool type_is_complete(const struct type *type);
 
 const struct type *type_create_const(enum type_storage storage,
 	int64_t min, int64_t max);
