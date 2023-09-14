@@ -2445,12 +2445,12 @@ check_expr_propagate(struct context *ctx,
 	struct scope *scope = scope_push(&ctx->scope, SCOPE_MATCH);
 	struct match_case *case_ok = xcalloc(1, sizeof(struct match_case));
 	struct match_case *case_err = xcalloc(1, sizeof(struct match_case));
-	struct identifier ok_name = {0}, err_name = {0};
 
-	ok_name.name = gen_name(&ctx->id, "ok.%d");
-	err_name.name = gen_name(&ctx->id, "err.%d");
 	const struct scope_object *ok_obj = NULL, *err_obj = NULL;
 	if (result_type->size != 0 && result_type->size != SIZE_UNDEFINED) {
+		struct identifier ok_name = {
+			.name = gen_name(&ctx->id, "ok.%d"),
+		};
 		ok_obj = scope_insert(scope, O_BIND, &ok_name,
 			&ok_name, result_type, NULL);
 	}
@@ -2479,6 +2479,9 @@ check_expr_propagate(struct context *ctx,
 		};
 	} else {
 		if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
+			struct identifier err_name = {
+				.name = gen_name(&ctx->id, "err.%d"),
+			};
 			err_obj = scope_insert(scope, O_BIND, &err_name,
 				&err_name, return_type, NULL);
 		}
