@@ -2435,7 +2435,7 @@ check_expr_propagate(struct context *ctx,
 
 	const struct type *result_type;
 	if (!result_tagged.type) {
-		result_type = &builtin_type_void;
+		result_type = &builtin_type_never;
 	} else if (result_tagged.next) {
 		result_type = type_store_lookup_tagged(
 			ctx->store, aexpr->loc, &result_tagged);
