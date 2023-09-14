@@ -12,26 +12,6 @@
 #include "types.h"
 #include "util.h"
 
-static void
-error(struct context *ctx, const struct location loc, const char *fmt, ...)
-{
-	va_list ap, copy;
-	va_start(ap, fmt);
-
-	va_copy(copy, ap);
-	size_t sz = vsnprintf(NULL, 0, fmt, copy);
-	va_end(copy);
-
-	char *msg = xcalloc(1, sz + 1);
-	vsnprintf(msg, sz + 1, fmt, ap);
-	va_end(ap);
-
-	struct errors *next = *ctx->next = xcalloc(1, sizeof(struct errors));
-	next->loc = loc;
-	next->msg = msg;
-	ctx->next = &next->next;
-}
-
 static enum eval_result
 eval_access(struct context *ctx,
 	const struct expression *in,
@@ -55,7 +35,8 @@ eval_access(struct context *ctx,
 		}
 		for (size_t i = tmp.constant.uval; i > 0; --i) {
 			if (array == NULL) {
-				error(ctx, in->loc, "slice or array access out of bounds");
+				error(ctx, in->loc, NULL,
+					"slice or array access out of bounds");
 				return EVAL_INVALID;
 			}
 			array = array->next;
@@ -221,7 +202,7 @@ eval_binarithm(struct context *ctx,
 		} else if (type_is_signed(ctx, lvalue.result)) {
 			int64_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
-				error(ctx, in->loc, "division by zero");
+				error(ctx, in->loc, NULL, "division by zero");
 				return EVAL_INVALID;
 			}
 			ival = (int64_t)itrunc(ctx, lvalue.result, ilval) / r;
@@ -229,7 +210,7 @@ eval_binarithm(struct context *ctx,
 			assert(type_is_integer(ctx, lvalue.result));
 			uint64_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
-				error(ctx, in->loc, "division by zero");
+				error(ctx, in->loc, NULL, "division by zero");
 				return EVAL_INVALID;
 			}
 			uval = itrunc(ctx, lvalue.result, ulval) / r;
@@ -256,14 +237,14 @@ eval_binarithm(struct context *ctx,
 		if (type_is_signed(ctx, lvalue.result)) {
 			int64_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
-				error(ctx, in->loc, "division by zero");
+				error(ctx, in->loc, NULL, "division by zero");
 				return EVAL_INVALID;
 			}
 			ival = (int64_t)itrunc(ctx, lvalue.result, ilval) % r;
 		} else {
 			uint64_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
-				error(ctx, in->loc, "division by zero");
+				error(ctx, in->loc, NULL, "division by zero");
 				return EVAL_INVALID;
 			}
 			uval = itrunc(ctx, lvalue.result, ulval) % r;
@@ -552,7 +533,7 @@ eval_type_assertion(struct context *ctx, const struct expression *in,
 		out->constant = val.constant.tagged.value->constant;
 		return EVAL_OK;
 	} else {
-		error(ctx, in->loc, "type assertion failed");
+		error(ctx, in->loc, NULL, "type assertion failed");
 		return EVAL_INVALID;
 	}
 }

@@ -97,13 +97,9 @@ mkerror(const struct location loc, struct expression *expr)
 }
 
 static void
-verror(struct context *ctx, const struct location loc, struct expression *expr,
+verror(struct context *ctx, const struct location loc,
 		const char *fmt, va_list ap)
 {
-	if (expr) {
-		mkerror(loc, expr);
-	}
-
 	va_list copy;
 	va_copy(copy, ap);
 	size_t sz = vsnprintf(NULL, 0, fmt, copy);
@@ -118,13 +114,16 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 	ctx->next = &next->next;
 }
 
-static void
+void
 error(struct context *ctx, const struct location loc, struct expression *expr,
 		const char *fmt, ...)
 {
+	if (expr) {
+		mkerror(loc, expr);
+	}
 	va_list ap;
 	va_start(ap, fmt);
-	verror(ctx, loc, expr, fmt, ap);
+	verror(ctx, loc, fmt, ap);
 	va_end(ap);
 }
 
@@ -133,7 +132,7 @@ error_norec(struct context *ctx, const struct location loc, const char *fmt, ...
 {
 	va_list ap;
 	va_start(ap, fmt);
-	verror(ctx, loc, NULL, fmt, ap);
+	verror(ctx, loc, fmt, ap);
 	va_end(ap);
 
 	handle_errors(ctx->errors);

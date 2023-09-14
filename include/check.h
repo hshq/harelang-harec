@@ -160,6 +160,9 @@ void check_expression(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint);
 
+void error(struct context *ctx, const struct location loc,
+	struct expression *expr, const char *fmt, ...);
+
 noreturn void error_norec(struct context *ctx, const struct location loc,
 	const char *fmt, ...);
 #endif
