@@ -11,14 +11,6 @@
 #include "types.h"
 #include "util.h"
 
-// XXX: This needs to be updated on updates to type_flags (types.h)
-static const unsigned int typeflags[] = {
-	0,
-	TYPE_CONST,
-	TYPE_ERROR,
-	TYPE_ERROR | TYPE_CONST,
-};
-
 static struct dimensions lookup_atype_with_dimensions(struct type_store *store,
 		const struct type **type, const struct ast_type *atype);
 
@@ -1114,25 +1106,7 @@ type_store_lookup_alias(struct type_store *store,
 		const struct type *type,
 		const struct dimensions *dims)
 {
-	struct type tmp = *type;
-	const struct type *ret = NULL;
-	for (size_t i = 0; i < sizeof(typeflags) / sizeof(typeflags[0]); i++) {
-		if ((typeflags[i] & type->flags) != type->flags) {
-			continue;
-		}
-		if (type->alias.type) {
-			tmp.alias.type = type_store_lookup_with_flags(
-				store, type->alias.type, typeflags[i]);
-		}
-		tmp.flags = typeflags[i];
-		const struct type *alias = _type_store_lookup_type(
-				store, &tmp, dims);
-		if (typeflags[i] == type->flags) {
-			ret = alias;
-		}
-	}
-	assert(ret != NULL);
-	return ret;
+	return _type_store_lookup_type(store, type, dims);
 }
 
 
