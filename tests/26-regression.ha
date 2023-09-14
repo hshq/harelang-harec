@@ -26,6 +26,10 @@ type b = struct { c: c };
 type a = struct { b };
 type c = *a;
 
+// order of these two matters
+let packedsz = size(packed);
+type packed = struct @packed { a: u64, b: u8 };
+
 type d = [3]int;
 type e = bool;
 let x = [1, 2, 3]: d: []int;
@@ -204,4 +208,6 @@ export fn main() void = {
 	assert(rt::compile(*(&buf: *str)) as rt::exited == rt::EXIT_SUCCESS);
 	static insert(buf[n], rt::toutf8("::a")...);
 	assert(rt::compile(*(&buf: *str)) as rt::exited != rt::EXIT_SUCCESS);
+	assert(size(packed) == packedsz);
+	assert(size(packed) == 9);
 };
