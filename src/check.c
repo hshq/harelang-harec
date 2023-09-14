@@ -427,11 +427,6 @@ check_expr_alloc_init(struct context *ctx,
 	}
 	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
 			objtype, ptrflags);
-	if (expr->alloc.init->result->size == 0) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot allocate object with size 0");
-		return;
-	}
 	if (expr->alloc.init->result->size == SIZE_UNDEFINED) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot allocate object of undefined size");
@@ -3345,12 +3340,6 @@ check_expr_unarithm(struct context *ctx,
 		expr->result = operand->result;
 		break;
 	case UN_ADDRESS:;
-		const struct type *result = type_dealias(ctx, operand->result);
-		if (result->storage == STORAGE_VOID) {
-			error(ctx, aexpr->loc, expr,
-				"Can't take address of void");
-			return;
-		}
 		const struct type *ptrhint = NULL;
 		if (hint && type_dealias(ctx, hint)->storage == STORAGE_POINTER) {
 			ptrhint = type_dealias(ctx, hint)->pointer.referent;
@@ -3367,7 +3356,8 @@ check_expr_unarithm(struct context *ctx,
 		} else if (ptrhint) {
 			// XXX: this is dumb, but we're gonna get rid of the
 			// const flag anyway so it doesn't matter
-			struct type stripped_result = *result;
+			struct type stripped_result =
+				*type_dealias(ctx, operand->result);
 			stripped_result.flags &= ~TYPE_CONST;
 			stripped_result.id = type_hash(&stripped_result);
 			struct type stripped_ptrhint = *type_dealias(ctx, ptrhint);
@@ -3391,11 +3381,6 @@ check_expr_unarithm(struct context *ctx,
 				& PTR_NULLABLE) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot dereference nullable pointer type");
-			return;
-		}
-		if (type_dealias(ctx, operand->result)->pointer.referent->size == 0) {
-			error(ctx, aexpr->unarithm.operand->loc, expr,
-				"Cannot dereference pointer to zero-sized type");
 			return;
 		}
 		if (type_dealias(ctx, operand->result)->pointer.referent->size
