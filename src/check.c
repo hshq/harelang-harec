@@ -701,6 +701,10 @@ check_assert(struct context *ctx,
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, e.cond, expr->assert.cond, &builtin_type_bool);
 		loc = e.cond->loc;
+		if (expr->assert.cond->result->storage == STORAGE_ERROR) {
+			mkerror(loc, expr);
+			return;
+		}
 		if (type_dealias(ctx, expr->assert.cond->result)->storage != STORAGE_BOOL) {
 			error(ctx, loc, expr, "Assertion condition must be boolean");
 			return;
@@ -1127,6 +1131,11 @@ check_expr_binarithm(struct context *ctx,
 		*rvalue = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->binarithm.lvalue, lvalue, NULL);
 	check_expression(ctx, aexpr->binarithm.rvalue, rvalue, NULL);
+	if (lvalue->result->storage == STORAGE_ERROR
+			|| rvalue->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	}
 
 	expr->result = type_promote(ctx->store, lvalue->result, rvalue->result);
 	if (expr->result == NULL) {
