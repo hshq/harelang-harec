@@ -127,6 +127,8 @@ void mkident(struct context *ctx, struct identifier *out,
 
 void mkstrconst(struct expression *expr, const char *fmt, ...);
 
+char *gen_typename(const struct type *type);
+
 typedef void (*resolvefn)(struct context *,
 		struct incomplete_declaration *idecl);
 
@@ -134,9 +136,6 @@ void resolve_dimensions(struct context *ctx,
 		struct incomplete_declaration *idecl);
 
 void resolve_type(struct context *ctx,
-		struct incomplete_declaration *idecl);
-
-void resolve_decl(struct context *ctx,
 		struct incomplete_declaration *idecl);
 
 void wrap_resolver(struct context *ctx,
@@ -160,6 +159,9 @@ void check_expression(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
 	const struct type *hint);
+
+void error(struct context *ctx, const struct location loc,
+	struct expression *expr, const char *fmt, ...);
 
 noreturn void error_norec(struct context *ctx, const struct location loc,
 	const char *fmt, ...);

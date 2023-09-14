@@ -140,6 +140,7 @@ main(int argc, char *argv[])
 		const char *path = argv[optind + i];
 		if (strcmp(path, "-") == 0) {
 			in = stdin;
+			sources[i + 1] = "<stdin>";
 		} else {
 			in = fopen(path, "r");
 			struct stat buf;

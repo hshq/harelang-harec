@@ -53,7 +53,7 @@ mkstrconst(struct expression *expr, const char *fmt, ...)
 	expr->constant.string.len = n;
 }
 
-static char *
+char *
 gen_typename(const struct type *type)
 {
 	size_t sz = 0;
@@ -97,13 +97,9 @@ mkerror(const struct location loc, struct expression *expr)
 }
 
 static void
-verror(struct context *ctx, const struct location loc, struct expression *expr,
+verror(struct context *ctx, const struct location loc,
 		const char *fmt, va_list ap)
 {
-	if (expr) {
-		mkerror(loc, expr);
-	}
-
 	va_list copy;
 	va_copy(copy, ap);
 	size_t sz = vsnprintf(NULL, 0, fmt, copy);
@@ -118,13 +114,16 @@ verror(struct context *ctx, const struct location loc, struct expression *expr,
 	ctx->next = &next->next;
 }
 
-static void
+void
 error(struct context *ctx, const struct location loc, struct expression *expr,
 		const char *fmt, ...)
 {
+	if (expr) {
+		mkerror(loc, expr);
+	}
 	va_list ap;
 	va_start(ap, fmt);
-	verror(ctx, loc, expr, fmt, ap);
+	verror(ctx, loc, fmt, ap);
 	va_end(ap);
 }
 
@@ -133,7 +132,7 @@ error_norec(struct context *ctx, const struct location loc, const char *fmt, ...
 {
 	va_list ap;
 	va_start(ap, fmt);
-	verror(ctx, loc, NULL, fmt, ap);
+	verror(ctx, loc, fmt, ap);
 	va_end(ap);
 
 	handle_errors(ctx->errors);
@@ -145,12 +144,6 @@ lower_implicit_cast(struct context *ctx,
 		const struct type *to, struct expression *expr)
 {
 	if (to == expr->result || expr->result->storage == STORAGE_NEVER) {
-		return expr;
-	}
-	
-	if (type_dealias(ctx, to)->storage == STORAGE_SLICE &&
-		expr->result->storage == STORAGE_ARRAY &&
-		expr->result->array.expandable) {
 		return expr;
 	}
 
@@ -170,6 +163,9 @@ lower_implicit_cast(struct context *ctx,
 	cast->cast.lowered = true;
 	return cast;
 }
+
+static void resolve_decl(struct context *ctx,
+	struct incomplete_declaration *idecl);
 
 static void
 check_expr_access(struct context *ctx,
@@ -425,11 +421,6 @@ check_expr_alloc_init(struct context *ctx,
 	}
 	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
 			objtype, ptrflags);
-	if (expr->alloc.init->result->size == 0) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot allocate object with size 0");
-		return;
-	}
 	if (expr->alloc.init->result->size == SIZE_UNDEFINED) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot allocate object of undefined size");
@@ -698,6 +689,10 @@ check_assert(struct context *ctx,
 		expr->assert.cond = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, e.cond, expr->assert.cond, &builtin_type_bool);
 		loc = e.cond->loc;
+		if (expr->assert.cond->result->storage == STORAGE_ERROR) {
+			mkerror(loc, expr);
+			return;
+		}
 		if (type_dealias(ctx, expr->assert.cond->result)->storage != STORAGE_BOOL) {
 			error(ctx, loc, expr, "Assertion condition must be boolean");
 			return;
@@ -873,7 +868,14 @@ check_expr_assign(struct context *ctx,
 		check_binarithm_op(ctx, object, expr->assign.op);
 	}
 
-	expr->assign.value = lower_implicit_cast(ctx, object->result, value);
+	if (object->type == EXPR_SLICE
+			&& value->result->storage == STORAGE_ARRAY
+			&& value->result->array.expandable) {
+		expr->assign.value = value;
+	} else {
+		expr->assign.value =
+			lower_implicit_cast(ctx, object->result, value);
+	}
 	expr->assign.object = object;
 }
 
@@ -1124,6 +1126,11 @@ check_expr_binarithm(struct context *ctx,
 		*rvalue = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->binarithm.lvalue, lvalue, NULL);
 	check_expression(ctx, aexpr->binarithm.rvalue, rvalue, NULL);
+	if (lvalue->result->storage == STORAGE_ERROR
+			|| rvalue->result->storage == STORAGE_ERROR) {
+		mkerror(aexpr->loc, expr);
+		return;
+	}
 
 	expr->result = type_promote(ctx->store, lvalue->result, rvalue->result);
 	if (expr->result == NULL) {
@@ -2424,7 +2431,7 @@ check_expr_propagate(struct context *ctx,
 
 	const struct type *result_type;
 	if (!result_tagged.type) {
-		result_type = &builtin_type_void;
+		result_type = &builtin_type_never;
 	} else if (result_tagged.next) {
 		result_type = type_store_lookup_tagged(
 			ctx->store, aexpr->loc, &result_tagged);
@@ -2439,12 +2446,12 @@ check_expr_propagate(struct context *ctx,
 	struct scope *scope = scope_push(&ctx->scope, SCOPE_MATCH);
 	struct match_case *case_ok = xcalloc(1, sizeof(struct match_case));
 	struct match_case *case_err = xcalloc(1, sizeof(struct match_case));
-	struct identifier ok_name = {0}, err_name = {0};
 
-	ok_name.name = gen_name(&ctx->id, "ok.%d");
-	err_name.name = gen_name(&ctx->id, "err.%d");
 	const struct scope_object *ok_obj = NULL, *err_obj = NULL;
 	if (result_type->size != 0 && result_type->size != SIZE_UNDEFINED) {
+		struct identifier ok_name = {
+			.name = gen_name(&ctx->id, "ok.%d"),
+		};
 		ok_obj = scope_insert(scope, O_BIND, &ok_name,
 			&ok_name, result_type, NULL);
 	}
@@ -2473,6 +2480,9 @@ check_expr_propagate(struct context *ctx,
 		};
 	} else {
 		if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
+			struct identifier err_name = {
+				.name = gen_name(&ctx->id, "err.%d"),
+			};
 			err_obj = scope_insert(scope, O_BIND, &err_name,
 				&err_name, return_type, NULL);
 		}
@@ -3334,12 +3344,6 @@ check_expr_unarithm(struct context *ctx,
 		expr->result = operand->result;
 		break;
 	case UN_ADDRESS:;
-		const struct type *result = type_dealias(ctx, operand->result);
-		if (result->storage == STORAGE_VOID) {
-			error(ctx, aexpr->loc, expr,
-				"Can't take address of void");
-			return;
-		}
 		const struct type *ptrhint = NULL;
 		if (hint && type_dealias(ctx, hint)->storage == STORAGE_POINTER) {
 			ptrhint = type_dealias(ctx, hint)->pointer.referent;
@@ -3356,7 +3360,8 @@ check_expr_unarithm(struct context *ctx,
 		} else if (ptrhint) {
 			// XXX: this is dumb, but we're gonna get rid of the
 			// const flag anyway so it doesn't matter
-			struct type stripped_result = *result;
+			struct type stripped_result =
+				*type_dealias(ctx, operand->result);
 			stripped_result.flags &= ~TYPE_CONST;
 			stripped_result.id = type_hash(&stripped_result);
 			struct type stripped_ptrhint = *type_dealias(ctx, ptrhint);
@@ -3380,11 +3385,6 @@ check_expr_unarithm(struct context *ctx,
 				& PTR_NULLABLE) {
 			error(ctx, aexpr->unarithm.operand->loc, expr,
 				"Cannot dereference nullable pointer type");
-			return;
-		}
-		if (type_dealias(ctx, operand->result)->pointer.referent->size == 0) {
-			error(ctx, aexpr->unarithm.operand->loc, expr,
-				"Cannot dereference pointer to zero-sized type");
 			return;
 		}
 		if (type_dealias(ctx, operand->result)->pointer.referent->size
@@ -3759,7 +3759,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			bool exported = idecl->decl.exported;
 			const struct type *type = type_store_lookup_enum(
 					ctx->store, t->type, exported);
-			if (type->storage == STORAGE_VOID) {
+			if (type->storage == STORAGE_ERROR) {
 				return; // error occured
 			}
 			scope_push((struct scope **)&type->_enum.values, SCOPE_ENUM);
@@ -3865,7 +3865,7 @@ check_exported_type(struct context *ctx,
 	}
 }
 
-void
+static void
 resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	const struct ast_global_decl *decl = &idecl->decl.constant;
@@ -4444,7 +4444,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 	}
 }
 
-void
+static void
 resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	switch (idecl->type) {

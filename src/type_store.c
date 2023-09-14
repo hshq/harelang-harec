@@ -25,24 +25,6 @@ static struct dimensions lookup_atype_with_dimensions(struct type_store *store,
 static const struct type *
 lookup_atype(struct type_store *store, const struct ast_type *atype);
 
-static void
-error(struct context *ctx, const struct location loc, const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap, fmt);
-	size_t sz = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
-	char *msg = xcalloc(1, sz + 1);
-	va_start(ap, fmt);
-	vsnprintf(msg, sz + 1, fmt, ap);
-	va_end(ap);
-
-	struct errors *next = *ctx->next = xcalloc(1, sizeof(struct errors));
-	next->loc = loc;
-	next->msg = msg;
-	ctx->next = &next->next;
-}
-
 static size_t
 ast_array_len(struct type_store *store, const struct ast_type *atype)
 {
@@ -54,17 +36,17 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 	check_expression(store->check_context, atype->array.length, &in, NULL);
 	enum eval_result r = eval_expr(store->check_context, &in, &out);
 	if (r != EVAL_OK) {
-		error(store->check_context, atype->loc,
+		error(store->check_context, atype->loc, NULL,
 			"Cannot evaluate array length at compile time");
 		return SIZE_UNDEFINED;
 	}
 	if (!type_is_integer(store->check_context, out.result)) {
-		error(store->check_context, atype->loc,
+		error(store->check_context, atype->loc, NULL,
 			"Array length must be an integer");
 		return SIZE_UNDEFINED;
 	}
 	if (type_is_signed(store->check_context, out.result) && out.constant.ival <= 0) {
-		error(store->check_context, atype->loc,
+		error(store->check_context, atype->loc, NULL,
 			"Array length must be greater than 0");
 		return SIZE_UNDEFINED;
 	}
@@ -163,7 +145,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	}
 	if (*fields != NULL) {
 		assert(afield->name != NULL);
-		error(store->check_context, afield->type->loc,
+		error(store->check_context, afield->type->loc, NULL,
 			"Duplicate struct/union member '%s'", afield->name);
 		return NULL;
 	}
@@ -181,17 +163,17 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		dim = lookup_atype_with_dimensions(store, &field->type, afield->type);
 	}
 	if (dim.size == 0) {
-		error(store->check_context, afield->type->loc,
+		error(store->check_context, afield->type->loc, NULL,
 			"Type of size 0 is not a valid struct/union member");
 		return NULL;
 	}
 	if (!last && dim.size == SIZE_UNDEFINED) {
-		error(store->check_context, afield->type->loc,
+		error(store->check_context, afield->type->loc, NULL,
 			"Type of undefined size is not a valid struct/union member");
 		return NULL;
 	}
 	if (dim.align == ALIGN_UNDEFINED) {
-		error(store->check_context, afield->type->loc,
+		error(store->check_context, afield->type->loc, NULL,
 			"Type of undefined alignment is not a valid struct/union member");
 		return NULL;
 	}
@@ -204,19 +186,19 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		field->offset = *offset;
 		enum eval_result r = eval_expr(store->check_context, &in, &out);
 		if (r != EVAL_OK) {
-			error(store->check_context, in.loc,
+			error(store->check_context, in.loc, NULL,
 				"Cannot evaluate field offset at compile time");
 		} else if (!type_is_integer(store->check_context, out.result)) {
-			error(store->check_context, in.loc,
+			error(store->check_context, in.loc, NULL,
 				"Field offset must be an integer");
 		} else if (type_is_signed(store->check_context, out.result) && out.constant.ival < 0) {
-			error(store->check_context, in.loc,
+			error(store->check_context, in.loc, NULL,
 				"Field offset must not be less than 0");
 		} else if (out.constant.uval < *offset) {
-			error(store->check_context, in.loc,
+			error(store->check_context, in.loc, NULL,
 				"Field offset must be greater than or equal to previous field's offset");
 		} else if (out.constant.uval < *size) {
-			error(store->check_context, in.loc,
+			error(store->check_context, in.loc, NULL,
 				"Fields must not have overlapping storage");
 		} else {
 			field->offset = *offset = (size_t)out.constant.uval;
@@ -254,7 +236,7 @@ shift_fields(struct type_store *store,
 			&& type_dealias(store->check_context, parent->type)->storage != STORAGE_STRUCT
 			&& type_dealias(store->check_context, parent->type)->storage != STORAGE_UNION) {
 		assert(afield);
-		error(store->check_context, afield->type->loc,
+		error(store->check_context, afield->type->loc, NULL,
 			"Cannot embed non-struct non-union alias");
 		parent->type = &builtin_type_error;
 		return;
@@ -342,19 +324,19 @@ enforce_tagged_invariants(struct type_store *store, struct location loc,
 	const struct type_tagged_union *tu;
 	for (i = 0, tu = &type->tagged; tu; i++, tu = tu->next) {
 		if (tu->type->storage == STORAGE_NULL) {
-			error(store->check_context, loc,
+			error(store->check_context, loc, NULL,
 				"Null type not allowed in this context");
 			return false;
 		}
 		if (tu->type->size == SIZE_UNDEFINED) {
-			error(store->check_context, loc,
+			error(store->check_context, loc, NULL,
 				"Type of undefined size is not a valid tagged union member");
 			return false;
 		}
 		assert(tu->type->align != ALIGN_UNDEFINED);
 	}
 	if (i <= 1) {
-		error(store->check_context, loc,
+		error(store->check_context, loc, NULL,
 			"Tagged unions must have at least two distinct members");
 		return false;
 	}
@@ -387,7 +369,7 @@ tagged_or_atagged_member(struct type_store *store,
 		const struct scope_object *obj = scope_lookup(
 			store->check_context->scope, &_atype->alias);
 		if (!obj) {
-			error(store->check_context, _atype->loc,
+			error(store->check_context, _atype->loc, NULL,
 				"Unknown object '%s'",
 				identifier_unparse(&_atype->alias));
 			*type = &builtin_type_error;
@@ -398,7 +380,7 @@ tagged_or_atagged_member(struct type_store *store,
 				*type = type_dealias(store->check_context, obj->type);
 				return;
 			} else {
-				error(store->check_context, _atype->loc,
+				error(store->check_context, _atype->loc, NULL,
 					"Object '%s' is not a type",
 					identifier_unparse(&obj->ident));
 				*type = &builtin_type_error;
@@ -409,7 +391,7 @@ tagged_or_atagged_member(struct type_store *store,
 			(struct incomplete_declaration *)obj;
 		if (idecl->type != IDECL_DECL
 				|| idecl->decl.decl_type != ADECL_TYPE) {
-			error(store->check_context, _atype->loc,
+			error(store->check_context, _atype->loc, NULL,
 				"Object '%s' is not a type",
 				identifier_unparse(&obj->ident));
 			*type = &builtin_type_error;
@@ -572,7 +554,7 @@ _tagged_size(struct type_store *store, const struct ast_tagged_union_type *u)
 			memb = lookup_atype_with_dimensions(store, NULL, atype);
 		}
 		if (memb.size == SIZE_UNDEFINED) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Type of undefined size is not a valid tagged union member");
 			return (struct dimensions){0};
 		}
@@ -619,7 +601,7 @@ tuple_init_from_atype(struct type_store *store,
 			memb = lookup_atype_with_dimensions(store, NULL, atuple->type);
 		}
 		if (memb.size == 0) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Type of size 0 is not a valid tuple member");
 			if (type) {
 				*type = builtin_type_error;
@@ -627,7 +609,7 @@ tuple_init_from_atype(struct type_store *store,
 			return (struct dimensions){0};
 		}
 		if (memb.size == SIZE_UNDEFINED) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Type of undefined size is not a valid tuple member");
 			if (type) {
 				*type = builtin_type_error;
@@ -720,7 +702,7 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_ALIAS:
 		obj = scope_lookup(store->check_context->scope, &atype->alias);
 		if (!obj) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Unresolvable identifier '%s'",
 				identifier_unparse(&atype->alias));
 			*type = builtin_type_error;
@@ -743,7 +725,7 @@ type_init_from_atype(struct type_store *store,
 		}
 
 		if (obj->otype != O_TYPE) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Object '%s' is not a type",
 				identifier_unparse(&obj->ident));
 			*type = builtin_type_error;
@@ -774,16 +756,14 @@ type_init_from_atype(struct type_store *store,
 			memb = lookup_atype_with_dimensions(store,
 				&type->array.members, atype->array.members);
 		}
-		// XXX: I'm not sure these checks are *exactly* right, we might
-		// still be letting some invalid stuff through
-		if (type->array.length != SIZE_UNDEFINED && memb.size == 0) {
-			error(store->check_context, atype->loc,
+		if (memb.size == 0) {
+			error(store->check_context, atype->loc, NULL,
 				"Type of size 0 is not a valid array member");
 			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
 		if (memb.size == SIZE_UNDEFINED) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Type of undefined size is not a valid array member");
 			*type = builtin_type_error;
 			return (struct dimensions){0};
@@ -811,13 +791,13 @@ type_init_from_atype(struct type_store *store,
 			param = *next = xcalloc(1, sizeof(struct type_func_param));
 			param->type = lookup_atype(store, aparam->type);
 			if (param->type->size == 0) {
-				error(store->check_context, atype->loc,
+				error(store->check_context, atype->loc, NULL,
 					"Function parameter types must have nonzero size");
 				*type = builtin_type_error;
 				return (struct dimensions){0};
 			}
 			if (param->type->size == SIZE_UNDEFINED) {
-				error(store->check_context, atype->loc,
+				error(store->check_context, atype->loc, NULL,
 					"Function parameter types must have defined size");
 				*type = builtin_type_error;
 				return (struct dimensions){0};
@@ -840,13 +820,13 @@ type_init_from_atype(struct type_store *store,
 		type->pointer.referent = lookup_atype(
 			store, atype->pointer.referent);
 		if (type->pointer.referent->size == 0) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Can't have pointer to zero-sized type");
 			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
 		if (type->pointer.referent->storage == STORAGE_NEVER) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Can't have pointer to never");
 			*type = builtin_type_error;
 			return (struct dimensions){0};
@@ -862,7 +842,7 @@ type_init_from_atype(struct type_store *store,
 		type->array.members = lookup_atype(
 			store, atype->array.members);
 		if (type->array.members->size == 0) {
-			error(store->check_context, atype->loc,
+			error(store->check_context, atype->loc, NULL,
 				"Type of size 0 is not a valid slice member");
 			*type = builtin_type_error;
 			return (struct dimensions){0};
@@ -1038,17 +1018,17 @@ type_store_lookup_pointer(struct type_store *store, struct location loc,
 		return &builtin_type_error;
 	}
 	if (referent->storage == STORAGE_NULL) {
-		error(store->check_context, loc,
+		error(store->check_context, loc, NULL,
 			"Null type not allowed in this context");
 		return &builtin_type_error;
 	}
 	if (referent->size == 0) {
-		error(store->check_context, loc,
+		error(store->check_context, loc, NULL,
 			"Can't have pointer to zero-sized type");
 		return &builtin_type_error;
 	}
 	if (referent->storage == STORAGE_NEVER) {
-		error(store->check_context, loc,
+		error(store->check_context, loc, NULL,
 			"Can't have pointer to never");
 		return &builtin_type_error;
 	}
@@ -1074,20 +1054,18 @@ type_store_lookup_array(struct type_store *store, struct location loc,
 		return &builtin_type_error;
 	}
 	if (members->storage == STORAGE_NULL) {
-		error(store->check_context, loc,
+		error(store->check_context, loc, NULL,
 			"Null type not allowed in this context");
 		return &builtin_type_error;
 	}
 	members = lower_const(store->check_context, members, NULL);
-	// XXX: I'm not sure these checks are *exactly* right, we might still
-	// be letting some invalid stuff pass
-	if (len != SIZE_UNDEFINED && members->size == 0) {
-		error(store->check_context, loc,
+	if (members->size == 0) {
+		error(store->check_context, loc, NULL,
 			"Type of size 0 is not a valid array member");
 		return &builtin_type_error;
 	}
 	if (members->size == SIZE_UNDEFINED) {
-		error(store->check_context, loc,
+		error(store->check_context, loc, NULL,
 			"Type of undefined size is not a valid member of a bounded array");
 		return &builtin_type_error;
 	}
@@ -1117,13 +1095,13 @@ type_store_lookup_slice(struct type_store *store, struct location loc,
 		return &builtin_type_error;
 	}
 	if (members->storage == STORAGE_NULL) {
-		error(store->check_context, loc,
+		error(store->check_context, loc, NULL,
 			"Null type not allowed in this context");
 		return &builtin_type_error;
 	}
 	members = lower_const(store->check_context, members, NULL);
 	if (members->size == 0) {
-		error(store->check_context, loc,
+		error(store->check_context, loc, NULL,
 			"Type of size 0 is not a valid slice member");
 		return &builtin_type_error;
 	}
@@ -1246,18 +1224,18 @@ type_store_lookup_tuple(struct type_store *store, struct location loc,
 			return &builtin_type_error;
 		}
 		if (t->type->storage == STORAGE_NULL) {
-			error(store->check_context, loc,
+			error(store->check_context, loc, NULL,
 				"Null type not allowed in this context");
 			return &builtin_type_error;
 		}
 		t->type = lower_const(store->check_context, t->type, NULL);
 		if (t->type->size == 0) {
-			error(store->check_context, loc,
+			error(store->check_context, loc, NULL,
 				"Type of size 0 is not a valid tuple member");
 			return &builtin_type_error;
 		}
 		if (t->type->size == SIZE_UNDEFINED) {
-			error(store->check_context, loc,
+			error(store->check_context, loc, NULL,
 				"Type of undefined size is not a valid tuple member");
 			return &builtin_type_error;
 		}
@@ -1288,7 +1266,7 @@ type_store_lookup_enum(struct type_store *store, const struct ast_type *atype,
 		builtin_type_for_storage(atype->_enum.storage, false);
 	if (!type_is_integer(store->check_context, type.alias.type)
 			&& type.alias.type->storage != STORAGE_RUNE) {
-		error(store->check_context, atype->loc,
+		error(store->check_context, atype->loc, NULL,
 			"Enum storage must be an integer or rune");
 		return &builtin_type_error;
 	}

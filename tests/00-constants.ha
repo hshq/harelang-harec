@@ -475,15 +475,15 @@ fn numeric() void = {
 		"1p-1.1",
 	];
 	let extra: [_]str = [
-		"4e-0i;", "4e-1i;",
-		"4e-0i8;", "4e-1i8;",
+		"let t = 4e-0i;", "let t = 4e-1i;",
+		"let t = 4e-0i8;", "let t = 4e-1i8;",
 
-		"0b1e-1f32;",
-		"0o1e-1f32;",
-		"0x1e+1f32;",
-		"0x1e-1f32;",
-		"0b1p-1f32;",
-		"0o1p-1f32;",
+		"let t = 0b1e-1f32;",
+		"let t = 0o1e-1f32;",
+		"let t = 0x1e+1f32;",
+		"let t = 0x1e-1f32;",
+		"let t = 0b1p-1f32;",
+		"let t = 0o1p-1f32;",
 
 		// exponent overflow
 		"let t: u64 = 1e1000;",
