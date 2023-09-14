@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "check.h"
 #include "emit.h"
 #include "qbe.h"
 #include "typedef.h"
@@ -32,17 +33,6 @@ emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
 	case Q__VOID:
 		break; // no-op
 	}
-}
-
-static char *
-gen_typename(const struct type *type)
-{
-	size_t sz = 0;
-	char *ptr = NULL;
-	FILE *f = open_memstream(&ptr, &sz);
-	emit_type(type, f);
-	fclose(f);
-	return ptr;
 }
 
 static void

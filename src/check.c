@@ -53,7 +53,7 @@ mkstrconst(struct expression *expr, const char *fmt, ...)
 	expr->constant.string.len = n;
 }
 
-static char *
+char *
 gen_typename(const struct type *type)
 {
 	size_t sz = 0;

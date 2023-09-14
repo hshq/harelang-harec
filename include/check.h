@@ -127,6 +127,8 @@ void mkident(struct context *ctx, struct identifier *out,
 
 void mkstrconst(struct expression *expr, const char *fmt, ...);
 
+char *gen_typename(const struct type *type);
+
 typedef void (*resolvefn)(struct context *,
 		struct incomplete_declaration *idecl);
 
