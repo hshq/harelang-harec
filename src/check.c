@@ -3755,7 +3755,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			bool exported = idecl->decl.exported;
 			const struct type *type = type_store_lookup_enum(
 					ctx->store, t->type, exported);
-			if (type->storage == STORAGE_VOID) {
+			if (type->storage == STORAGE_ERROR) {
 				return; // error occured
 			}
 			scope_push((struct scope **)&type->_enum.values, SCOPE_ENUM);
