@@ -4,9 +4,10 @@ export HAREC_SRC=".."
 
 # $HAREC_SRC/configure --help
 
-AS="as -g" \
+
+# QBE="qbe -t amd64_apple" \
+AS="$HAREC_SRC/rt/+darwin/as.sh" \
 LD="$HAREC_SRC/rt/+darwin/ld.sh" \
-QBE="$HAREC_SRC/rt/+darwin/qbe.sh" \
 $HAREC_SRC/configure
 
 # make clean
