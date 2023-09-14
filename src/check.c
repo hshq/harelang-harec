@@ -171,6 +171,9 @@ lower_implicit_cast(struct context *ctx,
 	return cast;
 }
 
+static void resolve_decl(struct context *ctx,
+	struct incomplete_declaration *idecl);
+
 static void
 check_expr_access(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -3865,7 +3868,7 @@ check_exported_type(struct context *ctx,
 	}
 }
 
-void
+static void
 resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	const struct ast_global_decl *decl = &idecl->decl.constant;
@@ -4444,7 +4447,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 	}
 }
 
-void
+static void
 resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	switch (idecl->type) {

@@ -136,9 +136,6 @@ void resolve_dimensions(struct context *ctx,
 void resolve_type(struct context *ctx,
 		struct incomplete_declaration *idecl);
 
-void resolve_decl(struct context *ctx,
-		struct incomplete_declaration *idecl);
-
 void wrap_resolver(struct context *ctx,
 	const struct scope_object *obj, resolvefn resolver);
 
