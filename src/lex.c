@@ -512,11 +512,13 @@ lex_rune(struct lexer *lexer)
 {
 	char buf[9];
 	char *endptr;
+	struct location loc;
 	uint32_t c = next(lexer, NULL, false);
 	assert(c != C_EOF);
 
 	switch (c) {
 	case '\\':
+		loc = lexer->loc;
 		c = next(lexer, NULL, false);
 		switch (c) {
 		case '0':
@@ -547,7 +549,7 @@ lex_rune(struct lexer *lexer)
 			buf[2] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				error(lexer->loc, "Invalid hex literal");
+				error(loc, "Invalid hex literal");
 			}
 			return c;
 		case 'u':
@@ -558,7 +560,7 @@ lex_rune(struct lexer *lexer)
 			buf[4] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				error(lexer->loc, "Invalid hex literal");
+				error(loc, "Invalid hex literal");
 			}
 			return c;
 		case 'U':
@@ -573,13 +575,13 @@ lex_rune(struct lexer *lexer)
 			buf[8] = '\0';
 			c = strtoul(&buf[0], &endptr, 16);
 			if (*endptr != '\0') {
-				error(lexer->loc, "Invalid hex literal");
+				error(loc, "Invalid hex literal");
 			}
 			return c;
 		case C_EOF:
 			error(lexer->loc, "Unexpected end of file");
 		default:
-			error(lexer->loc, "Invalid escape '\\%c'", c);
+			error(loc, "Invalid escape '\\%c'", c);
 		}
 		assert(0);
 	default:
