@@ -82,6 +82,12 @@ fn reject() void = {
 		def a: int = e::VAL1;
 		type e = enum { VAL1 = VAL2, VAL2 = a };
 	") as exited != EXIT_SUCCESS);
+
+	// invalid storage
+	assert(compile("type a = enum f64 { A = 0.0 };") as exited != EXIT_SUCCESS);
+
+	// invalid value
+	assert(compile("type a = enum { A = void };") as exited != EXIT_SUCCESS);
 };
 
 type interdependent1 = enum {
