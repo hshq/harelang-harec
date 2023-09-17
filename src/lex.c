@@ -245,14 +245,15 @@ wgetc(struct lexer *lexer, struct location *loc)
 }
 
 static void
-consume(struct lexer *lexer, ssize_t n)
+clearbuf(struct lexer *lexer) {
+	lexer->buflen = 0;
+	lexer->buf[0] = 0;
+}
+
+static void
+consume(struct lexer *lexer, size_t n)
 {
-	if (n == -1) {
-		lexer->buflen = 0;
-		lexer->buf[0] = 0;
-		return;
-	}
-	for (ssize_t i = 0; i < n; i++) {
+	for (size_t i = 0; i < n; i++) {
 		while ((lexer->buf[--lexer->buflen] & 0xC0) == 0x80) ;
 	}
 	lexer->buf[lexer->buflen] = 0;
@@ -298,7 +299,7 @@ lex_name(struct lexer *lexer, struct token *out)
 	} else {
 		out->token = (const char **)token - tokens;
 	}
-	consume(lexer, -1);
+	clearbuf(lexer);
 	return out->token;
 }
 
@@ -477,7 +478,7 @@ want_int:
 			error(out->loc, "Unexpected decimal point in integer literal");
 		}
 		out->fval = strtod(lexer->buf, NULL);
-		consume(lexer, -1);
+		clearbuf(lexer);
 		return;
 	}
 
@@ -503,7 +504,7 @@ want_int:
 	} else if (kind != UNSIGNED) {
 		out->ival = (int64_t)out->uval;
 	}
-	consume(lexer, -1);
+	clearbuf(lexer);
 }
 
 static uint32_t
@@ -613,7 +614,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		out->storage = STORAGE_STRING;
 		out->string.len = lexer->buflen;
 		out->string.value = buf;
-		consume(lexer, -1);
+		clearbuf(lexer);
 		return out->token;
 	case '\'':
 		c = next(lexer, NULL, false);
