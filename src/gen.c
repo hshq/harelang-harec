@@ -783,7 +783,7 @@ gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value vptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &optr, Q_LOADL, &qobj, NULL);
 	pushi(ctx->current, &vptr, Q_LOADL, &qval, NULL);
-	tmp = constl(expr->assign.object->result->array.members->size);
+	tmp = constl(vtype->array.members->size);
 	pushi(ctx->current, &olen, Q_MUL, &olen, &tmp, NULL);
 	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memmove, &optr, &vptr, &olen, NULL);
 
