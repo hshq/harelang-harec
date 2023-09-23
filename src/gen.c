@@ -1758,9 +1758,10 @@ gen_const_array_at(struct gen_context *ctx,
 	const struct type *atype = type_dealias(NULL, expr->result);
 	size_t msize = atype->array.members->size;
 	struct gen_value item = mkgtemp(ctx, atype->array.members, "item.%d");
+	struct qbe_value ptr;
 	for (const struct array_constant *ac = aexpr; ac; ac = ac->next) {
 		struct qbe_value offs = constl(n * msize);
-		struct qbe_value ptr = mklval(ctx, &item);
+		ptr = mklval(ctx, &item);
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
 		gen_expr_at(ctx, ac->value, item);
 		++n;
@@ -1775,17 +1776,12 @@ gen_const_array_at(struct gen_context *ctx,
 		return;
 	}
 
-	// last copied element
-	struct qbe_value lsize = constl((n - 1) * msize);
-	struct qbe_value last = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &last, Q_ADD, &base, &lsize, NULL);
-	// start from the elements already copied
 	struct qbe_value nsize = constl(n * msize);
 	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &next, Q_ADD, &base, &nsize, NULL);
 
 	struct qbe_value qlen = constl((arr.length - n) * msize);
-	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &qlen, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &ptr, &qlen, NULL);
 }
 
 static struct qbe_data_item *gen_data_item(struct gen_context *,
