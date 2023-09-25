@@ -85,6 +85,8 @@ fn zero3(s: []int) void = {
 	s[..] = [0, 0, 0];
 };
 
+type sl_alias = []int;
+
 fn assignment() void = {
 	let source = [1, 2, 3];
 	let x: []int = source;
@@ -108,6 +110,10 @@ fn assignment() void = {
 	assert(z[0] == 1 && z[1] == 42 && z[2] == 69 && z[3] == 1337 && z[4] == 5);
 	z[2..5] = y;
 	assert(z[0] == 1 && z[1] == 42 && z[2] == 0 && z[3] == 0 && z[4] == 0);
+	let z: sl_alias = z;
+	z[2..5] = y;
+	let z: *sl_alias = &z;
+	z[2..5] = y;
 
 	let x: []int = [];
 	let opaqueslice: []opaque = x;

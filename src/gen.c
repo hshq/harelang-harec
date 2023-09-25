@@ -162,11 +162,7 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 		break; // no-op
 	}
 
-	struct gen_value value = {
-		.kind = GV_TEMP,
-		.type = object.type,
-		.name = gen_name(&ctx->id, "load.%d"),
-	};
+	struct gen_value value = mkgtemp(ctx, object.type, "load.%d");
 	struct qbe_value qobj = mkqval(ctx, &object),
 		qval = mkqval(ctx, &value);
 	enum qbe_instr qi = load_for_type(ctx, object.type);
@@ -783,7 +779,7 @@ gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value vptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &optr, Q_LOADL, &qobj, NULL);
 	pushi(ctx->current, &vptr, Q_LOADL, &qval, NULL);
-	tmp = constl(expr->assign.object->result->array.members->size);
+	tmp = constl(vtype->array.members->size);
 	pushi(ctx->current, &olen, Q_MUL, &olen, &tmp, NULL);
 	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memmove, &optr, &vptr, &olen, NULL);
 
@@ -997,12 +993,7 @@ gen_expr_binding_unpack(struct gen_context *ctx,
 	assert(binding->object == NULL);
 
 	const struct type *type = binding->initializer->result;
-	char *tuple_name = gen_name(&ctx->id, "tupleunpack.%d");
-	struct gen_value tuple_gv = {
-		.kind = GV_TEMP,
-		.type = type,
-		.name = tuple_name,
-	};
+	struct gen_value tuple_gv = mkgtemp(ctx, type, "tupleunpack.%d");
 	struct qbe_value tuple_qv = mklval(ctx, &tuple_gv);
 	struct qbe_value sz = constl(type->size);
 	enum qbe_instr alloc = alloc_for_align(type->align);
@@ -1017,14 +1008,8 @@ gen_expr_binding_unpack(struct gen_context *ctx,
 		}
 		assert(unpack->object->otype != O_DECL);
 
-		const struct type *type = unpack->object->type;
-		struct gen_value item_gv = {
-			.kind = GV_TEMP,
-			.type = type,
-			.name = gen_name(&ctx->id, "binding.%d"),
-		};
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
-		gb->value = item_gv;
+		gb->value = mkgtemp(ctx, unpack->object->type, "binding.%d");
 		gb->object = unpack->object;
 		gb->next = ctx->bindings;
 		ctx->bindings = gb;
@@ -1064,9 +1049,7 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 
 		const struct type *type = binding->object->type;
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
-		gb->value.kind = GV_TEMP;
-		gb->value.type = type;
-		gb->value.name = gen_name(&ctx->id, "binding.%d");
+		gb->value = mkgtemp(ctx, type, "binding.%d");
 		gb->object = binding->object;
 		gb->next = ctx->bindings;
 		ctx->bindings = gb;
@@ -1775,9 +1758,10 @@ gen_const_array_at(struct gen_context *ctx,
 	const struct type *atype = type_dealias(NULL, expr->result);
 	size_t msize = atype->array.members->size;
 	struct gen_value item = mkgtemp(ctx, atype->array.members, "item.%d");
+	struct qbe_value ptr;
 	for (const struct array_constant *ac = aexpr; ac; ac = ac->next) {
 		struct qbe_value offs = constl(n * msize);
-		struct qbe_value ptr = mklval(ctx, &item);
+		ptr = mklval(ctx, &item);
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
 		gen_expr_at(ctx, ac->value, item);
 		++n;
@@ -1792,17 +1776,12 @@ gen_const_array_at(struct gen_context *ctx,
 		return;
 	}
 
-	// last copied element
-	struct qbe_value lsize = constl((n - 1) * msize);
-	struct qbe_value last = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &last, Q_ADD, &base, &lsize, NULL);
-	// start from the elements already copied
 	struct qbe_value nsize = constl(n * msize);
 	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &next, Q_ADD, &base, &nsize, NULL);
 
 	struct qbe_value qlen = constl((arr.length - n) * msize);
-	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &qlen, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &ptr, &qlen, NULL);
 }
 
 static struct qbe_data_item *gen_data_item(struct gen_context *,
@@ -2519,9 +2498,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 		}
 
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
-		gb->value.kind = GV_TEMP;
-		gb->value.type = _case->type;
-		gb->value.name = gen_name(&ctx->id, "binding.%d");
+		gb->value = mkgtemp(ctx, _case->type, "binding.%d");
 		gb->object = _case->object;
 		gb->next = ctx->bindings;
 		ctx->bindings = gb;
