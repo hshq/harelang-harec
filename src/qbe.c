@@ -165,6 +165,7 @@ va_geni(struct qbe_statement *stmt, enum qbe_instr instr,
 	stmt->instr = instr;
 
 	if (out) {
+		assert(out->kind == QV_TEMPORARY);
 		stmt->out = qval_dup(out);
 	}
 
