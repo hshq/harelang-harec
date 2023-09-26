@@ -148,6 +148,9 @@ errline(struct location loc)
 			color = false;
 		}
 		xfprintf(stderr, "\n%d |\t%s", loc.lineno, line);
+		if (!strchr(line, '\n')) {
+			xfprintf(stderr, "\n");
+		}
 		for (int i = loc.lineno; i > 0; i /= 10) {
 			xfprintf(stderr, " ");
 		}
