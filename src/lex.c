@@ -276,7 +276,7 @@ cmp_keyword(const void *va, const void *vb)
 	return strcmp(*(const char **)va, *(const char **)vb);
 }
 
-static uint32_t
+static enum lexical_token
 lex_name(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, true);
