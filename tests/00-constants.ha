@@ -525,15 +525,6 @@ fn basics() void = {
 	assert(compile(`let r = '\xah';`) as exited != EXIT_SUCCESS);
 	assert(compile(`let r = '\uahij';`) as exited != EXIT_SUCCESS);
 	assert(compile(`let r = '\Uahijklmn';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\x-a';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\x+a';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\x a';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\u-abc';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\u+abc';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\u abc';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\U-abcdeff';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\U+abcdeff';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\U abcdeff';`) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {

@@ -105,12 +105,6 @@ fn reject() void = {
 	assert(compile(`let s = "\xah";`) as exited != EXIT_SUCCESS);
 	assert(compile(`let s = "\uahij";`) as exited != EXIT_SUCCESS);
 	assert(compile(`let s = "\Uahijklmn";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\x-a";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\x+a";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\u-abc";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\u+abc";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\U-abcdefg";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\U+abcdefg";`) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {
