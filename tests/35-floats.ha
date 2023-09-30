@@ -55,6 +55,13 @@ fn signed_casts() void = {
 	assert(f == 20f32);
 	let f = a: f64;
 	assert(f == 20f64);
+
+	let f = 20: f32;
+	assert(f == 20f32);
+	let f = 20: f64;
+	assert(f == 20f64);
+	let i = 13.37: int;
+	assert(i == 13);
 };
 
 fn unsigned_casts() void = {
@@ -109,8 +116,10 @@ fn unsigned_casts() void = {
 	assert(f == 20f32);
 	let f = a: f64;
 	assert(f == 20f64);
-};
 
+	let i = 13.37: uint;
+	assert(i == 13);
+};
 
 export fn main() void = {
 	// TODO: test parsing, compile-time evaluation
