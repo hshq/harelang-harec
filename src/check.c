@@ -1613,12 +1613,7 @@ check_expr_cast(struct context *ctx,
 		// The value is first cast to an intermediary type which is a
 		// direct member of the tagged union, before being cast to the
 		// tagged union itself.
-		expr->cast.value = xcalloc(1, sizeof(struct expression));
-		expr->cast.value->type = EXPR_CAST;
-		expr->cast.value->result = intermediary;
-		expr->cast.value->cast.kind = C_CAST;
-		expr->cast.value->cast.value = value;
-		expr->cast.value->cast.secondary = intermediary;
+		expr->cast.value = lower_implicit_cast(ctx, intermediary, value);
 		break;
 	}
 	expr->result = aexpr->cast.kind == C_TEST? &builtin_type_bool : secondary;
