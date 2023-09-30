@@ -261,8 +261,7 @@ check_expr_access(struct context *ctx,
 		if (atype->storage == STORAGE_ARRAY
 				&& atype->array.length != SIZE_UNDEFINED) {
 			struct expression *evaled = xcalloc(1, sizeof(struct expression));
-			enum eval_result r = eval_expr(ctx, expr->access.index, evaled);
-			if (r == EVAL_OK) {
+			if (eval_expr(ctx, expr->access.index, evaled)) {
 				if (evaled->constant.uval >= atype->array.length) {
 					error(ctx, aexpr->loc, expr,
 						"Index must not be greater than array length");
@@ -470,7 +469,7 @@ check_expr_alloc_slice(struct context *ctx,
 	struct expression cap = {0};
 	if (expr->alloc.init->type == EXPR_CONSTANT
 			&& expr->alloc.cap->type == EXPR_CONSTANT
-			&& eval_expr(ctx, expr->alloc.cap, &cap) == EVAL_OK) {
+			&& eval_expr(ctx, expr->alloc.cap, &cap)) {
 		uint64_t len = 0;
 		for (struct array_constant *c = expr->alloc.init->constant.array;
 				c != NULL; c = c->next) {
@@ -719,16 +718,13 @@ check_assert(struct context *ctx,
 		bool cond = false;
 		if (expr->assert.cond != NULL) {
 			struct expression out = {0}, msgout = {0};
-			enum eval_result r =
-				eval_expr(ctx, expr->assert.cond, &out);
-			if (r != EVAL_OK) {
+			if (!eval_expr(ctx, expr->assert.cond, &out)) {
 				error(ctx, e.cond->loc, expr,
 					"Unable to evaluate static assertion condition at compile time");
 				return;
 			}
 			if (expr->assert.message) {
-				r = eval_expr(ctx, expr->assert.message, &msgout);
-				if (r != EVAL_OK) {
+				if (!eval_expr(ctx, expr->assert.message, &msgout)) {
 					error(ctx, e.message->loc, expr,
 						"Unable to evaluate static assertion message at compile time");
 					return;
@@ -1183,8 +1179,7 @@ check_binding_unpack(struct context *ctx,
 
 	if (abinding->is_static) {
 		struct expression *value = xcalloc(1, sizeof(struct expression));
-		enum eval_result r = eval_expr(ctx, binding->initializer, value);
-		if (r != EVAL_OK) {
+		if (!eval_expr(ctx, binding->initializer, value)) {
 			error(ctx, abinding->initializer->loc,
 				expr,
 				"Unable to evaluate static initializer at compile time");
@@ -1321,8 +1316,7 @@ check_expr_binding(struct context *ctx,
 			}
 			struct expression *value =
 				xcalloc(1, sizeof(struct expression));
-			enum eval_result r = eval_expr(ctx, initializer, value);
-			if (r != EVAL_OK) {
+			if (!eval_expr(ctx, initializer, value)) {
 				error(ctx, initializer->loc, value,
 					"Unable to evaluate constant init at compile time");
 				type = &builtin_type_error;
@@ -1369,9 +1363,7 @@ check_expr_binding(struct context *ctx,
 		if (abinding->is_static) {
 			struct expression *value =
 				xcalloc(1, sizeof(struct expression));
-			enum eval_result r = eval_expr(
-				ctx, binding->initializer, value);
-			if (r != EVAL_OK) {
+			if (!eval_expr(ctx, binding->initializer, value)) {
 				error(ctx, abinding->initializer->loc, expr,
 					"Unable to evaluate static initializer at compile time");
 				return;
@@ -2592,8 +2584,7 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 
 	if (expr->slice.end != NULL) {
 		end = xcalloc(1, sizeof(struct expression));
-		enum eval_result r = eval_expr(ctx, expr->slice.end, end);
-		if (r != EVAL_OK) {
+		if (!eval_expr(ctx, expr->slice.end, end)) {
 			free(end);
 			return;
 		}
@@ -2619,8 +2610,7 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 		return;
 	}
 	start = xcalloc(1, sizeof(struct expression));
-	enum eval_result r = eval_expr(ctx, expr->slice.start, start);
-	if (r != EVAL_OK) {
+	if (!eval_expr(ctx, expr->slice.start, start)) {
 		free(start);
 		if (end) free(end);
 		return;
@@ -3074,8 +3064,7 @@ check_expr_switch(struct context *ctx,
 			}
 			value = lower_implicit_cast(ctx, type, value);
 
-			enum eval_result r = eval_expr(ctx, value, evaled);
-			if (r != EVAL_OK) {
+			if (!eval_expr(ctx, value, evaled)) {
 				error(ctx, aopt->value->loc, expr,
 					"Unable to evaluate case at compile time");
 				return;
@@ -3977,8 +3966,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 	}
 
-	enum eval_result r = eval_expr(ctx, init, value);
-	if (r != EVAL_OK) {
+	if (!eval_expr(ctx, init, value)) {
 		error(ctx, decl->init->loc, value,
 			"Unable to evaluate constant init at compile time");
 		type = &builtin_type_error;
@@ -4119,8 +4107,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 			type = &builtin_type_error;
 			goto end;
 		}
-		enum eval_result r = eval_expr(ctx, init, value);
-		if (r != EVAL_OK) {
+		if (!eval_expr(ctx, init, value)) {
 			error(ctx, decl->init->loc, value,
 				"Unable to evaluate constant init at compile time");
 			type = &builtin_type_error;
@@ -4193,8 +4180,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 
 		initializer = lower_implicit_cast(ctx, type, initializer);
-		enum eval_result r = eval_expr(ctx, initializer, value);
-		if (r != EVAL_OK) {
+		if (!eval_expr(ctx, initializer, value)) {
 			error_norec(ctx, idecl->field->field->value->loc,
 				"Unable to evaluate constant initializer at compile time");
 		}

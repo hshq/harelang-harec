@@ -12,40 +12,35 @@
 #include "types.h"
 #include "util.h"
 
-static enum eval_result
+static bool
 eval_access(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
 {
 	struct expression tmp = {0};
-	enum eval_result r;
-
 	switch (in->access.type) {
 	case ACCESS_IDENTIFIER:
-		return EVAL_INVALID; // &ident handled in eval_unarithm
+		return false; // &ident handled in eval_unarithm
 	case ACCESS_INDEX:
-		r = eval_expr(ctx, in->access.array, &tmp);
-		if (r != EVAL_OK) {
-			return r;
+		if (!eval_expr(ctx, in->access.array, &tmp)) {
+			return false;
 		}
 		const struct array_constant *array = tmp.constant.array;
-		r = eval_expr(ctx, in->access.index, &tmp);
-		if (r != EVAL_OK) {
-			return r;
+		if (!eval_expr(ctx, in->access.index, &tmp)) {
+			return false;
 		}
 		for (size_t i = tmp.constant.uval; i > 0; --i) {
 			if (array == NULL) {
 				error(ctx, in->loc, NULL,
 					"slice or array access out of bounds");
-				return EVAL_INVALID;
+				return false;
 			}
 			array = array->next;
 		}
 		return eval_expr(ctx, array->value, out);
 	case ACCESS_FIELD:
-		r = eval_expr(ctx, in->access._struct, &tmp);
-		if (r != EVAL_OK) {
-			return r;
+		if (!eval_expr(ctx, in->access._struct, &tmp)) {
+			return false;
 		}
 		const struct struct_constant *fields = tmp.constant._struct;
 		for (; fields != NULL; fields = fields->next) {
@@ -54,26 +49,25 @@ eval_access(struct context *ctx,
 			}
 		}
 		if (fields == NULL) {
-			return EVAL_INVALID;
+			return false;
 		}
 		return eval_expr(ctx, fields->value, out);
 	case ACCESS_TUPLE:
-		r = eval_expr(ctx, in->access.tuple, &tmp);
-		if (r != EVAL_OK) {
-			return r;
+		if (!eval_expr(ctx, in->access.tuple, &tmp)) {
+			return false;
 		}
 		const struct tuple_constant *tuple = tmp.constant.tuple;
 		for (size_t i = in->access.tindex; i > 0; --i) {
 			if (tuple == NULL) {
 				// out of bounds
-				return EVAL_INVALID;
+				return false;
 			}
 			tuple = tuple->next;
 		}
 		return eval_expr(ctx, tuple->value, out);
 	}
 
-	return EVAL_OK;
+	return true;
 }
 
 static uint64_t
@@ -147,19 +141,17 @@ ftrunc(struct context *ctx, const struct type *type, double val)
 	return val;
 }
 
-static enum eval_result
+static bool
 eval_binarithm(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
 {
 	struct expression lvalue = {0}, rvalue = {0};
-	enum eval_result r = eval_expr(ctx, in->binarithm.lvalue, &lvalue);
-	if (r != EVAL_OK) {
-		return r;
+	if (!eval_expr(ctx, in->binarithm.lvalue, &lvalue)) {
+		return false;
 	}
-	r = eval_expr(ctx, in->binarithm.rvalue, &rvalue);
-	if (r != EVAL_OK) {
-		return r;
+	if (!eval_expr(ctx, in->binarithm.rvalue, &rvalue)) {
+		return false;
 	}
 
 	bool blval = false, brval = false, bval = false;
@@ -203,7 +195,7 @@ eval_binarithm(struct context *ctx,
 			int64_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, NULL, "division by zero");
-				return EVAL_INVALID;
+				return false;
 			}
 			ival = (int64_t)itrunc(ctx, lvalue.result, ilval) / r;
 		} else {
@@ -211,7 +203,7 @@ eval_binarithm(struct context *ctx,
 			uint64_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
 				error(ctx, in->loc, NULL, "division by zero");
-				return EVAL_INVALID;
+				return false;
 			}
 			uval = itrunc(ctx, lvalue.result, ulval) / r;
 		}
@@ -238,14 +230,14 @@ eval_binarithm(struct context *ctx,
 			int64_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, NULL, "division by zero");
-				return EVAL_INVALID;
+				return false;
 			}
 			ival = (int64_t)itrunc(ctx, lvalue.result, ilval) % r;
 		} else {
 			uint64_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
 				error(ctx, in->loc, NULL, "division by zero");
-				return EVAL_INVALID;
+				return false;
 			}
 			uval = itrunc(ctx, lvalue.result, ulval) % r;
 		}
@@ -382,10 +374,10 @@ eval_binarithm(struct context *ctx,
 			|| type_dealias(ctx, in->result)->storage == STORAGE_POINTER);
 		out->constant.uval = itrunc(ctx, in->result, uval);
 	}
-	return EVAL_OK;
+	return true;
 }
 
-static enum eval_result
+static bool
 eval_const(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
@@ -405,10 +397,8 @@ eval_const(struct context *ctx,
 			struct array_constant *aconst = *anext =
 				xcalloc(1, sizeof(struct array_constant));
 			aconst->value = xcalloc(1, sizeof(struct expression));
-			enum eval_result r =
-				eval_expr(ctx, arr->value, aconst->value);
-			if (r != EVAL_OK) {
-				return r;
+			if (!eval_expr(ctx, arr->value, aconst->value)) {
+				return false;
 			}
 			anext = &aconst->next;
 		}
@@ -436,10 +426,8 @@ eval_const(struct context *ctx,
 				xcalloc(sizeof(struct struct_constant), 1);
 			cur->field = _struct->field;
 			cur->value = xcalloc(sizeof(struct expression), 1);
-			enum eval_result r =
-				eval_expr(ctx, _struct->value, cur->value);
-			if (r != EVAL_OK) {
-				return r;
+			if (!eval_expr(ctx, _struct->value, cur->value)) {
+				return false;
 			}
 			next = &cur->next;
 		}
@@ -454,10 +442,8 @@ eval_const(struct context *ctx,
 				xcalloc(1, sizeof(struct tuple_constant));
 			tconst->field = tuple->field;
 			tconst->value = xcalloc(1, sizeof(struct expression));
-			enum eval_result r =
-				eval_expr(ctx, tuple->value, tconst->value);
-			if (r != EVAL_OK) {
-				return r;
+			if (!eval_expr(ctx, tuple->value, tconst->value)) {
+				return false;
 			}
 			tnext = &tconst->next;
 		}
@@ -492,7 +478,7 @@ eval_const(struct context *ctx,
 	case STORAGE_VALIST:
 		abort(); // Invariant
 	}
-	return EVAL_OK;
+	return true;
 }
 
 static void
@@ -517,35 +503,33 @@ eval_expand_array(struct context *ctx,
 	}
 }
 
-static enum eval_result
+static bool
 eval_type_assertion(struct context *ctx, const struct expression *in,
 		struct expression *out)
 {
 	struct expression val = {0};
-	enum eval_result r = eval_expr(ctx, in->cast.value, &val);
-	if (r != EVAL_OK) {
-		return r;
+	if (!eval_expr(ctx, in->cast.value, &val)) {
+		return false;
 	}
 
 	const struct type *from = type_dealias(ctx, in->cast.value->result);
 	assert(from->storage == STORAGE_TAGGED);
 	if (val.constant.tagged.tag == in->cast.secondary) {
 		out->constant = val.constant.tagged.value->constant;
-		return EVAL_OK;
+		return true;
 	} else {
 		error(ctx, in->loc, NULL, "type assertion failed");
-		return EVAL_INVALID;
+		return false;
 	}
 }
 
-static enum eval_result
+static bool
 eval_type_test(struct context *ctx, const struct expression *in,
 		struct expression *out)
 {
 	struct expression val = {0};
-	enum eval_result r = eval_expr(ctx, in->cast.value, &val);
-	if (r != EVAL_OK) {
-		return r;
+	if (!eval_expr(ctx, in->cast.value, &val)) {
+		return false;
 	}
 
 	const struct type *from = type_dealias(ctx, in->cast.value->result);
@@ -553,18 +537,17 @@ eval_type_test(struct context *ctx, const struct expression *in,
 
 	out->constant.bval = val.constant.tagged.tag == in->cast.secondary;
 
-	return EVAL_OK;
+	return true;
 }
 
-static enum eval_result
+static bool
 eval_cast(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
 {
 	struct expression val = {0};
-	enum eval_result r = eval_expr(ctx, in->cast.value, &val);
-	if (r != EVAL_OK) {
-		return r;
+	if (!eval_expr(ctx, in->cast.value, &val)) {
+		return false;
 	}
 
 	const struct type *to = type_dealias(ctx, in->result),
@@ -573,11 +556,11 @@ eval_cast(struct context *ctx,
 	// arrays at this point.
 	if (to->storage == from->storage && to->storage != STORAGE_ARRAY) {
 		out->constant = val.constant;
-		return EVAL_OK;
+		return true;
 	}
 
 	if (from->storage == STORAGE_ERROR) {
-		return EVAL_OK;
+		return true;
 	}
 
 	// XXX: We should also be able to handle expressions which use
@@ -588,12 +571,12 @@ eval_cast(struct context *ctx,
 	case STORAGE_POINTER:
 		if (from->storage == STORAGE_NULL) {
 			out->constant.uval = 0;
-			return EVAL_OK;
+			return true;
 		}
 		assert(from->storage == STORAGE_POINTER
 			|| from->storage == STORAGE_UINTPTR);
 		out->constant.uval = val.constant.uval;
-		return EVAL_OK;
+		return true;
 	case STORAGE_ENUM:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -618,7 +601,7 @@ eval_cast(struct context *ctx,
 		} else {
 			out->constant.ival = itrunc(ctx, to, val.constant.uval);
 		}
-		return EVAL_OK;
+		return true;
 	case STORAGE_ARRAY:
 		assert(from->storage == STORAGE_ARRAY);
 		if (from->array.expandable) {
@@ -626,11 +609,11 @@ eval_cast(struct context *ctx,
 		} else {
 			out->constant = val.constant;
 		}
-		return EVAL_OK;
+		return true;
 	case STORAGE_SLICE:
 		assert(type_dealias(ctx, val.result)->storage == STORAGE_ARRAY);
 		out->constant = val.constant;
-		return EVAL_OK;
+		return true;
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
@@ -643,7 +626,7 @@ eval_cast(struct context *ctx,
 			out->constant.fval =
 				ftrunc(ctx, to, (double)val.constant.uval);
 		}
-		return EVAL_OK;
+		return true;
 	case STORAGE_TAGGED:
 		subtype = tagged_select_subtype(ctx, to, val.result, true);
 		out->constant.tagged.value =
@@ -655,7 +638,7 @@ eval_cast(struct context *ctx,
 			out->constant.tagged.tag = from;
 			*out->constant.tagged.value = val;
 		}
-		return EVAL_OK;
+		return true;
 	case STORAGE_NULL:
 	case STORAGE_ALIAS:
 		assert(0); // Handled above
@@ -671,13 +654,13 @@ eval_cast(struct context *ctx,
 		assert(0); // Invariant
 	case STORAGE_ERROR:
 	case STORAGE_VOID:
-		return EVAL_OK;
+		return true;
 	}
 
 	assert(0); // Unreachable
 }
 
-static enum eval_result
+static bool
 eval_measurement(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
@@ -685,18 +668,16 @@ eval_measurement(struct context *ctx,
 	assert(in->type == EXPR_MEASURE);
 	const struct type *expr_type;
 	struct expression obj = {0};
-	enum eval_result res;
 	switch (in->measure.op) {
 	case M_LEN:
 		expr_type = type_dealias(ctx, type_dereference(ctx, in->measure.value->result));
 		if (expr_type->storage == STORAGE_ARRAY) {
 			out->constant.uval = expr_type->array.length;
-			return EVAL_OK;
+			return true;
 		}
 
-		res = eval_expr(ctx, in->measure.value, &obj);
-		if (res != EVAL_OK) {
-			return res;
+		if (!eval_expr(ctx, in->measure.value, &obj)) {
+			return false;
 		}
 
 		switch (obj.result->storage) {
@@ -705,10 +686,10 @@ eval_measurement(struct context *ctx,
 			break;
 		case STORAGE_STRING:
 			out->constant.uval = obj.constant.string.len;
-			return EVAL_OK;
+			return true;
 		case STORAGE_ERROR:
 			out->constant.uval = 0;
-			return EVAL_OK;
+			return true;
 		default:
 			abort(); // Invariant
 		}
@@ -719,13 +700,13 @@ eval_measurement(struct context *ctx,
 			len++;
 		}
 		out->constant.uval = len;
-		return EVAL_OK;
+		return true;
 	case M_ALIGN:
 		out->constant.uval = in->measure.dimensions.align;
-		return EVAL_OK;
+		return true;
 	case M_SIZE:
 		out->constant.uval = in->measure.dimensions.size;
-		return EVAL_OK;
+		return true;
 	case M_OFFSET:
 		if (in->measure.value->access.type == ACCESS_FIELD) {
 			out->constant.uval =
@@ -735,12 +716,12 @@ eval_measurement(struct context *ctx,
 			out->constant.uval =
 				in->measure.value->access.tvalue->offset;
 		}
-		return EVAL_OK;
+		return true;
 	}
 	assert(0);
 }
 
-static enum eval_result
+static bool
 constant_default(struct context *ctx, struct expression *v)
 {
 	struct expression b = {0};
@@ -775,8 +756,8 @@ constant_default(struct context *ctx, struct expression *v)
 		b.type = EXPR_STRUCT;
 		b.result = v->result;
 		b._struct.autofill = true;
-		enum eval_result r = eval_expr(ctx, &b, v);
-		assert(r == EVAL_OK);
+		bool r = eval_expr(ctx, &b, v);
+		assert(r);
 		break;
 	case STORAGE_STRING:
 		v->constant.string.value = NULL;
@@ -791,7 +772,7 @@ constant_default(struct context *ctx, struct expression *v)
 		return constant_default(ctx, v->constant.array->value);
 		break;
 	case STORAGE_TAGGED:
-		return EVAL_INVALID;
+		return false;
 	case STORAGE_TUPLE:;
 		struct tuple_constant **c = &v->constant.tuple;
 		for (const struct type_tuple *t = &type_dealias(ctx, v->result)->tuple;
@@ -801,9 +782,8 @@ constant_default(struct context *ctx, struct expression *v)
 			(*c)->value = xcalloc(1, sizeof(struct expression));
 			(*c)->value->type = EXPR_CONSTANT;
 			(*c)->value->result = t->type;
-			enum eval_result r = constant_default(ctx, (*c)->value);
-			if (r != EVAL_OK) {
-				return r;
+			if (!constant_default(ctx, (*c)->value)) {
+				return false;
 			}
 			c = &(*c)->next;
 		}
@@ -818,7 +798,7 @@ constant_default(struct context *ctx, struct expression *v)
 		break; // no-op
 	}
 
-	return EVAL_OK;
+	return true;
 }
 
 static int
@@ -845,17 +825,17 @@ count_struct_fields(struct context *ctx, const struct type *type)
 	return n;
 }
 
-static enum eval_result
+static bool
 autofill_struct(struct context *ctx, const struct type *type, struct struct_constant **fields)
 {
-	enum eval_result r;
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
 	for (const struct struct_field *field = type->struct_union.fields;
 			field; field = field->next) {
 		if (!field->name) {
-			r = autofill_struct(ctx, type_dealias(ctx, field->type), fields);
-			if (r != EVAL_OK) {
-				return r;
+			bool r = autofill_struct(ctx,
+				type_dealias(ctx, field->type), fields);
+			if (!r) {
+				return false;
 			}
 			continue;
 		}
@@ -875,17 +855,16 @@ autofill_struct(struct context *ctx, const struct type *type, struct struct_cons
 			fields[i]->value->result = field->type;
 			// TODO: there should probably be a better error message
 			// when this happens
-			r = constant_default(ctx, fields[i]->value);
-			if (r != EVAL_OK) {
-				return r;
+			if (!constant_default(ctx, fields[i]->value)) {
+				return false;
 			}
 		}
 	}
 
-	return EVAL_OK;
+	return true;
 }
 
-static enum eval_result
+static bool
 eval_struct(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
@@ -908,18 +887,15 @@ eval_struct(struct context *ctx,
 		fields[i]->field = field;
 		fields[i]->value = xcalloc(1, sizeof(struct expression));
 
-		enum eval_result r = eval_expr(ctx,
-			field_in->value, fields[i]->value);
-		if (r != EVAL_OK) {
-			return r;
+		if (!eval_expr(ctx, field_in->value, fields[i]->value)) {
+			return false;
 		}
 	}
 	assert(in->_struct.autofill || i == n);
 
 	if (in->_struct.autofill) {
-		enum eval_result r = autofill_struct(ctx, type, fields);
-		if (r != EVAL_OK) {
-			return r;
+		if (!autofill_struct(ctx, type, fields)) {
+			return false;
 		}
 	}
 
@@ -931,10 +907,10 @@ eval_struct(struct context *ctx,
 
 	out->constant._struct = fields[0];
 	free(fields);
-	return EVAL_OK;
+	return true;
 }
 
-static enum eval_result
+static bool
 eval_tuple(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
@@ -948,10 +924,8 @@ eval_tuple(struct context *ctx,
 	for (const struct type_tuple *field_type = &type->tuple; field_type;
 			field_type = field_type->next) {
 		out_tuple->value = xcalloc(1, sizeof(struct expression));
-		enum eval_result r =
-			eval_expr(ctx, in_tuple->value, out_tuple->value);
-		if (r != EVAL_OK) {
-			return r;
+		if (!eval_expr(ctx, in_tuple->value, out_tuple->value)) {
+			return false;
 		}
 		out_tuple->field = field_type;
 		if (in_tuple->next) {
@@ -963,11 +937,11 @@ eval_tuple(struct context *ctx,
 	}
 
 	out->constant.tuple = out_tuple_start;
-	return EVAL_OK;
+	return true;
 }
 
 
-static enum eval_result
+static bool
 eval_unarithm(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
@@ -977,63 +951,57 @@ eval_unarithm(struct context *ctx,
 			out->type = EXPR_CONSTANT;
 			out->result = &builtin_type_error;
 			out->constant.uval = 0;
-			return EVAL_OK;
+			return true;
 		}
 		if (in->unarithm.operand->type != EXPR_ACCESS) {
-			return EVAL_INVALID;
+			return false;
 		};
 		const struct expression_access *access =
 			&in->unarithm.operand->access;
 		struct expression new_in = {0};
-		enum eval_result r;
 		switch (access->type) {
 		case ACCESS_IDENTIFIER:
 			if (access->object->otype != O_DECL) {
-				return EVAL_INVALID;
+				return false;
 			}
 			out->constant.object = access->object;
 			out->constant.ival = 0;
-			return EVAL_OK;
+			return true;
 		case ACCESS_INDEX:
 			new_in = *in;
 			new_in.unarithm.operand = access->array;
-			r = eval_expr(ctx, &new_in, out);
-			if (r != EVAL_OK) {
-				return r;
+			if (!eval_expr(ctx, &new_in, out)) {
+				return false;
 			}
 			struct expression index = {0};
-			r = eval_expr(ctx, access->index, &index);
-			if (r != EVAL_OK) {
-				return r;
+			if (!eval_expr(ctx, access->index, &index)) {
+				return false;
 			}
 			out->constant.ival += index.constant.uval * type_dealias(ctx,
 				access->array->result)->array.members->size;
-			return EVAL_OK;
+			return true;
 		case ACCESS_FIELD:
 			new_in = *in;
 			new_in.unarithm.operand = access->_struct;
-			r = eval_expr(ctx, &new_in, out);
-			if (r != EVAL_OK) {
-				return r;
+			if (!eval_expr(ctx, &new_in, out)) {
+				return false;
 			}
 			out->constant.ival += access->field->offset;
-			return EVAL_OK;
+			return true;
 		case ACCESS_TUPLE:
 			new_in = *in;
 			new_in.unarithm.operand = access->tuple;
-			r = eval_expr(ctx, &new_in, out);
-			if (r != EVAL_OK) {
-				return r;
+			if (!eval_expr(ctx, &new_in, out)) {
+				return false;
 			}
 			out->constant.ival += access->tvalue->offset;
-			return EVAL_OK;
+			return true;
 		}
 	}
 
 	struct expression lvalue = {0};
-	enum eval_result r = eval_expr(ctx, in->unarithm.operand, &lvalue);
-	if (r != EVAL_OK) {
-		return r;
+	if (!eval_expr(ctx, in->unarithm.operand, &lvalue)) {
+		return false;
 	}
 
 	switch (in->unarithm.op) {
@@ -1043,7 +1011,7 @@ eval_unarithm(struct context *ctx,
 		out->constant.uval = ~lvalue.constant.uval;
 		break;
 	case UN_DEREF:
-		return EVAL_INVALID;
+		return false;
 	case UN_LNOT:
 		out->constant.bval = !lvalue.constant.bval;
 		break;
@@ -1056,10 +1024,10 @@ eval_unarithm(struct context *ctx,
 		break;
 	}
 
-	return EVAL_OK;
+	return true;
 }
 
-enum eval_result
+bool
 eval_expr(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
@@ -1119,7 +1087,7 @@ eval_expr(struct context *ctx,
 	case EXPR_VAEND:
 	case EXPR_VASTART:
 	case EXPR_YIELD:
-		return EVAL_INVALID;
+		return false;
 	}
 	assert(0); // Unreachable
 }

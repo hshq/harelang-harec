@@ -34,8 +34,7 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 		return SIZE_UNDEFINED;
 	}
 	check_expression(store->check_context, atype->array.length, &in, NULL);
-	enum eval_result r = eval_expr(store->check_context, &in, &out);
-	if (r != EVAL_OK) {
+	if (!eval_expr(store->check_context, &in, &out)) {
 		error(store->check_context, atype->loc, NULL,
 			"Cannot evaluate array length at compile time");
 		return SIZE_UNDEFINED;
@@ -184,8 +183,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		struct expression in, out;
 		check_expression(store->check_context, afield->offset, &in, NULL);
 		field->offset = *offset;
-		enum eval_result r = eval_expr(store->check_context, &in, &out);
-		if (r != EVAL_OK) {
+		if (!eval_expr(store->check_context, &in, &out)) {
 			error(store->check_context, in.loc, NULL,
 				"Cannot evaluate field offset at compile time");
 		} else if (!type_is_integer(store->check_context, out.result)) {
