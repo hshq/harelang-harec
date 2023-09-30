@@ -6,7 +6,8 @@
 
 struct modcache;
 struct ast_global_decl;
-struct scope *module_resolve(struct modcache *cache[],
+struct context;
+struct scope *module_resolve(struct context *ctx,
 	struct ast_global_decl *defines,
 	struct identifier *ident,
 	struct type_store *store);

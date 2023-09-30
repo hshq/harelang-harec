@@ -20,13 +20,14 @@ static void
 usage(const char *argv_0)
 {
 	xfprintf(stderr,
-		"Usage: %s [-a arch] [-D ident[:type]=value] [-M path] [-N namespace] [-o output] [-T] [-t typedefs] [-v] input.ha...\n\n",
+		"Usage: %s [-a arch] [-D ident[:type]=value] [-M path] [-m symbol] [-N namespace] [-o output] [-T] [-t typedefs] [-v] input.ha...\n\n",
 		argv_0);
 	xfprintf(stderr,
 		"-a: set target architecture\n"
 		"-D: define a constant\n"
 		"-h: print this help text\n"
 		"-M: set module path prefix, to be stripped from error messages\n"
+		"-m: set symbol of hosted main function\n"
 		"-N: override namespace for module\n"
 		"-o: set output file name\n"
 		"-T: emit tests\n"
@@ -67,16 +68,17 @@ parse_define(const char *argv_0, const char *in)
 int
 main(int argc, char *argv[])
 {
-	char *output = NULL, *typedefs = NULL;
-	char *target = DEFAULT_TARGET;
-	char *modpath = NULL;
+	const char *output = NULL, *typedefs = NULL;
+	const char *target = DEFAULT_TARGET;
+	const char *modpath = NULL;
+	const char *mainsym = "main";
 	bool is_test = false;
 	struct unit unit = {0};
 	struct lexer lexer;
 	struct ast_global_decl *defines = NULL, **next_def = &defines;
 
 	int c;
-	while ((c = getopt(argc, argv, "a:D:hM:N:o:Tt:v")) != -1) {
+	while ((c = getopt(argc, argv, "a:D:hM:m:N:o:Tt:v")) != -1) {
 		switch (c) {
 		case 'a':
 			target = optarg;
@@ -90,6 +92,9 @@ main(int argc, char *argv[])
 			return EXIT_SUCCESS;
 		case 'M':
 			modpath = optarg;
+			break;
+		case 'm':
+			mainsym = optarg;
 			break;
 		case 'N':
 			unit.ns = xcalloc(1, sizeof(struct identifier));
@@ -182,7 +187,7 @@ main(int argc, char *argv[])
 	}
 
 	static struct type_store ts = {0};
-	check(&ts, is_test, defines, &aunit, &unit);
+	check(&ts, is_test, mainsym, defines, &aunit, &unit);
 
 	if (typedefs) {
 		FILE *out = fopen(typedefs, "w");
