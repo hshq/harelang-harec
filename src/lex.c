@@ -194,6 +194,18 @@ update_lineno(struct location *loc, uint32_t c)
 	}
 }
 
+static void
+append_buffer(struct lexer *lexer, const char *buf, size_t sz)
+{
+	if (lexer->buflen + sz >= lexer->bufsz) {
+		lexer->bufsz *= 2;
+		lexer->buf = xrealloc(lexer->buf, lexer->bufsz);
+	}
+	memcpy(lexer->buf + lexer->buflen, buf, sz);
+	lexer->buflen += sz;
+	lexer->buf[lexer->buflen] = '\0';
+}
+
 static uint32_t
 next(struct lexer *lexer, struct location *loc, bool buffer)
 {
@@ -220,13 +232,7 @@ next(struct lexer *lexer, struct location *loc, bool buffer)
 	}
 	char buf[UTF8_MAX_SIZE];
 	size_t sz = utf8_encode(&buf[0], c);
-	if (lexer->buflen + sz >= lexer->bufsz) {
-		lexer->bufsz *= 2;
-		lexer->buf = xrealloc(lexer->buf, lexer->bufsz);
-	}
-	memcpy(lexer->buf + lexer->buflen, buf, sz);
-	lexer->buflen += sz;
-	lexer->buf[lexer->buflen] = '\0';
+	append_buffer(lexer, buf, sz);
 	return c;
 }
 
@@ -507,8 +513,8 @@ want_int:
 	clearbuf(lexer);
 }
 
-static uint32_t
-lex_rune(struct lexer *lexer)
+static size_t
+lex_rune(struct lexer *lexer, char *out)
 {
 	char buf[9];
 	char *endptr;
@@ -522,27 +528,38 @@ lex_rune(struct lexer *lexer)
 		c = next(lexer, NULL, false);
 		switch (c) {
 		case '0':
-			return '\0';
+			out[0] = '\0';
+			return 1;
 		case 'a':
-			return '\a';
+			out[0] = '\a';
+			return 1;
 		case 'b':
-			return '\b';
+			out[0] = '\b';
+			return 1;
 		case 'f':
-			return '\f';
+			out[0] = '\f';
+			return 1;
 		case 'n':
-			return '\n';
+			out[0] = '\n';
+			return 1;
 		case 'r':
-			return '\r';
+			out[0] = '\r';
+			return 1;
 		case 't':
-			return '\t';
+			out[0] = '\t';
+			return 1;
 		case 'v':
-			return '\v';
+			out[0] = '\v';
+			return 1;
 		case '\\':
-			return '\\';
+			out[0] = '\\';
+			return 1;
 		case '\'':
-			return '\'';
+			out[0] = '\'';
+			return 1;
 		case '"':
-			return '\"';
+			out[0] = '\"';
+			return 1;
 		case 'x':
 			buf[0] = next(lexer, NULL, false);
 			buf[1] = next(lexer, NULL, false);
@@ -551,7 +568,8 @@ lex_rune(struct lexer *lexer)
 			if (*endptr != '\0') {
 				error(loc, "Invalid hex literal");
 			}
-			return c;
+			out[0] = c;
+			return 1;
 		case 'u':
 			buf[0] = next(lexer, NULL, false);
 			buf[1] = next(lexer, NULL, false);
@@ -562,7 +580,7 @@ lex_rune(struct lexer *lexer)
 			if (*endptr != '\0') {
 				error(loc, "Invalid hex literal");
 			}
-			return c;
+			return utf8_encode(out, c);
 		case 'U':
 			buf[0] = next(lexer, NULL, false);
 			buf[1] = next(lexer, NULL, false);
@@ -577,7 +595,7 @@ lex_rune(struct lexer *lexer)
 			if (*endptr != '\0') {
 				error(loc, "Invalid hex literal");
 			}
-			return c;
+			return utf8_encode(out, c);
 		case C_EOF:
 			error(lexer->loc, "Unexpected end of file");
 		default:
@@ -585,7 +603,7 @@ lex_rune(struct lexer *lexer)
 		}
 		assert(0);
 	default:
-		return c;
+		return utf8_encode(out, c);
 	}
 	assert(0);
 }
@@ -595,6 +613,7 @@ lex_string(struct lexer *lexer, struct token *out)
 {
 	uint32_t c = next(lexer, &out->loc, false);
 	uint32_t delim;
+	char buf[UTF8_MAX_SIZE + 1];
 
 	switch (c) {
 	case '"':
@@ -606,16 +625,18 @@ lex_string(struct lexer *lexer, struct token *out)
 			}
 			push(lexer, c, false);
 			if (delim == '"') {
-				push(lexer, lex_rune(lexer), false);
+				size_t sz = lex_rune(lexer, buf);
+				append_buffer(lexer, buf, sz);
+			} else {
+				next(lexer, NULL, true);
 			}
-			next(lexer, NULL, true);
 		}
-		char *buf = xcalloc(lexer->buflen + 1, 1);
-		memcpy(buf, lexer->buf, lexer->buflen);
+		char *s = xcalloc(lexer->buflen + 1, 1);
+		memcpy(s, lexer->buf, lexer->buflen);
 		out->token = T_LITERAL;
 		out->storage = STORAGE_STRING;
 		out->string.len = lexer->buflen;
-		out->string.value = buf;
+		out->string.value = s;
 		clearbuf(lexer);
 		return out->token;
 	case '\'':
@@ -625,7 +646,14 @@ lex_string(struct lexer *lexer, struct token *out)
 			error(out->loc, "Expected rune before trailing single quote");
 		case '\\':
 			push(lexer, c, false);
-			out->rune = lex_rune(lexer);
+			struct location loc = lexer->loc;
+			size_t sz = lex_rune(lexer, buf);
+			buf[sz] = '\0';
+			const char *s = buf;
+			out->rune = utf8_decode(&s);
+			if (out->rune == UTF8_INVALID) {
+				error(loc, "invalid UTF-8 in rune literal");
+			}
 			break;
 		default:
 			out->rune = c;
