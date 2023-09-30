@@ -638,9 +638,6 @@ tuple_init_from_atype(struct type_store *store,
 	return dim;
 }
 
-static const struct type *
-type_store_lookup_type(struct type_store *store, const struct type *type);
-
 static void
 add_padding(size_t *size, size_t align)
 {
