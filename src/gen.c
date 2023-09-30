@@ -1595,19 +1595,26 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_UINTPTR:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
-		if (type_is_integer(NULL, from) && to->size <= from->size) {
-			op = Q_COPY;
-		} else if (type_is_integer(NULL, from) && to->size > from->size) {
-			switch (from->size) {
-			case 4: op = is_signed ? Q_EXTSW : Q_EXTUW; break;
-			case 2: op = is_signed ? Q_EXTSH : Q_EXTUH; break;
-			case 1: op = is_signed ? Q_EXTSB : Q_EXTUB; break;
-			default: abort(); // Invariant
+		if (type_is_integer(NULL, from) || fstor == STORAGE_RUNE) {
+			if (to->size <= from->size) {
+				op = Q_COPY;
+			} else {
+				switch (from->size) {
+				case 4:
+					op = is_signed ? Q_EXTSW : Q_EXTUW;
+					break;
+				case 2:
+					op = is_signed ? Q_EXTSH : Q_EXTUH;
+					break;
+				case 1:
+					op = is_signed ? Q_EXTSB : Q_EXTUB;
+					break;
+				default:
+					assert(0); // Invariant
+				}
 			}
 		} else if (fstor == STORAGE_POINTER || fstor == STORAGE_NULL) {
 			assert(tstor == STORAGE_UINTPTR);
-			op = Q_COPY;
-		} else if (fstor == STORAGE_RUNE) {
 			op = Q_COPY;
 		} else if (type_is_float(NULL, from)) {
 			if (type_is_signed(NULL, to)) {
