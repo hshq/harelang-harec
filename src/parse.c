@@ -2334,19 +2334,7 @@ parse_compound_expression(struct lexer *lexer)
 struct ast_expression *
 parse_expression(struct lexer *lexer)
 {
-	// This is one of the more complicated non-terminals to parse.
 	struct token tok;
-	bool indirect = false;
-	switch (lex(lexer, &tok)) {
-	case T_TIMES: // *ptr = value (or unary-expression)
-		indirect = true;
-		break;
-	default:
-		unlex(lexer, &tok);
-		break;
-	}
-
-	struct ast_expression *value;
 	switch (lex(lexer, &tok)) {
 	case T_STATIC:
 		return parse_static_expression(lexer, false);
@@ -2362,46 +2350,29 @@ parse_expression(struct lexer *lexer)
 		case T_RETURN:
 		case T_YIELD:
 			unlex(lexer, &tok);
-			value = parse_control_expression(lexer);
-			break;
+			return parse_control_expression(lexer);
 		case T_FOR:
 			unlex(lexer, &tok);
-			value = parse_for_expression(lexer);
-			break;
+			return parse_for_expression(lexer);
 		case T_IF:
-			value = parse_if_expression(lexer);
-			break;
+			return parse_if_expression(lexer);
 		default:
 			assert(0);
 		}
-		if (indirect) {
-			struct ast_expression *deref = mkexpr(value->loc);
-			deref->type = EXPR_UNARITHM;
-			deref->unarithm.op = UN_DEREF;
-			deref->unarithm.operand = value;
-			return deref;
-		}
-		return value;
 	default:
-		unlex(lexer, &tok);
-		value = parse_unary_expression(lexer);
-		if (!indirect && value->type != EXPR_ACCESS
-				&& value->type != EXPR_SLICE) {
-			value = parse_cast_expression(lexer, value);
-			return parse_bin_expression(lexer, value, 0);
-		}
-		// Is possible object-selector, try for assignment
 		break;
 	}
 
-	if (indirect) {
-		struct ast_expression *deref = mkexpr(value->loc);
-		deref->type = EXPR_UNARITHM;
-		deref->unarithm.op = UN_DEREF;
-		deref->unarithm.operand = value;
-		value = deref;
+	unlex(lexer, &tok);
+	struct ast_expression *value = parse_unary_expression(lexer);
+	if (value->type != EXPR_ACCESS && value->type != EXPR_SLICE
+			&& (value->type != EXPR_UNARITHM
+				|| value->unarithm.op != UN_DEREF)) {
+		value = parse_cast_expression(lexer, value);
+		return parse_bin_expression(lexer, value, 0);
 	}
 
+	// Is object-selector, try for assignment
 	switch (lex(lexer, &tok)) {
 	case T_EQUAL:
 		return parse_assignment(lexer, value, BIN_LEQUAL);
