@@ -213,4 +213,12 @@ export fn main() void = {
 
 	let r = 'a';
 	r: i64;
+
+	:outer {
+		let x: []int = {
+			if (true) yield :outer;
+			yield [];
+		};
+		abort();
+	};
 };

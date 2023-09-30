@@ -1355,9 +1355,9 @@ check_expr_binding(struct context *ctx,
 		}
 		// XXX: Can we avoid this?
 		type = lower_const(ctx, type, NULL);
-		if (type->size == 0 || type->size == SIZE_UNDEFINED) {
+		if (type->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->loc, expr,
-				"Cannot create binding for type of zero or undefined size");
+				"Cannot create binding for type of undefined size");
 			return;
 		}
 		binding->initializer = lower_implicit_cast(ctx, type, initializer);
@@ -2196,9 +2196,9 @@ check_expr_match(struct context *ctx,
 
 		if (acase->name) {
 			assert(ctype);
-			if (ctype->size == 0 || ctype->size == SIZE_UNDEFINED) {
+			if (ctype->size == SIZE_UNDEFINED) {
 				error(ctx, acase->type->loc, expr,
-					"Cannot create binding for type of zero or undefined size");
+					"Cannot create binding for type of undefined size");
 				return;
 			}
 			if (ctype->storage == STORAGE_NULL) {
@@ -2455,7 +2455,7 @@ check_expr_propagate(struct context *ctx,
 	struct match_case *case_err = xcalloc(1, sizeof(struct match_case));
 
 	const struct scope_object *ok_obj = NULL, *err_obj = NULL;
-	if (result_type->size != 0 && result_type->size != SIZE_UNDEFINED) {
+	if (result_type->size != SIZE_UNDEFINED) {
 		struct identifier ok_name = {
 			.name = gen_name(&ctx->id, "ok.%d"),
 		};
@@ -2486,7 +2486,7 @@ check_expr_propagate(struct context *ctx,
 			.fixed_reason = ABORT_PROPAGATE_ERROR_OCCURRED,
 		};
 	} else {
-		if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
+		if (return_type->size != SIZE_UNDEFINED) {
 			struct identifier err_name = {
 				.name = gen_name(&ctx->id, "err.%d"),
 			};

@@ -96,10 +96,13 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		}
 		for (struct struct_field *tfield = type->struct_union.fields;
 				tfield; tfield = tfield->next) {
-			field->type = qtype_lookup(ctx, tfield->type, true);
-			field->count = 1;
+			if (tfield->type->size != 0) {
+				field->type =
+					qtype_lookup(ctx, tfield->type, true);
+				field->count = 1;
+			}
 
-			if (tfield->next) {
+			if (tfield->next && tfield->next->type->size != 0) {
 				field->next = xcalloc(1, sizeof(struct qbe_field));
 				field = field->next;
 			}
@@ -108,6 +111,9 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	case STORAGE_TUPLE:
 		for (const struct type_tuple *tuple = &type->tuple;
 				tuple; tuple = tuple->next) {
+			if (tuple->type->size == 0) {
+				continue;
+			}
 			field->type = qtype_lookup(ctx, tuple->type, true);
 			field->count = 1;
 

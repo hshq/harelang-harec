@@ -58,6 +58,12 @@ fn assignment() void = {
 	let u2: uintptr = 'a';
 	let z: size = 'a';
 
+	let v: void = void;
+	v = void;
+	v = v;
+	let za: [0]int = [];
+	za = [];
+
 	let failures = [
 		"fn f() void = { let i = 0i8; i = 128; };",
 

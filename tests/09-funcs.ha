@@ -77,12 +77,12 @@ fn cvafn2(...) void = {
 fn cvaargs() void = {
 	cvafn(3, 1, 2, 3);
 	cvafn2(1337, 42);
+	cvafn(3, void, 1, 2, void, 3);
+	cvafn2(void, 1337, void, void, 42);
 };
 
 fn reject() void = {
 	let failures: [_]str = [
-		// parameter of size 0
-		"fn f(x: void) void = void;",
 		// parameter of undefined size
 		"fn f(x: [*]int) void = void;",
 		// return value of undefined size
@@ -106,6 +106,39 @@ fn reject() void = {
 	};
 };
 
+type zerostruct = struct { v: void };
+type zerounion = union { v: void };
+
+fn zeroparamfunc(
+	a: int,
+	b: void,
+	c: str,
+	d: [0]int,
+	e: f64,
+	f: zerostruct,
+	g: zerounion,
+	h: *int,
+	i: (void, void),
+	j: int,
+) void = {
+	assert(a == 1);
+	b;
+	assert(c == "2");
+	d;
+	assert(len(d) == 0);
+	assert(e == 3.0);
+	f; f.v;
+	g; g.v;
+	assert(*h == 4);
+	i; i.0; i.1;
+	assert(j == 5);
+};
+
+fn zerosizeparams() void = {
+	zeroparamfunc(1, void, "2", [], 3.0, zerostruct { ... },
+		zerounion { ... }, &4, (void, void), 5);
+};
+
 fn neverfunc(x: int) never = if (x == 1) exit(0) else abort();
 
 fn _never() void = {
@@ -119,6 +152,7 @@ export fn main() void = {
 	pointers();
 	vaargs();
 	cvaargs();
+	zerosizeparams();
 	assert(x == 1337);
 	reject();
 	_never();

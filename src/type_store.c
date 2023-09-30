@@ -153,11 +153,6 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 	} else {
 		dim = lookup_atype_with_dimensions(store, &field->type, afield->type);
 	}
-	if (dim.size == 0) {
-		error(store->check_context, afield->type->loc, NULL,
-			"Type of size 0 is not a valid struct/union member");
-		return NULL;
-	}
 	if (!last && dim.size == SIZE_UNDEFINED) {
 		error(store->check_context, afield->type->loc, NULL,
 			"Type of undefined size is not a valid struct/union member");
@@ -168,7 +163,6 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 			"Type of undefined alignment is not a valid struct/union member");
 		return NULL;
 	}
-	assert(dim.align != 0);
 
 	if (afield->offset) {
 		*ccompat = false;
@@ -197,11 +191,11 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		field->offset = *offset = *size;
 	} else {
 		*offset = *size;
-		if (*offset % dim.align) {
+		if (dim.align != 0 && *offset % dim.align) {
 			*offset += dim.align - (*offset % dim.align);
 		}
 		field->offset = *offset;
-		assert(field->offset % dim.align == 0);
+		assert(dim.align == 0 || field->offset % dim.align == 0);
 	}
 
 	if (dim.size == SIZE_UNDEFINED || *size == SIZE_UNDEFINED) {
@@ -593,14 +587,6 @@ tuple_init_from_atype(struct type_store *store,
 		} else {
 			memb = lookup_atype_with_dimensions(store, NULL, atuple->type);
 		}
-		if (memb.size == 0) {
-			error(store->check_context, atype->loc, NULL,
-				"Type of size 0 is not a valid tuple member");
-			if (type) {
-				*type = builtin_type_error;
-			}
-			return (struct dimensions){0};
-		}
 		if (memb.size == SIZE_UNDEFINED) {
 			error(store->check_context, atype->loc, NULL,
 				"Type of undefined size is not a valid tuple member");
@@ -609,15 +595,19 @@ tuple_init_from_atype(struct type_store *store,
 			}
 			return (struct dimensions){0};
 		}
-		offset = dim.size % memb.align + dim.size;
-		dim.size += dim.size % memb.align + memb.size;
+		if (memb.align != 0) {
+			offset = dim.size % memb.align + dim.size;
+			dim.size += dim.size % memb.align + memb.size;
+		}
 		if (dim.align < memb.align) {
 			dim.align = memb.align;
 		}
 
 		atuple = atuple->next;
 		if (type) {
-			cur->offset = offset;
+			if (memb.align != 0) {
+				cur->offset = offset;
+			}
 			if (atuple) {
 				cur->next = xcalloc(1, sizeof(struct type_tuple));
 				cur = cur->next;
@@ -782,12 +772,6 @@ type_init_from_atype(struct type_store *store,
 				aparam; aparam = aparam->next) {
 			param = *next = xcalloc(1, sizeof(struct type_func_param));
 			param->type = lookup_atype(store, aparam->type);
-			if (param->type->size == 0) {
-				error(store->check_context, atype->loc, NULL,
-					"Function parameter types must have nonzero size");
-				*type = builtin_type_error;
-				return (struct dimensions){0};
-			}
 			if (param->type->size == SIZE_UNDEFINED) {
 				error(store->check_context, atype->loc, NULL,
 					"Function parameter types must have defined size");
@@ -1204,24 +1188,20 @@ type_store_lookup_tuple(struct type_store *store, struct location loc,
 			return &builtin_type_error;
 		}
 		t->type = lower_const(store->check_context, t->type, NULL);
-		if (t->type->size == 0) {
-			error(store->check_context, loc, NULL,
-				"Type of size 0 is not a valid tuple member");
-			return &builtin_type_error;
-		}
 		if (t->type->size == SIZE_UNDEFINED) {
 			error(store->check_context, loc, NULL,
 				"Type of undefined size is not a valid tuple member");
 			return &builtin_type_error;
 		}
-		assert(t->type->align != 0);
 		assert(t->type->align != ALIGN_UNDEFINED);
 
 		if (t->type->align > type.align) {
 			type.align = t->type->align;
 		}
-		t->offset = type.size % t->type->align + type.size;
-		type.size += type.size % t->type->align + t->type->size;
+		if (t->type->align != 0) {
+			t->offset = type.size % t->type->align + type.size;
+			type.size += type.size % t->type->align + t->type->size;
+		}
 	}
 	type.tuple = *values;
 	return type_store_lookup_type(store, &type);

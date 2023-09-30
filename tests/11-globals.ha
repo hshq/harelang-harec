@@ -14,6 +14,17 @@ type nh = struct {
 
 let x: int = 42, y: int = 69;
 
+let v0: void = void;
+let v1 = void;
+let v2: [0]int = [];
+let v3 = (void, void);
+let v4 = struct { v: void = void };
+def V0: void = void;
+def V1 = void;
+def V2: [0]int = [];
+def V3 = (void, void);
+def V4 = struct { v: void = void };
+
 fn write() void = {
 	assert(x == 42 && y == 69);
 	x = 1337;
@@ -97,6 +108,9 @@ fn invalid() void = {
 	assert(compile("let a: int = \"string\";") as exited != EXIT_SUCCESS);
 	assert(compile("let a: [_]int = [\"string\"];") as exited != EXIT_SUCCESS);
 	assert(compile("let a: [_]int = [1, 2];") as exited == EXIT_SUCCESS);
+
+	assert(compile("let a = [];") as exited != EXIT_SUCCESS);
+	assert(compile("def a = [];") as exited != EXIT_SUCCESS);
 };
 
 fn counter() int = {

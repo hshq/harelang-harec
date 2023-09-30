@@ -130,7 +130,7 @@ gen_store(struct gen_context *ctx,
 	default:
 		break; // no-op
 	}
-	if (value.type->storage == STORAGE_NEVER) {
+	if (value.type->size == 0 || value.type->storage == STORAGE_NEVER) {
 		return; // no storage
 	}
 
@@ -211,7 +211,7 @@ gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 				return gb->value;
 			}
 		}
-		break;
+		return gv_void;
 	case O_DECL:
 		return (struct gen_value){
 			.kind = GV_GLOBAL,
@@ -224,7 +224,6 @@ gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 	case O_SCAN:
 		abort(); // Invariant
 	}
-	abort(); // Invariant
 }
 
 static void
@@ -305,6 +304,9 @@ gen_access_field(struct gen_context *ctx, const struct expression *expr)
 	const struct struct_field *field = expr->access.field;
 	struct gen_value glval = gen_expr(ctx, expr->access._struct);
 	glval = gen_autoderef(ctx, glval);
+	if (field->type->size == 0) {
+		return gv_void;
+	}
 	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qfval = mkqtmp(ctx, ctx->arch.ptr, "field.%d");
 	struct qbe_value offs = constl(field->offset);
@@ -322,6 +324,9 @@ gen_access_value(struct gen_context *ctx, const struct expression *expr)
 	const struct type_tuple *tuple = expr->access.tvalue;
 	struct gen_value glval = gen_expr(ctx, expr->access.tuple);
 	glval = gen_autoderef(ctx, glval);
+	if (tuple->type->size == 0) {
+		return gv_void;
+	}
 	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qfval = mkqtmp(ctx, ctx->arch.ptr, "value.%d");
 	struct qbe_value offs = constl(tuple->offset);
@@ -358,6 +363,9 @@ static struct gen_value
 gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value addr = gen_expr_access_addr(ctx, expr);
+	if (expr->result->size == 0) {
+		return addr;
+	}
 	return gen_load(ctx, addr);
 }
 
@@ -1048,6 +1056,11 @@ gen_expr_binding(struct gen_context *ctx, const struct expression *expr)
 		}
 
 		const struct type *type = binding->object->type;
+		if (type->size == 0) {
+			gen_expr(ctx, binding->initializer);
+			continue;
+		}
+
 		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
 		gb->value = mkgtemp(ctx, type, "binding.%d");
 		gb->object = binding->object;
@@ -1119,7 +1132,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		.instr = Q_CALL,
 	};
 	struct gen_value rval = gv_void;
-	if (type_dealias(NULL, rtype->func.result)->storage != STORAGE_VOID
+	if (rtype->func.result->size != 0
 			&& rtype->func.result->size != SIZE_UNDEFINED) {
 		rval = mkgtemp(ctx, rtype->func.result, "returns.%d");
 		call.out = xcalloc(1, sizeof(struct qbe_value));
@@ -1135,8 +1148,11 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	next = &args->next;
 	for (struct call_argument *carg = expr->call.args;
 			carg; carg = carg->next) {
-		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		struct gen_value arg = gen_expr(ctx, carg->value);
+		if (carg->value->result->size == 0) {
+			continue;
+		}
+		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		if (carg->value->result->storage == STORAGE_NEVER) {
 			return rval;
 		}
@@ -1237,11 +1253,11 @@ gen_expr_cast_slice_at(struct gen_context *ctx,
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	struct qbe_value base = mklval(ctx, &out);
 	struct qbe_value sz = constl(to->size);
+	struct gen_value value = gen_expr(ctx, expr->cast.value);
 	if (from->array.length == 0) {
 		struct qbe_value tmp = constl(0);
 		pushi(ctx->current, NULL, store, &tmp, &base, NULL);
 	} else {
-		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value qvalue = mkqval(ctx, &value);
 		pushi(ctx->current, NULL, store, &qvalue, &base, NULL);
 	}
@@ -1877,6 +1893,12 @@ static void
 gen_expr_const_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
+	if (!type_is_aggregate(type_dealias(NULL, expr->result))) {
+		struct gen_value val = gen_expr(ctx, expr);
+		gen_store(ctx, out, val);
+		return;
+	}
+
 	switch (type_dealias(NULL, expr->result)->storage) {
 	case STORAGE_ARRAY:
 		gen_const_array_at(ctx, expr, out);
@@ -1908,14 +1930,15 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_BOOL:
 		val.wval = expr->constant.bval ? 1 : 0;
 		return val;
-	case STORAGE_VOID:
-		return val;
 	case STORAGE_NULL:
 		val.lval = 0;
 		return val;
 	case STORAGE_STRING:
 		return gen_const_string(ctx, expr);
 	default:
+		if (expr->result->size == 0) {
+			return gv_void;
+		}
 		// Moving right along
 		break;
 	}
@@ -1956,7 +1979,6 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 		val.dval = expr->constant.fval;
 		return val;
 	case Q__VOID:
-		return val;
 	case Q__AGGREGATE:
 		assert(0); // Invariant
 	}
@@ -2500,7 +2522,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 
 		push(&ctx->current->body, &lmatch);
 
-		if (!_case->object) {
+		if (!_case->object || _case->type->size == 0) {
 			goto next;
 		}
 
@@ -2754,7 +2776,7 @@ gen_expr_return(struct gen_context *ctx, const struct expression *expr)
 	for (struct gen_scope *scope = ctx->scope; scope; scope = scope->parent) {
 		gen_defers(ctx, scope);
 	}
-	if (type_dealias(NULL, ret.type)->storage == STORAGE_VOID) {
+	if (ret.type->size == 0) {
 		pushi(ctx->current, NULL, Q_RET, NULL);
 	} else {
 		struct qbe_value qret = mkqval(ctx, &ret);
@@ -2793,6 +2815,26 @@ gen_expr_struct_at(struct gen_context *ctx,
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
 		gen_expr_at(ctx, field->value, ftemp);
 	}
+}
+
+static struct gen_value
+gen_expr_struct(struct gen_context *ctx, const struct expression *expr)
+{
+	if (expr->result->size != 0) {
+		struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
+		struct qbe_value base = mklval(ctx, &out);
+		struct qbe_value sz = constl(expr->result->size);
+		enum qbe_instr alloc = alloc_for_align(expr->result->align);
+		pushprei(ctx->current, &base, alloc, &sz, NULL);
+		gen_expr_struct_at(ctx, expr, out);
+		return out;
+	}
+
+	for (const struct expr_struct_field *field = expr->_struct.fields;
+			field; field = field->next) {
+		gen_expr(ctx, field->value);
+	}
+	return gv_void;
 }
 
 static struct gen_value
@@ -3017,6 +3059,26 @@ gen_expr_tuple_at(struct gen_context *ctx,
 }
 
 static struct gen_value
+gen_expr_tuple(struct gen_context *ctx, const struct expression *expr)
+{
+	if (expr->result->size != 0) {
+		struct gen_value out = mkgtemp(ctx, expr->result, "object.%d");
+		struct qbe_value base = mklval(ctx, &out);
+		struct qbe_value sz = constl(expr->result->size);
+		enum qbe_instr alloc = alloc_for_align(expr->result->align);
+		pushprei(ctx->current, &base, alloc, &sz, NULL);
+		gen_expr_tuple_at(ctx, expr, out);
+		return out;
+	}
+
+	for (const struct expression_tuple *value = &expr->tuple;
+			value; value = value->next) {
+		gen_expr(ctx, value->value);
+	}
+	return gv_void;
+}
+
+static struct gen_value
 gen_expr_unarithm(struct gen_context *ctx,
 	const struct expression *expr)
 {
@@ -3175,9 +3237,13 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		out = gen_expr_vaarg(ctx, expr);
 		break;
 		break;
-	case EXPR_SLICE:
 	case EXPR_STRUCT:
+		out = gen_expr_struct(ctx, expr);
+		break;
 	case EXPR_TUPLE:
+		out = gen_expr_tuple(ctx, expr);
+		break;
+	case EXPR_SLICE:
 	case EXPR_VASTART:
 		// Prefers -at style
 		out = mkgtemp(ctx, expr->result, "object.%d");
@@ -3291,7 +3357,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	mklabel(ctx, &start_label, "start.%d");
 	push(&qdef->func.prelude, &start_label);
 
-	if (type_dealias(NULL, fntype->func.result)->storage != STORAGE_VOID
+	if (fntype->func.result->size != 0
 			&& fntype->func.result->size != SIZE_UNDEFINED) {
 		qdef->func.returns = qtype_lookup(
 			ctx, fntype->func.result, false);
@@ -3306,6 +3372,9 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 	for (struct scope_object *obj = decl->func.scope->objects;
 			obj; obj = obj->lnext) {
 		const struct type *type = obj->type;
+		if (type->size == 0) {
+			continue;
+		}
 		param = *next = xcalloc(1, sizeof(struct qbe_func_param));
 		assert(!obj->ident.ns); // Invariant
 		param->name = xstrdup(obj->ident.name);
@@ -3353,7 +3422,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		if (last->type != Q_INSTR || last->instr != Q_RET) {
 			pushi(ctx->current, NULL, Q_RET, NULL);
 		}
-	} else if (type_dealias(NULL, fntype->func.result)->storage != STORAGE_VOID) {
+	} else if (fntype->func.result->size != 0) {
 		struct qbe_value qret = mkqval(ctx, &ret);
 		pushi(ctx->current, NULL, Q_RET, &qret, NULL);
 	} else {
@@ -3603,11 +3672,13 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_STRUCT:
 		for (struct struct_constant *f = constant->_struct;
 				f; f = f->next) {
-			item = gen_data_item(ctx, f->value, item);
+			if (f->field->type->size != 0) {
+				item = gen_data_item(ctx, f->value, item);
+			}
 			if (f->next) {
 				const struct struct_field *f1 = f->field;
 				const struct struct_field *f2 = f->next->field;
-				if (f2->offset != f1->offset + f1->type->size) {
+				if (f2->offset > f1->offset + f1->type->size) {
 					item->next = xcalloc(1,
 						sizeof(struct qbe_data_item));
 					item = item->next;
@@ -3616,9 +3687,11 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 						(f1->offset + f1->type->size);
 				}
 
-				item->next = xcalloc(1,
-					sizeof(struct qbe_data_item));
-				item = item->next;
+				if (f->field->type->size != 0) {
+					item->next = xcalloc(1,
+						sizeof(struct qbe_data_item));
+					item = item->next;
+				}
 			} else {
 				const struct struct_field *fi = f->field;
 				if (fi->offset + fi->type->size
@@ -3636,11 +3709,13 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_TUPLE:
 		for (const struct tuple_constant *tuple = constant->tuple;
 				tuple; tuple = tuple->next) {
-			item = gen_data_item(ctx, tuple->value, item);
+			if (tuple->field->type->size != 0) {
+				item = gen_data_item(ctx, tuple->value, item);
+			}
 			if (tuple->next) {
 				const struct type_tuple *f1 = tuple->field;
 				const struct type_tuple *f2 = tuple->next->field;
-				if (f2->offset != f1->offset + f1->type->size) {
+				if (f2->offset > f1->offset + f1->type->size) {
 					item->next = xcalloc(1,
 						sizeof(struct qbe_data_item));
 					item = item->next;
@@ -3649,10 +3724,11 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 						(f1->offset + f1->type->size);
 				}
 
-
-				item->next = xcalloc(1,
-					sizeof(struct qbe_data_item));
-				item = item->next;
+				if (tuple->field->type->size != 0) {
+					item->next = xcalloc(1,
+						sizeof(struct qbe_data_item));
+					item = item->next;
+				}
 			} else {
 				const struct type_tuple *fi = tuple->field;
 				if (fi->offset + fi->type->size
@@ -3688,6 +3764,8 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 			item->zeroed = type->size - type->align - constant->tagged.tag->size;
 		}
 		break;
+	case STORAGE_VOID:
+		break;
 	case STORAGE_ENUM:
 	case STORAGE_UNION:
 	case STORAGE_ALIAS:
@@ -3700,7 +3778,6 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_RCONST:
 	case STORAGE_NULL:
 	case STORAGE_VALIST:
-	case STORAGE_VOID:
 		assert(0); // Invariant
 	}
 

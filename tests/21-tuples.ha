@@ -11,6 +11,17 @@ fn storage() void = {
 	assert(align((int, (u8, size))) == align(size));
 	let ptr = &x: *struct { i: int, z: size };
 	assert(ptr.i == 42 && ptr.z == 1337);
+
+	let x: (int, void, size) = (42, void, 1337);
+	assert(size((int, void, size)) == size((int, size)));
+	assert(size((int, (void, size))) == size((int, size)));
+	assert(align((int, void, size)) == align(size));
+	assert(align((int, (void, size))) == align(size));
+	let ptr = &x: *struct { i: int, z: size };
+	assert(ptr.i == 42 && ptr.z == 1337);
+
+	let x: (void, void) = (void, void);
+	assert(size((void, void)) == 0);
 };
 
 fn indexing() void = {
@@ -29,6 +40,10 @@ fn assignment() void = {
 	x.0 = 1337;
 	x.1 = 42;
 	assert(x.0 == 1337 && x.1 == 42);
+
+	let x = (void, void);
+	x.0 = x.1;
+	x.1 = void;
 };
 
 fn func(in: (int, size)) (int, size) = (in.0 + 1, in.1 + 1);
@@ -170,11 +185,6 @@ fn reject() void = {
 		"fn t() void = { let a = (4u); a.0; };",
 		"fn t() void = { let (a) = (4u); a.0; };",
 		"fn t() void = { let (a) = 4u; a.0; };",
-		// zero-sized member
-		"fn t() void = { let a: ((void, int) | void) = void; };",
-		"fn t() void = { let a = (void, 2); };",
-		"fn t() void = { let (a, b) = (void, 2); };",
-		"fn t() void = { let (_, b) = (void, 2); };",
 		// member of undefined size
 		"fn t() void = { let a: (([*]int, int) | void) = void; };",
 		"fn t() void = { let a = (t, 2); };",
