@@ -1267,7 +1267,8 @@ check_expr_binding(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	expr->type = EXPR_BINDING;
+	assert(aexpr->type == EXPR_BINDING || aexpr->type == EXPR_DEFINE);
+	expr->type = aexpr->type;
 	expr->result = &builtin_type_void;
 
 	struct expression_binding *binding = &expr->binding;
@@ -1310,14 +1311,31 @@ check_expr_binding(struct context *ctx,
 			type = initializer->result;
 		}
 
+		struct identifier ident = {
+			.name = abinding->name,
+		};
+		if (expr->type == EXPR_DEFINE) {
+			if (type) {
+				initializer = lower_implicit_cast(
+					ctx, type, initializer);
+			}
+			struct expression *value =
+				xcalloc(1, sizeof(struct expression));
+			enum eval_result r = eval_expr(ctx, initializer, value);
+			if (r != EVAL_OK) {
+				error(ctx, initializer->loc, value,
+					"Unable to evaluate constant init at compile time");
+				type = &builtin_type_error;
+			}
+			binding->initializer = value;
+			binding->object = scope_insert(ctx->scope,
+				O_CONST, &ident, &ident, type, value);
+			goto done;
+		}
 		if (!type) {
 			type = type_store_lookup_with_flags(ctx->store,
 				initializer->result, abinding->flags);
 		}
-
-		struct identifier ident = {
-			.name = abinding->name,
-		};
 		if (abinding->is_static) {
 			// Generate a static declaration identifier
 			struct identifier gen = {0};
@@ -3480,6 +3498,7 @@ check_expression(struct context *ctx,
 		check_expr_binarithm(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BINDING:
+	case EXPR_DEFINE:
 		check_expr_binding(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BREAK:

@@ -3167,8 +3167,6 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_VAARG:
 		out = gen_expr_vaarg(ctx, expr);
 		break;
-	case EXPR_VAEND:
-		out = gv_void; // no-op
 		break;
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
@@ -3182,6 +3180,10 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		pushprei(ctx->current, &base, alloc, &sz, NULL);
 		gen_expr_at(ctx, expr, out);
 		return out;
+	case EXPR_DEFINE:
+	case EXPR_VAEND:
+		out = gv_void; // no-op
+		break;
 	// gen-specific psuedo-expressions
 	case EXPR_GEN_VALUE:
 		return *(struct gen_value *)expr->user;

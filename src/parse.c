@@ -2104,19 +2104,21 @@ static struct ast_expression *
 parse_binding_list(struct lexer *lexer, bool is_static)
 {
 	struct ast_expression *exp = mkexpr(&lexer->loc);
-	exp->type = EXPR_BINDING;
 	unsigned int flags = 0;
 
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
+	case T_DEF:
+		exp->type = EXPR_DEFINE;
+		break;
 	case T_CONST:
 		flags = TYPE_CONST;
 		// fallthrough
 	case T_LET:
-		// no-op
+		exp->type = EXPR_BINDING;
 		break;
 	default:
-		synerr(&tok, T_LET, T_CONST, T_EOF);
+		synerr(&tok, T_LET, T_CONST, T_DEF, T_EOF);
 	}
 
 	struct ast_expression_binding *binding = &exp->binding;
@@ -2129,8 +2131,11 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 			binding->name = tok.name;
 			break;
 		case T_LPAREN:
-			parse_binding_unpack(lexer, &binding->unpack);
-			break;
+			if (exp->type == EXPR_BINDING) {
+				parse_binding_unpack(lexer, &binding->unpack);
+				break;
+			}
+			// fallthrough
 		default:
 			synerr(&tok, T_NAME, T_LPAREN, T_EOF);
 		}
@@ -2426,6 +2431,7 @@ parse_statement(struct lexer *lexer)
 	switch (lex(lexer, &tok)) {
 	case T_LET:
 	case T_CONST:
+	case T_DEF:
 		unlex(lexer, &tok);
 		return parse_binding_list(lexer, false);
 	case T_STATIC:

@@ -1105,6 +1105,7 @@ eval_expr(struct context *ctx,
 	case EXPR_COMPOUND:
 	case EXPR_CONTINUE:
 	case EXPR_DEFER:
+	case EXPR_DEFINE:
 	case EXPR_DELETE:
 	case EXPR_FOR:
 	case EXPR_FREE:
