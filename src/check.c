@@ -261,8 +261,7 @@ check_expr_access(struct context *ctx,
 		if (atype->storage == STORAGE_ARRAY
 				&& atype->array.length != SIZE_UNDEFINED) {
 			struct expression *evaled = xcalloc(1, sizeof(struct expression));
-			enum eval_result r = eval_expr(ctx, expr->access.index, evaled);
-			if (r == EVAL_OK) {
+			if (eval_expr(ctx, expr->access.index, evaled)) {
 				if (evaled->constant.uval >= atype->array.length) {
 					error(ctx, aexpr->loc, expr,
 						"Index must not be greater than array length");
@@ -470,7 +469,7 @@ check_expr_alloc_slice(struct context *ctx,
 	struct expression cap = {0};
 	if (expr->alloc.init->type == EXPR_CONSTANT
 			&& expr->alloc.cap->type == EXPR_CONSTANT
-			&& eval_expr(ctx, expr->alloc.cap, &cap) == EVAL_OK) {
+			&& eval_expr(ctx, expr->alloc.cap, &cap)) {
 		uint64_t len = 0;
 		for (struct array_constant *c = expr->alloc.init->constant.array;
 				c != NULL; c = c->next) {
@@ -719,16 +718,13 @@ check_assert(struct context *ctx,
 		bool cond = false;
 		if (expr->assert.cond != NULL) {
 			struct expression out = {0}, msgout = {0};
-			enum eval_result r =
-				eval_expr(ctx, expr->assert.cond, &out);
-			if (r != EVAL_OK) {
+			if (!eval_expr(ctx, expr->assert.cond, &out)) {
 				error(ctx, e.cond->loc, expr,
 					"Unable to evaluate static assertion condition at compile time");
 				return;
 			}
 			if (expr->assert.message) {
-				r = eval_expr(ctx, expr->assert.message, &msgout);
-				if (r != EVAL_OK) {
+				if (!eval_expr(ctx, expr->assert.message, &msgout)) {
 					error(ctx, e.message->loc, expr,
 						"Unable to evaluate static assertion message at compile time");
 					return;
@@ -1183,8 +1179,7 @@ check_binding_unpack(struct context *ctx,
 
 	if (abinding->is_static) {
 		struct expression *value = xcalloc(1, sizeof(struct expression));
-		enum eval_result r = eval_expr(ctx, binding->initializer, value);
-		if (r != EVAL_OK) {
+		if (!eval_expr(ctx, binding->initializer, value)) {
 			error(ctx, abinding->initializer->loc,
 				expr,
 				"Unable to evaluate static initializer at compile time");
@@ -1267,7 +1262,8 @@ check_expr_binding(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	expr->type = EXPR_BINDING;
+	assert(aexpr->type == EXPR_BINDING || aexpr->type == EXPR_DEFINE);
+	expr->type = aexpr->type;
 	expr->result = &builtin_type_void;
 
 	struct expression_binding *binding = &expr->binding;
@@ -1310,14 +1306,30 @@ check_expr_binding(struct context *ctx,
 			type = initializer->result;
 		}
 
+		struct identifier ident = {
+			.name = abinding->name,
+		};
+		if (expr->type == EXPR_DEFINE) {
+			if (type) {
+				initializer = lower_implicit_cast(
+					ctx, type, initializer);
+			}
+			struct expression *value =
+				xcalloc(1, sizeof(struct expression));
+			if (!eval_expr(ctx, initializer, value)) {
+				error(ctx, initializer->loc, value,
+					"Unable to evaluate constant init at compile time");
+				type = &builtin_type_error;
+			}
+			binding->initializer = value;
+			binding->object = scope_insert(ctx->scope,
+				O_CONST, &ident, &ident, type, value);
+			goto done;
+		}
 		if (!type) {
 			type = type_store_lookup_with_flags(ctx->store,
 				initializer->result, abinding->flags);
 		}
-
-		struct identifier ident = {
-			.name = abinding->name,
-		};
 		if (abinding->is_static) {
 			// Generate a static declaration identifier
 			struct identifier gen = {0};
@@ -1351,9 +1363,7 @@ check_expr_binding(struct context *ctx,
 		if (abinding->is_static) {
 			struct expression *value =
 				xcalloc(1, sizeof(struct expression));
-			enum eval_result r = eval_expr(
-				ctx, binding->initializer, value);
-			if (r != EVAL_OK) {
+			if (!eval_expr(ctx, binding->initializer, value)) {
 				error(ctx, abinding->initializer->loc, expr,
 					"Unable to evaluate static initializer at compile time");
 				return;
@@ -1595,12 +1605,7 @@ check_expr_cast(struct context *ctx,
 		// The value is first cast to an intermediary type which is a
 		// direct member of the tagged union, before being cast to the
 		// tagged union itself.
-		expr->cast.value = xcalloc(1, sizeof(struct expression));
-		expr->cast.value->type = EXPR_CAST;
-		expr->cast.value->result = intermediary;
-		expr->cast.value->cast.kind = C_CAST;
-		expr->cast.value->cast.value = value;
-		expr->cast.value->cast.secondary = intermediary;
+		expr->cast.value = lower_implicit_cast(ctx, intermediary, value);
 		break;
 	}
 	expr->result = aexpr->cast.kind == C_TEST? &builtin_type_bool : secondary;
@@ -2579,8 +2584,7 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 
 	if (expr->slice.end != NULL) {
 		end = xcalloc(1, sizeof(struct expression));
-		enum eval_result r = eval_expr(ctx, expr->slice.end, end);
-		if (r != EVAL_OK) {
+		if (!eval_expr(ctx, expr->slice.end, end)) {
 			free(end);
 			return;
 		}
@@ -2606,8 +2610,7 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 		return;
 	}
 	start = xcalloc(1, sizeof(struct expression));
-	enum eval_result r = eval_expr(ctx, expr->slice.start, start);
-	if (r != EVAL_OK) {
+	if (!eval_expr(ctx, expr->slice.start, start)) {
 		free(start);
 		if (end) free(end);
 		return;
@@ -3061,8 +3064,7 @@ check_expr_switch(struct context *ctx,
 			}
 			value = lower_implicit_cast(ctx, type, value);
 
-			enum eval_result r = eval_expr(ctx, value, evaled);
-			if (r != EVAL_OK) {
+			if (!eval_expr(ctx, value, evaled)) {
 				error(ctx, aopt->value->loc, expr,
 					"Unable to evaluate case at compile time");
 				return;
@@ -3480,6 +3482,7 @@ check_expression(struct context *ctx,
 		check_expr_binarithm(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BINDING:
+	case EXPR_DEFINE:
 		check_expr_binding(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_BREAK:
@@ -3740,11 +3743,61 @@ scan_enum_field(struct context *ctx, struct scope *imports,
 }
 
 static void
+check_hosted_main(struct context *ctx,
+	struct location loc,
+	const struct ast_decl *decl,
+	struct identifier ident,
+	const char *symbol)
+{
+	if (*ctx->mainsym == '\0' || ctx->is_test) {
+		return;
+	}
+	if (symbol != NULL) {
+		if (strcmp(symbol, ctx->mainsym) != 0) {
+			return;
+		}
+	} else {
+		if (strcmp(ident.name, "main") != 0 || ident.ns != NULL) {
+			return;
+		}
+	}
+
+	const struct ast_function_decl *func;
+	if (decl && decl->decl_type == ADECL_FUNC) {
+		func = &decl->function;
+		if (func->flags != 0) {
+			return;
+		}
+	} else {
+		error(ctx, loc, NULL,
+			"main must be a function in hosted environment");
+		return;
+	}
+
+	if (func->body != NULL && !decl->exported) {
+		error(ctx, loc, NULL,
+			"main must be exported in hosted environment");
+		return;
+	}
+	if (func->prototype.params != NULL) {
+		error(ctx, loc, NULL,
+			"main must not have parameters in hosted environment");
+		return;
+	}
+	if (func->prototype.result->storage != STORAGE_VOID) {
+		error(ctx, loc, NULL,
+			"main must return void in hosted environment");
+		return;
+	}
+}
+
+static void
 scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 {
 	for (struct ast_type_decl *t = &decl->type; t; t = t->next) {
 		struct identifier with_ns = {0};
 		mkident(ctx, &with_ns, &t->ident, NULL);
+		check_hosted_main(ctx, decl->loc, NULL, with_ns, NULL);
 		struct incomplete_declaration *idecl =
 			incomplete_declaration_create(ctx, decl->loc, ctx->scope,
 					&with_ns, &t->ident);
@@ -3913,8 +3966,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 	}
 
-	enum eval_result r = eval_expr(ctx, init, value);
-	if (r != EVAL_OK) {
+	if (!eval_expr(ctx, init, value)) {
 		error(ctx, decl->init->loc, value,
 			"Unable to evaluate constant init at compile time");
 		type = &builtin_type_error;
@@ -4055,8 +4107,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 			type = &builtin_type_error;
 			goto end;
 		}
-		enum eval_result r = eval_expr(ctx, init, value);
-		if (r != EVAL_OK) {
+		if (!eval_expr(ctx, init, value)) {
 			error(ctx, decl->init->loc, value,
 				"Unable to evaluate constant init at compile time");
 			type = &builtin_type_error;
@@ -4129,8 +4180,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 
 		initializer = lower_implicit_cast(ctx, type, initializer);
-		enum eval_result r = eval_expr(ctx, initializer, value);
-		if (r != EVAL_OK) {
+		if (!eval_expr(ctx, initializer, value)) {
 			error_norec(ctx, idecl->field->field->value->loc,
 				"Unable to evaluate constant initializer at compile time");
 		}
@@ -4349,6 +4399,7 @@ scan_const(struct context *ctx, struct scope *imports, bool exported,
 {
 	struct identifier with_ns = {0};
 	mkident(ctx, &with_ns, &decl->ident, NULL);
+	check_hosted_main(ctx, loc, NULL, with_ns, NULL);
 	struct incomplete_declaration *idecl =
 		incomplete_declaration_create(ctx, loc,
 				ctx->scope, &with_ns, &decl->ident);
@@ -4377,6 +4428,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 	case ADECL_GLOBAL:
 		for (struct ast_global_decl *g = &decl->global; g; g = g->next) {
 			mkident(ctx, &ident, &g->ident, g->symbol);
+			check_hosted_main(ctx, decl->loc, NULL, ident, g->symbol);
 			idecl = incomplete_declaration_create(ctx, decl->loc,
 				ctx->scope, &ident, &g->ident);
 			idecl->type = IDECL_DECL;
@@ -4412,6 +4464,7 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 		}
 		idecl = incomplete_declaration_create(ctx, decl->loc,
 			ctx->scope, &ident, name);
+		check_hosted_main(ctx, decl->loc, decl, ident, func->symbol);
 		idecl->type = IDECL_DECL;
 		idecl->decl = (struct ast_decl){
 			.decl_type = ADECL_FUNC,
@@ -4526,8 +4579,7 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 	struct ast_imports *import, struct type_store *ts, struct scope *scope)
 {
 	struct context *old_ctx = ctx->store->check_context;
-	struct scope *mod = module_resolve(ctx->modcache,
-			defines, &import->ident, ts);
+	struct scope *mod = module_resolve(ctx, defines, &import->ident, ts);
 	ctx->store->check_context = old_ctx;
 
 	struct identifier _ident = {0};
@@ -4623,6 +4675,7 @@ struct scope *
 check_internal(struct type_store *ts,
 	struct modcache **cache,
 	bool is_test,
+	const char *mainsym,
 	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
@@ -4631,6 +4684,7 @@ check_internal(struct type_store *ts,
 	struct context ctx = {0};
 	ctx.ns = unit->ns;
 	ctx.is_test = is_test;
+	ctx.mainsym = mainsym;
 	ctx.store = ts;
 	ctx.store->check_context = &ctx;
 	ctx.next = &ctx.errors;
@@ -4759,11 +4813,12 @@ check_internal(struct type_store *ts,
 struct scope *
 check(struct type_store *ts,
 	bool is_test,
+	const char *mainsym,
 	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit)
 {
 	struct modcache *modcache[MODCACHE_BUCKETS];
 	memset(modcache, 0, sizeof(modcache));
-	return check_internal(ts, modcache, is_test, defines, aunit, unit, false);
+	return check_internal(ts, modcache, is_test, mainsym, defines, aunit, unit, false);
 }

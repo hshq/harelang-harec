@@ -210,4 +210,7 @@ export fn main() void = {
 	assert(rt::compile(*(&buf: *str)) as rt::exited != rt::EXIT_SUCCESS);
 	assert(size(packed) == packedsz);
 	assert(size(packed) == 9);
+
+	let r = 'a';
+	r: i64;
 };

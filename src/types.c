@@ -980,12 +980,24 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 
 	switch (from->storage) {
 	case STORAGE_ICONST:
-		if (to->storage == STORAGE_RUNE) {
+		switch (to->storage) {
+		case STORAGE_F32:
+		case STORAGE_F64:
+			lower_const(ctx, from, NULL);
+			return to_orig;
+		case STORAGE_RUNE:
 			lower_const(ctx, from, &builtin_type_u32);
+			return to_orig;
+		default:
+			return promote_const(ctx, from_orig, to_orig);
+		}
+		break;
+	case STORAGE_FCONST:
+		if (type_is_integer(ctx, to)) {
+			lower_const(ctx, from, NULL);
 			return to_orig;
 		}
 		// fallthrough
-	case STORAGE_FCONST:
 	case STORAGE_RCONST:
 		return promote_const(ctx, from_orig, to_orig);
 	case STORAGE_I8:

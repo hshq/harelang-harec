@@ -1595,19 +1595,26 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_UINTPTR:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
-		if (type_is_integer(NULL, from) && to->size <= from->size) {
-			op = Q_COPY;
-		} else if (type_is_integer(NULL, from) && to->size > from->size) {
-			switch (from->size) {
-			case 4: op = is_signed ? Q_EXTSW : Q_EXTUW; break;
-			case 2: op = is_signed ? Q_EXTSH : Q_EXTUH; break;
-			case 1: op = is_signed ? Q_EXTSB : Q_EXTUB; break;
-			default: abort(); // Invariant
+		if (type_is_integer(NULL, from) || fstor == STORAGE_RUNE) {
+			if (to->size <= from->size) {
+				op = Q_COPY;
+			} else {
+				switch (from->size) {
+				case 4:
+					op = is_signed ? Q_EXTSW : Q_EXTUW;
+					break;
+				case 2:
+					op = is_signed ? Q_EXTSH : Q_EXTUH;
+					break;
+				case 1:
+					op = is_signed ? Q_EXTSB : Q_EXTUB;
+					break;
+				default:
+					assert(0); // Invariant
+				}
 			}
 		} else if (fstor == STORAGE_POINTER || fstor == STORAGE_NULL) {
 			assert(tstor == STORAGE_UINTPTR);
-			op = Q_COPY;
-		} else if (fstor == STORAGE_RUNE) {
 			op = Q_COPY;
 		} else if (type_is_float(NULL, from)) {
 			if (type_is_signed(NULL, to)) {
@@ -3167,8 +3174,6 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_VAARG:
 		out = gen_expr_vaarg(ctx, expr);
 		break;
-	case EXPR_VAEND:
-		out = gv_void; // no-op
 		break;
 	case EXPR_SLICE:
 	case EXPR_STRUCT:
@@ -3182,6 +3187,10 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 		pushprei(ctx->current, &base, alloc, &sz, NULL);
 		gen_expr_at(ctx, expr, out);
 		return out;
+	case EXPR_DEFINE:
+	case EXPR_VAEND:
+		out = gv_void; // no-op
+		break;
 	// gen-specific psuedo-expressions
 	case EXPR_GEN_VALUE:
 		return *(struct gen_value *)expr->user;

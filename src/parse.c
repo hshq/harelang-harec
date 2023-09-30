@@ -12,6 +12,7 @@
 #include "lex.h"
 #include "parse.h"
 #include "types.h"
+#include "utf8.h"
 #include "util.h"
 
 static void
@@ -78,27 +79,27 @@ want(struct lexer *lexer, enum lexical_token ltok, struct token *tok)
 }
 
 static struct ast_expression *
-mkexpr(const struct location *loc)
+mkexpr(struct location loc)
 {
 	struct ast_expression *exp = xcalloc(1, sizeof(struct ast_expression));
-	exp->loc = *loc;
+	exp->loc = loc;
 	return exp;
 }
 
 static struct ast_type *
-mktype(const struct location *loc)
+mktype(struct location loc)
 {
 	struct ast_type *t = xcalloc(1, sizeof(struct ast_type));
-	t->loc = *loc;
+	t->loc = loc;
 	return t;
 }
 
 static struct ast_function_parameters *
-mkfuncparams(const struct location *loc)
+mkfuncparams(struct location loc)
 {
 	struct ast_function_parameters *p =
 		xcalloc(1, sizeof(struct ast_function_parameters));
-	p->loc = *loc;
+	p->loc = loc;
 	return p;
 }
 
@@ -279,7 +280,7 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 {
 	struct token tok = {0}, tok2 = {0};
 	want(lexer, T_LPAREN, NULL);
-	type->params = mkfuncparams(&lexer->loc);
+	type->params = mkfuncparams(lexer->loc);
 	struct ast_function_parameters **next = &type->params;
 	for (;;) {
 		switch (lex(lexer, &tok)) {
@@ -303,7 +304,7 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 				break;
 			default:
 				unlex(lexer, &tok2);
-				(*next)->type = mktype(&tok.loc);
+				(*next)->type = mktype(tok.loc);
 				(*next)->type->storage = STORAGE_ALIAS;
 				(*next)->type->alias.name = tok.name;
 				break;
@@ -325,7 +326,7 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
-			(*next)->next = mkfuncparams(&lexer->loc);
+			(*next)->next = mkfuncparams(lexer->loc);
 			next = &(*next)->next;
 			break;
 		case T_ELLIPSIS:
@@ -385,7 +386,7 @@ static struct ast_type *
 parse_primitive_type(struct lexer *lexer)
 {
 	struct token tok = {0};
-	struct ast_type *type = mktype(&lexer->loc);
+	struct ast_type *type = mktype(lexer->loc);
 	switch (lex(lexer, &tok)) {
 	case T_I8:
 	case T_I16:
@@ -443,7 +444,7 @@ static struct ast_type *
 parse_enum_type(struct identifier *ident, struct lexer *lexer)
 {
 	struct token tok = {0};
-	struct ast_type *type = mktype(&lexer->loc);
+	struct ast_type *type = mktype(lexer->loc);
 	type->storage = STORAGE_ENUM;
 	identifier_dup(&type->alias, ident);
 	struct ast_enum_field **next = &type->_enum.values;
@@ -504,7 +505,7 @@ static struct ast_type *
 parse_struct_union_type(struct lexer *lexer)
 {
 	struct token tok = {0};
-	struct ast_type *type = mktype(&lexer->loc);
+	struct ast_type *type = mktype(lexer->loc);
 	struct ast_struct_union_field *next = &type->struct_union.fields;
 	switch (lex(lexer, &tok)) {
 	case T_STRUCT:
@@ -543,7 +544,7 @@ parse_struct_union_type(struct lexer *lexer)
 				next->type = parse_type(lexer);
 				break;
 			case T_DOUBLE_COLON:
-				next->type = mktype(&loc);
+				next->type = mktype(loc);
 				next->type->storage = STORAGE_ALIAS;
 				next->type->unwrap = false;
 				parse_identifier(lexer, &next->type->alias, false);
@@ -556,7 +557,7 @@ parse_struct_union_type(struct lexer *lexer)
 				break;
 			default:
 				unlex(lexer, &tok);
-				next->type = mktype(&loc);
+				next->type = mktype(loc);
 				next->type->storage = STORAGE_ALIAS;
 				next->type->alias.name = name;
 				next->type->unwrap = false;
@@ -593,7 +594,7 @@ parse_struct_union_type(struct lexer *lexer)
 static struct ast_type *
 parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 {
-	struct ast_type *type = mktype(&first->loc);
+	struct ast_type *type = mktype(first->loc);
 	type->storage = STORAGE_TAGGED;
 	struct ast_tagged_union_type *next = &type->tagged_union;
 	next->type = first;
@@ -620,7 +621,7 @@ parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 static struct ast_type *
 parse_tuple_type(struct lexer *lexer, struct ast_type *first)
 {
-	struct ast_type *type = mktype(&first->loc);
+	struct ast_type *type = mktype(first->loc);
 	type->storage = STORAGE_TUPLE;
 	struct ast_tuple_type *next = &type->tuple;
 	next->type = first;
@@ -713,7 +714,7 @@ parse_type(struct lexer *lexer)
 		want(lexer, T_TIMES, NULL);
 		/* fallthrough */
 	case T_TIMES:
-		type = mktype(&lexer->loc);
+		type = mktype(lexer->loc);
 		type->storage = STORAGE_POINTER;
 		type->pointer.referent = parse_type(lexer);
 		if (nullable) {
@@ -729,7 +730,7 @@ parse_type(struct lexer *lexer)
 		type = parse_tagged_or_tuple_type(lexer);
 		break;
 	case T_LBRACKET:
-		type = mktype(&lexer->loc);
+		type = mktype(lexer->loc);
 		switch (lex(lexer, &tok)) {
 		case T_RBRACKET:
 			type->storage = STORAGE_SLICE;
@@ -758,7 +759,7 @@ parse_type(struct lexer *lexer)
 		}
 		break;
 	case T_FN:
-		type = mktype(&lexer->loc);
+		type = mktype(lexer->loc);
 		type->storage = STORAGE_FUNCTION;
 		parse_prototype(lexer, &type->func);
 		break;
@@ -768,7 +769,7 @@ parse_type(struct lexer *lexer)
 		// Fallthrough
 	case T_NAME:
 		unlex(lexer, &tok);
-		type = mktype(&lexer->loc);
+		type = mktype(lexer->loc);
 		type->storage = STORAGE_ALIAS;
 		type->unwrap = unwrap;
 		parse_identifier(lexer, &type->alias, false);
@@ -785,7 +786,7 @@ parse_type(struct lexer *lexer)
 static struct ast_expression *
 parse_access(struct lexer *lexer, struct identifier ident)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_ACCESS;
 	exp->access.type = ACCESS_IDENTIFIER;
 	exp->access.ident = ident;
@@ -795,7 +796,7 @@ parse_access(struct lexer *lexer, struct identifier ident)
 static struct ast_expression *
 parse_constant(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_CONSTANT;
 
 	struct token tok = {0};
@@ -823,6 +824,7 @@ parse_constant(struct lexer *lexer)
 		break;
 	}
 
+	struct location loc = tok.loc;
 	switch (tok.storage) {
 	case STORAGE_U8:
 	case STORAGE_U16:
@@ -863,6 +865,19 @@ parse_constant(struct lexer *lexer)
 			exp->constant.string.len += tok.string.len;
 		}
 		unlex(lexer, &tok);
+
+		// check for invalid UTF-8 (possible when \x is used)
+		const char *s = exp->constant.string.value;
+		while (*s != '\0') {
+			if (utf8_decode(&s) != UTF8_INVALID) {
+				continue;
+			}
+			xfprintf(stderr,
+				"%s:%d%d: invalid UTF-8 in string literal\n",
+				sources[loc.file], loc.lineno, loc.colno);
+			errline(loc);
+			exit(EXIT_FAILURE);
+		}
 		break;
 	case STORAGE_BOOL:
 	case STORAGE_NULL:
@@ -895,7 +910,7 @@ parse_array_literal(struct lexer *lexer)
 	struct token tok;
 	want(lexer, T_LBRACKET, &tok);
 
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_CONSTANT;
 	exp->constant.storage = STORAGE_ARRAY;
 
@@ -983,7 +998,7 @@ static struct ast_expression *
 parse_struct_literal(struct lexer *lexer, struct identifier ident)
 {
 	want(lexer, T_LBRACE, NULL);
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_STRUCT;
 	exp->_struct.type = ident;
 	struct ast_field_value **next = &exp->_struct.fields;
@@ -1025,7 +1040,7 @@ parse_struct_literal(struct lexer *lexer, struct identifier ident)
 static struct ast_expression *
 parse_tuple_expression(struct lexer *lexer, struct ast_expression *first)
 {
-	struct ast_expression *exp = mkexpr(&first->loc);
+	struct ast_expression *exp = mkexpr(first->loc);
 	exp->type = EXPR_TUPLE;
 
 	bool more = true;
@@ -1155,7 +1170,7 @@ parse_assertion(struct lexer *lexer, bool is_static,
 static struct ast_expression *
 parse_assertion_expression(struct lexer *lexer, bool is_static)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_ASSERT;
 	parse_assertion(lexer, is_static, &exp->assert);
 	return exp;
@@ -1164,7 +1179,7 @@ parse_assertion_expression(struct lexer *lexer, bool is_static)
 static struct ast_expression *
 parse_measurement_expression(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_MEASURE;
 
 	struct token tok;
@@ -1203,7 +1218,7 @@ parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	struct token tok;
 	want(lexer, T_LPAREN, &tok);
 
-	struct ast_expression *expr = mkexpr(&lexer->loc);
+	struct ast_expression *expr = mkexpr(lexer->loc);
 	expr->type = EXPR_CALL;
 	expr->call.lvalue = lvalue;
 
@@ -1235,7 +1250,7 @@ parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 static struct ast_expression *
 parse_index_slice_expression(struct lexer *lexer, struct ast_expression *lvalue)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	struct ast_expression *start = NULL, *end = NULL;
 	struct token tok;
 	want(lexer, T_LBRACKET, &tok);
@@ -1300,7 +1315,7 @@ parse_allocation_expression(struct lexer *lexer)
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_ALLOC:
-		exp = mkexpr(&tok.loc);
+		exp = mkexpr(tok.loc);
 		exp->type = EXPR_ALLOC;
 		exp->alloc.kind = ALLOC_OBJECT;
 		want(lexer, T_LPAREN, NULL);
@@ -1325,7 +1340,7 @@ parse_allocation_expression(struct lexer *lexer)
 		}
 		break;
 	case T_FREE:
-		exp = mkexpr(&tok.loc);
+		exp = mkexpr(tok.loc);
 		exp->type = EXPR_FREE;
 		want(lexer, T_LPAREN, NULL);
 		exp->free.expr = parse_expression(lexer);
@@ -1338,7 +1353,7 @@ parse_allocation_expression(struct lexer *lexer)
 }
 
 static struct ast_expression *
-parse_append_insert(struct lexer *lexer, struct location *loc,
+parse_append_insert(struct lexer *lexer, struct location loc,
 		bool is_static, enum expr_type etype)
 {
 	struct token tok = {0};
@@ -1381,7 +1396,7 @@ parse_append_insert(struct lexer *lexer, struct location *loc,
 }
 
 static struct ast_expression *
-parse_delete(struct lexer *lexer, struct location *loc, bool is_static)
+parse_delete(struct lexer *lexer, struct location loc, bool is_static)
 {
 	struct ast_expression *exp = mkexpr(loc);
 	exp->type = EXPR_DELETE;
@@ -1399,10 +1414,10 @@ parse_slice_mutation(struct lexer *lexer, bool is_static)
 	switch (lex(lexer, &tok)) {
 	case T_APPEND:
 	case T_INSERT:
-		return parse_append_insert(lexer, &tok.loc, is_static,
+		return parse_append_insert(lexer, tok.loc, is_static,
 			tok.token == T_APPEND ? EXPR_APPEND : EXPR_INSERT);
 	case T_DELETE:
-		return parse_delete(lexer, &tok.loc, is_static);
+		return parse_delete(lexer, tok.loc, is_static);
 	default:
 		abort(); // Invariant
 	}
@@ -1455,7 +1470,7 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		lvalue = parse_call_expression(lexer, lvalue);
 		break;
 	case T_DOT:
-		exp = mkexpr(&lexer->loc);
+		exp = mkexpr(lexer->loc);
 		exp->type = EXPR_ACCESS;
 
 		switch (lex(lexer, &tok)) {
@@ -1482,7 +1497,7 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 		break;
 	case T_QUESTION:
 	case T_LNOT:
-		exp = mkexpr(&lexer->loc);
+		exp = mkexpr(lexer->loc);
 		exp->type = EXPR_PROPAGATE;
 		exp->propagate.value = lvalue;
 		exp->propagate.abort = tok.token == T_LNOT;
@@ -1534,20 +1549,20 @@ parse_va_expression(struct lexer *lexer)
 	struct token tok;
 	switch (lex(lexer, &tok)) {
 	case T_VASTART:
-		expr = mkexpr(&lexer->loc);
+		expr = mkexpr(lexer->loc);
 		expr->type = EXPR_VASTART;
 		want(lexer, T_LPAREN, NULL);
 		want(lexer, T_RPAREN, NULL);
 		return expr;
 	case T_VAARG:
-		expr = mkexpr(&lexer->loc);
+		expr = mkexpr(lexer->loc);
 		expr->type = EXPR_VAARG;
 		want(lexer, T_LPAREN, NULL);
 		expr->vaarg.ap = parse_object_selector(lexer);
 		want(lexer, T_RPAREN, NULL);
 		return expr;
 	case T_VAEND:
-		expr = mkexpr(&lexer->loc);
+		expr = mkexpr(lexer->loc);
 		expr->type = EXPR_VAEND;
 		want(lexer, T_LPAREN, NULL);
 		expr->vaarg.ap = parse_object_selector(lexer);
@@ -1611,7 +1626,7 @@ parse_unary_expression(struct lexer *lexer)
 	case T_LNOT:	// !
 	case T_TIMES:	// *
 	case T_BAND:	// &
-		exp = mkexpr(&lexer->loc);
+		exp = mkexpr(lexer->loc);
 		exp->type = EXPR_UNARITHM;
 		exp->unarithm.op = unop_for_token(tok.token);
 		exp->unarithm.operand = parse_unary_expression(lexer);
@@ -1653,12 +1668,12 @@ parse_cast_expression(struct lexer *lexer, struct ast_expression *value)
 		return value;
 	}
 
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_CAST;
 	exp->cast.kind = kind;
 	exp->cast.value = value;
 	if (lex(lexer, &tok) == T_NULL) {
-		exp->cast.type = mktype(&tok.loc);
+		exp->cast.type = mktype(tok.loc);
 		exp->cast.type->storage = STORAGE_NULL;
 	} else {
 		unlex(lexer, &tok);
@@ -1780,7 +1795,7 @@ parse_bin_expression(struct lexer *lexer, struct ast_expression *lvalue, int i)
 			lex(lexer, &tok);
 		}
 
-		struct ast_expression *e = mkexpr(&lexer->loc);
+		struct ast_expression *e = mkexpr(lexer->loc);
 		e->type = EXPR_BINARITHM;
 		e->binarithm.op = op;
 		e->binarithm.lvalue = lvalue;
@@ -1795,7 +1810,7 @@ parse_bin_expression(struct lexer *lexer, struct ast_expression *lvalue, int i)
 static struct ast_expression *
 parse_if_expression(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_IF;
 
 	struct token tok = {0};
@@ -1825,7 +1840,7 @@ parse_if_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_for_expression(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_FOR;
 
 	struct token tok = {0};
@@ -1922,7 +1937,7 @@ parse_case_options(struct lexer *lexer)
 static struct ast_expression *
 parse_switch_expression(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_SWITCH;
 
 	struct token tok = {0};
@@ -1983,7 +1998,7 @@ parse_switch_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_match_expression(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_MATCH;
 
 	struct token tok = {0};
@@ -2012,7 +2027,7 @@ parse_match_expression(struct lexer *lexer)
 			unlex(lexer, &tok);
 			break;
 		case T_NULL:
-			type = mktype(&tok.loc);
+			type = mktype(tok.loc);
 			type->storage = STORAGE_NULL;
 			_case->type = type;
 			break;
@@ -2103,20 +2118,22 @@ parse_binding_unpack(struct lexer *lexer, struct ast_binding_unpack **next)
 static struct ast_expression *
 parse_binding_list(struct lexer *lexer, bool is_static)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
-	exp->type = EXPR_BINDING;
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	unsigned int flags = 0;
 
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
+	case T_DEF:
+		exp->type = EXPR_DEFINE;
+		break;
 	case T_CONST:
 		flags = TYPE_CONST;
 		// fallthrough
 	case T_LET:
-		// no-op
+		exp->type = EXPR_BINDING;
 		break;
 	default:
-		synerr(&tok, T_LET, T_CONST, T_EOF);
+		synerr(&tok, T_LET, T_CONST, T_DEF, T_EOF);
 	}
 
 	struct ast_expression_binding *binding = &exp->binding;
@@ -2129,12 +2146,15 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 			binding->name = tok.name;
 			break;
 		case T_LPAREN:
-			parse_binding_unpack(lexer, &binding->unpack);
-			break;
+			if (exp->type == EXPR_BINDING) {
+				parse_binding_unpack(lexer, &binding->unpack);
+				break;
+			}
+			// fallthrough
 		default:
 			synerr(&tok, T_NAME, T_LPAREN, T_EOF);
 		}
-		binding->initializer = mkexpr(&lexer->loc);
+		binding->initializer = mkexpr(lexer->loc);
 		binding->flags = flags;
 		binding->is_static = is_static;
 
@@ -2172,7 +2192,7 @@ parse_assignment(struct lexer *lexer, struct ast_expression *object,
 	enum binarithm_operator op)
 {
 	struct ast_expression *value = parse_expression(lexer);
-	struct ast_expression *expr = mkexpr(&lexer->loc);
+	struct ast_expression *expr = mkexpr(lexer->loc);
 	expr->type = EXPR_ASSIGN;
 	expr->assign.op = op;
 	expr->assign.object = object;
@@ -2183,7 +2203,7 @@ parse_assignment(struct lexer *lexer, struct ast_expression *object,
 static struct ast_expression *
 parse_deferred_expression(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_DEFER;
 	exp->defer.deferred = parse_expression(lexer);
 	return exp;
@@ -2192,7 +2212,7 @@ parse_deferred_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_control_expression(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 
 	struct token tok;
 	switch (lex(lexer, &tok)) {
@@ -2268,7 +2288,7 @@ parse_control_expression(struct lexer *lexer)
 static struct ast_expression *
 parse_compound_expression(struct lexer *lexer)
 {
-	struct ast_expression *exp = mkexpr(&lexer->loc);
+	struct ast_expression *exp = mkexpr(lexer->loc);
 	exp->type = EXPR_COMPOUND;
 
 	struct ast_expression_list *cur = &exp->compound.list;
@@ -2314,19 +2334,7 @@ parse_compound_expression(struct lexer *lexer)
 struct ast_expression *
 parse_expression(struct lexer *lexer)
 {
-	// This is one of the more complicated non-terminals to parse.
 	struct token tok;
-	bool indirect = false;
-	switch (lex(lexer, &tok)) {
-	case T_TIMES: // *ptr = value (or unary-expression)
-		indirect = true;
-		break;
-	default:
-		unlex(lexer, &tok);
-		break;
-	}
-
-	struct ast_expression *value;
 	switch (lex(lexer, &tok)) {
 	case T_STATIC:
 		return parse_static_expression(lexer, false);
@@ -2342,46 +2350,29 @@ parse_expression(struct lexer *lexer)
 		case T_RETURN:
 		case T_YIELD:
 			unlex(lexer, &tok);
-			value = parse_control_expression(lexer);
-			break;
+			return parse_control_expression(lexer);
 		case T_FOR:
 			unlex(lexer, &tok);
-			value = parse_for_expression(lexer);
-			break;
+			return parse_for_expression(lexer);
 		case T_IF:
-			value = parse_if_expression(lexer);
-			break;
+			return parse_if_expression(lexer);
 		default:
 			assert(0);
 		}
-		if (indirect) {
-			struct ast_expression *deref = mkexpr(&value->loc);
-			deref->type = EXPR_UNARITHM;
-			deref->unarithm.op = UN_DEREF;
-			deref->unarithm.operand = value;
-			return deref;
-		}
-		return value;
 	default:
-		unlex(lexer, &tok);
-		value = parse_unary_expression(lexer);
-		if (!indirect && value->type != EXPR_ACCESS
-				&& value->type != EXPR_SLICE) {
-			value = parse_cast_expression(lexer, value);
-			return parse_bin_expression(lexer, value, 0);
-		}
-		// Is possible object-selector, try for assignment
 		break;
 	}
 
-	if (indirect) {
-		struct ast_expression *deref = mkexpr(&value->loc);
-		deref->type = EXPR_UNARITHM;
-		deref->unarithm.op = UN_DEREF;
-		deref->unarithm.operand = value;
-		value = deref;
+	unlex(lexer, &tok);
+	struct ast_expression *value = parse_unary_expression(lexer);
+	if (value->type != EXPR_ACCESS && value->type != EXPR_SLICE
+			&& (value->type != EXPR_UNARITHM
+				|| value->unarithm.op != UN_DEREF)) {
+		value = parse_cast_expression(lexer, value);
+		return parse_bin_expression(lexer, value, 0);
 	}
 
+	// Is object-selector, try for assignment
 	switch (lex(lexer, &tok)) {
 	case T_EQUAL:
 		return parse_assignment(lexer, value, BIN_LEQUAL);
@@ -2426,6 +2417,7 @@ parse_statement(struct lexer *lexer)
 	switch (lex(lexer, &tok)) {
 	case T_LET:
 	case T_CONST:
+	case T_DEF:
 		unlex(lexer, &tok);
 		return parse_binding_list(lexer, false);
 	case T_STATIC:

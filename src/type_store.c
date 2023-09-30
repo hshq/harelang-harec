@@ -11,14 +11,6 @@
 #include "types.h"
 #include "util.h"
 
-// XXX: This needs to be updated on updates to type_flags (types.h)
-static const unsigned int typeflags[] = {
-	0,
-	TYPE_CONST,
-	TYPE_ERROR,
-	TYPE_ERROR | TYPE_CONST,
-};
-
 static struct dimensions lookup_atype_with_dimensions(struct type_store *store,
 		const struct type **type, const struct ast_type *atype);
 
@@ -34,8 +26,7 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 		return SIZE_UNDEFINED;
 	}
 	check_expression(store->check_context, atype->array.length, &in, NULL);
-	enum eval_result r = eval_expr(store->check_context, &in, &out);
-	if (r != EVAL_OK) {
+	if (!eval_expr(store->check_context, &in, &out)) {
 		error(store->check_context, atype->loc, NULL,
 			"Cannot evaluate array length at compile time");
 		return SIZE_UNDEFINED;
@@ -184,8 +175,7 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 		struct expression in, out;
 		check_expression(store->check_context, afield->offset, &in, NULL);
 		field->offset = *offset;
-		enum eval_result r = eval_expr(store->check_context, &in, &out);
-		if (r != EVAL_OK) {
+		if (!eval_expr(store->check_context, &in, &out)) {
 			error(store->check_context, in.loc, NULL,
 				"Cannot evaluate field offset at compile time");
 		} else if (!type_is_integer(store->check_context, out.result)) {
@@ -637,9 +627,6 @@ tuple_init_from_atype(struct type_store *store,
 	}
 	return dim;
 }
-
-static const struct type *
-type_store_lookup_type(struct type_store *store, const struct type *type);
 
 static void
 add_padding(size_t *size, size_t align)
@@ -1119,25 +1106,7 @@ type_store_lookup_alias(struct type_store *store,
 		const struct type *type,
 		const struct dimensions *dims)
 {
-	struct type tmp = *type;
-	const struct type *ret = NULL;
-	for (size_t i = 0; i < sizeof(typeflags) / sizeof(typeflags[0]); i++) {
-		if ((typeflags[i] & type->flags) != type->flags) {
-			continue;
-		}
-		if (type->alias.type) {
-			tmp.alias.type = type_store_lookup_with_flags(
-				store, type->alias.type, typeflags[i]);
-		}
-		tmp.flags = typeflags[i];
-		const struct type *alias = _type_store_lookup_type(
-				store, &tmp, dims);
-		if (typeflags[i] == type->flags) {
-			ret = alias;
-		}
-	}
-	assert(ret != NULL);
-	return ret;
+	return _type_store_lookup_type(store, type, dims);
 }
 
 

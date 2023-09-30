@@ -31,10 +31,11 @@ struct context {
 	struct type_store *store;
 	const struct type *fntype;
 	struct identifier *ns;
-	bool is_test;
 	struct scope *unit;
 	struct scope *scope;
 	struct scope *defines;
+	const char *mainsym;
+	bool is_test;
 	int id;
 	struct errors *errors;
 	struct errors **next;
@@ -143,6 +144,7 @@ void wrap_resolver(struct context *ctx,
 
 struct scope *check(struct type_store *ts,
 	bool is_test,
+	const char *mainsym,
 	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit);
@@ -150,6 +152,7 @@ struct scope *check(struct type_store *ts,
 struct scope *check_internal(struct type_store *ts,
 	struct modcache **cache,
 	bool is_test,
+	const char *mainsym,
 	struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,

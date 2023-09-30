@@ -46,6 +46,68 @@ fn constants() void = {
 	assert(x == 'x');
 };
 
+def C = 42;
+
+fn local_constants() void = {
+	def main = 42; // ensure hosted main check isn't used on locals
+	static assert(main == 42);
+
+	static assert(C == 42);
+	def C = 0, C = 1337;
+	static assert(C == 1337);
+	{
+		def C = 69;
+		static assert(C == 69);
+	};
+	static assert(C == 1337);
+
+	static let x = 0;
+	def C = &x;
+	assert(C == &x && *C == 0);
+
+	let x = {
+		def LEN = 4;
+		yield [0...]: [LEN]int;
+	};
+	def LEN = 8;
+	assert(len(x) == 4);
+
+	let x: [LEN]int = {
+		def LEN = 4;
+		yield [0...];
+	};
+	assert(len(x) == LEN && LEN == 8);
+
+	assert(compile(`fn test() void = {
+		{ def X = 0; };
+		def C = X;
+	};`) as exited != EXIT_SUCCESS);
+	assert(compile(`fn test() void = {
+		{ def X = 0; };
+		X;
+	};`) as exited != EXIT_SUCCESS);
+	assert(compile(`fn test() void = {
+		let x = 0;
+		def X = x;
+	};`) as exited != EXIT_SUCCESS);
+	assert(compile(`fn test() void = {
+		let x = 0;
+		def X = &x;
+	};`) as exited != EXIT_SUCCESS);
+	assert(compile(`fn test() void = {
+		static let x = 0;
+		def X = x;
+	};`) as exited != EXIT_SUCCESS);
+	assert(compile(`
+		def X = 42;
+		fn test() void = {
+			static assert(X == 1337);
+			def X = 42;
+			static assert(X == 42);
+		};
+	`, "-DX=1337") as exited == EXIT_SUCCESS);
+};
+
 // elementary self-referential types
 type self_slice = []self_slice;
 type self_ptr = *self_ptr;
@@ -264,6 +326,46 @@ fn sz() void = {
 	static assert(align(unwrap_B1) == align(unwrap_alias_B3));
 };
 
+fn hosted_main() void = {
+	let pass = [
+		"export fn main() void;",
+		"export fn main() void = void;",
+		`export @symbol("main") fn notmain() void;`,
+		"fn main() void;",
+		`export @symbol("notmain") fn main() int;`,
+		`export let @symbol("notmain") notmain: int;`,
+		"export fn not::main() int;",
+	];
+
+	for (let i = 0z; i < len(pass); i += 1) {
+		assert(compile(pass[i]) as exited == EXIT_SUCCESS);
+	};
+
+	let failures = [
+		"fn main() void = void;",
+		"export fn main(x: int) void;",
+		"export fn main() int;",
+		"export type main = int;",
+		"export def main = 0;",
+		`export @symbol("main") fn f() int;`,
+		"export let main: int;",
+		`export let @symbol("main") notmain: int;`,
+		"export type v = void; export fn main() v;",
+	];
+
+	for (let i = 0z; i < len(failures); i += 1) {
+		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+		assert(compile(failures[i], "-m\0", "\0") as exited == EXIT_SUCCESS);
+	};
+
+	assert(compile(`export @symbol(".main") fn main() int;`,
+		"-m\0", ".main\0") as exited != EXIT_SUCCESS);
+	assert(compile(`export @symbol("main") fn main() int;`,
+		"-m\0", ".main\0") as exited == EXIT_SUCCESS);
+	assert(compile(`export fn main() int;`,
+		"-m\0", ".main\0") as exited != EXIT_SUCCESS);
+};
+
 fn reject() void = {
 	let failures = [
 		"type a = b; type b = a;",
@@ -388,7 +490,9 @@ fn complete_graph() void = {
 
 export fn main() void = {
 	constants();
+	local_constants();
 	sz();
 	reject();
+	hosted_main();
 	complete_graph();
 };

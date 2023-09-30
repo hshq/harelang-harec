@@ -1,10 +1,11 @@
 #ifndef HAREC_UTF8_H
 #define HAREC_UTF8_H
+#include <limits.h>
 #include <stdio.h>
 
 #define UTF8_MAX_SIZE 4
 
-#define UTF8_INVALID 0x80
+#define UTF8_INVALID UINT32_MAX
 
 /**
  * Grabs the next UTF-8 codepoint and advances the string pointer
