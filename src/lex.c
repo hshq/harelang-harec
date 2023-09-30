@@ -564,8 +564,9 @@ lex_rune(struct lexer *lexer, char *out)
 			buf[0] = next(lexer, NULL, false);
 			buf[1] = next(lexer, NULL, false);
 			buf[2] = '\0';
-			c = strtoul(&buf[0], &endptr, 16);
-			if (*endptr != '\0') {
+			c = strtoul(buf, &endptr, 16);
+			// need isxdigit check to disallow sign
+			if (*endptr != '\0' || !isxdigit(buf[0])) {
 				error(loc, "Invalid hex literal");
 			}
 			out[0] = c;
@@ -576,8 +577,9 @@ lex_rune(struct lexer *lexer, char *out)
 			buf[2] = next(lexer, NULL, false);
 			buf[3] = next(lexer, NULL, false);
 			buf[4] = '\0';
-			c = strtoul(&buf[0], &endptr, 16);
-			if (*endptr != '\0') {
+			c = strtoul(buf, &endptr, 16);
+			// need isxdigit check to disallow sign
+			if (*endptr != '\0' || !isxdigit(buf[0])) {
 				error(loc, "Invalid hex literal");
 			}
 			return utf8_encode(out, c);
@@ -591,8 +593,9 @@ lex_rune(struct lexer *lexer, char *out)
 			buf[6] = next(lexer, NULL, false);
 			buf[7] = next(lexer, NULL, false);
 			buf[8] = '\0';
-			c = strtoul(&buf[0], &endptr, 16);
-			if (*endptr != '\0') {
+			c = strtoul(buf, &endptr, 16);
+			// need isxdigit check to disallow sign
+			if (*endptr != '\0' || !isxdigit(buf[0])) {
 				error(loc, "Invalid hex literal");
 			}
 			return utf8_encode(out, c);
