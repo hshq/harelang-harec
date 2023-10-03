@@ -2293,26 +2293,22 @@ parse_compound_expression(struct lexer *lexer)
 		break;
 	};
 
-	bool more = true;
-	while (more) {
+	while (true) {
 		cur->expr = parse_statement(lexer);
 
 		want(lexer, T_SEMICOLON, &tok);
 
-		if (more) {
-			lex(lexer, &tok);
-			if (tok.token == T_RBRACE) {
-				more = false;
-			} else {
-				unlex(lexer, &tok);
-				*next = xcalloc(1, sizeof(struct ast_expression_list));
-				cur = *next;
-				next = &cur->next;
-			}
-		} else {
-			want(lexer, T_RBRACE, &tok);
-		}
+		lex(lexer, &tok);
+		if (tok.token == T_RBRACE) {
+			break;
+		} 
+
+		unlex(lexer, &tok);
+		*next = xcalloc(1, sizeof(struct ast_expression_list));
+		cur = *next;
+		next = &cur->next;
 	}
+	
 	return exp;
 }
 
