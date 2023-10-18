@@ -4481,9 +4481,9 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 		break;
 	case ADECL_ASSERT:;
 		static uint64_t num = 0;
-		int n = snprintf(NULL, 0, "static assert %" SCNu64, num);
+		int n = snprintf(NULL, 0, "static assert %" PRIu64, num);
 		ident.name = xcalloc(n + 1, sizeof(char));
-		snprintf(ident.name, n + 1, "static assert %" SCNu64, num);
+		snprintf(ident.name, n + 1, "static assert %" PRIu64, num);
 		++num;
 		idecl = incomplete_declaration_create(ctx, decl->loc,
 			ctx->scope, &ident, &ident);
