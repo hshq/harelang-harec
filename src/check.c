@@ -4532,17 +4532,17 @@ resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 void
 wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 {
+	// ensure this declaration wasn't already scanned
+	if (!obj || obj->otype != O_SCAN) {
+		return;
+	}
+
 	// save current subunit and enum context
 	struct scope *scope = ctx->scope;
 	struct scope *subunit = ctx->unit->parent;
 	ctx->unit->parent = NULL;
 	const struct type *fntype = ctx->fntype;
 	ctx->fntype = NULL;
-
-	// ensure this declaration wasn't already scanned
-	if (!obj || obj->otype != O_SCAN) {
-		goto exit;
-	}
 
 	struct incomplete_declaration *idecl = (struct incomplete_declaration *)obj;
 
@@ -4566,7 +4566,6 @@ wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 	resolver(ctx, idecl);
 
 	idecl->in_progress = false;
-exit:
 	// load stored context
 	ctx->fntype = fntype;
 	ctx->unit->parent = subunit;
