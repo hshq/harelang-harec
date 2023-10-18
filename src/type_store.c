@@ -839,6 +839,12 @@ type_init_from_atype(struct type_store *store,
 			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
+		if (type->array.members->storage == STORAGE_NEVER) {
+			error(store->check_context, atype->loc, NULL,
+				"Never is not a valid slice member");
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		type->array.length = SIZE_UNDEFINED;
 		break;
 	case STORAGE_STRUCT:

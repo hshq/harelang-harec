@@ -237,6 +237,9 @@ fn misc_reject() void = {
 	assert(compile(
 		"fn test() void = { let x: ([]void | void) = void; };"
 	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() void = { []: []never; };"
+	) as exited != EXIT_SUCCESS);
 };
 
 fn lencap(s: []int) (size, size) = {
