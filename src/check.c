@@ -2783,7 +2783,7 @@ check_expr_struct(struct context *ctx,
 
 		if (obj->otype != O_TYPE) {
 			error(ctx, aexpr->loc, expr,
-					"Name does not refer to a type");
+					"Identifier does not refer to a type");
 			return;
 		}
 		stype = obj->type;
