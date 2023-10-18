@@ -3285,7 +3285,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 
 	qdef->name = decl->symbol ? xstrdup(decl->symbol)
 		: ident_to_sym(&decl->ident);
-	qdef->file = decl->loc.file;
+	qdef->file = decl->file;
 
 	struct qbe_statement start_label = {0};
 	mklabel(ctx, &start_label, "start.%d");
@@ -3722,7 +3722,7 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 	qdef->data.threadlocal = global->threadlocal;
 	qdef->exported = decl->exported;
 	qdef->name = ident_to_sym(&decl->ident);
-	qdef->file = decl->loc.file;
+	qdef->file = decl->file;
 	gen_data_item(ctx, global->value, &qdef->data.items);
 	qbe_append_def(ctx->out, qdef);
 }

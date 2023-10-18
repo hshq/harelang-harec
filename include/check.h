@@ -75,10 +75,10 @@ enum decl_type {
 
 struct declaration {
 	enum decl_type decl_type;
+	int file;
 	struct identifier ident;
-	struct location loc;
 	char *symbol;
-	bool exported;
+	bool exported; // XXX: this bool takes up 8 bytes and i am in pain
 	union {
 		struct constant_decl constant;
 		struct function_decl func;

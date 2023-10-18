@@ -3588,7 +3588,7 @@ check_function(struct context *ctx,
 	decl->func.type = obj->type;
 	decl->func.flags = afndecl->flags;
 	decl->exported = adecl->exported;
-	decl->loc = adecl->loc;
+	decl->file = adecl->loc.file;
 
 	decl->symbol = ident_to_sym(&obj->ident);
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
@@ -3825,8 +3825,8 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			idecl->obj.type = type;
 			append_decl(ctx, &(struct declaration){
 				.decl_type = DECL_TYPE,
+				.file = decl->loc.file,
 				.ident = idecl->obj.ident,
-				.loc = decl->loc,
 				.exported = exported,
 				.type = type,
 			});
@@ -4023,9 +4023,9 @@ end:
 	}
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_CONST,
+		.file = idecl->decl.loc.file,
 		.ident = idecl->obj.ident,
 		.exported = idecl->decl.exported,
-		.loc = idecl->decl.loc,
 		.constant = {
 			.type = type,
 			.value = value,
@@ -4129,11 +4129,11 @@ end:
 
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_GLOBAL,
+		.file = idecl->decl.loc.file,
 		.ident = idecl->obj.ident,
 		.symbol = ident_to_sym(&idecl->obj.ident),
 
 		.exported = idecl->decl.exported,
-		.loc = idecl->decl.loc,
 		.global = {
 			.type = type,
 			.value = value,
@@ -4388,8 +4388,8 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_TYPE,
+		.file = idecl->decl.loc.file,
 		.ident = idecl->obj.ident,
-		.loc = idecl->decl.loc,
 		.exported = idecl->decl.exported,
 		.type = alias,
 	});
