@@ -3427,10 +3427,10 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		snprintf(test->name, n + 1, ".test.%s", qdef->name);
 
 		char *ident = identifier_unparse(&decl->ident);
-
 		struct qbe_data_item *dataitem = &test->data.items;
 		struct expression expr;
 		mkstrconst(&expr, "%s", ident);
+		free(ident);
 		dataitem = gen_data_item(ctx, &expr, dataitem);
 
 		struct qbe_data_item *next = xcalloc(1, sizeof *next);

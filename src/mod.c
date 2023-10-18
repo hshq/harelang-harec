@@ -42,16 +42,20 @@ module_resolve(struct context *ctx,
 
 	char *path = getenv(env);
 	if (!path) {
+		char *identstr = identifier_unparse(ident);
 		xfprintf(stderr, "Could not open module '%s': typedef variable $%s not set\n",
-			identifier_unparse(ident), env);
+			identstr, env);
+		free(identstr);
 		exit(EXIT_FAILURE);
 	}
 
 	FILE *f = fopen(path, "r");
 	if (!f) {
+		const char *errstr = strerror(errno);
+		char *identstr = identifier_unparse(ident);
 		xfprintf(stderr, "Could not open module '%s' for reading from %s: %s\n",
-				identifier_unparse(ident), path,
-				strerror(errno));
+			identstr, path, errstr);
+		free(identstr);
 		exit(EXIT_FAILURE);
 	}
 

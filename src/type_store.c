@@ -359,9 +359,10 @@ tagged_or_atagged_member(struct type_store *store,
 		const struct scope_object *obj = scope_lookup(
 			store->check_context->scope, &_atype->alias);
 		if (!obj) {
+			char *ident = identifier_unparse(&_atype->alias);
 			error(store->check_context, _atype->loc, NULL,
-				"Unknown object '%s'",
-				identifier_unparse(&_atype->alias));
+				"Unknown object '%s'", ident);
+			free(ident);
 			*type = &builtin_type_error;
 			return;
 		}
@@ -370,9 +371,10 @@ tagged_or_atagged_member(struct type_store *store,
 				*type = type_dealias(store->check_context, obj->type);
 				return;
 			} else {
+				char *ident = identifier_unparse(&obj->ident);
 				error(store->check_context, _atype->loc, NULL,
-					"Object '%s' is not a type",
-					identifier_unparse(&obj->ident));
+					"Object '%s' is not a type", ident);
+				free(ident);
 				*type = &builtin_type_error;
 				return;
 			}
@@ -381,9 +383,10 @@ tagged_or_atagged_member(struct type_store *store,
 			(struct incomplete_declaration *)obj;
 		if (idecl->type != IDECL_DECL
 				|| idecl->decl.decl_type != ADECL_TYPE) {
+			char *ident = identifier_unparse(&obj->ident);
 			error(store->check_context, _atype->loc, NULL,
-				"Object '%s' is not a type",
-				identifier_unparse(&obj->ident));
+				"Object '%s' is not a type", ident);
+			free(ident);
 			*type = &builtin_type_error;
 			return;
 		}
@@ -689,9 +692,10 @@ type_init_from_atype(struct type_store *store,
 	case STORAGE_ALIAS:
 		obj = scope_lookup(store->check_context->scope, &atype->alias);
 		if (!obj) {
+			char *ident = identifier_unparse(&atype->alias);
 			error(store->check_context, atype->loc, NULL,
-				"Unresolvable identifier '%s'",
-				identifier_unparse(&atype->alias));
+				"Unresolvable identifier '%s'", ident);
+			free(ident);
 			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
@@ -712,9 +716,10 @@ type_init_from_atype(struct type_store *store,
 		}
 
 		if (obj->otype != O_TYPE) {
+			char *ident = identifier_unparse(&obj->ident);
 			error(store->check_context, atype->loc, NULL,
-				"Object '%s' is not a type",
-				identifier_unparse(&obj->ident));
+				"Object '%s' is not a type", ident);
+			free(ident);
 			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}

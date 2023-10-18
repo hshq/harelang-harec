@@ -202,9 +202,11 @@ check_expr_access(struct context *ctx,
 			break;
 		case O_TYPE:
 			if (type_dealias(ctx, obj->type)->storage != STORAGE_VOID) {
+				char *ident = identifier_unparse(&obj->type->alias.ident);
 				error(ctx, aexpr->loc, expr,
 					"Cannot use non-void type alias '%s' as constant",
-					identifier_unparse(&obj->type->alias.ident));
+					ident);
+				free(ident);
 				return;
 			}
 			expr->type = EXPR_CONSTANT;
