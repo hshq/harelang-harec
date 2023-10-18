@@ -421,9 +421,6 @@ eval_const(struct context *ctx,
 			anext = &aconst->next;
 		}
 		break;
-	case STORAGE_FUNCTION:
-	case STORAGE_SLICE:
-		assert(0); // TODO
 	case STORAGE_STRING:
 		out->constant.string.len = in->constant.string.len;
 		out->constant.string.value = xcalloc(1, in->constant.string.len);
@@ -491,8 +488,10 @@ eval_const(struct context *ctx,
 	case STORAGE_VOID:
 		out->constant = in->constant;
 		break;
+	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
+	case STORAGE_SLICE:
 	case STORAGE_VALIST:
 		abort(); // Invariant
 	}
