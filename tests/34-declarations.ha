@@ -106,6 +106,9 @@ fn local_constants() void = {
 			static assert(X == 42);
 		};
 	`, "-DX=1337") as exited == EXIT_SUCCESS);
+	assert(compile(`fn test() void = {
+		static def X = 0;
+	};`) as exited != EXIT_SUCCESS);
 };
 
 // elementary self-referential types

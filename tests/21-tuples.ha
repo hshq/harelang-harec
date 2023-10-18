@@ -149,6 +149,8 @@ fn reject() void = {
 		// static unpack
 		"fn getval() int = 5; fn t() void = { static let (a, b) = (2, getval()); };",
 		"fn getval() int = 5; fn t() void = { static let (a, _) = (2, getval()); };",
+		// unpack with def
+		"fn t() void = { def (x, y) = (1, 2); };",
 
 		// member count mismatch
 		"fn t() void = { let a: (u8, u8, u8) = (2, 3); };",
