@@ -3630,23 +3630,6 @@ check_function(struct context *ctx,
 		params = params->next;
 	}
 
-	struct expression *body = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, afndecl->body, body, obj->type->func.result);
-	// TODO: Pass errors up and deal with them at the end of check
-	handle_errors(ctx->errors);
-
-	if (!type_is_assignable(ctx, obj->type->func.result, body->result)) {
-		char *restypename = gen_typename(body->result);
-		char *fntypename = gen_typename(obj->type->func.result);
-		error(ctx, afndecl->body->loc, body,
-			"Result value %s is not assignable to function result type %s",
-			restypename, fntypename);
-		free(restypename);
-		free(fntypename);
-		return;
-	}
-	decl->func.body = lower_implicit_cast(ctx, obj->type->func.result, body);
-
 	// TODO: Add function name to errors
 	if (decl->func.flags != 0) {
 		const char *flag = NULL;
@@ -3663,7 +3646,7 @@ check_function(struct context *ctx,
 		default:
 			error(ctx, adecl->loc, NULL,
 				"Only one of @init, @fini, or @test may be used in a function declaration");
-			return;
+			break;
 		};
 		if (obj->type->func.result != &builtin_type_void) {
 			error(ctx, adecl->loc, NULL, "%s function must return void", flag);
@@ -3676,10 +3659,28 @@ check_function(struct context *ctx,
 		}
 	}
 
+	struct expression *body = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, afndecl->body, body, obj->type->func.result);
+
+	if (!type_is_assignable(ctx, obj->type->func.result, body->result)) {
+		char *restypename = gen_typename(body->result);
+		char *fntypename = gen_typename(obj->type->func.result);
+		error(ctx, afndecl->body->loc, body,
+			"Result value %s is not assignable to function result type %s",
+			restypename, fntypename);
+		free(restypename);
+		free(fntypename);
+		return;
+	}
+	if (body->result->storage != STORAGE_ERROR) {
+		decl->func.body = lower_implicit_cast(ctx,
+			obj->type->func.result, body);
+	}
+
 	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
 end:
-	if (((adecl->function.flags & FN_TEST) && !ctx->is_test) || ctx->errors) {
+	if ((adecl->function.flags & FN_TEST) && !ctx->is_test) {
 		return;
 	}
 	append_decl(ctx, decl);
