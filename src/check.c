@@ -176,7 +176,7 @@ check_expr_access(struct context *ctx,
 	expr->type = EXPR_ACCESS;
 	expr->access.type = aexpr->access.type;
 
-	const struct scope_object *obj = NULL;
+	struct scope_object *obj = NULL;
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
 		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
@@ -1065,7 +1065,7 @@ type_has_default(struct context *ctx, const struct type *type)
 	case STORAGE_VALIST:
 		return false;
 	case STORAGE_ENUM:
-		for (const struct scope_object *obj = type->_enum.values->objects;
+		for (struct scope_object *obj = type->_enum.values->objects;
 				obj != NULL; obj = obj->lnext) {
 			if (obj->otype == O_DECL) {
 				continue;
@@ -2769,7 +2769,7 @@ check_expr_struct(struct context *ctx,
 
 	const struct type *stype = NULL;
 	if (aexpr->_struct.type.name) {
-		const struct scope_object *obj = scope_lookup(ctx->scope,
+		struct scope_object *obj = scope_lookup(ctx->scope,
 				&aexpr->_struct.type);
 		// resolve the unknown type
 		wrap_resolver(ctx, obj, resolve_type);
@@ -2959,7 +2959,7 @@ num_cases(struct context *ctx, const struct type *type)
 	case STORAGE_ENUM:;
 		// XXX: O(n^2)
 		size_t n = 0;
-		const struct scope_object *obj = type->_enum.values->objects;
+		struct scope_object *obj = type->_enum.values->objects;
 		assert(obj != NULL);
 		if (obj->otype == O_SCAN) {
 			wrap_resolver(ctx, obj, resolve_enum_field);
@@ -2970,7 +2970,7 @@ num_cases(struct context *ctx, const struct type *type)
 			}
 			assert(obj->otype == O_CONST);
 			bool should_count = true;
-			for (const struct scope_object *other = obj->lnext;
+			for (struct scope_object *other = obj->lnext;
 					other != NULL; other = other->lnext) {
 				if (other->otype == O_DECL) {
 					continue;
@@ -4151,7 +4151,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		.name = idecl->obj.ident.name
 	};
 
-	const struct scope_object *new =
+	struct scope_object *new =
 		scope_lookup(idecl->field->enum_scope, &localname);
 	if (new != &idecl->obj) {
 		wrap_resolver(ctx, new, resolve_enum_field);
@@ -4185,7 +4185,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 				"Unable to evaluate constant initializer at compile time");
 		}
 	} else { // implicit value
-		const struct scope_object *obj = idecl->obj.lnext;
+		struct scope_object *obj = idecl->obj.lnext;
 		// find previous enum value
 		wrap_resolver(ctx, obj, resolve_enum_field);
 		value->type = EXPR_CONSTANT;
@@ -4263,7 +4263,7 @@ lookup_enum_type(struct context *ctx, const struct scope_object *obj)
 }
 
 static void
-scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
+scan_enum_field_aliases(struct context *ctx, struct scope_object *obj)
 {
 	const struct type *enum_type = lookup_enum_type(ctx, obj);
 
@@ -4530,8 +4530,7 @@ resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 }
 
 void
-wrap_resolver(struct context *ctx, const struct scope_object *obj,
-	resolvefn resolver)
+wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 {
 	// save current subunit and enum context
 	struct scope *scope = ctx->scope;
@@ -4755,7 +4754,7 @@ check_internal(struct type_store *ts,
 	}
 
 	// Find enum aliases and store them in incomplete enum value declarations
-	for (const struct scope_object *obj = ctx.scope->objects;
+	for (struct scope_object *obj = ctx.scope->objects;
 			obj; obj = obj->lnext) {
 		scan_enum_field_aliases(&ctx, obj);
 	}
@@ -4785,7 +4784,7 @@ check_internal(struct type_store *ts,
 	}
 
 	// Perform actual declaration resolution
-	for (const struct scope_object *obj = ctx.unit->objects;
+	for (struct scope_object *obj = ctx.unit->objects;
 			obj; obj = obj->lnext) {
 		wrap_resolver(&ctx, obj, resolve_decl);
 		// populate the expression graph

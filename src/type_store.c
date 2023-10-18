@@ -651,7 +651,7 @@ type_init_from_atype(struct type_store *store,
 	type->storage = atype->storage;
 	type->flags = atype->flags;
 
-	const struct scope_object *obj = NULL;
+	struct scope_object *obj = NULL;
 	const struct type *builtin;
 	switch (type->storage) {
 	case STORAGE_ERROR:

@@ -140,7 +140,7 @@ void resolve_type(struct context *ctx,
 		struct incomplete_declaration *idecl);
 
 void wrap_resolver(struct context *ctx,
-	const struct scope_object *obj, resolvefn resolver);
+	struct scope_object *obj, resolvefn resolver);
 
 struct scope *check(struct type_store *ts,
 	bool is_test,
