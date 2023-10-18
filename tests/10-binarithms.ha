@@ -1,3 +1,4 @@
+use rt::{compile, exited, EXIT_SUCCESS};
 use testmod;
 
 fn error() bool = {
@@ -209,10 +210,18 @@ fn eval() void = {
 	static assert(ALIAS == 2);
 };
 
+fn reject() void = {
+	assert(compile("let x = 1 / 0;") as exited != EXIT_SUCCESS);
+	assert(compile("let x = -2147483648i32 / -1;") as exited != EXIT_SUCCESS);
+	assert(compile("let x = 1 % 0;") as exited != EXIT_SUCCESS);
+	assert(compile("let x = -2147483648i32 % -1;") as exited != EXIT_SUCCESS);
+};
+
 export fn main() void = {
 	// TODO: other binarithms
 	andorxor();
 	sar_shr();
 	arithmetic();
 	eval();
+	reject();
 };
