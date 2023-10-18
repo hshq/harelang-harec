@@ -6,6 +6,16 @@
 #include "types.h"
 #include "util.h"
 
+static struct qbe_value
+mkrtfunc(struct gen_context *ctx, char *name)
+{
+	return (struct qbe_value){
+		.kind = QV_GLOBAL,
+		.name = name,
+		.type = ctx->arch.ptr,
+	};
+}
+
 void
 rtfunc_init(struct gen_context *ctx)
 {
@@ -84,16 +94,6 @@ mkgtemp(struct gen_context *ctx, const struct type *type, const char *fmt)
 		.kind = GV_TEMP,
 		.type = type,
 		.name = gen_name(&ctx->id, fmt),
-	};
-}
-
-struct qbe_value
-mkrtfunc(struct gen_context *ctx, const char *name)
-{
-	return (struct qbe_value){
-		.kind = QV_GLOBAL,
-		.name = xstrdup(name),
-		.type = ctx->arch.ptr,
 	};
 }
 
