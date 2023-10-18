@@ -221,4 +221,6 @@ export fn main() void = {
 		};
 		abort();
 	};
+
+	assert(rt::compile("fn f() void = { let x = 0; x { ... }; };") as rt::exited != rt::EXIT_SUCCESS);
 };

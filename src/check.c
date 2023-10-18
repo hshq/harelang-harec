@@ -2780,7 +2780,12 @@ check_expr_struct(struct context *ctx,
 				"Unknown type alias");
 			return;
 		}
-		assert(obj->otype == O_TYPE);
+
+		if (obj->otype != O_TYPE) {
+			error(ctx, aexpr->loc, expr,
+					"Name does not refer to a type");
+			return;
+		}
 		stype = obj->type;
 		enum type_storage storage = type_dealias(ctx, stype)->storage;
 		if (storage != STORAGE_STRUCT && storage != STORAGE_UNION) {
