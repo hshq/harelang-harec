@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, exited, EXIT_SUCCESS, toutf8};
 
 fn measurements() void = {
 	const x = "Hello!";
@@ -65,6 +65,19 @@ fn equality() void = {
 	static assert("foo\0bar" != "foo\0foo");
 };
 
+fn escapes() void = {
+	const s = "à";
+	assert(s == "\xc3\xa0");
+	assert(s == "\xc3" "" "\xa0");
+	assert(s == "\u00e0");
+	assert(s == "\U000000e0");
+	const s = toutf8(s);
+	assert(len(s) == 2 && s[0] == 0xc3 && s[1] == 0xa0);
+
+	assert("\x345" == "45");
+	assert("\033" == "\x0033");
+};
+
 fn raw() void = {
 	assert(`hello \" world` == "hello \\\" world");
 };
@@ -81,6 +94,17 @@ fn reject() void = {
 			x += "fdsa";
 		};
 	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`let s = "\xc3";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\xc3\x00";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\xc30";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\xc3" "\xc3";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\xa";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\u69";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\U1234567";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\xah";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\uahij";`) as exited != EXIT_SUCCESS);
+	assert(compile(`let s = "\Uahijklmn";`) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {
@@ -88,6 +112,7 @@ export fn main() void = {
 	storage();
 	concat();
 	equality();
+	escapes();
 	raw();
 	reject();
 };

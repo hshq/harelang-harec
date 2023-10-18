@@ -514,7 +514,23 @@ fn basics() void = {
 	let b1 = true, b2 = false;
 	let p1: nullable *int = null;
 	let r1 = ['x', '\x0A', '\u1234', '\0', '\a', '\b', '\f', '\n', '\r', '\t',
-		'\v', '\\', '\'', '\"', '\U12345678'];
+		'\v', '\\', '\'', '\"', '\U00123456', '\u0080', '\U00000080'];
+	static assert('a' == '\x61');
+	static assert('a' == '\u0061');
+	static assert('a' == '\U00000061');
+	static assert('a' == 0x61u32);
+	static assert('à' == '\u00e0');
+	static assert('à' == '\U000000e0');
+	static assert('à' == 0xe0u32);
+	assert(compile(`let r = 'abc';`) as exited != EXIT_SUCCESS);
+	assert(compile(`let r = '\033';`) as exited != EXIT_SUCCESS);
+	assert(compile(`let r = '\xc3';`) as exited != EXIT_SUCCESS);
+	assert(compile(`let r = '\x123';`) as exited != EXIT_SUCCESS);
+	assert(compile(`let r = '\u69';`) as exited != EXIT_SUCCESS);
+	assert(compile(`let r = '\U1234567';`) as exited != EXIT_SUCCESS);
+	assert(compile(`let r = '\xah';`) as exited != EXIT_SUCCESS);
+	assert(compile(`let r = '\uahij';`) as exited != EXIT_SUCCESS);
+	assert(compile(`let r = '\Uahijklmn';`) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {
