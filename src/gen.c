@@ -222,8 +222,9 @@ gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 	case O_CONST:
 	case O_TYPE:
 	case O_SCAN:
-		abort(); // Invariant
+		break;
 	}
+	abort(); // Invariant
 }
 
 static void
