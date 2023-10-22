@@ -269,8 +269,14 @@ is_zeroes(struct qbe_data_item *data)
 		case QD_VALUE:
 			switch (cur->value.kind) {
 			case QV_CONST:
-				if (cur->value.lval != 0) {
-					return false;
+				if (cur->value.type->size < sizeof(uint64_t)) {
+					if (cur->value.wval != 0) {
+						return false;
+					}
+				} else {
+					if (cur->value.lval != 0) {
+						return false;
+					}
 				}
 				break;
 			case QV_GLOBAL:

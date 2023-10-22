@@ -75,10 +75,10 @@ enum decl_type {
 
 struct declaration {
 	enum decl_type decl_type;
+	int file;
 	struct identifier ident;
-	struct location loc;
 	char *symbol;
-	bool exported;
+	bool exported; // XXX: this bool takes up 8 bytes and i am in pain
 	union {
 		struct constant_decl constant;
 		struct function_decl func;
@@ -140,7 +140,7 @@ void resolve_type(struct context *ctx,
 		struct incomplete_declaration *idecl);
 
 void wrap_resolver(struct context *ctx,
-	const struct scope_object *obj, resolvefn resolver);
+	struct scope_object *obj, resolvefn resolver);
 
 struct scope *check(struct type_store *ts,
 	bool is_test,

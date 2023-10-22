@@ -90,23 +90,31 @@ fn alias() void = {
 };
 
 fn tagged_result() void = {
-	let x: (int | uint) = 42i;
-	let y: (int | uint) = match (x) {
+	let x: (int | void) = 42i;
+	let y: (int | void) = match (x) {
 	case let x: int =>
 		yield x;
-	case let x: uint =>
+	case let x: void =>
 		yield x;
 	};
 	assert(y is int);
 
-	x = 42u;
+	x = void;
 	y = match (x) {
 	case let x: int =>
 		yield x;
-	case let x: uint =>
+	case let x: void =>
 		yield x;
 	};
-	assert(y is uint);
+	assert(y is void);
+
+	// XXX: i'm like 90% sure that while implementing
+	// https://todo.sr.ht/~sircmpwn/hare/871 this will cause a null pointer
+	// dereference
+	match (x) {
+	case int => abort();
+	case => void;
+	};
 };
 
 fn implicit_cast() void = {

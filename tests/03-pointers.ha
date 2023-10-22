@@ -249,6 +249,43 @@ fn reject() void = {
 			*(&0: *never);
 		};
 	`) as exited != EXIT_SUCCESS);
+
+	// pointer to zero-size type
+	assert(compile(`
+		fn test() void = {
+			let a = &void;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() void = {
+			let a = &(void, void);
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() void = {
+			let a = &(int, void).1;
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() void = {
+			let a = &([]: [0]int);
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() void = {
+			let a = &struct { v: void = void };
+		};
+	`) as exited != EXIT_SUCCESS);
+
+	assert(compile(`
+		fn test() void = {
+			let a = &struct { i: int = 0, v: void = void }.v;
+		};
+	`) as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {

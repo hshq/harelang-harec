@@ -176,7 +176,7 @@ check_expr_access(struct context *ctx,
 	expr->type = EXPR_ACCESS;
 	expr->access.type = aexpr->access.type;
 
-	const struct scope_object *obj = NULL;
+	struct scope_object *obj = NULL;
 	switch (expr->access.type) {
 	case ACCESS_IDENTIFIER:
 		obj = scope_lookup(ctx->scope, &aexpr->access.ident);
@@ -202,9 +202,11 @@ check_expr_access(struct context *ctx,
 			break;
 		case O_TYPE:
 			if (type_dealias(ctx, obj->type)->storage != STORAGE_VOID) {
+				char *ident = identifier_unparse(&obj->type->alias.ident);
 				error(ctx, aexpr->loc, expr,
 					"Cannot use non-void type alias '%s' as constant",
-					identifier_unparse(&obj->type->alias.ident));
+					ident);
+				free(ident);
 				return;
 			}
 			expr->type = EXPR_CONSTANT;
@@ -1065,7 +1067,7 @@ type_has_default(struct context *ctx, const struct type *type)
 	case STORAGE_VALIST:
 		return false;
 	case STORAGE_ENUM:
-		for (const struct scope_object *obj = type->_enum.values->objects;
+		for (struct scope_object *obj = type->_enum.values->objects;
 				obj != NULL; obj = obj->lnext) {
 			if (obj->otype == O_DECL) {
 				continue;
@@ -1353,9 +1355,9 @@ check_expr_binding(struct context *ctx,
 		}
 		// XXX: Can we avoid this?
 		type = lower_const(ctx, type, NULL);
-		if (type->size == 0 || type->size == SIZE_UNDEFINED) {
+		if (type->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->loc, expr,
-				"Cannot create binding for type of zero or undefined size");
+				"Cannot create binding for type of undefined size");
 			return;
 		}
 		binding->initializer = lower_implicit_cast(ctx, type, initializer);
@@ -2194,9 +2196,9 @@ check_expr_match(struct context *ctx,
 
 		if (acase->name) {
 			assert(ctype);
-			if (ctype->size == 0 || ctype->size == SIZE_UNDEFINED) {
+			if (ctype->size == SIZE_UNDEFINED) {
 				error(ctx, acase->type->loc, expr,
-					"Cannot create binding for type of zero or undefined size");
+					"Cannot create binding for type of undefined size");
 				return;
 			}
 			if (ctype->storage == STORAGE_NULL) {
@@ -2453,7 +2455,7 @@ check_expr_propagate(struct context *ctx,
 	struct match_case *case_err = xcalloc(1, sizeof(struct match_case));
 
 	const struct scope_object *ok_obj = NULL, *err_obj = NULL;
-	if (result_type->size != 0 && result_type->size != SIZE_UNDEFINED) {
+	if (result_type->size != SIZE_UNDEFINED) {
 		struct identifier ok_name = {
 			.name = gen_name(&ctx->id, "ok.%d"),
 		};
@@ -2484,7 +2486,7 @@ check_expr_propagate(struct context *ctx,
 			.fixed_reason = ABORT_PROPAGATE_ERROR_OCCURRED,
 		};
 	} else {
-		if (return_type->size != 0 && return_type->size != SIZE_UNDEFINED) {
+		if (return_type->size != SIZE_UNDEFINED) {
 			struct identifier err_name = {
 				.name = gen_name(&ctx->id, "err.%d"),
 			};
@@ -2769,7 +2771,7 @@ check_expr_struct(struct context *ctx,
 
 	const struct type *stype = NULL;
 	if (aexpr->_struct.type.name) {
-		const struct scope_object *obj = scope_lookup(ctx->scope,
+		struct scope_object *obj = scope_lookup(ctx->scope,
 				&aexpr->_struct.type);
 		// resolve the unknown type
 		wrap_resolver(ctx, obj, resolve_type);
@@ -2778,7 +2780,12 @@ check_expr_struct(struct context *ctx,
 				"Unknown type alias");
 			return;
 		}
-		assert(obj->otype == O_TYPE);
+
+		if (obj->otype != O_TYPE) {
+			error(ctx, aexpr->loc, expr,
+					"Identifier does not refer to a type");
+			return;
+		}
 		stype = obj->type;
 		enum type_storage storage = type_dealias(ctx, stype)->storage;
 		if (storage != STORAGE_STRUCT && storage != STORAGE_UNION) {
@@ -2959,7 +2966,7 @@ num_cases(struct context *ctx, const struct type *type)
 	case STORAGE_ENUM:;
 		// XXX: O(n^2)
 		size_t n = 0;
-		const struct scope_object *obj = type->_enum.values->objects;
+		struct scope_object *obj = type->_enum.values->objects;
 		assert(obj != NULL);
 		if (obj->otype == O_SCAN) {
 			wrap_resolver(ctx, obj, resolve_enum_field);
@@ -2970,7 +2977,7 @@ num_cases(struct context *ctx, const struct type *type)
 			}
 			assert(obj->otype == O_CONST);
 			bool should_count = true;
-			for (const struct scope_object *other = obj->lnext;
+			for (struct scope_object *other = obj->lnext;
 					other != NULL; other = other->lnext) {
 				if (other->otype == O_DECL) {
 					continue;
@@ -3586,7 +3593,7 @@ check_function(struct context *ctx,
 	decl->func.type = obj->type;
 	decl->func.flags = afndecl->flags;
 	decl->exported = adecl->exported;
-	decl->loc = adecl->loc;
+	decl->file = adecl->loc.file;
 
 	decl->symbol = ident_to_sym(&obj->ident);
 	mkident(ctx, &decl->ident, &afndecl->ident, NULL);
@@ -3628,23 +3635,6 @@ check_function(struct context *ctx,
 		params = params->next;
 	}
 
-	struct expression *body = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, afndecl->body, body, obj->type->func.result);
-	// TODO: Pass errors up and deal with them at the end of check
-	handle_errors(ctx->errors);
-
-	if (!type_is_assignable(ctx, obj->type->func.result, body->result)) {
-		char *restypename = gen_typename(body->result);
-		char *fntypename = gen_typename(obj->type->func.result);
-		error(ctx, afndecl->body->loc, body,
-			"Result value %s is not assignable to function result type %s",
-			restypename, fntypename);
-		free(restypename);
-		free(fntypename);
-		return;
-	}
-	decl->func.body = lower_implicit_cast(ctx, obj->type->func.result, body);
-
 	// TODO: Add function name to errors
 	if (decl->func.flags != 0) {
 		const char *flag = NULL;
@@ -3661,7 +3651,7 @@ check_function(struct context *ctx,
 		default:
 			error(ctx, adecl->loc, NULL,
 				"Only one of @init, @fini, or @test may be used in a function declaration");
-			return;
+			break;
 		};
 		if (obj->type->func.result != &builtin_type_void) {
 			error(ctx, adecl->loc, NULL, "%s function must return void", flag);
@@ -3674,10 +3664,28 @@ check_function(struct context *ctx,
 		}
 	}
 
+	struct expression *body = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, afndecl->body, body, obj->type->func.result);
+
+	if (!type_is_assignable(ctx, obj->type->func.result, body->result)) {
+		char *restypename = gen_typename(body->result);
+		char *fntypename = gen_typename(obj->type->func.result);
+		error(ctx, afndecl->body->loc, body,
+			"Result value %s is not assignable to function result type %s",
+			restypename, fntypename);
+		free(restypename);
+		free(fntypename);
+		return;
+	}
+	if (body->result->storage != STORAGE_ERROR) {
+		decl->func.body = lower_implicit_cast(ctx,
+			obj->type->func.result, body);
+	}
+
 	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
 end:
-	if (((adecl->function.flags & FN_TEST) && !ctx->is_test) || ctx->errors) {
+	if ((adecl->function.flags & FN_TEST) && !ctx->is_test) {
 		return;
 	}
 	append_decl(ctx, decl);
@@ -3823,8 +3831,8 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 			idecl->obj.type = type;
 			append_decl(ctx, &(struct declaration){
 				.decl_type = DECL_TYPE,
+				.file = decl->loc.file,
 				.ident = idecl->obj.ident,
-				.loc = decl->loc,
 				.exported = exported,
 				.type = type,
 			});
@@ -4021,9 +4029,9 @@ end:
 	}
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_CONST,
+		.file = idecl->decl.loc.file,
 		.ident = idecl->obj.ident,
 		.exported = idecl->decl.exported,
-		.loc = idecl->decl.loc,
 		.constant = {
 			.type = type,
 			.value = value,
@@ -4127,11 +4135,11 @@ end:
 
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_GLOBAL,
+		.file = idecl->decl.loc.file,
 		.ident = idecl->obj.ident,
 		.symbol = ident_to_sym(&idecl->obj.ident),
 
 		.exported = idecl->decl.exported,
-		.loc = idecl->decl.loc,
 		.global = {
 			.type = type,
 			.value = value,
@@ -4151,7 +4159,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		.name = idecl->obj.ident.name
 	};
 
-	const struct scope_object *new =
+	struct scope_object *new =
 		scope_lookup(idecl->field->enum_scope, &localname);
 	if (new != &idecl->obj) {
 		wrap_resolver(ctx, new, resolve_enum_field);
@@ -4185,7 +4193,7 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 				"Unable to evaluate constant initializer at compile time");
 		}
 	} else { // implicit value
-		const struct scope_object *obj = idecl->obj.lnext;
+		struct scope_object *obj = idecl->obj.lnext;
 		// find previous enum value
 		wrap_resolver(ctx, obj, resolve_enum_field);
 		value->type = EXPR_CONSTANT;
@@ -4263,7 +4271,7 @@ lookup_enum_type(struct context *ctx, const struct scope_object *obj)
 }
 
 static void
-scan_enum_field_aliases(struct context *ctx, const struct scope_object *obj)
+scan_enum_field_aliases(struct context *ctx, struct scope_object *obj)
 {
 	const struct type *enum_type = lookup_enum_type(ctx, obj);
 
@@ -4386,8 +4394,8 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_TYPE,
+		.file = idecl->decl.loc.file,
 		.ident = idecl->obj.ident,
-		.loc = idecl->decl.loc,
 		.exported = idecl->decl.exported,
 		.type = alias,
 	});
@@ -4479,9 +4487,9 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 		break;
 	case ADECL_ASSERT:;
 		static uint64_t num = 0;
-		int n = snprintf(NULL, 0, "static assert %" SCNu64, num);
+		int n = snprintf(NULL, 0, "static assert %" PRIu64, num);
 		ident.name = xcalloc(n + 1, sizeof(char));
-		snprintf(ident.name, n + 1, "static assert %" SCNu64, num);
+		snprintf(ident.name, n + 1, "static assert %" PRIu64, num);
 		++num;
 		idecl = incomplete_declaration_create(ctx, decl->loc,
 			ctx->scope, &ident, &ident);
@@ -4530,20 +4538,19 @@ resolve_decl(struct context *ctx, struct incomplete_declaration *idecl)
 }
 
 void
-wrap_resolver(struct context *ctx, const struct scope_object *obj,
-	resolvefn resolver)
+wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 {
+	// ensure this declaration wasn't already scanned
+	if (!obj || obj->otype != O_SCAN) {
+		return;
+	}
+
 	// save current subunit and enum context
 	struct scope *scope = ctx->scope;
 	struct scope *subunit = ctx->unit->parent;
 	ctx->unit->parent = NULL;
 	const struct type *fntype = ctx->fntype;
 	ctx->fntype = NULL;
-
-	// ensure this declaration wasn't already scanned
-	if (!obj || obj->otype != O_SCAN) {
-		goto exit;
-	}
 
 	struct incomplete_declaration *idecl = (struct incomplete_declaration *)obj;
 
@@ -4567,7 +4574,6 @@ wrap_resolver(struct context *ctx, const struct scope_object *obj,
 	resolver(ctx, idecl);
 
 	idecl->in_progress = false;
-exit:
 	// load stored context
 	ctx->fntype = fntype;
 	ctx->unit->parent = subunit;
@@ -4755,7 +4761,7 @@ check_internal(struct type_store *ts,
 	}
 
 	// Find enum aliases and store them in incomplete enum value declarations
-	for (const struct scope_object *obj = ctx.scope->objects;
+	for (struct scope_object *obj = ctx.scope->objects;
 			obj; obj = obj->lnext) {
 		scan_enum_field_aliases(&ctx, obj);
 	}
@@ -4785,7 +4791,7 @@ check_internal(struct type_store *ts,
 	}
 
 	// Perform actual declaration resolution
-	for (const struct scope_object *obj = ctx.unit->objects;
+	for (struct scope_object *obj = ctx.unit->objects;
 			obj; obj = obj->lnext) {
 		wrap_resolver(&ctx, obj, resolve_decl);
 		// populate the expression graph

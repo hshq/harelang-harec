@@ -174,7 +174,6 @@ struct expression_cast {
 };
 
 struct call_argument {
-	bool variadic;
 	struct expression *value;
 	struct call_argument *next;
 };

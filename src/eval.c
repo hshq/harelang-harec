@@ -192,12 +192,21 @@ eval_binarithm(struct context *ctx,
 		if (type_is_float(ctx, lvalue.result)) {
 			fval = ftrunc(ctx, lvalue.result, flval) / ftrunc(ctx, rvalue.result, frval);
 		} else if (type_is_signed(ctx, lvalue.result)) {
+			int64_t l = itrunc(ctx, lvalue.result, ilval);
 			int64_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, NULL, "division by zero");
 				return false;
+			} else if (r == -1) {
+				uint64_t bit = lvalue.result->size * 8 - 1;
+				uint64_t min = -((uint64_t)1 << bit);
+				if (l == (int64_t)min) {
+					error(ctx, in->loc, NULL,
+						"division overflow");
+					return false;
+				}
 			}
-			ival = (int64_t)itrunc(ctx, lvalue.result, ilval) / r;
+			ival = l / r;
 		} else {
 			assert(type_is_integer(ctx, lvalue.result));
 			uint64_t r = itrunc(ctx, rvalue.result, urval);
@@ -227,12 +236,21 @@ eval_binarithm(struct context *ctx,
 	case BIN_MODULO:
 		assert(type_is_integer(ctx, lvalue.result));
 		if (type_is_signed(ctx, lvalue.result)) {
+			int64_t l = itrunc(ctx, lvalue.result, ilval);
 			int64_t r = itrunc(ctx, rvalue.result, irval);
 			if (r == 0) {
 				error(ctx, in->loc, NULL, "division by zero");
 				return false;
+			} else if (r == -1) {
+				uint64_t bit = lvalue.result->size * 8 - 1;
+				uint64_t min = -((uint64_t)1 << bit);
+				if (l == (int64_t)min) {
+					error(ctx, in->loc, NULL,
+						"division overflow");
+					return false;
+				}
 			}
-			ival = (int64_t)itrunc(ctx, lvalue.result, ilval) % r;
+			ival = l % r;
 		} else {
 			uint64_t r = itrunc(ctx, rvalue.result, urval);
 			if (r == 0) {
@@ -403,9 +421,6 @@ eval_const(struct context *ctx,
 			anext = &aconst->next;
 		}
 		break;
-	case STORAGE_FUNCTION:
-	case STORAGE_SLICE:
-		assert(0); // TODO
 	case STORAGE_STRING:
 		out->constant.string.len = in->constant.string.len;
 		out->constant.string.value = xcalloc(1, in->constant.string.len);
@@ -473,8 +488,10 @@ eval_const(struct context *ctx,
 	case STORAGE_VOID:
 		out->constant = in->constant;
 		break;
+	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
+	case STORAGE_SLICE:
 	case STORAGE_VALIST:
 		abort(); // Invariant
 	}

@@ -20,6 +20,13 @@ fn padding() void = {
 	assert(&s.q: uintptr: size % 8 == 0);
 };
 
+type v = struct { v: void };
+type vv = struct { v: void, w: void };
+let a = v { ... };
+let b = vv { ... };
+def A = v { ... };
+def B = vv { ... };
+
 fn storage() void = {
 	let coords = struct { x: i32 = 10, y: i32 = 20 };
 	let ptr = &coords: *[*]i32;
@@ -33,6 +40,12 @@ fn assignment() void = {
 	assert(coords.x == 40 && coords.y == 50);
 	coords = struct { x: int = 60, y: int = 70 };
 	assert(coords.x == 60 && coords.y == 70);
+
+	let a = v { ... };
+	a.v = a.v;
+	let b = vv { ... };
+	b.v = b.w;
+	b.w = void;
 };
 
 fn deref() void = {
@@ -119,7 +132,7 @@ type coords3 = struct { coords, z: int };
 type embed = struct { a: uint, b: u8 };
 type _enum = enum { A = -1, B, C };
 // complex embedded hierarchy
-type me = struct { embed, coords3, @offset(24) f: int, g: (int, str), h: _enum, p: nullable *int };
+type me = struct { embed, coords3, @offset(24) v: void, f: int, g: (int, str), h: _enum, p: nullable *int };
 let g1: me = me {        b = 4, x = -1, y = -2, z = -3, f = 20, ... };
 let g2: me = me {               x = -1, y = -2, z = -3, f = 20, ... };
 let g3: me = me {                       y = -2, z = -3, f = 20, ... };
@@ -132,6 +145,16 @@ fn named() void = {
 	assert(x.x == 20 && x.y == 10);
 };
 
+type offset_test = struct {
+	a: int,
+	b: void,
+	c: size,
+	d: void,
+	e: size,
+	f: void,
+	g: [0]int,
+};
+
 fn _offset() void = {
 	let x = me { ... };
 	assert(offset(x.a) == 0);
@@ -139,11 +162,22 @@ fn _offset() void = {
 	assert(offset(x.x) == 8);
 	assert(offset(x.y) == 12);
 	assert(offset(x.z) == 16);
+	assert(offset(x.v) == 24);
 	assert(offset(x.f) == 24);
 	assert(offset(x.g) == 32);
 	assert(offset(x.h) == 64);
 	assert(offset(x.p) == 72);
 	assert(size(me) == 80);
+
+	let x = offset_test { ... };
+	assert(offset(x.a) == 0);
+	assert(offset(x.b) == 4);
+	assert(offset(x.c) == 8);
+	assert(offset(x.d) == 16);
+	assert(offset(x.e) == 16);
+	assert(offset(x.f) == 24);
+	assert(offset(x.g) == 24);
+	assert(size(offset_test) == 24);
 };
 
 fn autofill() void = {
@@ -206,8 +240,6 @@ fn invariants() void = {
 	"fn test() void = { let x = struct { x = 10 }; };",
 	// Members of undefined size before last
 	"type s = struct { x: [*]int, a: str };",
-	// Members of size 0
-	"type s = struct { x: void, a: str };",
 
 	// No arithmetic on structs
 	"type s = struct { a: int };"
@@ -248,6 +280,8 @@ fn invariants() void = {
 };
 
 fn fields() void = {
+	g1.v;
+
 	let n: u32 = 0;
 
 	let up = &n: *union {

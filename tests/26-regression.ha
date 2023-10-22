@@ -213,4 +213,14 @@ export fn main() void = {
 
 	let r = 'a';
 	r: i64;
+
+	:outer {
+		let x: []int = {
+			if (true) yield :outer;
+			yield [];
+		};
+		abort();
+	};
+
+	assert(rt::compile("fn f() void = { let x = 0; x { ... }; };") as rt::exited != rt::EXIT_SUCCESS);
 };

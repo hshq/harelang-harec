@@ -12,6 +12,7 @@
 #include "lex.h"
 #include "parse.h"
 #include "types.h"
+#include "utf8.h"
 #include "util.h"
 
 static void
@@ -823,6 +824,7 @@ parse_constant(struct lexer *lexer)
 		break;
 	}
 
+	struct location loc = tok.loc;
 	switch (tok.storage) {
 	case STORAGE_U8:
 	case STORAGE_U16:
@@ -863,6 +865,20 @@ parse_constant(struct lexer *lexer)
 			exp->constant.string.len += tok.string.len;
 		}
 		unlex(lexer, &tok);
+
+		// check for invalid UTF-8 (possible when \x is used)
+		const char *s = exp->constant.string.value;
+		size_t len = exp->constant.string.len;
+		while (s - exp->constant.string.value < (ptrdiff_t)len) {
+			if (utf8_decode(&s) != UTF8_INVALID) {
+				continue;
+			}
+			xfprintf(stderr,
+				"%s:%d%d: invalid UTF-8 in string literal\n",
+				sources[loc.file], loc.lineno, loc.colno);
+			errline(loc);
+			exit(EXIT_FAILURE);
+		}
 		break;
 	case STORAGE_BOOL:
 	case STORAGE_NULL:

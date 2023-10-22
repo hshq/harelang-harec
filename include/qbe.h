@@ -211,8 +211,8 @@ struct qbe_func {
 };
 
 enum qbe_datatype {
-	QD_VALUE,
 	QD_ZEROED,
+	QD_VALUE,
 	QD_STRING,
 	QD_SYMOFFS,
 };

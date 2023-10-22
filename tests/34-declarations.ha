@@ -16,6 +16,12 @@ def I = 12;
 def F = 12.0;
 def R = 'x';
 
+// zero-size constants
+def V = void;
+def ZA: [0]int = [];
+def ZS = struct { v: void = void };
+def ZT = (void, void);
+
 fn constants() void = {
 	assert(ARR[0] == 1 && ARR[1] == 2 && ARR[2] == 3);
 	assert(A1 == -1 && B1 == -1);
@@ -44,6 +50,15 @@ fn constants() void = {
 	let x: *rune = &x;
 	let x: u32 = R;
 	assert(x == 'x');
+
+	V;
+	ZS;
+	ZS.v;
+	ZT;
+	ZT.0;
+	ZT.1;
+	ZA;
+	assert(len(ZA) == 0);
 };
 
 def C = 42;
@@ -106,6 +121,9 @@ fn local_constants() void = {
 			static assert(X == 42);
 		};
 	`, "-DX=1337") as exited == EXIT_SUCCESS);
+	assert(compile(`fn test() void = {
+		static def X = 0;
+	};`) as exited != EXIT_SUCCESS);
 };
 
 // elementary self-referential types
@@ -261,6 +279,12 @@ type arru8ptr_B = [8]*arru8_B, arru8_B = [size(arru8ptr_B)]u8; // reverse
 
 type arru8_al_A = [align(arru8ptr_al_A)]u8, arru8ptr_al_A = [8]*arru8_al_A;
 type arru8ptr_al_B = [8]*arru8_al_B, arru8_al_B = [align(arru8ptr_al_B)]u8; // reverse
+
+// zero-size
+let v = void;
+let za: [0]int = [];
+let zs = struct { v: void = void };
+let zt = (void, void);
 
 // unwrapped aliases to tagged unions
 type unwrap_A1 = ([32]u8 | void | str),
