@@ -1294,12 +1294,13 @@ check_expr_binding(struct context *ctx,
 		if (abinding->type
 				&& abinding->type->storage == STORAGE_ARRAY
 				&& abinding->type->array.contextual) {
-			if (initializer->result->storage != STORAGE_ARRAY) {
+			if (initializer->result->storage == STORAGE_ERROR) {
+				// no-op
+			} else if (initializer->result->storage != STORAGE_ARRAY) {
 				error(ctx, aexpr->loc, expr,
 					"Cannot infer array length from non-array type");
 				return;
-			}
-			if (initializer->result->array.members
+			} else if (initializer->result->array.members
 					!= type->array.members) {
 				error(ctx, aexpr->loc, expr,
 					"Initializer is not assignable to binding type");
