@@ -904,7 +904,11 @@ _type_store_lookup_type(
 		bucket = *next;
 		if (bucket->type.id == hash) {
 			if (bucket->type.storage == STORAGE_ALIAS) {
-				bucket->type.alias.type = type->alias.type;
+				type = type->alias.type;
+				bucket->type.alias.type = type;
+				if (type && type->storage == STORAGE_ERROR) {
+					return &builtin_type_error;
+				}
 			}
 			return &bucket->type;
 		}

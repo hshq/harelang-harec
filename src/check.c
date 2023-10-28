@@ -4328,8 +4328,11 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 		} else {
 			loc = idecl->decl.loc;
 		}
-		error_norec(ctx, loc, "'%s' is not a type",
-				identifier_unparse(&idecl->obj.name));
+		char *ident = identifier_unparse(&idecl->obj.name);
+		error(ctx, loc, NULL, "'%s' is not a type", ident);
+		free(ident);
+		idecl->obj.type = &builtin_type_error;
+		return;
 	}
 	struct dimensions dim = type_store_lookup_dimensions(ctx->store,
 			idecl->decl.type.type);
@@ -4356,10 +4359,9 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 
 	// 1. compute type dimensions
+	struct errors **cur_err = ctx->next;
 	struct dimensions dim = type_store_lookup_dimensions(
 			ctx->store, idecl->decl.type.type);
-
-	handle_errors(ctx->errors);
 	idecl->in_progress = false;
 
 	// 2. compute type representation and store it
@@ -4376,12 +4378,16 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 		.flags = idecl->decl.type.type->flags,
 	};
 
-	const struct type *alias = type_store_lookup_alias(
+	struct type *alias = (struct type *)type_store_lookup_alias(
 			ctx->store, &_alias, &dim);
 	idecl->obj.otype = O_TYPE;
 	idecl->obj.type = alias;
-	((struct type *)alias)->alias.type =
-		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
+	if (ctx->next == cur_err) {
+		alias->alias.type = type_store_lookup_atype(
+			ctx->store, idecl->decl.type.type);
+	} else {
+		alias->alias.type = &builtin_type_error;
+	}
 	assert(alias->alias.type != NULL);
 	if (idecl->decl.exported) {
 		check_exported_type(ctx, idecl->decl.type.type->loc,
@@ -4389,7 +4395,7 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 	if (alias->alias.type->storage == STORAGE_NEVER) {
 		error(ctx, loc, NULL, "Can't declare type alias of never");
-		((struct type *)alias)->alias.type = &builtin_type_error;
+		alias->alias.type = &builtin_type_error;
 	}
 
 	append_decl(ctx, &(struct declaration){
