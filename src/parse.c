@@ -1539,7 +1539,9 @@ parse_object_selector(struct lexer *lexer)
 	lex(lexer, &tok);
 	unlex(lexer, &tok);
 	struct ast_expression *exp = parse_postfix_expression(lexer, NULL);
-	synassert_msg(exp->type == EXPR_ACCESS, "expected object", &tok);
+	synassert_msg(exp->type == EXPR_ACCESS,
+		"Expected object selector (identifier, indexing, or field access)",
+		&tok);
 	return exp;
 }
 
