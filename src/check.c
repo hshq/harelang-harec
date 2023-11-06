@@ -1968,6 +1968,10 @@ check_expr_control(struct context *ctx,
 	}
 	expr->control.scope = scope;
 
+	if (expr->type == EXPR_BREAK) {
+		scope->has_break = true;
+	}
+
 	if (expr->type != EXPR_YIELD) {
 		return;
 	}
@@ -2044,6 +2048,12 @@ check_expr_for(struct context *ctx,
 			"Cannot ignore error here");
 	}
 	expr->_for.body = body;
+	struct expression evaled;
+	if (eval_expr(ctx, cond, &evaled)) {
+		if (evaled.constant.bval && !scope->has_break) {
+			expr->result = &builtin_type_never;
+		};
+	}
 
 	scope_pop(&ctx->scope);
 }

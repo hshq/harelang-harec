@@ -45,6 +45,9 @@ struct yield {
 };
 
 struct scope {
+	// Used for for loops
+	bool has_break;
+
 	enum scope_class class;
 	const char *label;
 	struct scope *parent;

@@ -105,7 +105,6 @@ fn alias() void = {
 	for (true: abool) {
 		return;
 	};
-	abort("unreachable");
 };
 
 fn _static() void = {
@@ -118,6 +117,18 @@ fn _static() void = {
 	assert(count == 5);
 };
 
+fn result() void = {
+	for (true) break;
+	for (true) :loop {
+		for (true) break :loop;
+	};
+	let integer = switch (0) {
+	case 0 => yield 0;
+	case => for (true) void;
+	};
+	assert(integer == 0);
+};
+
 export fn main() void = {
 	scope();
 	conditional();
@@ -128,4 +139,5 @@ export fn main() void = {
 	label();
 	alias();
 	_static();
+	result();
 };
