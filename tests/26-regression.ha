@@ -223,4 +223,6 @@ export fn main() void = {
 	};
 
 	assert(rt::compile("fn f() void = { let x = 0; x { ... }; };") as rt::exited != rt::EXIT_SUCCESS);
+
+	assert(rt::compile("static assert(size(b) == 0); let b = 0;") as rt::exited != rt::EXIT_SUCCESS);
 };

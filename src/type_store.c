@@ -36,9 +36,9 @@ ast_array_len(struct type_store *store, const struct ast_type *atype)
 			"Array length must be an integer");
 		return SIZE_UNDEFINED;
 	}
-	if (type_is_signed(store->check_context, out.result) && out.constant.ival <= 0) {
+	if (type_is_signed(store->check_context, out.result) && out.constant.ival < 0) {
 		error(store->check_context, atype->loc, NULL,
-			"Array length must be greater than 0");
+			"Array length must be non-negative");
 		return SIZE_UNDEFINED;
 	}
 	return (size_t)out.constant.uval;
@@ -904,7 +904,11 @@ _type_store_lookup_type(
 		bucket = *next;
 		if (bucket->type.id == hash) {
 			if (bucket->type.storage == STORAGE_ALIAS) {
-				bucket->type.alias.type = type->alias.type;
+				type = type->alias.type;
+				bucket->type.alias.type = type;
+				if (type && type->storage == STORAGE_ERROR) {
+					return &builtin_type_error;
+				}
 			}
 			return &bucket->type;
 		}
