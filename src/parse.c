@@ -159,93 +159,63 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 }
 
 static void
-parse_name_list(struct lexer *lexer, struct ast_imports *name)
+parse_import_members(struct lexer *lexer, struct ast_import_members **members)
 {
-	bool more = true;
-	struct ast_imports **next = &name->next;
-	while (more) {
-		struct token tok = {0};
+	struct token tok = {0};
+	while (true) {
+		*members = xcalloc(1, sizeof(struct ast_import_members));
 		want(lexer, T_NAME, &tok);
-		name->ident.name = xstrdup(tok.name);
-		name->loc = tok.loc;
-		token_finish(&tok);
-
-		switch (lex(lexer, &tok)) {
-		case T_EQUAL:
-			want(lexer, T_NAME, &tok);
-			name->alias = xcalloc(1, sizeof(struct identifier));
-			*name->alias = name->ident;
-			name->ident.name = xstrdup(tok.name);
-			break;
-		default:
-			unlex(lexer, &tok);
-			break;
-		};
+		(*members)->loc = tok.loc;
+		(*members)->name = tok.name;
+		members = &(*members)->next;
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
-			switch (lex(lexer, &tok)) {
-			case T_RBRACE:
-				more = false;
-				break;
-			default:
-				unlex(lexer, &tok);
-				name = xcalloc(1, sizeof(struct ast_imports));
-				*next = name;
-				next = &name->next;
-			}
 			break;
 		case T_RBRACE:
-			more = false;
-			break;
+			return;
 		default:
-			synerr(&tok, T_RBRACE, T_EQUAL, T_COMMA, T_EOF);
+			synerr(&tok, T_COMMA, T_RBRACE, T_EOF);
+		}
+		switch (lex(lexer, &tok)) {
+		case T_NAME:
+			unlex(lexer, &tok);
 			break;
+		case T_RBRACE:
+			return;
+		default:
+			synerr(&tok, T_NAME, T_RBRACE, T_EOF);
 		}
 	}
 }
 
 static void
-parse_import(struct lexer *lexer, struct ast_imports *imports)
+parse_import(struct lexer *lexer, struct ast_imports *import)
 {
-	struct identifier ident = {0};
 	struct token tok = {0};
-	imports->mode = 0;
-	while (true) {
-		bool trailing_colon = parse_identifier(lexer, &ident, true);
+	import->mode = IMPORT_NORMAL;
+	bool trailing_colon = parse_identifier(lexer, &import->ident, true);
+	if (trailing_colon) {
+		switch (lex(lexer, &tok)) {
+		case T_LBRACE:
+			import->mode = IMPORT_MEMBERS;
+			parse_import_members(lexer, &import->members);
+			break;
+		case T_TIMES:
+			import->mode = IMPORT_WILDCARD;
+			break;
+		default:
+			synerr(&tok, T_LBRACE, T_TIMES, T_EOF);
+		}
+	} else if (import->ident.ns == NULL) {
 		switch (lex(lexer, &tok)) {
 		case T_EQUAL:
-			synassert(!trailing_colon, &tok, T_NAME, T_EOF);
-			synassert(!(imports->mode & AST_IMPORT_ALIAS), &tok,
-					T_SEMICOLON, T_LBRACE, T_EOF);
-			imports->mode |= AST_IMPORT_ALIAS;
-			imports->alias = xcalloc(1, sizeof(struct identifier));
-			*imports->alias = ident;
+			import->mode = IMPORT_ALIAS;
+			import->alias = import->ident.name;
+			parse_identifier(lexer, &import->ident, false);
 			break;
-		case T_LBRACE:
-			synassert(trailing_colon, &tok, T_DOUBLE_COLON, T_EOF);
-			imports->mode |= AST_IMPORT_MEMBERS;
-			imports->ident = ident;
-			imports->members = xcalloc(1, sizeof(struct ast_imports));
-			parse_name_list(lexer, imports->members);
-			want(lexer, T_SEMICOLON, &tok);
-			return;
-		case T_SEMICOLON:
-			synassert(!trailing_colon, &tok, T_NAME, T_EOF);
-			imports->ident = ident;
-			return;
-		case T_TIMES:
-			synassert(trailing_colon, &tok, T_DOUBLE_COLON, T_EOF);
-			synassert(!(imports->mode & AST_IMPORT_ALIAS), &tok,
-					T_SEMICOLON, T_LBRACE, T_EOF);
-			imports->mode |= AST_IMPORT_WILDCARD;
-			imports->alias = NULL;
-			imports->ident = ident;
-			want(lexer, T_SEMICOLON, &tok);
-			return;
 		default:
-			synassert(!trailing_colon, &tok, T_EQUAL, T_SEMICOLON, T_EOF);
-			synassert(trailing_colon, &tok, T_NAME, T_LBRACE, T_EOF);
+			unlex(lexer, &tok);
 			break;
 		}
 	}
@@ -264,6 +234,7 @@ parse_imports(struct lexer *lexer, struct ast_subunit *subunit)
 		case T_USE:
 			imports = xcalloc(1, sizeof(struct ast_imports));
 			parse_import(lexer, imports);
+			want(lexer, T_SEMICOLON, NULL);
 			*next = imports;
 			next = &imports->next;
 			break;

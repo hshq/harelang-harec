@@ -4607,24 +4607,14 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 	struct scope *mod = module_resolve(ctx, defines, &import->ident, ts);
 	ctx->store->check_context = old_ctx;
 
-	struct identifier _ident = {0};
-	struct identifier *mod_ident = &_ident;
-	if (import->mode & (AST_IMPORT_WILDCARD | AST_IMPORT_ALIAS)) {
-		mod_ident = import->alias;
-	} else {
-		mod_ident->name = import->ident.name;
-	}
-	if (import->mode & AST_IMPORT_MEMBERS) {
-		assert(!(import->mode & AST_IMPORT_WILDCARD));
-		for (struct ast_imports *member = import->members;
+	if (import->mode == IMPORT_MEMBERS) {
+		for (const struct ast_import_members *member = import->members;
 				member; member = member->next) {
 			struct identifier name = {
-				.name = member->alias?
-					member->alias->name : member->ident.name,
-				.ns = import->alias,
+				.name = member->name,
 			};
 			struct identifier ident = {
-				.name = member->ident.name,
+				.name = member->name,
 				.ns = &import->ident,
 			};
 			const struct scope_object *obj = scope_lookup(mod, &ident);
@@ -4632,6 +4622,7 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 				error_norec(ctx, member->loc, "Unknown object '%s'",
 						identifier_unparse(&ident));
 			}
+			assert(obj->otype != O_SCAN);
 			struct scope_object *new = scope_insert(
 					scope, obj->otype, &obj->ident,
 					&name, obj->type, obj->value);
@@ -4640,10 +4631,10 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 					|| type_dealias(ctx, obj->type)->storage
 						!= STORAGE_ENUM) {
 				continue;
-			};
-			struct scope *enum_scope =
+			}
+			const struct scope *enum_scope =
 				type_dealias(ctx, obj->type)->_enum.values;
-			for (struct scope_object *o = enum_scope->objects;
+			for (const struct scope_object *o = enum_scope->objects;
 					o; o = o->lnext) {
 				struct identifier value_ident = {
 					.name = o->name.name,
@@ -4655,38 +4646,64 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 				};
 				scope_insert(scope, o->otype, &value_ident,
 					&value_name, o->type, o->value);
-			};
-
-		}
-	} else {
-		for (struct scope_object *obj = mod->objects;
-				obj; obj = obj->lnext) {
-			assert(obj->otype != O_SCAN);
-
-			struct scope_object *new;
-			if (!(import->mode & AST_IMPORT_ALIAS)
-					&& import->ident.ns != NULL) {
-				new = scope_insert(scope, obj->otype, &obj->ident,
-					&obj->name, obj->type, obj->value);
-				new->threadlocal = obj->threadlocal;
 			}
+		}
+		return;
+	}
 
-			struct identifier ns, name = {
-				.name = obj->name.name,
-				.ns = mod_ident,
-			};
-			if (type_dealias(ctx, obj->type)->storage == STORAGE_ENUM
-					&& obj->otype == O_CONST) {
-				ns = (struct identifier){
-					.name = obj->name.ns->name,
-					.ns = mod_ident,
-				};
-				name.ns = &ns;
-			};
+	struct identifier _ident = {0};
+	struct identifier *prefix = &_ident;
+	switch (import->mode) {
+	case IMPORT_NORMAL:
+		prefix->name = import->ident.name;
+		break;
+	case IMPORT_ALIAS:
+		prefix->name = import->alias;
+		break;
+	case IMPORT_WILDCARD:
+		prefix = NULL;
+		break;
+	case IMPORT_MEMBERS:
+		assert(0); // Unreachable
+	}
+
+	for (const struct scope_object *obj = mod->objects;
+			obj; obj = obj->lnext) {
+		assert(obj->otype != O_SCAN);
+
+		struct scope_object *new;
+		if (import->mode == IMPORT_NORMAL) {
 			new = scope_insert(scope, obj->otype, &obj->ident,
-				&name, obj->type, obj->value);
+				&obj->name, obj->type, obj->value);
 			new->threadlocal = obj->threadlocal;
 		}
+
+		struct identifier ns, name = {
+			.name = obj->name.name,
+			.ns = prefix,
+		};
+		if (obj->name.ns == NULL) {
+			// this is only possible if an invalid .td file is used.
+			// this check is necessary since the scope_lookup below
+			// will segfault if obj->name.ns is NULL
+			error_norec(ctx, (struct location){0},
+				"Invalid typedefs for %s",
+				identifier_unparse(&import->ident));
+		}
+		const struct scope_object *_enum = scope_lookup(mod, obj->name.ns);
+		if (_enum != NULL && _enum->otype == O_TYPE
+				&& _enum->type->storage == STORAGE_ENUM) {
+			// include enum type in identifier if object is an enum
+			// constant
+			ns = (struct identifier){
+				.name = obj->name.ns->name,
+				.ns = prefix,
+			};
+			name.ns = &ns;
+		}
+		new = scope_insert(scope, obj->otype, &obj->ident,
+			&name, obj->type, obj->value);
+		new->threadlocal = obj->threadlocal;
 	}
 }
 
