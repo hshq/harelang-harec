@@ -141,6 +141,13 @@ fn reject() void = {
 			insert(x[1], [1]: [*]u8...);
 		};
 	") as exited != EXIT_SUCCESS); // unbounded array value
+	assert(compile("
+		let y: opaque;
+		fn test() void = {
+			let x = []: []u8: []opaque;
+			insert(x[0], y);
+		};
+	") as exited != EXIT_SUCCESS); // value has undefined size
 };
 
 fn _never() void = {

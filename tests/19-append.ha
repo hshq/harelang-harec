@@ -135,6 +135,13 @@ fn reject() void = {
 			append(x, [1]: [*]u8...);
 		};
 	") as exited != EXIT_SUCCESS); // unbounded array value
+	assert(compile("
+		let y: opaque;
+		fn test() void = {
+			let x = []: []u8: []opaque;
+			append(x, y);
+		};
+	") as exited != EXIT_SUCCESS); // value has undefined size
 };
 
 fn _never() void = {

@@ -619,6 +619,12 @@ check_expr_append_insert(struct context *ctx,
 			"expression must operate on a mutable slice");
 		return;
 	}
+	if (sltype->array.members->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->append.object->loc, expr,
+			"Cannot %s %sto slice whose member type has undefined size",
+			exprtype_name, expr->type == EXPR_APPEND ? "" : "in");
+		return;
+	}
 
 	expr->append.value = xcalloc(1, sizeof(struct expression));
 
