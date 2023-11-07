@@ -663,6 +663,9 @@ check_expr_append_insert(struct context *ctx,
 			"Value must be an array, slice, or array pointer in multi-valued %s",
 			exprtype_name);
 		return;
+	} else if (valtype->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->loc, expr, "Value array must be bounded");
+		return;
 	}
 	if (valtype->storage == STORAGE_POINTER) {
 		valtype = valtype->pointer.referent;

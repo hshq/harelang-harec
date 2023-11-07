@@ -135,6 +135,12 @@ fn reject() void = {
 			insert(x[1], [0...]..., 3);
 		};
 	") as exited != EXIT_SUCCESS); // ellipsis with length
+	assert(compile("
+		fn test() void = {
+			let x: []u8 = [0u8];
+			insert(x[1], [1]: [*]u8...);
+		};
+	") as exited != EXIT_SUCCESS); // unbounded array value
 };
 
 fn _never() void = {
