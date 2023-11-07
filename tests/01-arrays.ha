@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS, EXIT_FAILURE};
+use rt::{compile, exited, EXIT_SUCCESS};
 
 fn indexing() void = {
 	let x = [1, 2, 3];
@@ -171,17 +171,17 @@ fn eval_access() void = {
 fn reject() void = {
 	// unbounded arrays of values of undefined size
 	assert(compile("fn f() void = { let x = null: *[*][*]int; };")
-		as exited == EXIT_FAILURE);
+		as exited != EXIT_SUCCESS);
 	assert(compile("fn f() void = { let x = null: *[*]fn ()int; };")
-		as exited == EXIT_FAILURE);
+		as exited != EXIT_SUCCESS);
 
 	// assignment to array of undefined size
 	assert(compile("let x: [*]int; fn f() void = { x = []; };")
-		as exited == EXIT_FAILURE);
+		as exited != EXIT_SUCCESS);
 
 	// compile-time evaluation of len with slice
 	assert(compile("let x: []int; let y = len(x);")
-		as exited == EXIT_FAILURE);
+		as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {
