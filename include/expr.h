@@ -29,8 +29,9 @@ enum expr_type {
 	EXPR_FREE,
 	EXPR_IF,
 	EXPR_INSERT,
+	EXPR_LEN,
+	EXPR_MEASURE = EXPR_LEN, // for use in AST
 	EXPR_MATCH,
-	EXPR_MEASURE,
 	EXPR_PROPAGATE,
 	EXPR_RETURN,
 	EXPR_SLICE,
@@ -272,25 +273,13 @@ struct match_case {
 	struct match_case *next;
 };
 
+struct expression_len {
+	struct expression *value;
+};
+
 struct expression_match {
 	struct expression *value;
 	struct match_case *cases;
-};
-
-enum measure_operator {
-	M_ALIGN,
-	M_LEN,
-	M_SIZE,
-	M_OFFSET,
-};
-
-struct expression_measure {
-	enum measure_operator op;
-	union {
-		struct expression *value;
-		struct dimensions dimensions;
-		// TODO: Field selection
-	};
 };
 
 struct expression_return {
@@ -374,8 +363,8 @@ struct expression {
 		struct expression_for _for;
 		struct expression_free free;
 		struct expression_if _if;
+		struct expression_len len;
 		struct expression_match match;
-		struct expression_measure measure;
 		struct expression_return _return;
 		struct expression_switch _switch;
 		struct expression_struct _struct;

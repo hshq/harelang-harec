@@ -178,6 +178,10 @@ fn reject() void = {
 	// assignment to array of undefined size
 	assert(compile("let x: [*]int; fn f() void = { x = []; };")
 		as exited == EXIT_FAILURE);
+
+	// compile-time evaluation of len with slice
+	assert(compile("let x: []int; let y = len(x);")
+		as exited == EXIT_FAILURE);
 };
 
 export fn main() void = {

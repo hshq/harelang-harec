@@ -2704,70 +2704,39 @@ gen_expr_match_with(struct gen_context *ctx,
 }
 
 static struct gen_value
-gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
+gen_expr_len(struct gen_context *ctx, const struct expression *expr)
 {
 	size_t len;
 	struct gen_value gv, temp;
-	const struct type *type;
-	const struct expression *value = expr->measure.value;
-	switch (expr->measure.op) {
-	case M_LEN:
-		type = type_dealias(NULL, type_dereference(NULL, value->result));
-		switch (type->storage) {
-		case STORAGE_ARRAY:
-			len = type->array.length;
-			assert(len != SIZE_UNDEFINED);
-			return (struct gen_value){
-				.kind = GV_CONST,
-				.type = &builtin_type_size,
-				.lval = len,
-			};
-		case STORAGE_SLICE:
-		case STORAGE_STRING:
-			gv = gen_expr(ctx, value);
-			gv = gen_autoderef(ctx, gv);
-			temp = mkgtemp(ctx, &builtin_type_size, ".%d");
-			struct qbe_value qv = mkqval(ctx, &gv),
-				qtemp = mkqval(ctx, &temp),
-				offs = constl(builtin_type_size.size);
-			enum qbe_instr load = load_for_type(ctx,
-				&builtin_type_size);
-			pushi(ctx->current, &qtemp, Q_ADD, &qv, &offs, NULL);
-			pushi(ctx->current, &qtemp, load, &qtemp, NULL);
-			return temp;
-		default:
-			abort(); // Invariant
-		}
-		break;
-	case M_ALIGN:
+	const struct expression *value = expr->len.value;
+	const struct type *type = type_dereference(NULL, value->result);
+	assert(type != NULL);
+	type = type_dealias(NULL, type);
+	switch (type->storage) {
+	case STORAGE_ARRAY:
+		len = type->array.length;
+		assert(len != SIZE_UNDEFINED);
 		return (struct gen_value){
 			.kind = GV_CONST,
 			.type = &builtin_type_size,
-			.lval = expr->measure.dimensions.align,
+			.lval = len,
 		};
-	case M_SIZE:
-		return (struct gen_value){
-			.kind = GV_CONST,
-			.type = &builtin_type_size,
-			.lval = expr->measure.dimensions.size,
-		};
-	case M_OFFSET:
-		if (expr->measure.value->access.type == ACCESS_FIELD) {
-			return (struct gen_value){
-				.kind = GV_CONST,
-				.type = &builtin_type_size,
-				.lval = expr->measure.value->access.field->offset,
-			};
-		} else {
-			assert(expr->measure.value->access.type == ACCESS_TUPLE);
-			return (struct gen_value){
-				.kind = GV_CONST,
-				.type = &builtin_type_size,
-				.lval = expr->measure.value->access.tvalue->offset,
-			};
-		}
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+		gv = gen_expr(ctx, value);
+		gv = gen_autoderef(ctx, gv);
+		temp = mkgtemp(ctx, &builtin_type_size, ".%d");
+		struct qbe_value qv = mkqval(ctx, &gv),
+			qtemp = mkqval(ctx, &temp),
+			offs = constl(builtin_type_size.size);
+		enum qbe_instr load = load_for_type(ctx,
+			&builtin_type_size);
+		pushi(ctx->current, &qtemp, Q_ADD, &qv, &offs, NULL);
+		pushi(ctx->current, &qtemp, load, &qtemp, NULL);
+		return temp;
+	default:
+		abort(); // Invariant
 	}
-	abort(); // Invariant
 }
 
 static struct gen_value
@@ -3220,11 +3189,11 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_IF:
 		out = gen_expr_if_with(ctx, expr, NULL);
 		break;
+	case EXPR_LEN:
+		out = gen_expr_len(ctx, expr);
+		break;
 	case EXPR_MATCH:
 		out = gen_expr_match_with(ctx, expr, NULL);
-		break;
-	case EXPR_MEASURE:
-		out = gen_expr_measure(ctx, expr);
 		break;
 	case EXPR_PROPAGATE:
 		assert(0); // Lowered in check (for now?)

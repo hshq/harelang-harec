@@ -2310,16 +2310,17 @@ check_expr_measure(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	expr->type = EXPR_MEASURE;
 	expr->result = &builtin_type_size;
-	expr->measure.op = aexpr->measure.op;
-
-	switch (expr->measure.op) {
+	switch (aexpr->measure.op) {
+	case M_ALIGN:
+	case M_SIZE:
+		break;
 	case M_LEN:
-		expr->measure.value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
+		expr->type = EXPR_LEN;
+		expr->len.value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->measure.value, expr->len.value, NULL);
 		const struct type *atype =
-			type_dereference(ctx, expr->measure.value->result);
+			type_dereference(ctx, expr->len.value->result);
 		if (!atype) {
 			error(ctx, aexpr->access.array->loc, expr,
 				"Cannot dereference nullable pointer for len");
@@ -2329,7 +2330,7 @@ check_expr_measure(struct context *ctx,
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
 			|| vstor == STORAGE_STRING || vstor == STORAGE_ERROR;
 		if (!valid) {
-			char *typename = gen_typename(expr->measure.value->result);
+			char *typename = gen_typename(expr->len.value->result);
 			error(ctx, aexpr->measure.value->loc, expr,
 				"len argument must be of an array, slice, or str type, but got %s",
 				typename);
@@ -2341,26 +2342,9 @@ check_expr_measure(struct context *ctx,
 				"Cannot take length of array type with undefined length");
 			return;
 		}
-		break;
-	case M_ALIGN:
-		expr->measure.dimensions = type_store_lookup_dimensions(
-			ctx->store, aexpr->measure.type);
-		if (expr->measure.dimensions.align == ALIGN_UNDEFINED) {
-			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take alignment of a type with undefined alignment");
-			return;
-		}
-		break;
-	case M_SIZE:
-		expr->measure.dimensions = type_store_lookup_dimensions(
-			ctx->store, aexpr->measure.type);
-		if (expr->measure.dimensions.size == SIZE_UNDEFINED) {
-			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take size of a type with undefined size");
-			return;
-		}
-		break;
+		return;
 	case M_OFFSET:
+		expr->type = EXPR_CONSTANT;
 		if (aexpr->measure.value->type != EXPR_ACCESS) {
 			error(ctx, aexpr->measure.value->loc, expr,
 				"offset argument must be a field or tuple access");
@@ -2372,10 +2356,34 @@ check_expr_measure(struct context *ctx,
 				"offset argument must be a field or tuple access");
 			return;
 		}
-		expr->measure.value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->measure.value,
-			expr->measure.value, NULL);
-		break;
+		struct expression *value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->measure.value, value, NULL);
+		if (value->access.type == ACCESS_FIELD) {
+			expr->constant.uval = value->access.field->offset;
+		} else {
+			assert(value->access.type == ACCESS_TUPLE);
+			expr->constant.uval = value->access.tvalue->offset;
+		}
+		return;
+	}
+
+	expr->type = EXPR_CONSTANT;
+	struct dimensions dim = type_store_lookup_dimensions(
+		ctx->store, aexpr->measure.type);
+	if (aexpr->measure.op == M_ALIGN) {
+		if (dim.align == ALIGN_UNDEFINED) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take alignment of a type with undefined alignment");
+			return;
+		}
+		expr->constant.uval = dim.align;
+	} else {
+		if (dim.size == SIZE_UNDEFINED) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take size of a type with undefined size");
+			return;
+		}
+		expr->constant.uval = dim.size;
 	}
 }
 

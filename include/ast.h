@@ -267,6 +267,13 @@ struct ast_expression_match {
 	struct ast_match_case *cases;
 };
 
+enum measure_operator {
+	M_ALIGN,
+	M_LEN,
+	M_SIZE,
+	M_OFFSET,
+};
+
 struct ast_expression_measure {
 	enum measure_operator op;
 	union {
