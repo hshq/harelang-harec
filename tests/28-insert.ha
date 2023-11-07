@@ -84,24 +84,32 @@ fn typehints() void = {
 
 fn reject() void = {
 	assert(compile("
-		let x: []u8 = [0u8];
-		let y: int = 42;
-		insert(x[1], y);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let y: int = 42;
+			insert(x[1], y);
+		};
 	") as exited != EXIT_SUCCESS); // object member type != value type
 	assert(compile("
-		let x: []u8 = [0u8];
-		let y = 42u8;
-		insert(x[1], y...);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let y = 42u8;
+			insert(x[1], y...);
+		};
 	") as exited != EXIT_SUCCESS); // value is not an array or a slice
 	assert(compile("
-		let x: []u8 = [0u8];
-		let y: []int = [42];
-		insert(x[1], y...);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let y: []int = [42];
+			insert(x[1], y...);
+		};
 	") as exited != EXIT_SUCCESS); // object member type != value member type
 	assert(compile("
-		let x: []u8 = [0u8];
-		let y: []int = [42];
-		insert(x[1], [y...], 3);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let y: []int = [42];
+			insert(x[1], [y...], 3);
+		};
 	") as exited != EXIT_SUCCESS); // insert expression doesn't have a length parameter
 };
 
