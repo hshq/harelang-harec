@@ -32,6 +32,7 @@ fn measurements() void = {
 	let x = [1, 2, 3];
 	assert(len(x) == 3);
 	assert(size([3]int) == size(int) * 3);
+	assert(size([0]int) == 0);
 
 	static assert(len(x) == 3);
 	static assert(len(&x) == 3);
@@ -54,6 +55,7 @@ fn measurements() void = {
 	assert(align([2]i16) == 2);
 	assert(align([2]i32) == 4);
 	assert(align([2]i64) == 8);
+	assert(align([0]i32) == 4);
 };
 
 fn storage() void = {
