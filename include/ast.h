@@ -112,6 +112,11 @@ struct ast_type {
 	};
 };
 
+struct ast_types {
+	const struct ast_type *type;
+	struct ast_types *next;
+};
+
 struct ast_expression_list {
 	struct ast_expression *expr;
 	struct ast_expression_list *next;

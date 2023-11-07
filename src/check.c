@@ -2368,8 +2368,17 @@ check_expr_measure(struct context *ctx,
 	}
 
 	expr->type = EXPR_CONSTANT;
+	struct errors **cur_err = ctx->next;
 	struct dimensions dim = type_store_lookup_dimensions(
 		ctx->store, aexpr->measure.type);
+	if (ctx->next != cur_err) {
+		mkerror(aexpr->measure.value->loc, expr);
+		return;
+	}
+	struct ast_types *next = ctx->unresolved;
+	ctx->unresolved = xcalloc(1, sizeof(struct ast_types));
+	ctx->unresolved->type = aexpr->measure.type;
+	ctx->unresolved->next = next;
 	if (aexpr->measure.op == M_ALIGN) {
 		if (dim.align == ALIGN_UNDEFINED) {
 			error(ctx, aexpr->measure.value->loc, expr,
@@ -3605,6 +3614,17 @@ append_decl(struct context *ctx, struct declaration *decl)
 	ctx->decls = decls;
 }
 
+static void
+resolve_unresolved(struct context *ctx)
+{
+	while (ctx->unresolved) {
+		struct ast_types *unresolved = ctx->unresolved;
+		ctx->unresolved = unresolved->next;
+		type_store_lookup_atype(ctx->store, unresolved->type);
+		free(unresolved);
+	}
+}
+
 void
 check_function(struct context *ctx,
 	const struct scope_object *obj,
@@ -3694,6 +3714,7 @@ check_function(struct context *ctx,
 
 	struct expression *body = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, afndecl->body, body, obj->type->func.result);
+	resolve_unresolved(ctx);
 
 	if (!type_is_assignable(ctx, obj->type->func.result, body->result)) {
 		char *restypename = gen_typename(body->result);
@@ -4585,6 +4606,8 @@ wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 	ctx->unit->parent = NULL;
 	const struct type *fntype = ctx->fntype;
 	ctx->fntype = NULL;
+	struct ast_types *unresolved = ctx->unresolved;
+	ctx->unresolved = NULL;
 
 	struct incomplete_declaration *idecl = (struct incomplete_declaration *)obj;
 
@@ -4608,7 +4631,9 @@ wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 	resolver(ctx, idecl);
 
 	idecl->in_progress = false;
+	resolve_unresolved(ctx);
 	// load stored context
+	ctx->unresolved = unresolved;
 	ctx->fntype = fntype;
 	ctx->unit->parent = subunit;
 	ctx->scope = scope;
@@ -4854,6 +4879,7 @@ check_internal(struct type_store *ts,
 		}
 	}
 
+	assert(ctx.unresolved == NULL);
 	handle_errors(ctx.errors);
 	unit->declarations = ctx.decls;
 

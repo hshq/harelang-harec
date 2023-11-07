@@ -2,6 +2,7 @@
 #define HARE_CHECK_H
 #include <stdbool.h>
 #include <stdnoreturn.h>
+#include "ast.h"
 #include "identifier.h"
 #include "scope.h"
 #include "types.h"
@@ -16,9 +17,6 @@ struct modcache {
 	struct scope *scope;
 	struct modcache *next;
 };
-
-struct ast_expression;
-struct ast_unit;
 
 struct errors {
 	struct location loc;
@@ -40,6 +38,7 @@ struct context {
 	struct errors *errors;
 	struct errors **next;
 	struct declarations *decls;
+	struct ast_types *unresolved;
 };
 
 struct constant_decl {

@@ -273,6 +273,8 @@ type arrintptr_B = [8]*int, arri8_B = [size(arrintptr_B)]u8; // reverse
 type arri8_al_A = [align(arrintptr_al_A)]u8, arrintptr_al_A = [8]*int;
 type arrintptr_al_B = [8]*int, arri8_al_B = [align(arrintptr_al_B)]u8; // reverse
 
+type arr_circ = [size(*arr_circ)]int;
+
 // mutually recursive types with a dimension dependency
 type arru8_A = [size(arru8ptr_A)]u8, arru8ptr_A = [8]*arru8_A;
 type arru8ptr_B = [8]*arru8_B, arru8_B = [size(arru8ptr_B)]u8; // reverse
@@ -401,6 +403,9 @@ fn reject() void = {
 		"def x: size = size(t); type t = [x]int;",
 		"def a: int = 12; type t = (int |(...a | a));",
 		"type a = (...unknown | int);",
+		"def x = size(*foo);",
+		"def x = size(*never);",
+		"def x = size(*[*][*]int);",
 
 		// usage of non-type aliases
 		"let a: int = 4; type x = a;",
