@@ -309,7 +309,7 @@ emit_type(const struct type *type, FILE *out)
 		xfprintf(out, ")");
 		break;
 	case STORAGE_ICONST:
-		xfprintf(out, "[iconst min=%jd max=%jd]", type->_const.min,
+		xfprintf(out, "[iconst min=%" PRIi64 " max=%" PRIi64 "]", type->_const.min,
 			type->_const.max);
 		break;
 	}
@@ -419,7 +419,7 @@ emit_decl_type(struct declaration *decl, FILE *out)
 	} else {
 		xfprintf(out, "%zu", decl->type->align);
 	}
-	xfprintf(out, ", id: %u\n", decl->type->id);
+	xfprintf(out, ", id: %" PRIu32 "\n", decl->type->id);
 	free(ident);
 }
 

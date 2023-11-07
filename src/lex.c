@@ -1144,7 +1144,7 @@ token_str(const struct token *tok)
 		case STORAGE_UINT:
 		case STORAGE_UINTPTR:
 		case STORAGE_SIZE:
-			snprintf(buf, sizeof(buf), "%ju", tok->uval);
+			snprintf(buf, sizeof(buf), "%" PRIu64, tok->uval);
 			break;
 		case STORAGE_I8:
 		case STORAGE_I16:
@@ -1152,12 +1152,12 @@ token_str(const struct token *tok)
 		case STORAGE_I64:
 		case STORAGE_ICONST:
 		case STORAGE_INT:
-			snprintf(buf, sizeof(buf), "%jd", tok->ival);
+			snprintf(buf, sizeof(buf), "%" PRIi64, tok->ival);
 			break;
 		case STORAGE_F32:
 		case STORAGE_F64:
 		case STORAGE_FCONST:
-			snprintf(buf, sizeof(buf), "%lf", tok->fval);
+			snprintf(buf, sizeof(buf), "%f", tok->fval);
 			break;
 		case STORAGE_RCONST:
 			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");

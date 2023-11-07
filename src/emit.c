@@ -42,7 +42,7 @@ qemit_type(const struct qbe_def *def, FILE *out)
 	const struct type *base = def->type.base;
 	if (base) {
 		char *tn = gen_typename(base);
-		xfprintf(out, "# %s [id: %u; size: ", tn, base->id);
+		xfprintf(out, "# %s [id: %" PRIu32 "; size: ", tn, base->id);
 		free(tn);
 		if (base->size != SIZE_UNDEFINED) {
 			xfprintf(out, "%zu]\n", base->size);
