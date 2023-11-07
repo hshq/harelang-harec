@@ -1338,7 +1338,7 @@ check_expr_binding(struct context *ctx,
 			}
 			binding->initializer = value;
 			binding->object = scope_insert(ctx->scope,
-				O_CONST, &ident, &ident, type, value);
+				O_CONST, &ident, &ident, NULL, value);
 			goto done;
 		}
 		if (!type) {
@@ -4031,7 +4031,6 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 end:
 	idecl->obj.otype = O_CONST;
-	idecl->obj.type = type;
 	idecl->obj.value = value;
 
 	if (!ctx->defines || ctx->errors) {
@@ -4041,39 +4040,37 @@ end:
 		scope_lookup(ctx->defines, &idecl->obj.ident);
 	if (shadow_obj && &idecl->obj != shadow_obj) {
 		// Shadowed by define
-		if (type_is_constant(idecl->obj.type)
-				|| type_is_constant(shadow_obj->type)) {
+		if (type_is_constant(value->result)
+				|| type_is_constant(shadow_obj->value->result)) {
 			const struct type *promoted = promote_const(ctx,
-				idecl->obj.type, shadow_obj->type);
+				value->result, shadow_obj->value->result);
 			if (promoted == NULL) {
 				const char *msg;
 				char *typename = NULL;
-				if (!type_is_constant(idecl->obj.type)) {
+				if (!type_is_constant(value->result)) {
 					msg = "Constant of type %s is shadowed by define of incompatible flexible type";
-					typename = gen_typename(idecl->obj.type);
-				} else if (!type_is_constant(shadow_obj->type)) {
+					typename = gen_typename(value->result);
+				} else if (!type_is_constant(shadow_obj->value->result)) {
 					msg = "Constant of flexible type is shadowed by define of incompatible type %s";
-					typename = gen_typename(shadow_obj->type);
+					typename = gen_typename(shadow_obj->value->result);
 				} else {
 					msg = "Constant of flexible type is shadowed by define of incompatible flexible type";
 				}
 				error(ctx, idecl->decl.loc, NULL, msg, typename);
 				free(typename);
 			} else {
-				shadow_obj->type = promoted;
 				shadow_obj->value = lower_implicit_cast(ctx,
 					promoted, shadow_obj->value);
 			}
-		} else if (idecl->obj.type != shadow_obj->type) {
-			char *typename = gen_typename(idecl->obj.type);
-			char *shadow_typename = gen_typename(shadow_obj->type);
+		} else if (value->result != shadow_obj->value->result) {
+			char *typename = gen_typename(value->result);
+			char *shadow_typename = gen_typename(shadow_obj->value->result);
 			error(ctx, idecl->decl.loc, NULL,
 					"Constant of type %s is shadowed by define of incompatible type %s",
 					typename, shadow_typename);
 			free(typename);
 			free(shadow_typename);
 		}
-		idecl->obj.type = shadow_obj->type;
 		idecl->obj.value = shadow_obj->value;
 	}
 	append_decl(ctx, &(struct declaration){
@@ -4214,7 +4211,6 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		wrap_resolver(ctx, new, resolve_enum_field);
 		assert(new->otype == O_CONST);
 		idecl->obj.otype = O_CONST;
-		idecl->obj.type = type;
 		idecl->obj.value = new->value;
 		return;
 	}
@@ -4663,9 +4659,11 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 						identifier_unparse(&ident));
 			}
 			assert(obj->otype != O_SCAN);
+			// obj->type and obj->value are a union, so it doesn't
+			// matter which is passed into scope_insert
 			struct scope_object *new = scope_insert(
 					scope, obj->otype, &obj->ident,
-					&name, obj->type, obj->value);
+					&name, obj->type, NULL);
 			new->threadlocal = obj->threadlocal;
 			if (obj->otype != O_TYPE
 					|| type_dealias(ctx, obj->type)->storage
@@ -4685,7 +4683,7 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 					.ns = &name,
 				};
 				scope_insert(scope, o->otype, &value_ident,
-					&value_name, o->type, o->value);
+					&value_name, NULL, o->value);
 			}
 		}
 		return;
@@ -4713,8 +4711,10 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 
 		struct scope_object *new;
 		if (import->mode == IMPORT_NORMAL) {
+			// obj->type and obj->value are a union, so it doesn't
+			// matter which is passed into scope_insert
 			new = scope_insert(scope, obj->otype, &obj->ident,
-				&obj->name, obj->type, obj->value);
+				&obj->name, obj->type, NULL);
 			new->threadlocal = obj->threadlocal;
 		}
 
@@ -4741,8 +4741,10 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 			};
 			name.ns = &ns;
 		}
+		// obj->type and obj->value are a union, so it doesn't matter
+		// which is passed into scope_insert
 		new = scope_insert(scope, obj->otype, &obj->ident,
-			&name, obj->type, obj->value);
+			&name, obj->type, NULL);
 		new->threadlocal = obj->threadlocal;
 	}
 }

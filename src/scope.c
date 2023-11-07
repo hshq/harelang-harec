@@ -94,10 +94,11 @@ scope_object_init(struct scope_object *object, enum object_type otype,
 	identifier_dup(&object->ident, ident);
 	identifier_dup(&object->name, name);
 	object->otype = otype;
-	object->type = type;
-	object->value = value;
-	if (value) {
-		assert(otype == O_CONST || otype == O_DECL);
+	if (type) {
+		object->type = type;
+	} else if (value) {
+		object->value = value;
+		assert(otype == O_CONST);
 		assert(value->type == EXPR_CONSTANT);
 	}
 	const_refer(type, &object->type);
@@ -124,6 +125,7 @@ scope_insert(struct scope *scope, enum object_type otype,
 	const struct identifier *ident, const struct identifier *name,
 	const struct type *type, struct expression *value)
 {
+	assert(!type != !value);
 	struct scope_object *o = xcalloc(1, sizeof(struct scope_object));
 	scope_object_init(o, otype, ident, name, type, value);
 	scope_insert_from_object(scope, o);
