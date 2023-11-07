@@ -1039,7 +1039,6 @@ type_has_default(struct context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_VOID:
-	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_BOOL:
@@ -1066,6 +1065,9 @@ type_has_default(struct context *ctx, const struct type *type)
 	case STORAGE_TAGGED:
 	case STORAGE_VALIST:
 		return false;
+	case STORAGE_ARRAY:
+		return type->array.length != SIZE_UNDEFINED
+			&& type_has_default(ctx, type->array.members);
 	case STORAGE_ENUM:
 		for (struct scope_object *obj = type->_enum.values->objects;
 				obj != NULL; obj = obj->lnext) {

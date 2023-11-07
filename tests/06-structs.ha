@@ -252,6 +252,12 @@ fn invariants() void = {
 	"type foo = struct { x: (void | int), y: (void | int) };"
 	"fn test() void = { let x = foo { x = 0, ... }; };",
 
+	"type foo = struct { x: [1]*int };"
+	"fn test() void = { let x = foo { ... }; };",
+
+	"type foo = struct { x: int, y: [*]int };"
+	"fn test() void = { let x = foo { x = 0, ... }; };",
+
 	"type foo = struct { x: int, y: struct { z: int, a: (void | int) } };"
 	"fn test() void = { let x = foo { x = 0, ... }; };",
 
