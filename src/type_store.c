@@ -122,29 +122,48 @@ builtin_for_type(const struct type *type)
 	return builtin_type_for_storage(type->storage, is_const);
 }
 
+static bool
+struct_union_has_field(struct type_store *store,
+	const char *name,
+	const struct struct_field *fields)
+{
+	for (; fields; fields = fields->next) {
+		if (fields->name != NULL) {
+			if (strcmp(fields->name, name) == 0) {
+				return true;
+			}
+			continue;
+		}
+
+		assert(fields->type != NULL);
+		const struct type *type = type_dealias(
+			store->check_context, fields->type);
+		if (struct_union_has_field(store, name, type->struct_union.fields)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static struct struct_field *
-struct_insert_field(struct type_store *store, struct struct_field **fields,
+struct_new_field(struct type_store *store, const struct struct_field *fields,
 	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
 	size_t *offset, const struct ast_struct_union_type *atype,
 	const struct ast_struct_union_field *afield,
 	bool *ccompat, bool size_only, bool last)
 {
-	// XXX: fuck linked lists all my homies hate linked lists
-	while (*fields && (!afield->name || !(*fields)->name
-			|| strcmp((*fields)->name, afield->name) != 0)) {
-		fields = &(*fields)->next;
+	if (afield->name != NULL && !size_only) {
+		if (struct_union_has_field(store, afield->name, fields)) {
+			error(store->check_context, afield->type->loc, NULL,
+				"Duplicate struct/union member '%s'",
+				afield->name);
+			return NULL;
+		}
 	}
-	if (*fields != NULL) {
-		assert(afield->name != NULL);
-		error(store->check_context, afield->type->loc, NULL,
-			"Duplicate struct/union member '%s'", afield->name);
-		return NULL;
-	}
-	// XXX: leaks if size_only
-	*fields = xcalloc(1, sizeof(struct struct_field));
-	struct struct_field *field = *fields;
+	struct struct_field *field = xcalloc(1, sizeof(struct struct_field));
 
-	if (afield->name) {
+	if (afield->name && !size_only) {
 		field->name = xstrdup(afield->name);
 	}
 	struct dimensions dim = {0};
@@ -212,19 +231,47 @@ struct_insert_field(struct type_store *store, struct struct_field **fields,
 
 static const struct type *type_store_lookup_type(struct type_store *store, const struct type *type);
 
+bool
+check_embedded_member(struct type_store *store,
+	const struct ast_struct_union_field *afield,
+	struct struct_field *member,
+	const struct struct_field *fields)
+{
+	assert(member->type != NULL);
+	const struct type *dealiased = type_dealias(
+		store->check_context, member->type);
+	if (dealiased->storage != STORAGE_STRUCT
+			&& dealiased->storage != STORAGE_UNION) {
+		error(store->check_context, afield->type->loc, NULL,
+			"Cannot embed non-struct non-union alias");
+		member->type = &builtin_type_error;
+		return false;
+	}
+
+	for (struct struct_field *field = dealiased->struct_union.fields;
+			field; field = field->next) {
+		if (field->name != NULL) {
+			if (struct_union_has_field(store, field->name, fields)) {
+				// XXX: the location could be better
+				error(store->check_context, afield->type->loc, NULL,
+					"Duplicate struct/union member '%s'",
+					field->name);
+				return false;
+			}
+		} else {
+			if (!check_embedded_member(store, afield, field, fields)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
 void
 shift_fields(struct type_store *store,
 	const struct ast_struct_union_field *afield, struct struct_field *parent)
 {
-	if (parent->type->storage == STORAGE_ALIAS
-			&& type_dealias(store->check_context, parent->type)->storage != STORAGE_STRUCT
-			&& type_dealias(store->check_context, parent->type)->storage != STORAGE_UNION) {
-		assert(afield);
-		error(store->check_context, afield->type->loc, NULL,
-			"Cannot embed non-struct non-union alias");
-		parent->type = &builtin_type_error;
-		return;
-	}
 	if (parent->offset == 0) {
 		// We need to return early here in order to avoid dealiasing an
 		// embedded alias. This is acceptable at nonzero offsets, but we
@@ -274,16 +321,23 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 	size_t usize = 0;
 	size_t offset = 0;
 	assert(storage == STORAGE_STRUCT || storage == STORAGE_UNION);
-	const struct ast_struct_union_field *afield = &atype->fields;
-	while (afield) {
+	struct struct_field **next = fields;
+	for (const struct ast_struct_union_field *afield = &atype->fields;
+			afield; afield = afield->next) {
 		bool last = afield->next == NULL;
-		struct struct_field *field = struct_insert_field(store, fields,
+		struct struct_field *field = struct_new_field(store, *fields,
 			storage, size, &usize, align, &offset, atype, afield,
 			ccompat, size_only, last);
 		if (field == NULL) {
 			return;
 		}
-		if (!field->name && !size_only) {
+		if (size_only) {
+			free(field);
+			continue;
+		} else if (!field->name) {
+			if (!check_embedded_member(store, afield, field, *fields)) {
+				return;
+			}
 			// We need to shift the embedded struct/union's fields
 			// so that their offsets are from the start of the
 			// parent type. This is a bit of a hack, but it makes
@@ -292,7 +346,8 @@ struct_init_from_atype(struct type_store *store, enum type_storage storage,
 			// there for sorting fields.
 			shift_fields(store, afield, field);
 		}
-		afield = afield->next;
+		*next = field;
+		next = &field->next;
 	}
 
 	if (storage == STORAGE_UNION) {
@@ -839,17 +894,6 @@ type_init_from_atype(struct type_store *store,
 			&type->align, &type->struct_union.fields,
 			&atype->struct_union, &type->struct_union.c_compat,
 			size_only);
-		if (!type->struct_union.c_compat) {
-			// Recompute size
-			type->size = 0;
-			for (struct struct_field *f = type->struct_union.fields;
-					f; f = f->next) {
-				if (f->type) assert(f->type->size == f->size);
-				if (f->offset + f->size > type->size) {
-					type->size = f->offset + f->size;
-				}
-			}
-		}
 		break;
 	case STORAGE_TAGGED:
 		if (size_only) {

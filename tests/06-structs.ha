@@ -81,6 +81,16 @@ type embed2 = struct {
 	embedded,
 };
 
+type embed3 = struct {
+	embedded,
+	embedded: int,
+};
+
+type embed4 = struct {
+	embedded: int,
+	embedded,
+};
+
 fn nested() void = {
 	let s = embed1 {
 		foo = 42,
@@ -96,6 +106,14 @@ fn nested() void = {
 	};
 	assert(offset(s.bar) == 0 && offset(s.baz) == 8 && offset(s.foo) == 16);
 	assert(s.foo == 42 && s.bar == 69 && s.baz == 1337);
+	let s = embed3 {
+		foo = 42,
+		embedded = 69,
+	};
+	let s = embed4 {
+		foo = 42,
+		embedded = 69,
+	};
 
 	let s = struct {
 		x: int = 10,
@@ -229,7 +247,12 @@ fn invariants() void = {
 	"fn test() s = s { x = 5, x = 7 };",
 
 	// Duplicate members
-	"fn test() void = { let x: struct { a: int, a: int } = struct { a: int = 2 };"
+	"type s = struct { a: int, a: int };"
+	"type s = struct { struct { a: int }, a: int };",
+	"type s = struct { a: int, struct { a: int } };",
+	"type embed = struct { a: int }; type s = struct { embed, a: int };",
+	"type embed = struct { a: int }; type s = struct { a: int, embed };",
+	"type embed = struct { a: int }; type s = struct { embed, embed };",
 	// Dereference non-nullable pointer:
 	"fn test() void = { let x: nullable *struct { y: int } = null; x.y; };",
 	// Select field from non-struct object:
