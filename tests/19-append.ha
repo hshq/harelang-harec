@@ -24,6 +24,11 @@ fn multi() void = {
 	};
 
 	free(x);
+
+	let x: []int = alloc([], 3);
+	append(x, &[1, 2, 3]...);
+	assert(len(x) == 3);
+	free(x);
 };
 
 fn _static() void = {
@@ -41,6 +46,10 @@ fn _static() void = {
 		assert(x[i] == i: int + 1);
 		assert(buf[i] == i: int + 1);
 	};
+
+	let x = [1, 2, 3][..0];
+	static append(x, &[1, 2, 3]...);
+	assert(len(x) == 3);
 };
 
 fn withlength() void = {

@@ -637,14 +637,7 @@ check_expr_append_insert(struct context *ctx,
 	}
 
 	check_expression(ctx, aexpr->append.value, expr->append.value, sltype);
-	const struct type *valtype = type_dereference(ctx, expr->append.value->result);
-	if (!valtype) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot dereference nullable pointer for %s expression",
-			exprtype_name);
-		return;
-	}
-	valtype = type_dealias(ctx, valtype);
+	const struct type *valtype = type_dealias(ctx, expr->append.value->result);
 	if (aexpr->append.length) {
 		if (valtype->storage != STORAGE_ARRAY
 				|| !valtype->array.expandable) {
@@ -661,14 +654,22 @@ check_expr_append_insert(struct context *ctx,
 		}
 		len = lower_implicit_cast(ctx, &builtin_type_size, len);
 		expr->append.length = len;
-	} else {
-		if (valtype->storage != STORAGE_SLICE
-				&& valtype->storage != STORAGE_ARRAY) {
-			error(ctx, aexpr->append.value->loc, expr,
-				"Value must be an array or a slice in multi-valued %s",
-				exprtype_name);
-			return;
-		}
+	} else if (valtype->storage != STORAGE_SLICE
+			&& valtype->storage != STORAGE_ARRAY
+			&& (valtype->storage != STORAGE_POINTER
+				|| valtype->pointer.referent->storage != STORAGE_ARRAY
+				|| valtype->pointer.flags & PTR_NULLABLE)) {
+		error(ctx, aexpr->append.value->loc, expr,
+			"Value must be an array, slice, or array pointer in multi-valued %s",
+			exprtype_name);
+		return;
+	}
+	if (valtype->storage == STORAGE_POINTER) {
+		valtype = valtype->pointer.referent;
+		const struct type *slice = type_store_lookup_slice(ctx->store,
+			aexpr->loc, valtype->array.members);
+		expr->append.value = lower_implicit_cast(ctx,
+			slice, expr->append.value);
 	}
 	if (sltype->array.members != valtype->array.members) {
 		error(ctx, aexpr->loc, expr,
