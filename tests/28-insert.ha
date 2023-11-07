@@ -107,10 +107,28 @@ fn reject() void = {
 	assert(compile("
 		fn test() void = {
 			let x: []u8 = [0u8];
-			let y: []int = [42];
-			insert(x[1], [y...], 3);
+			insert(x[1], [42i...], 3);
 		};
-	") as exited != EXIT_SUCCESS); // insert expression doesn't have a length parameter
+	") as exited != EXIT_SUCCESS); // same as above, but for an expression with length
+	assert(compile("
+		fn test() void = {
+			let x: []u8 = [0u8];
+			insert(x[1], [0u8...], 2i);
+		};
+	") as exited != EXIT_SUCCESS); // length expression is not assignable to size
+	assert(compile("
+		fn test() void = {
+			let x: []u8 = [0u8];
+			insert(x[1], [42], 3);
+		};
+	") as exited != EXIT_SUCCESS); // must be an expandable array
+	assert(compile("
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let x: nullable *[]u8 = &x;
+			insert(x[1], 42);
+		};
+	") as exited != EXIT_SUCCESS); // object member type is nullable pointer
 };
 
 fn _never() void = {
