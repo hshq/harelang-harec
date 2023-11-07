@@ -129,6 +129,12 @@ fn reject() void = {
 			insert(x[1], 42);
 		};
 	") as exited != EXIT_SUCCESS); // object member type is nullable pointer
+	assert(compile("
+		fn test() void = {
+			let x: []u8 = [0u8];
+			insert(x[1], [0...]..., 3);
+		};
+	") as exited != EXIT_SUCCESS); // ellipsis with length
 };
 
 fn _never() void = {

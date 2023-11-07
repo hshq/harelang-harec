@@ -1334,34 +1334,28 @@ parse_append_insert(struct lexer *lexer, struct location loc,
 
 	want(lexer, T_LPAREN, NULL);
 	expr->append.object = parse_object_selector(lexer);
+	if (etype == EXPR_INSERT) {
+		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
+				"expected indexing expression", &tok);
+	}
 	want(lexer, T_COMMA, NULL);
 	expr->append.value = parse_expression(lexer);
 	expr->append.is_static = is_static;
 
 	switch (lex(lexer, &tok)) {
-	case T_ELLIPSIS:
-		expr->append.is_multi = true;
-		break;
-	default:
-		unlex(lexer, &tok);
-		break;
-	}
-
-	if (etype == EXPR_INSERT) {
-		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
-				"expected indexing expression", &tok);
-	}
-
-	switch (lex(lexer, &tok)) {
 	case T_RPAREN:
 		// This space deliberately left blank
+		break;
+	case T_ELLIPSIS:
+		expr->append.is_multi = true;
+		want(lexer, T_RPAREN, NULL);
 		break;
 	case T_COMMA:
 		expr->append.length = parse_expression(lexer);
 		want(lexer, T_RPAREN, NULL);
 		break;
 	default:
-		synerr(&tok, T_RPAREN, T_COMMA, T_EOF);
+		synerr(&tok, T_RPAREN, T_ELLIPSIS, T_COMMA, T_EOF);
 	}
 
 	return expr;
