@@ -6,6 +6,7 @@ export HAREC_SRC=".."
 
 
 # QBE="qbe -t amd64_apple" \
+QBE="$HAREC_SRC/rt/+darwin/qbe.sh" \
 AS="$HAREC_SRC/rt/+darwin/as.sh" \
 LD="$HAREC_SRC/rt/+darwin/ld.sh" \
 $HAREC_SRC/configure

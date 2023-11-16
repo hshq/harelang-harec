@@ -3,6 +3,9 @@
 AS=/usr/bin/as
 
 function fix_asm() {
+    # -e 's/^(\.section \.note\.GNU-stack,"",@progbits)$/# \1/g' \
+    # -e 's/^(\.section \.rodata)$/# \1/g' \
+    # -e 's/^(\.size .+)$/# \1/g' \
 sed -r \
     -e 's/^\.section "\.text([^"]*)"(,"([^"]*))?"$/.text # \1, \3/g' \
     -e 's/^\.section "\.data([^"]*)"$/.data # \1/g' \
