@@ -596,8 +596,8 @@ tuple_init_from_atype(struct type_store *store,
 			return (struct dimensions){0};
 		}
 		if (memb.align != 0) {
-			offset = dim.size % memb.align + dim.size;
-			dim.size += dim.size % memb.align + memb.size;
+			offset = (dim.size + memb.align - 1) & (~(memb.align - 1));
+			dim.size = offset + memb.size;
 		}
 		if (dim.align < memb.align) {
 			dim.align = memb.align;

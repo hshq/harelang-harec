@@ -15,8 +15,8 @@ rt() {
 		Linux)
 			syscallno=+$arch
 			;;
-		OpenBSD)
-			if [ "$arch" == "arm64" ] # for OpenBSD
+		OpenBSD|Darwin)
+			if [ "$arch" == "arm64" ] # for OpenBSD|Darwin
 			then
 				arch=aarch64
 			fi

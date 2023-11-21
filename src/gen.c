@@ -710,12 +710,12 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expressio
 	struct qbe_value olen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	pushi(ctx->current, &ptr, Q_ADD, &qobj, &step, NULL);
 	pushi(ctx->current, &olen, Q_LOADL, &ptr, NULL);
-	
+
 	// check if there is anything to do
 	struct qbe_statement lzero, lnonzero;
 	struct qbe_value bzero = mklabel(ctx, &lzero, ".%d");
 	struct qbe_value bnonzero = mklabel(ctx, &lnonzero, ".%d");
-	
+
 	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value zero = constl(0);
 	pushi(ctx->current, &cmpres, Q_CNEL, &olen, &zero, NULL);
@@ -745,9 +745,9 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, const struct expressio
 	pushi(ctx->current, &olen, Q_SUB, &olen, &one, NULL);
 	pushi(ctx->current, &olen, Q_MUL, &olen, &isize, NULL);
 	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &odata, &olen, NULL);
-	
+
 	push(&ctx->current->body, &lzero);
-	
+
 	return gv_void;
 }
 
@@ -1153,6 +1153,14 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		if (carg->value->result->size == 0) {
 			continue;
 		}
+
+		if (!param && !cvar && rtype->func.variadism == VARIADISM_C) {
+			cvar = true;
+			args = *next = xcalloc(1, sizeof(struct qbe_arguments));
+			args->value.kind = QV_VARIADIC;
+			next = &args->next;
+		}
+
 		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		if (carg->value->result->storage == STORAGE_NEVER) {
 			return rval;
@@ -1162,12 +1170,6 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		next = &args->next;
 		if (param) {
 			param = param->next;
-		}
-		if (!param && !cvar && rtype->func.variadism == VARIADISM_C) {
-			cvar = true;
-			args = *next = xcalloc(1, sizeof(struct qbe_arguments));
-			args->value.kind = QV_VARIADIC;
-			next = &args->next;
 		}
 	}
 

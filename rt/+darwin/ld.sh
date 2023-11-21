@@ -2,7 +2,7 @@
 
 LDFLAGS="-e _start \
 	-lSystem \
-	-L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
+	-L$(xcrun --show-sdk-path -sdk macosx)/usr/lib"
 
 args=
 hasVal=
