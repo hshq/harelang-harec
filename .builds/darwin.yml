@@ -7,10 +7,10 @@ sources:
 tasks:
 - qbe: |
     cd qbe
-    make PREFIX=/usr
+    make PREFIX=/usr check
     sudo make install PREFIX=/usr
 - prepare: |
-    mkdir harec/build
+    mkdir -p harec/build
     cd harec/build
     ../configure
 - build: |
