@@ -1,6 +1,6 @@
 #!/bin/sh
 
-eval ". $HAREC_SRC/rt/+darwin/arch.sh" "#" ";"
+eval ". $HAREC_SRC/rt/+darwin/arch.sh"
 COMMENT="$(arch_config '#' ';')"
 
 AS="/usr/bin/as"
