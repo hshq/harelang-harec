@@ -20,8 +20,8 @@
 
 struct scope *
 module_resolve(struct context *ctx,
-	struct ast_global_decl *defines,
-	struct identifier *ident,
+	const struct ast_global_decl *defines,
+	const struct identifier *ident,
 	struct type_store *store)
 {
 	uint32_t hash = identifier_hash(FNV1A_INIT, ident);

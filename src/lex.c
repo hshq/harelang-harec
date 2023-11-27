@@ -1192,7 +1192,7 @@ token_str(const struct token *tok)
 }
 
 void
-unlex(struct lexer *lexer, struct token *in)
+unlex(struct lexer *lexer, const struct token *in)
 {
 	assert(lexer->un.token == T_NONE);
 	lexer->un = *in;

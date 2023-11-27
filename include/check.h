@@ -138,7 +138,7 @@ void wrap_resolver(struct context *ctx,
 struct scope *check(struct type_store *ts,
 	bool is_test,
 	const char *mainsym,
-	struct ast_global_decl *defines,
+	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 
@@ -146,7 +146,7 @@ struct scope *check_internal(struct type_store *ts,
 	struct modcache **cache,
 	bool is_test,
 	const char *mainsym,
-	struct ast_global_decl *defines,
+	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
 	bool scan_only);
@@ -156,9 +156,9 @@ void check_expression(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint);
 
-void error(struct context *ctx, const struct location loc,
+void error(struct context *ctx, struct location loc,
 	struct expression *expr, const char *fmt, ...);
 
-noreturn void error_norec(struct context *ctx, const struct location loc,
+noreturn void error_norec(struct context *ctx, struct location loc,
 	const char *fmt, ...);
 #endif

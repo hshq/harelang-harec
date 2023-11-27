@@ -8,8 +8,8 @@ struct modcache;
 struct ast_global_decl;
 struct context;
 struct scope *module_resolve(struct context *ctx,
-	struct ast_global_decl *defines,
-	struct identifier *ident,
+	const struct ast_global_decl *defines,
+	const struct identifier *ident,
 	struct type_store *store);
 
 #endif

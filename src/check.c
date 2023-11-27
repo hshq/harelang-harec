@@ -115,7 +115,7 @@ verror(struct context *ctx, const struct location loc,
 }
 
 void
-error(struct context *ctx, const struct location loc, struct expression *expr,
+error(struct context *ctx, struct location loc, struct expression *expr,
 		const char *fmt, ...)
 {
 	if (expr) {
@@ -128,7 +128,7 @@ error(struct context *ctx, const struct location loc, struct expression *expr,
 }
 
 noreturn void
-error_norec(struct context *ctx, const struct location loc, const char *fmt, ...)
+error_norec(struct context *ctx, struct location loc, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -3849,9 +3849,9 @@ check_hosted_main(struct context *ctx,
 }
 
 static void
-scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
+scan_types(struct context *ctx, struct scope *imp, const struct ast_decl *decl)
 {
-	for (struct ast_type_decl *t = &decl->type; t; t = t->next) {
+	for (const struct ast_type_decl *t = &decl->type; t; t = t->next) {
 		struct identifier with_ns = {0};
 		mkident(ctx, &with_ns, &t->ident, NULL);
 		check_hosted_main(ctx, decl->loc, NULL, with_ns, NULL);
@@ -4454,7 +4454,7 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 
 static struct incomplete_declaration *
 scan_const(struct context *ctx, struct scope *imports, bool exported,
-		struct location loc, struct ast_global_decl *decl)
+		struct location loc, const struct ast_global_decl *decl)
 {
 	struct identifier with_ns = {0};
 	mkident(ctx, &with_ns, &decl->ident, NULL);
@@ -4474,18 +4474,20 @@ scan_const(struct context *ctx, struct scope *imports, bool exported,
 }
 
 static void
-scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
+scan_decl(struct context *ctx, struct scope *imports, const struct ast_decl *decl)
 {
 	struct incomplete_declaration *idecl = {0};
 	struct identifier ident = {0};
 	switch (decl->decl_type) {
 	case ADECL_CONST:
-		for (struct ast_global_decl *g = &decl->constant; g; g = g->next) {
+		for (const struct ast_global_decl *g = &decl->constant;
+				g; g = g->next) {
 			scan_const(ctx, imports, decl->exported, decl->loc, g);
 		}
 		break;
 	case ADECL_GLOBAL:
-		for (struct ast_global_decl *g = &decl->global; g; g = g->next) {
+		for (const struct ast_global_decl *g = &decl->global;
+				g; g = g->next) {
 			mkident(ctx, &ident, &g->ident, g->symbol);
 			check_hosted_main(ctx, decl->loc, NULL, ident, g->symbol);
 			idecl = incomplete_declaration_create(ctx, decl->loc,
@@ -4501,8 +4503,8 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 		}
 		break;
 	case ADECL_FUNC:;
-		struct ast_function_decl *func = &decl->function;
-		struct identifier *name = NULL;
+		const struct ast_function_decl *func = &decl->function;
+		const struct identifier *name = NULL;
 		if (func->flags) {
 			const char *template = NULL;
 			if (func->flags & FN_TEST) {
@@ -4636,7 +4638,7 @@ wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 }
 
 static void
-load_import(struct context *ctx, struct ast_global_decl *defines,
+load_import(struct context *ctx, const struct ast_global_decl *defines,
 	struct ast_imports *import, struct type_store *ts, struct scope *scope)
 {
 	struct context *old_ctx = ctx->store->check_context;
@@ -4760,7 +4762,7 @@ check_internal(struct type_store *ts,
 	struct modcache **cache,
 	bool is_test,
 	const char *mainsym,
-	struct ast_global_decl *defines,
+	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
 	bool scan_only)
@@ -4787,7 +4789,7 @@ check_internal(struct type_store *ts,
 	sources[0] = "-D";
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_DEFINES);
-	for (struct ast_global_decl *def = defines; def; def = def->next) {
+	for (const struct ast_global_decl *def = defines; def; def = def->next) {
 		struct incomplete_declaration *idecl =
 			scan_const(&ctx, NULL, false , defineloc, def);
 		resolve_const(&ctx, idecl);
@@ -4899,7 +4901,7 @@ struct scope *
 check(struct type_store *ts,
 	bool is_test,
 	const char *mainsym,
-	struct ast_global_decl *defines,
+	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit)
 {
