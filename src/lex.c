@@ -1054,10 +1054,7 @@ lex(struct lexer *lexer, struct token *out)
 		out->token = T_QUESTION;
 		break;
 	default:
-		xfprintf(stderr, "%s:%d:%d: syntax error: unexpected codepoint '%s'\n",
-			sources[lexer->loc.file], lexer->loc.lineno,
-			lexer->loc.colno, rune_unparse(c));
-		exit(EXIT_FAILURE);
+		error(lexer->loc, "unexpected codepoint '%s'", rune_unparse(c));
 	}
 
 	return out->token;
