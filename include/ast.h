@@ -40,7 +40,7 @@ struct ast_list_type {
 
 struct ast_enum_field {
 	struct location loc;
-	const char *name;
+	char *name;
 	struct ast_expression *value;
 	struct ast_enum_field *next;
 };
