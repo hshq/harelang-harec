@@ -384,12 +384,18 @@ struct ast_type_decl {
 	struct ast_type_decl *next;
 };
 
+enum func_decl_flags {
+	FN_FINI = 1 << 0,
+	FN_INIT = 1 << 1,
+	FN_TEST = 1 << 2,
+};
+
 struct ast_function_decl {
 	char *symbol;
 	struct identifier ident;
 	struct ast_function_type prototype;
 	struct ast_expression *body;
-	unsigned int flags; // enum func_decl_flags (check.h)
+	enum func_decl_flags flags;
 };
 
 enum ast_decl_type {

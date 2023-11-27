@@ -47,12 +47,6 @@ struct constant_decl {
 	const struct expression *value;
 };
 
-enum func_decl_flags {
-	FN_FINI = 1 << 0,
-	FN_INIT = 1 << 1,
-	FN_TEST = 1 << 2,
-};
-
 struct function_decl {
 	const struct type *type;
 	struct expression *body;

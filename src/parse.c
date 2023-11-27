@@ -7,7 +7,6 @@
 #include <stdnoreturn.h>
 #include <string.h>
 #include "ast.h"
-#include "check.h"
 #include "identifier.h"
 #include "lex.h"
 #include "parse.h"
