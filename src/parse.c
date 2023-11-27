@@ -14,15 +14,28 @@
 #include "utf8.h"
 #include "util.h"
 
+static noreturn void
+error(struct location loc, const char *fmt, ...)
+{
+	xfprintf(stderr, "%s:%d:%d: ", sources[loc.file],
+			loc.lineno, loc.colno);
+
+	va_list ap;
+	va_start(ap, fmt);
+	xvfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	xfprintf(stderr, "\n");
+	errline(loc);
+	exit(EXIT_FAILURE);
+}
+
 static void
 synassert_msg(bool cond, const char *msg, struct token *tok)
 {
 	if (!cond) {
-		xfprintf(stderr, "%s:%d:%d: syntax error: %s (found '%s')\n",
-			sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
+		error(tok->loc, "syntax error: %s (found '%s')",
 			msg, token_str(tok));
-		errline(tok->loc);
-		exit(EXIT_FAILURE);
 	}
 }
 
@@ -151,10 +164,7 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 	}
 
 	if (len > IDENT_MAX) {
-		xfprintf(stderr, "%s:%d:%d: identifier exceeds maximum length\n",
-			sources[loc.file], loc.lineno, loc.colno);
-		errline(loc);
-		exit(EXIT_FAILURE);
+		error(loc, "identifier exceeds maximum length");
 	}
 	return found_trailing;
 }
@@ -842,14 +852,9 @@ parse_constant(struct lexer *lexer)
 		const char *s = exp->constant.string.value;
 		size_t len = exp->constant.string.len;
 		while (s - exp->constant.string.value < (ptrdiff_t)len) {
-			if (utf8_decode(&s) != UTF8_INVALID) {
-				continue;
+			if (utf8_decode(&s) == UTF8_INVALID) {
+				error(loc, "invalid UTF-8 in string literal");
 			}
-			xfprintf(stderr,
-				"%s:%d%d: invalid UTF-8 in string literal\n",
-				sources[loc.file], loc.lineno, loc.colno);
-			errline(loc);
-			exit(EXIT_FAILURE);
 		}
 		break;
 	case STORAGE_BOOL:
