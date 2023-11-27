@@ -120,7 +120,7 @@ main(int argc, char *argv[])
 			typedefs = optarg;
 			break;
 		case 'v':
-			printf("harec %s\n", VERSION);
+			xfprintf(stdout, "harec %s\n", VERSION);
 			return EXIT_SUCCESS;
 		default:
 			usage(argv[0]);
