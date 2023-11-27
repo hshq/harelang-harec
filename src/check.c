@@ -4872,7 +4872,6 @@ check(struct type_store *ts,
 	const struct ast_unit *aunit,
 	struct unit *unit)
 {
-	struct modcache *modcache[MODCACHE_BUCKETS];
-	memset(modcache, 0, sizeof(modcache));
+	struct modcache *modcache[MODCACHE_BUCKETS] = {0};
 	return check_internal(ts, modcache, is_test, mainsym, defines, aunit, unit, false);
 }
