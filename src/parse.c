@@ -54,6 +54,7 @@ synerr(struct token *tok, ...)
 	va_list ap;
 	va_start(ap, tok);
 	vsynerr(tok, ap);
+	va_end(ap);
 }
 
 static void
@@ -63,6 +64,7 @@ synassert(bool cond, struct token *tok, ...)
 		va_list ap;
 		va_start(ap, tok);
 		vsynerr(tok, ap);
+		va_end(ap);
 	}
 }
 
