@@ -2085,10 +2085,12 @@ check_expr_free(struct context *ctx,
 		mkerror(aexpr->loc, expr);
 		return;
 	};
-	if (storage != STORAGE_SLICE && storage != STORAGE_STRING
-			&& storage != STORAGE_POINTER) {
+	if (storage != STORAGE_SLICE
+			&& storage != STORAGE_STRING
+			&& storage != STORAGE_POINTER
+			&& storage != STORAGE_NULL) {
 		error(ctx, aexpr->free.expr->loc, expr,
-			"free must operate on slice, string, or pointer");
+			"free must operate on slice, string, pointer, or null");
 		return;
 	}
 	expr->result = &builtin_type_void;

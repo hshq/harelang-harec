@@ -2135,6 +2135,9 @@ static struct gen_value
 gen_expr_free(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct type *type = type_dealias(NULL, expr->free.expr->result);
+	if (type->storage == STORAGE_NULL) {
+		return gv_void;
+	}
 	struct gen_value val = gen_expr(ctx, expr->free.expr);
 	struct qbe_value qval = mkqval(ctx, &val);
 	if (type->storage == STORAGE_SLICE || type->storage == STORAGE_STRING) {
