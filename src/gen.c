@@ -1208,8 +1208,8 @@ gen_type_assertion_or_test(struct gen_context *ctx, const struct expression *exp
 	assert(expr->cast.kind == C_TEST || expr->cast.kind == C_ASSERTION);
 	const struct type *want = expr->cast.secondary;
 	struct qbe_value tag = mkqtmp(ctx,
-		qtype_lookup(ctx, &builtin_type_uint, false), ".%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+		qtype_lookup(ctx, &builtin_type_u32, false), ".%d");
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
 	struct qbe_value qbase = mkqval(ctx, &base);
 	pushi(ctx->current, &tag, load, &qbase, NULL);
 
@@ -1278,7 +1278,7 @@ tagged_align_compat(const struct type *object, const struct type *want)
 	assert(type_dealias(NULL, object)->storage == STORAGE_TAGGED);
 	assert(type_dealias(NULL, want)->storage == STORAGE_TAGGED);
 	return object->align == want->align
-		|| want->size == builtin_type_uint.size;
+		|| want->size == builtin_type_u32.size;
 }
 
 static void
@@ -1309,13 +1309,13 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		}
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value tag = mkqtmp(ctx,
-			qtype_lookup(ctx, &builtin_type_uint, false), "tag.%d");
-		enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
-		enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+			qtype_lookup(ctx, &builtin_type_u32, false), "tag.%d");
+		enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
+		enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
 		pushi(ctx->current, &tag, load, &qval, NULL);
 		pushi(ctx->current, NULL, store, &tag, &qout, NULL);
-		if (to->size == builtin_type_uint.size ||
-				from->size == builtin_type_uint.size) {
+		if (to->size == builtin_type_u32.size ||
+				from->size == builtin_type_u32.size) {
 			// No data area to copy
 			return;
 		}
@@ -1337,7 +1337,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		assert(subtype == from); // Lowered by check
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value id = constw(subtype->id);
-		enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+		enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
 		pushi(ctx->current, NULL, store, &id, &qout, NULL);
 		if (subtype->size == 0) {
 			gen_expr(ctx, expr->cast.value); // side-effects
@@ -1857,7 +1857,7 @@ gen_const_tagged_at(struct gen_context *ctx,
 	struct qbe_value qout = mklval(ctx, &out);
 	const struct type *subtype = expr->constant.tagged.tag;
 	struct qbe_value id = constw(subtype->id);
-	enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
 	pushi(ctx->current, NULL, store, &id, &qout, NULL);
 	if (subtype->size == 0) {
 		return;
@@ -2488,7 +2488,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 	struct gen_value object = gen_expr(ctx, expr->match.value);
 	struct qbe_value qobject = mkqval(ctx, &object);
 	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
 	pushi(ctx->current, &tag, load, &qobject, NULL);
 
 	struct qbe_statement lout;
@@ -3750,11 +3750,11 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_TAGGED:
 		item->type = QD_VALUE;
 		item->value = constw((uint32_t)constant->tagged.tag->id);
-		if (type->align != builtin_type_uint.align) {
+		if (type->align != builtin_type_u32.align) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
 			item->type = QD_ZEROED;
-			item->zeroed = type->align - builtin_type_uint.align;
+			item->zeroed = type->align - builtin_type_u32.align;
 		}
 		if (constant->tagged.tag->size != 0) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
