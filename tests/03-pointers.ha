@@ -90,6 +90,11 @@ fn reject() void = {
 	") as exited != EXIT_SUCCESS);
 	assert(compile("
 		fn test() void = {
+			let a: nullable *int = &3: null;
+		};
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		fn test() void = {
 			let b: nullable *int = null;
 			let a = b as null;
 		};
