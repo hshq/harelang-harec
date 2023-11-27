@@ -256,7 +256,7 @@ check_expr_access(struct context *ctx,
 		}
 		expr->access.index = lower_implicit_cast(ctx, 
 			&builtin_type_size, expr->access.index);
-		expr->result = type_store_lookup_with_flags(ctx->store,
+		expr->result = type_store_lookup_with_flags(ctx,
 			atype->array.members, atype->flags | atype->array.members->flags);
 
 		// Compile-time bounds check
@@ -420,7 +420,7 @@ check_expr_alloc_init(struct context *ctx,
 			objtype = inithint;
 		}
 	}
-	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
+	expr->result = type_store_lookup_pointer(ctx, aexpr->loc,
 			objtype, ptrflags);
 	if (expr->alloc.init->result->size == SIZE_UNDEFINED) {
 		error(ctx, aexpr->loc, expr,
@@ -485,7 +485,7 @@ check_expr_alloc_slice(struct context *ctx,
 	}
 
 	const struct type *membtype = type_dealias(ctx, objtype)->array.members;
-	expr->result = type_store_lookup_slice(ctx->store,
+	expr->result = type_store_lookup_slice(ctx,
 		aexpr->alloc.init->loc, membtype);
 
 	if (objtype->storage == STORAGE_ARRAY
@@ -528,7 +528,7 @@ check_expr_alloc_copy(struct context *ctx,
 
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 	result = type_dealias(ctx, expr->alloc.init->result);
-	expr->result = type_store_lookup_slice(ctx->store,
+	expr->result = type_store_lookup_slice(ctx,
 			aexpr->alloc.init->loc, result->array.members);
 }
 
@@ -675,7 +675,7 @@ check_expr_append_insert(struct context *ctx,
 	}
 	if (valtype->storage == STORAGE_POINTER) {
 		valtype = valtype->pointer.referent;
-		const struct type *slice = type_store_lookup_slice(ctx->store,
+		const struct type *slice = type_store_lookup_slice(ctx,
 			aexpr->loc, valtype->array.members);
 		expr->append.value = lower_implicit_cast(ctx,
 			slice, expr->append.value);
@@ -888,18 +888,16 @@ check_expr_assign(struct context *ctx,
 }
 
 static const struct type *
-type_promote(struct type_store *store,
-	const struct type *a,
-	const struct type *b)
+type_promote(struct context *ctx, const struct type *a, const struct type *b)
 {
 	// Note: we must return either a, b, or NULL
 	// TODO: There are likely some improperly handled edge cases around type
 	// flags, both here and in the spec
-	const struct type *da = type_store_lookup_with_flags(store, a, 0);
-	const struct type *db = type_store_lookup_with_flags(store, b, 0);
+	const struct type *da = type_store_lookup_with_flags(ctx, a, 0);
+	const struct type *db = type_store_lookup_with_flags(ctx, b, 0);
 
 	if (da == db) {
-		const struct type *base = type_store_lookup_with_flags(store, a,
+		const struct type *base = type_store_lookup_with_flags(ctx, a,
 			a->flags | b->flags);
 		assert(base == a || base == b);
 		return base;
@@ -909,15 +907,15 @@ type_promote(struct type_store *store,
 		return NULL;
 	}
 
-	da = type_dealias(store->check_context, da);
-	db = type_dealias(store->check_context, db);
+	da = type_dealias(ctx, da);
+	db = type_dealias(ctx, db);
 
 	if (da == db) {
 		return a->storage == STORAGE_ALIAS ? a : b;
 	}
 
 	if (type_is_constant(da) || type_is_constant(db)) {
-		return promote_const(store->check_context, a, b);
+		return promote_const(ctx, a, b);
 	}
 
 	if (db->storage == STORAGE_ENUM && da->storage == db->alias.type->storage) {
@@ -947,8 +945,7 @@ type_promote(struct type_store *store,
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
-		if (!type_is_integer(store->check_context, db)
-				|| !type_is_signed(store->check_context, db)
+		if (!type_is_integer(ctx, db) || !type_is_signed(ctx, db)
 				|| db->size == da->size) {
 			return NULL;
 		}
@@ -962,16 +959,14 @@ type_promote(struct type_store *store,
 		if (da->storage == STORAGE_SIZE && db->storage == STORAGE_UINTPTR) {
 			return db;
 		}
-		if (!type_is_integer(store->check_context, db)
-				|| type_is_signed(store->check_context, db)
+		if (!type_is_integer(ctx, db) || type_is_signed(ctx, db)
 				|| db->size == da->size) {
 			return NULL;
 		}
 		return da->size > db->size ? a : b;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		if (!type_is_float(store->check_context, db)
-				|| db->size == da->size) {
+		if (!type_is_float(ctx, db) || db->size == da->size) {
 			return NULL;
 		}
 		return da->size > db->size ? a : b;
@@ -989,7 +984,7 @@ type_promote(struct type_store *store,
 				db->pointer.referent->storage == STORAGE_OPAQUE) {
 			return a;
 		}
-		const struct type *r = type_promote(store,
+		const struct type *r = type_promote(ctx,
 			da->pointer.referent, db->pointer.referent);
 		if (r == da->pointer.referent) {
 			return a;
@@ -1142,7 +1137,7 @@ check_expr_binarithm(struct context *ctx,
 		return;
 	}
 
-	expr->result = type_promote(ctx->store, lvalue->result, rvalue->result);
+	expr->result = type_promote(ctx, lvalue->result, rvalue->result);
 	if (expr->result == NULL) {
 		char *ltypename = gen_typename(lvalue->result);
 		char *rtypename = gen_typename(rvalue->result);
@@ -1185,7 +1180,7 @@ check_binding_unpack(struct context *ctx,
 
 	if (!type) {
 		type = type_store_lookup_with_flags(
-			ctx->store, initializer->result, abinding->flags);
+			ctx, initializer->result, abinding->flags);
 	}
 	type = type_dealias(ctx, type);
 
@@ -1287,9 +1282,8 @@ check_expr_binding(struct context *ctx,
 	while (abinding) {
 		const struct type *type = NULL;
 		if (abinding->type) {
-			type = type_store_lookup_atype(
-				ctx->store, abinding->type);
-			type = type_store_lookup_with_flags(ctx->store,
+			type = type_store_lookup_atype(ctx, abinding->type);
+			type = type_store_lookup_with_flags(ctx,
 				type, type->flags | abinding->flags);
 		}
 
@@ -1342,7 +1336,7 @@ check_expr_binding(struct context *ctx,
 			goto done;
 		}
 		if (!type) {
-			type = type_store_lookup_with_flags(ctx->store,
+			type = type_store_lookup_with_flags(ctx,
 				initializer->result, abinding->flags);
 		}
 		if (abinding->is_static) {
@@ -1425,7 +1419,7 @@ lower_vaargs(struct context *ctx,
 	}
 
 	// XXX: This error handling is minimum-effort and bad
-	const struct type *hint = type_store_lookup_array(ctx->store,
+	const struct type *hint = type_store_lookup_array(ctx,
 			val.loc, type, SIZE_UNDEFINED, false);
 	check_expression(ctx, &val, vaargs, hint);
 	if (vaargs->result->storage != STORAGE_ARRAY
@@ -1552,7 +1546,7 @@ check_expr_cast(struct context *ctx,
 	struct expression *value = expr->cast.value =
 		xcalloc(1, sizeof(struct expression));
 	const struct type *secondary = expr->cast.secondary =
-		type_store_lookup_atype(ctx->store, aexpr->cast.type);
+		type_store_lookup_atype(ctx, aexpr->cast.type);
 	// TODO: Instead of allowing errors on casts to void, we should use a
 	// different nonterminal
 	check_expression(ctx, aexpr->cast.value, value,
@@ -1713,7 +1707,7 @@ check_expr_array(struct context *ctx,
 		error(ctx, aexpr->loc, expr, "Cannot infer array type from context, try casting it to the desired type");
 		return;
 	}
-	expr->result = type_store_lookup_array(ctx->store, aexpr->loc,
+	expr->result = type_store_lookup_array(ctx, aexpr->loc,
 			type, len, expand);
 }
 
@@ -1776,7 +1770,7 @@ check_expr_compound(struct context *ctx,
 		check_expression(ctx, yexpr, lexpr, NULL);
 		list->next->expr = lexpr;
 	}
-	expr->result = type_store_reduce_result(ctx->store, aexpr->loc,
+	expr->result = type_store_reduce_result(ctx, aexpr->loc,
 			scope->results);
 
 	for (struct yield *yield = scope->yields; yield;) {
@@ -2128,7 +2122,7 @@ check_expr_if(struct context *ctx,
 			.type = true_branch->result,
 			.next = &_tags,
 		};
-		expr->result = type_store_reduce_result(ctx->store, aexpr->loc, &tags);
+		expr->result = type_store_reduce_result(ctx, aexpr->loc, &tags);
 		if (expr->result == NULL) {
 			error(ctx, aexpr->loc, expr,
 				"Invalid result type (dangling or ambiguous null)");
@@ -2191,7 +2185,7 @@ check_expr_match(struct context *ctx,
 
 		const struct type *ctype = NULL;
 		if (acase->type) {
-			ctype = type_store_lookup_atype(ctx->store, acase->type);
+			ctype = type_store_lookup_atype(ctx, acase->type);
 			if (is_ptr) {
 				switch (ctype->storage) {
 				case STORAGE_NULL:
@@ -2273,7 +2267,7 @@ check_expr_match(struct context *ctx,
 			expr->result = hint;
 		} else {
 			expr->result = type_store_reduce_result(
-				ctx->store, aexpr->loc, &result_type);
+				ctx, aexpr->loc, &result_type);
 			if (expr->result == NULL) {
 				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
@@ -2370,7 +2364,7 @@ check_expr_measure(struct context *ctx,
 	expr->type = EXPR_CONSTANT;
 	struct errors **cur_err = ctx->next;
 	struct dimensions dim = type_store_lookup_dimensions(
-		ctx->store, aexpr->measure.type);
+		ctx, aexpr->measure.type);
 	if (ctx->next != cur_err) {
 		mkerror(aexpr->measure.value->loc, expr);
 		return;
@@ -2468,7 +2462,7 @@ check_expr_propagate(struct context *ctx,
 	const struct type *return_type;
 	if (return_tagged.next) {
 		return_type = type_store_lookup_tagged(
-			ctx->store, aexpr->loc, &return_tagged);
+			ctx, aexpr->loc, &return_tagged);
 	} else {
 		return_type = return_tagged.type;
 	}
@@ -2478,7 +2472,7 @@ check_expr_propagate(struct context *ctx,
 		result_type = &builtin_type_never;
 	} else if (result_tagged.next) {
 		result_type = type_store_lookup_tagged(
-			ctx->store, aexpr->loc, &result_tagged);
+			ctx, aexpr->loc, &result_tagged);
 	} else {
 		result_type = result_tagged.type;
 	}
@@ -2747,7 +2741,7 @@ check_expr_slice(struct context *ctx,
 	if (dtype->storage == STORAGE_SLICE) {
 		expr->result = atype;
 	} else {
-		expr->result = type_store_lookup_slice(ctx->store, aexpr->loc,
+		expr->result = type_store_lookup_slice(ctx, aexpr->loc,
 			dtype->array.members);
 	}
 }
@@ -2861,7 +2855,7 @@ check_expr_struct(struct context *ctx,
 			}
 			tfield->name = afield->name;
 			tfield->type = afield->type;
-			ftype = type_store_lookup_atype(ctx->store, tfield->type);
+			ftype = type_store_lookup_atype(ctx, tfield->type);
 			check_expression(ctx, afield->initializer,
 				sexpr->value, ftype);
 			if (afield->next) {
@@ -2903,7 +2897,7 @@ check_expr_struct(struct context *ctx,
 		expr->result = stype;
 		check_struct_exhaustive(ctx, aexpr, expr, stype);
 	} else {
-		expr->result = type_store_lookup_atype(ctx->store, &satype);
+		expr->result = type_store_lookup_atype(ctx, &satype);
 
 		tfield = &satype.struct_union.fields;
 		sexpr = expr->_struct.fields;
@@ -3204,7 +3198,7 @@ check_expr_switch(struct context *ctx,
 			expr->result = hint;
 		} else {
 			expr->result = type_store_reduce_result(
-				ctx->store, aexpr->loc, &result_type);
+				ctx, aexpr->loc, &result_type);
 			if (expr->result == NULL) {
 				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
@@ -3303,8 +3297,7 @@ check_expr_tuple(struct context *ctx,
 			return;
 		}
 	} else {
-		expr->result = type_store_lookup_tuple(ctx->store,
-				aexpr->loc, &result);
+		expr->result = type_store_lookup_tuple(ctx, aexpr->loc, &result);
 		if (expr->result == &builtin_type_error) {
 			// an error occurred
 			return;
@@ -3419,7 +3412,7 @@ check_expr_unarithm(struct context *ctx,
 			}
 		}
 		expr->result = type_store_lookup_pointer(
-			ctx->store, aexpr->loc, operand->result, 0);
+			ctx, aexpr->loc, operand->result, 0);
 		break;
 	case UN_DEREF:
 		if (type_dealias(ctx, operand->result)->storage != STORAGE_POINTER) {
@@ -3620,7 +3613,7 @@ resolve_unresolved(struct context *ctx)
 	while (ctx->unresolved) {
 		struct ast_types *unresolved = ctx->unresolved;
 		ctx->unresolved = unresolved->next;
-		type_store_lookup_atype(ctx->store, unresolved->type);
+		type_store_lookup_atype(ctx, unresolved->type);
 		free(unresolved);
 	}
 }
@@ -3672,11 +3665,10 @@ check_function(struct context *ctx,
 			.name = params->name,
 		};
 		const struct type *type = type_store_lookup_atype(
-				ctx->store, params->type);
+				ctx, params->type);
 		if (obj->type->func.variadism == VARIADISM_HARE
 				&& !params->next) {
-			type = type_store_lookup_slice(ctx->store,
-				params->loc, type);
+			type = type_store_lookup_slice(ctx, params->loc, type);
 		}
 		scope_insert(decl->func.scope, O_BIND,
 			&ident, &ident, type, NULL);
@@ -3868,7 +3860,7 @@ scan_types(struct context *ctx, struct scope *imp, const struct ast_decl *decl)
 		if (t->type->storage == STORAGE_ENUM) {
 			bool exported = idecl->decl.exported;
 			const struct type *type = type_store_lookup_enum(
-					ctx->store, t->type, exported);
+					ctx, t->type, exported);
 			if (type->storage == STORAGE_ERROR) {
 				return; // error occured
 			}
@@ -3984,7 +3976,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 
 	const struct type *type = NULL;
 	if (decl->type) {
-		type = type_store_lookup_atype(ctx->store, decl->type);
+		type = type_store_lookup_atype(ctx, decl->type);
 	}
 	struct expression *init = xcalloc(1, sizeof(struct expression)),
 		*value = xcalloc(1, sizeof(struct expression));
@@ -4095,8 +4087,7 @@ resolve_function(struct context *ctx, struct incomplete_declaration *idecl)
 		.flags = 0,
 		.func = decl->prototype,
 	};
-	const struct type *fntype = type_store_lookup_atype(
-			ctx->store, &fn_atype);
+	const struct type *fntype = type_store_lookup_atype(ctx, &fn_atype);
 	if (idecl->decl.exported) {
 		check_exported_type(ctx, idecl->decl.loc, fntype);
 	}
@@ -4113,7 +4104,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 	bool context = false;
 	struct expression *init, *value = NULL;
 	if (decl->type) {
-		type = type_store_lookup_atype(ctx->store, decl->type);
+		type = type_store_lookup_atype(ctx, decl->type);
 		context = decl->type->storage == STORAGE_ARRAY
 			&& decl->type->array.contextual;
 		if (context && !decl->init) {
@@ -4374,12 +4365,14 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 			loc = idecl->decl.loc;
 		}
 		char *ident = identifier_unparse(&idecl->obj.name);
+		// TODO should i be recovering from this? related to todo in
+		// resolve_type
 		error(ctx, loc, NULL, "'%s' is not a type", ident);
 		free(ident);
 		idecl->obj.type = &builtin_type_error;
 		return;
 	}
-	struct dimensions dim = type_store_lookup_dimensions(ctx->store,
+	struct dimensions dim = type_store_lookup_dimensions(ctx,
 			idecl->decl.type.type);
 	idecl->obj.type = xcalloc(1, sizeof(struct type));
 	*(struct type *)idecl->obj.type = (struct type){
@@ -4406,7 +4399,7 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	// 1. compute type dimensions
 	struct errors **cur_err = ctx->next;
 	struct dimensions dim = type_store_lookup_dimensions(
-			ctx->store, idecl->decl.type.type);
+			ctx, idecl->decl.type.type);
 	idecl->in_progress = false;
 
 	// 2. compute type representation and store it
@@ -4424,12 +4417,12 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	};
 
 	struct type *alias = (struct type *)type_store_lookup_alias(
-			ctx->store, &_alias, &dim);
+			ctx, &_alias, &dim);
 	idecl->obj.otype = O_TYPE;
 	idecl->obj.type = alias;
 	if (ctx->next == cur_err) {
 		alias->alias.type = type_store_lookup_atype(
-			ctx->store, idecl->decl.type.type);
+			ctx, idecl->decl.type.type);
 	} else {
 		alias->alias.type = &builtin_type_error;
 	}
@@ -4639,11 +4632,9 @@ wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 
 static void
 load_import(struct context *ctx, const struct ast_global_decl *defines,
-	struct ast_imports *import, struct type_store *ts, struct scope *scope)
+	struct ast_imports *import, struct scope *scope)
 {
-	struct context *old_ctx = ctx->store->check_context;
-	struct scope *mod = module_resolve(ctx, defines, &import->ident, ts);
-	ctx->store->check_context = old_ctx;
+	struct scope *mod = module_resolve(ctx, defines, &import->ident);
 
 	if (import->mode == IMPORT_MEMBERS) {
 		for (const struct ast_import_members *member = import->members;
@@ -4758,7 +4749,7 @@ static const struct location defineloc = {
 };
 
 struct scope *
-check_internal(struct type_store *ts,
+check_internal(type_store *ts,
 	struct modcache **cache,
 	bool is_test,
 	const char *mainsym,
@@ -4772,7 +4763,6 @@ check_internal(struct type_store *ts,
 	ctx.is_test = is_test;
 	ctx.mainsym = mainsym;
 	ctx.store = ts;
-	ctx.store->check_context = &ctx;
 	ctx.next = &ctx.errors;
 	ctx.modcache = cache;
 
@@ -4813,7 +4803,7 @@ check_internal(struct type_store *ts,
 		scope_push(&su_scope, SCOPE_SUBUNIT);
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
-			load_import(&ctx, defines, imports, ts, su_scope);
+			load_import(&ctx, defines, imports, su_scope);
 
 			bool found = false;
 			for (struct identifiers *uimports = unit->imports;
@@ -4892,13 +4882,12 @@ check_internal(struct type_store *ts,
 		exit(EXIT_FAILURE);
 	}
 
-	ctx.store->check_context = NULL;
 	ctx.unit->parent = NULL;
 	return ctx.unit;
 }
 
 struct scope *
-check(struct type_store *ts,
+check(type_store *ts,
 	bool is_test,
 	const char *mainsym,
 	const struct ast_global_decl *defines,

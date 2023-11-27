@@ -5,6 +5,7 @@
 #include "expr.h"
 #include "gen.h"
 #include "scope.h"
+#include "type_store.h"
 #include "typedef.h"
 #include "types.h"
 #include "util.h"
@@ -1322,7 +1323,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 
 		subtype = tagged_subset_compat(NULL, to, from) ? from : to;
 		const struct type *innertype = type_store_tagged_to_union(
-				ctx->store, type_dealias(NULL, subtype));
+			(struct context *)&ctx->store, type_dealias(NULL, subtype));
 		struct gen_value iout = mkgtemp(ctx, innertype, ".%d");
 		struct gen_value ival = mkgtemp(ctx, innertype, ".%d");
 		struct qbe_value qiout = mkqval(ctx, &iout);
@@ -3794,7 +3795,7 @@ gen_decl(struct gen_context *ctx, const struct declaration *decl)
 }
 
 void
-gen(const struct unit *unit, struct type_store *store, struct qbe_program *out)
+gen(const struct unit *unit, type_store *store, struct qbe_program *out)
 {
 	struct gen_context ctx = {
 		.out = out,

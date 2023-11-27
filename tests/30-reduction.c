@@ -30,7 +30,7 @@ void test(struct context *ctx, const char *expected, const char *input) {
 		struct lexer elex;
 		lex_init(&elex, ebuf, 0);
 		struct ast_type *eatype = parse_type(&elex);
-		etype = type_store_lookup_atype(ctx->store, eatype);
+		etype = type_store_lookup_atype(ctx, eatype);
 	}
 
 	FILE *ibuf = fmemopen((char *)input, strlen(input), "r");
@@ -69,12 +69,11 @@ void test(struct context *ctx, const char *expected, const char *input) {
 
 int main(void) {
 	struct context ctx = {0};
-	static struct type_store ts = {0};
+	static type_store ts = {0};
 	struct modcache *modcache[MODCACHE_BUCKETS];
 	memset(modcache, 0, sizeof(modcache));
 	ctx.is_test = false;
 	ctx.store = &ts;
-	ctx.store->check_context = &ctx;
 	ctx.modcache = modcache;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_UNIT);
 

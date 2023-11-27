@@ -46,8 +46,7 @@ complete_alias(struct context *ctx, struct type *type)
 			identifier_unparse(&idecl->obj.name));
 	}
 	idecl->dealias_in_progress = true;
-	type->alias.type =
-		type_store_lookup_atype(ctx->store, idecl->decl.type.type);
+	type->alias.type = type_store_lookup_atype(ctx, idecl->decl.type.type);
 	idecl->dealias_in_progress = false;
 }
 

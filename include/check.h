@@ -25,8 +25,8 @@ struct errors {
 };
 
 struct context {
+	type_store *store;
 	struct modcache **modcache;
-	struct type_store *store;
 	const struct type *fntype;
 	struct identifier *ns;
 	struct scope *unit;
@@ -135,14 +135,14 @@ void resolve_type(struct context *ctx,
 void wrap_resolver(struct context *ctx,
 	struct scope_object *obj, resolvefn resolver);
 
-struct scope *check(struct type_store *ts,
+struct scope *check(type_store *ts,
 	bool is_test,
 	const char *mainsym,
 	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 
-struct scope *check_internal(struct type_store *ts,
+struct scope *check_internal(type_store *ts,
 	struct modcache **cache,
 	bool is_test,
 	const char *mainsym,

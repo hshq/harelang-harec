@@ -186,7 +186,7 @@ main(int argc, char *argv[])
 		lex_finish(&lexer);
 	}
 
-	static struct type_store ts = {0};
+	static type_store ts = {0};
 	check(&ts, is_test, mainsym, defines, &aunit, &unit);
 
 	if (typedefs) {
