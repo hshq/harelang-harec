@@ -2339,7 +2339,7 @@ check_expr_measure(struct context *ctx,
 		}
 		if (atype->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take length of array type with undefined length");
+				"Cannot take length of unbounded array type");
 			return;
 		}
 		return;
