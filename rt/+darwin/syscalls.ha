@@ -21,7 +21,6 @@ export fn dup2(old: int, new: int) int =
 export fn getpid() int = syscall0(SYS_getpid): int;
 
 export def EXIT_SUCCESS: int = 0;
-export def EXIT_FAILURE: int = 1;
 
 export fn exit(status: int) never = {
 	syscall1(SYS_exit, status: u64);
