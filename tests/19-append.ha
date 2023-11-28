@@ -24,6 +24,11 @@ fn multi() void = {
 	};
 
 	free(x);
+
+	let x: []int = alloc([], 3);
+	append(x, &[1, 2, 3]...);
+	assert(len(x) == 3);
+	free(x);
 };
 
 fn _static() void = {
@@ -41,6 +46,10 @@ fn _static() void = {
 		assert(x[i] == i: int + 1);
 		assert(buf[i] == i: int + 1);
 	};
+
+	let x = [1, 2, 3][..0];
+	static append(x, &[1, 2, 3]...);
+	assert(len(x) == 3);
 };
 
 fn withlength() void = {
@@ -69,37 +78,70 @@ fn typehints() void = {
 
 fn reject() void = {
 	assert(compile("
-		let x: []u8 = [0u8];
-		let y: int = 42;
-		append(x, y);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let y: int = 42;
+			append(x, y);
+		};
 	") as exited != EXIT_SUCCESS); // object member type != value type
 	assert(compile("
-		let x: []u8 = [0u8];
-		let y = 42u8;
-		append(x, y...);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let y = 42u8;
+			append(x, y...);
+		};
 	") as exited != EXIT_SUCCESS); // value is not an array or a slice
 	assert(compile("
-		let x: []u8 = [0u8];
-		let y: []int = [42];
-		append(x, y...);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let y: []int = [42];
+			append(x, y...);
+		};
 	") as exited != EXIT_SUCCESS); // object member type != value member type
 	assert(compile("
-		let x: []u8 = [0u8];
-		append(x, [42i...], 5);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			append(x, [42i...], 5);
+		};
 	") as exited != EXIT_SUCCESS); // same as above, but for an expression with length
 	assert(compile("
-		let x: []u8 = [0u8];
-		append(x, [0u8...], 2i);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			append(x, [0u8...], 2i);
+		};
 	") as exited != EXIT_SUCCESS); // length expression is not assignable to size
 	assert(compile("
-		let x: []u8 = [0u8];
-		append(x, [42], 3);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			append(x, [42], 3);
+		};
 	") as exited != EXIT_SUCCESS); // must be an expandable array
 	assert(compile("
-		let x: []u8 = [0u8];
-		let x: nullable *[]u8 = &x;
-		append(x, 42);
+		fn test() void = {
+			let x: []u8 = [0u8];
+			let x: nullable *[]u8 = &x;
+			append(x, 42);
+		};
 	") as exited != EXIT_SUCCESS); // object member type is nullable pointer
+	assert(compile("
+		fn test() void = {
+			let x: []u8 = [];
+			append(x, [0...]..., 3);
+		};
+	") as exited != EXIT_SUCCESS); // ellipsis with length
+	assert(compile("
+		fn test() void = {
+			let x: []u8 = [];
+			append(x, [1]: [*]u8...);
+		};
+	") as exited != EXIT_SUCCESS); // unbounded array value
+	assert(compile("
+		let y: opaque;
+		fn test() void = {
+			let x = []: []u8: []opaque;
+			append(x, y);
+		};
+	") as exited != EXIT_SUCCESS); // value has undefined size
 };
 
 fn _never() void = {

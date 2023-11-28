@@ -120,7 +120,7 @@ main(int argc, char *argv[])
 			typedefs = optarg;
 			break;
 		case 'v':
-			printf("harec %s\n", VERSION);
+			xfprintf(stdout, "harec %s\n", VERSION);
 			return EXIT_SUCCESS;
 		default:
 			usage(argv[0]);
@@ -186,7 +186,7 @@ main(int argc, char *argv[])
 		lex_finish(&lexer);
 	}
 
-	static struct type_store ts = {0};
+	static type_store ts = {0};
 	check(&ts, is_test, mainsym, defines, &aunit, &unit);
 
 	if (typedefs) {

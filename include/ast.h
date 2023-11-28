@@ -9,18 +9,26 @@
 
 struct ast_type;
 
-enum ast_import_mode_flags {
-	AST_IMPORT_ALIAS = 1 << 0,	// use foo::bar = x::y;
-	AST_IMPORT_MEMBERS = 1 << 1,	// use foo::bar::{a, b, c};
-	AST_IMPORT_WILDCARD = 1 << 2,	// use foo::bar::*;
+enum ast_import_mode {
+	IMPORT_NORMAL,   // use foo::bar;
+	IMPORT_ALIAS,    // use foo = bar::baz;
+	IMPORT_MEMBERS,  // use foo::{bar, baz};
+	IMPORT_WILDCARD, // use foo::bar::*;
+};
+
+struct ast_import_members {
+	struct location loc;
+	char *name;
+	struct ast_import_members *next;
 };
 
 struct ast_imports {
-	struct location loc;
-	enum ast_import_mode_flags mode;
+	enum ast_import_mode mode;
 	struct identifier ident;
-	struct identifier *alias;
-	struct ast_imports *members;
+	union {
+		char *alias;
+		struct ast_import_members *members;
+	};
 	struct ast_imports *next;
 };
 
@@ -32,7 +40,7 @@ struct ast_list_type {
 
 struct ast_enum_field {
 	struct location loc;
-	const char *name;
+	char *name;
 	struct ast_expression *value;
 	struct ast_enum_field *next;
 };
@@ -102,6 +110,11 @@ struct ast_type {
 			};
 		};
 	};
+};
+
+struct ast_types {
+	const struct ast_type *type;
+	struct ast_types *next;
 };
 
 struct ast_expression_list {
@@ -259,6 +272,13 @@ struct ast_expression_match {
 	struct ast_match_case *cases;
 };
 
+enum measure_operator {
+	M_ALIGN,
+	M_LEN,
+	M_SIZE,
+	M_OFFSET,
+};
+
 struct ast_expression_measure {
 	enum measure_operator op;
 	union {
@@ -376,12 +396,18 @@ struct ast_type_decl {
 	struct ast_type_decl *next;
 };
 
+enum func_decl_flags {
+	FN_FINI = 1 << 0,
+	FN_INIT = 1 << 1,
+	FN_TEST = 1 << 2,
+};
+
 struct ast_function_decl {
 	char *symbol;
 	struct identifier ident;
 	struct ast_function_type prototype;
 	struct ast_expression *body;
-	unsigned int flags; // enum func_decl_flags (check.h)
+	enum func_decl_flags flags;
 };
 
 enum ast_decl_type {

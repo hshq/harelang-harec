@@ -11,7 +11,6 @@
 #include "mod.h"
 #include "parse.h"
 #include "scope.h"
-#include "type_store.h"
 #include "util.h"
 
 // unfortunately necessary since this is used in an array declaration, and we
@@ -20,9 +19,8 @@
 
 struct scope *
 module_resolve(struct context *ctx,
-	struct ast_global_decl *defines,
-	struct identifier *ident,
-	struct type_store *store)
+	const struct ast_global_decl *defines,
+	const struct identifier *ident)
 {
 	uint32_t hash = identifier_hash(FNV1A_INIT, ident);
 	struct modcache **bucket = &ctx->modcache[hash % MODCACHE_BUCKETS];
@@ -67,7 +65,7 @@ module_resolve(struct context *ctx,
 
 	// TODO: Free unused bits
 	struct unit u = {0};
-	struct scope *scope = check_internal(store, ctx->modcache,
+	struct scope *scope = check_internal(ctx->store, ctx->modcache,
 		ctx->is_test, ctx->mainsym, defines, &aunit, &u, true);
 
 	sources[0] = old;

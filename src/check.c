@@ -115,7 +115,7 @@ verror(struct context *ctx, const struct location loc,
 }
 
 void
-error(struct context *ctx, const struct location loc, struct expression *expr,
+error(struct context *ctx, struct location loc, struct expression *expr,
 		const char *fmt, ...)
 {
 	if (expr) {
@@ -127,8 +127,8 @@ error(struct context *ctx, const struct location loc, struct expression *expr,
 	va_end(ap);
 }
 
-noreturn void
-error_norec(struct context *ctx, const struct location loc, const char *fmt, ...)
+static noreturn void
+error_norec(struct context *ctx, struct location loc, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -256,7 +256,7 @@ check_expr_access(struct context *ctx,
 		}
 		expr->access.index = lower_implicit_cast(ctx, 
 			&builtin_type_size, expr->access.index);
-		expr->result = type_store_lookup_with_flags(ctx->store,
+		expr->result = type_store_lookup_with_flags(ctx,
 			atype->array.members, atype->flags | atype->array.members->flags);
 
 		// Compile-time bounds check
@@ -420,7 +420,7 @@ check_expr_alloc_init(struct context *ctx,
 			objtype = inithint;
 		}
 	}
-	expr->result = type_store_lookup_pointer(ctx->store, aexpr->loc,
+	expr->result = type_store_lookup_pointer(ctx, aexpr->loc,
 			objtype, ptrflags);
 	if (expr->alloc.init->result->size == SIZE_UNDEFINED) {
 		error(ctx, aexpr->loc, expr,
@@ -485,7 +485,7 @@ check_expr_alloc_slice(struct context *ctx,
 	}
 
 	const struct type *membtype = type_dealias(ctx, objtype)->array.members;
-	expr->result = type_store_lookup_slice(ctx->store,
+	expr->result = type_store_lookup_slice(ctx,
 		aexpr->alloc.init->loc, membtype);
 
 	if (objtype->storage == STORAGE_ARRAY
@@ -528,7 +528,7 @@ check_expr_alloc_copy(struct context *ctx,
 
 	check_expression(ctx, aexpr->alloc.init, expr->alloc.init, hint);
 	result = type_dealias(ctx, expr->alloc.init->result);
-	expr->result = type_store_lookup_slice(ctx->store,
+	expr->result = type_store_lookup_slice(ctx,
 			aexpr->alloc.init->loc, result->array.members);
 }
 
@@ -619,6 +619,12 @@ check_expr_append_insert(struct context *ctx,
 			"expression must operate on a mutable slice");
 		return;
 	}
+	if (sltype->array.members->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->append.object->loc, expr,
+			"Cannot %s %sto slice whose member type has undefined size",
+			exprtype_name, expr->type == EXPR_APPEND ? "" : "in");
+		return;
+	}
 
 	expr->append.value = xcalloc(1, sizeof(struct expression));
 
@@ -637,14 +643,7 @@ check_expr_append_insert(struct context *ctx,
 	}
 
 	check_expression(ctx, aexpr->append.value, expr->append.value, sltype);
-	const struct type *valtype = type_dereference(ctx, expr->append.value->result);
-	if (!valtype) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot dereference nullable pointer for %s expression",
-			exprtype_name);
-		return;
-	}
-	valtype = type_dealias(ctx, valtype);
+	const struct type *valtype = type_dealias(ctx, expr->append.value->result);
 	if (aexpr->append.length) {
 		if (valtype->storage != STORAGE_ARRAY
 				|| !valtype->array.expandable) {
@@ -661,14 +660,25 @@ check_expr_append_insert(struct context *ctx,
 		}
 		len = lower_implicit_cast(ctx, &builtin_type_size, len);
 		expr->append.length = len;
-	} else {
-		if (valtype->storage != STORAGE_SLICE
-				&& valtype->storage != STORAGE_ARRAY) {
-			error(ctx, aexpr->append.value->loc, expr,
-				"Value must be an array or a slice in multi-valued %s",
-				exprtype_name);
-			return;
-		}
+	} else if (valtype->storage != STORAGE_SLICE
+			&& valtype->storage != STORAGE_ARRAY
+			&& (valtype->storage != STORAGE_POINTER
+				|| valtype->pointer.referent->storage != STORAGE_ARRAY
+				|| valtype->pointer.flags & PTR_NULLABLE)) {
+		error(ctx, aexpr->append.value->loc, expr,
+			"Value must be an array, slice, or array pointer in multi-valued %s",
+			exprtype_name);
+		return;
+	} else if (valtype->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->loc, expr, "Value array must be bounded");
+		return;
+	}
+	if (valtype->storage == STORAGE_POINTER) {
+		valtype = valtype->pointer.referent;
+		const struct type *slice = type_store_lookup_slice(ctx,
+			aexpr->loc, valtype->array.members);
+		expr->append.value = lower_implicit_cast(ctx,
+			slice, expr->append.value);
 	}
 	if (sltype->array.members != valtype->array.members) {
 		error(ctx, aexpr->loc, expr,
@@ -878,18 +888,16 @@ check_expr_assign(struct context *ctx,
 }
 
 static const struct type *
-type_promote(struct type_store *store,
-	const struct type *a,
-	const struct type *b)
+type_promote(struct context *ctx, const struct type *a, const struct type *b)
 {
 	// Note: we must return either a, b, or NULL
 	// TODO: There are likely some improperly handled edge cases around type
 	// flags, both here and in the spec
-	const struct type *da = type_store_lookup_with_flags(store, a, 0);
-	const struct type *db = type_store_lookup_with_flags(store, b, 0);
+	const struct type *da = type_store_lookup_with_flags(ctx, a, 0);
+	const struct type *db = type_store_lookup_with_flags(ctx, b, 0);
 
 	if (da == db) {
-		const struct type *base = type_store_lookup_with_flags(store, a,
+		const struct type *base = type_store_lookup_with_flags(ctx, a,
 			a->flags | b->flags);
 		assert(base == a || base == b);
 		return base;
@@ -899,15 +907,15 @@ type_promote(struct type_store *store,
 		return NULL;
 	}
 
-	da = type_dealias(store->check_context, da);
-	db = type_dealias(store->check_context, db);
+	da = type_dealias(ctx, da);
+	db = type_dealias(ctx, db);
 
 	if (da == db) {
 		return a->storage == STORAGE_ALIAS ? a : b;
 	}
 
 	if (type_is_constant(da) || type_is_constant(db)) {
-		return promote_const(store->check_context, a, b);
+		return promote_const(ctx, a, b);
 	}
 
 	if (db->storage == STORAGE_ENUM && da->storage == db->alias.type->storage) {
@@ -937,8 +945,7 @@ type_promote(struct type_store *store,
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_INT:
-		if (!type_is_integer(store->check_context, db)
-				|| !type_is_signed(store->check_context, db)
+		if (!type_is_integer(ctx, db) || !type_is_signed(ctx, db)
 				|| db->size == da->size) {
 			return NULL;
 		}
@@ -952,16 +959,14 @@ type_promote(struct type_store *store,
 		if (da->storage == STORAGE_SIZE && db->storage == STORAGE_UINTPTR) {
 			return db;
 		}
-		if (!type_is_integer(store->check_context, db)
-				|| type_is_signed(store->check_context, db)
+		if (!type_is_integer(ctx, db) || type_is_signed(ctx, db)
 				|| db->size == da->size) {
 			return NULL;
 		}
 		return da->size > db->size ? a : b;
 	case STORAGE_F32:
 	case STORAGE_F64:
-		if (!type_is_float(store->check_context, db)
-				|| db->size == da->size) {
+		if (!type_is_float(ctx, db) || db->size == da->size) {
 			return NULL;
 		}
 		return da->size > db->size ? a : b;
@@ -979,7 +984,7 @@ type_promote(struct type_store *store,
 				db->pointer.referent->storage == STORAGE_OPAQUE) {
 			return a;
 		}
-		const struct type *r = type_promote(store,
+		const struct type *r = type_promote(ctx,
 			da->pointer.referent, db->pointer.referent);
 		if (r == da->pointer.referent) {
 			return a;
@@ -1039,7 +1044,6 @@ type_has_default(struct context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_VOID:
-	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_BOOL:
@@ -1066,6 +1070,9 @@ type_has_default(struct context *ctx, const struct type *type)
 	case STORAGE_TAGGED:
 	case STORAGE_VALIST:
 		return false;
+	case STORAGE_ARRAY:
+		return type->array.length != SIZE_UNDEFINED
+			&& type_has_default(ctx, type->array.members);
 	case STORAGE_ENUM:
 		for (struct scope_object *obj = type->_enum.values->objects;
 				obj != NULL; obj = obj->lnext) {
@@ -1130,7 +1137,7 @@ check_expr_binarithm(struct context *ctx,
 		return;
 	}
 
-	expr->result = type_promote(ctx->store, lvalue->result, rvalue->result);
+	expr->result = type_promote(ctx, lvalue->result, rvalue->result);
 	if (expr->result == NULL) {
 		char *ltypename = gen_typename(lvalue->result);
 		char *rtypename = gen_typename(rvalue->result);
@@ -1173,7 +1180,7 @@ check_binding_unpack(struct context *ctx,
 
 	if (!type) {
 		type = type_store_lookup_with_flags(
-			ctx->store, initializer->result, abinding->flags);
+			ctx, initializer->result, abinding->flags);
 	}
 	type = type_dealias(ctx, type);
 
@@ -1275,9 +1282,8 @@ check_expr_binding(struct context *ctx,
 	while (abinding) {
 		const struct type *type = NULL;
 		if (abinding->type) {
-			type = type_store_lookup_atype(
-				ctx->store, abinding->type);
-			type = type_store_lookup_with_flags(ctx->store,
+			type = type_store_lookup_atype(ctx, abinding->type);
+			type = type_store_lookup_with_flags(ctx,
 				type, type->flags | abinding->flags);
 		}
 
@@ -1326,11 +1332,11 @@ check_expr_binding(struct context *ctx,
 			}
 			binding->initializer = value;
 			binding->object = scope_insert(ctx->scope,
-				O_CONST, &ident, &ident, type, value);
+				O_CONST, &ident, &ident, NULL, value);
 			goto done;
 		}
 		if (!type) {
-			type = type_store_lookup_with_flags(ctx->store,
+			type = type_store_lookup_with_flags(ctx,
 				initializer->result, abinding->flags);
 		}
 		if (abinding->is_static) {
@@ -1413,7 +1419,7 @@ lower_vaargs(struct context *ctx,
 	}
 
 	// XXX: This error handling is minimum-effort and bad
-	const struct type *hint = type_store_lookup_array(ctx->store,
+	const struct type *hint = type_store_lookup_array(ctx,
 			val.loc, type, SIZE_UNDEFINED, false);
 	check_expression(ctx, &val, vaargs, hint);
 	if (vaargs->result->storage != STORAGE_ARRAY
@@ -1540,7 +1546,7 @@ check_expr_cast(struct context *ctx,
 	struct expression *value = expr->cast.value =
 		xcalloc(1, sizeof(struct expression));
 	const struct type *secondary = expr->cast.secondary =
-		type_store_lookup_atype(ctx->store, aexpr->cast.type);
+		type_store_lookup_atype(ctx, aexpr->cast.type);
 	// TODO: Instead of allowing errors on casts to void, we should use a
 	// different nonterminal
 	check_expression(ctx, aexpr->cast.value, value,
@@ -1701,7 +1707,7 @@ check_expr_array(struct context *ctx,
 		error(ctx, aexpr->loc, expr, "Cannot infer array type from context, try casting it to the desired type");
 		return;
 	}
-	expr->result = type_store_lookup_array(ctx->store, aexpr->loc,
+	expr->result = type_store_lookup_array(ctx, aexpr->loc,
 			type, len, expand);
 }
 
@@ -1764,7 +1770,7 @@ check_expr_compound(struct context *ctx,
 		check_expression(ctx, yexpr, lexpr, NULL);
 		list->next->expr = lexpr;
 	}
-	expr->result = type_store_reduce_result(ctx->store, aexpr->loc,
+	expr->result = type_store_reduce_result(ctx, aexpr->loc,
 			scope->results);
 
 	for (struct yield *yield = scope->yields; yield;) {
@@ -2073,10 +2079,12 @@ check_expr_free(struct context *ctx,
 		mkerror(aexpr->loc, expr);
 		return;
 	};
-	if (storage != STORAGE_SLICE && storage != STORAGE_STRING
-			&& storage != STORAGE_POINTER) {
+	if (storage != STORAGE_SLICE
+			&& storage != STORAGE_STRING
+			&& storage != STORAGE_POINTER
+			&& storage != STORAGE_NULL) {
 		error(ctx, aexpr->free.expr->loc, expr,
-			"free must operate on slice, string, or pointer");
+			"free must operate on slice, string, pointer, or null");
 		return;
 	}
 	expr->result = &builtin_type_void;
@@ -2114,7 +2122,7 @@ check_expr_if(struct context *ctx,
 			.type = true_branch->result,
 			.next = &_tags,
 		};
-		expr->result = type_store_reduce_result(ctx->store, aexpr->loc, &tags);
+		expr->result = type_store_reduce_result(ctx, aexpr->loc, &tags);
 		if (expr->result == NULL) {
 			error(ctx, aexpr->loc, expr,
 				"Invalid result type (dangling or ambiguous null)");
@@ -2177,7 +2185,7 @@ check_expr_match(struct context *ctx,
 
 		const struct type *ctype = NULL;
 		if (acase->type) {
-			ctype = type_store_lookup_atype(ctx->store, acase->type);
+			ctype = type_store_lookup_atype(ctx, acase->type);
 			if (is_ptr) {
 				switch (ctype->storage) {
 				case STORAGE_NULL:
@@ -2259,7 +2267,7 @@ check_expr_match(struct context *ctx,
 			expr->result = hint;
 		} else {
 			expr->result = type_store_reduce_result(
-				ctx->store, aexpr->loc, &result_type);
+				ctx, aexpr->loc, &result_type);
 			if (expr->result == NULL) {
 				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
@@ -2296,16 +2304,17 @@ check_expr_measure(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	expr->type = EXPR_MEASURE;
 	expr->result = &builtin_type_size;
-	expr->measure.op = aexpr->measure.op;
-
-	switch (expr->measure.op) {
+	switch (aexpr->measure.op) {
+	case M_ALIGN:
+	case M_SIZE:
+		break;
 	case M_LEN:
-		expr->measure.value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->measure.value, expr->measure.value, NULL);
+		expr->type = EXPR_LEN;
+		expr->len.value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->measure.value, expr->len.value, NULL);
 		const struct type *atype =
-			type_dereference(ctx, expr->measure.value->result);
+			type_dereference(ctx, expr->len.value->result);
 		if (!atype) {
 			error(ctx, aexpr->access.array->loc, expr,
 				"Cannot dereference nullable pointer for len");
@@ -2315,7 +2324,7 @@ check_expr_measure(struct context *ctx,
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
 			|| vstor == STORAGE_STRING || vstor == STORAGE_ERROR;
 		if (!valid) {
-			char *typename = gen_typename(expr->measure.value->result);
+			char *typename = gen_typename(expr->len.value->result);
 			error(ctx, aexpr->measure.value->loc, expr,
 				"len argument must be of an array, slice, or str type, but got %s",
 				typename);
@@ -2324,34 +2333,12 @@ check_expr_measure(struct context *ctx,
 		}
 		if (atype->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take length of array type with undefined length");
+				"Cannot take length of unbounded array type");
 			return;
 		}
-		break;
-	case M_ALIGN:
-		expr->measure.dimensions = type_store_lookup_dimensions(
-			ctx->store, aexpr->measure.type);
-		if (expr->measure.dimensions.align == ALIGN_UNDEFINED) {
-			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take alignment of a type with undefined alignment");
-			return;
-		}
-		if (expr->measure.dimensions.size == 0) {
-			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take alignment of a type of size 0");
-			return;
-		}
-		break;
-	case M_SIZE:
-		expr->measure.dimensions = type_store_lookup_dimensions(
-			ctx->store, aexpr->measure.type);
-		if (expr->measure.dimensions.size == SIZE_UNDEFINED) {
-			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take size of a type with undefined size");
-			return;
-		}
-		break;
+		return;
 	case M_OFFSET:
+		expr->type = EXPR_CONSTANT;
 		if (aexpr->measure.value->type != EXPR_ACCESS) {
 			error(ctx, aexpr->measure.value->loc, expr,
 				"offset argument must be a field or tuple access");
@@ -2363,10 +2350,43 @@ check_expr_measure(struct context *ctx,
 				"offset argument must be a field or tuple access");
 			return;
 		}
-		expr->measure.value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, aexpr->measure.value,
-			expr->measure.value, NULL);
-		break;
+		struct expression *value = xcalloc(1, sizeof(struct expression));
+		check_expression(ctx, aexpr->measure.value, value, NULL);
+		if (value->access.type == ACCESS_FIELD) {
+			expr->constant.uval = value->access.field->offset;
+		} else {
+			assert(value->access.type == ACCESS_TUPLE);
+			expr->constant.uval = value->access.tvalue->offset;
+		}
+		return;
+	}
+
+	expr->type = EXPR_CONSTANT;
+	struct errors **cur_err = ctx->next;
+	struct dimensions dim = type_store_lookup_dimensions(
+		ctx, aexpr->measure.type);
+	if (ctx->next != cur_err) {
+		mkerror(aexpr->measure.value->loc, expr);
+		return;
+	}
+	struct ast_types *next = ctx->unresolved;
+	ctx->unresolved = xcalloc(1, sizeof(struct ast_types));
+	ctx->unresolved->type = aexpr->measure.type;
+	ctx->unresolved->next = next;
+	if (aexpr->measure.op == M_ALIGN) {
+		if (dim.align == ALIGN_UNDEFINED) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take alignment of a type with undefined alignment");
+			return;
+		}
+		expr->constant.uval = dim.align;
+	} else {
+		if (dim.size == SIZE_UNDEFINED) {
+			error(ctx, aexpr->measure.value->loc, expr,
+				"Cannot take size of a type with undefined size");
+			return;
+		}
+		expr->constant.uval = dim.size;
 	}
 }
 
@@ -2442,7 +2462,7 @@ check_expr_propagate(struct context *ctx,
 	const struct type *return_type;
 	if (return_tagged.next) {
 		return_type = type_store_lookup_tagged(
-			ctx->store, aexpr->loc, &return_tagged);
+			ctx, aexpr->loc, &return_tagged);
 	} else {
 		return_type = return_tagged.type;
 	}
@@ -2452,7 +2472,7 @@ check_expr_propagate(struct context *ctx,
 		result_type = &builtin_type_never;
 	} else if (result_tagged.next) {
 		result_type = type_store_lookup_tagged(
-			ctx->store, aexpr->loc, &result_tagged);
+			ctx, aexpr->loc, &result_tagged);
 	} else {
 		result_type = result_tagged.type;
 	}
@@ -2721,7 +2741,7 @@ check_expr_slice(struct context *ctx,
 	if (dtype->storage == STORAGE_SLICE) {
 		expr->result = atype;
 	} else {
-		expr->result = type_store_lookup_slice(ctx->store, aexpr->loc,
+		expr->result = type_store_lookup_slice(ctx, aexpr->loc,
 			dtype->array.members);
 	}
 }
@@ -2835,7 +2855,7 @@ check_expr_struct(struct context *ctx,
 			}
 			tfield->name = afield->name;
 			tfield->type = afield->type;
-			ftype = type_store_lookup_atype(ctx->store, tfield->type);
+			ftype = type_store_lookup_atype(ctx, tfield->type);
 			check_expression(ctx, afield->initializer,
 				sexpr->value, ftype);
 			if (afield->next) {
@@ -2877,7 +2897,7 @@ check_expr_struct(struct context *ctx,
 		expr->result = stype;
 		check_struct_exhaustive(ctx, aexpr, expr, stype);
 	} else {
-		expr->result = type_store_lookup_atype(ctx->store, &satype);
+		expr->result = type_store_lookup_atype(ctx, &satype);
 
 		tfield = &satype.struct_union.fields;
 		sexpr = expr->_struct.fields;
@@ -3178,7 +3198,7 @@ check_expr_switch(struct context *ctx,
 			expr->result = hint;
 		} else {
 			expr->result = type_store_reduce_result(
-				ctx->store, aexpr->loc, &result_type);
+				ctx, aexpr->loc, &result_type);
 			if (expr->result == NULL) {
 				error(ctx, aexpr->loc, expr,
 					"Invalid result type (dangling or ambiguous null)");
@@ -3277,8 +3297,7 @@ check_expr_tuple(struct context *ctx,
 			return;
 		}
 	} else {
-		expr->result = type_store_lookup_tuple(ctx->store,
-				aexpr->loc, &result);
+		expr->result = type_store_lookup_tuple(ctx, aexpr->loc, &result);
 		if (expr->result == &builtin_type_error) {
 			// an error occurred
 			return;
@@ -3393,7 +3412,7 @@ check_expr_unarithm(struct context *ctx,
 			}
 		}
 		expr->result = type_store_lookup_pointer(
-			ctx->store, aexpr->loc, operand->result, 0);
+			ctx, aexpr->loc, operand->result, 0);
 		break;
 	case UN_DEREF:
 		if (type_dealias(ctx, operand->result)->storage != STORAGE_POINTER) {
@@ -3588,6 +3607,17 @@ append_decl(struct context *ctx, struct declaration *decl)
 	ctx->decls = decls;
 }
 
+static void
+resolve_unresolved(struct context *ctx)
+{
+	while (ctx->unresolved) {
+		struct ast_types *unresolved = ctx->unresolved;
+		ctx->unresolved = unresolved->next;
+		type_store_lookup_atype(ctx, unresolved->type);
+		free(unresolved);
+	}
+}
+
 void
 check_function(struct context *ctx,
 	const struct scope_object *obj,
@@ -3635,11 +3665,10 @@ check_function(struct context *ctx,
 			.name = params->name,
 		};
 		const struct type *type = type_store_lookup_atype(
-				ctx->store, params->type);
+				ctx, params->type);
 		if (obj->type->func.variadism == VARIADISM_HARE
 				&& !params->next) {
-			type = type_store_lookup_slice(ctx->store,
-				params->loc, type);
+			type = type_store_lookup_slice(ctx, params->loc, type);
 		}
 		scope_insert(decl->func.scope, O_BIND,
 			&ident, &ident, type, NULL);
@@ -3677,6 +3706,7 @@ check_function(struct context *ctx,
 
 	struct expression *body = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, afndecl->body, body, obj->type->func.result);
+	resolve_unresolved(ctx);
 
 	if (!type_is_assignable(ctx, obj->type->func.result, body->result)) {
 		char *restypename = gen_typename(body->result);
@@ -3811,9 +3841,9 @@ check_hosted_main(struct context *ctx,
 }
 
 static void
-scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
+scan_types(struct context *ctx, struct scope *imp, const struct ast_decl *decl)
 {
-	for (struct ast_type_decl *t = &decl->type; t; t = t->next) {
+	for (const struct ast_type_decl *t = &decl->type; t; t = t->next) {
 		struct identifier with_ns = {0};
 		mkident(ctx, &with_ns, &t->ident, NULL);
 		check_hosted_main(ctx, decl->loc, NULL, with_ns, NULL);
@@ -3830,7 +3860,7 @@ scan_types(struct context *ctx, struct scope *imp, struct ast_decl *decl)
 		if (t->type->storage == STORAGE_ENUM) {
 			bool exported = idecl->decl.exported;
 			const struct type *type = type_store_lookup_enum(
-					ctx->store, t->type, exported);
+					ctx, t->type, exported);
 			if (type->storage == STORAGE_ERROR) {
 				return; // error occured
 			}
@@ -3946,7 +3976,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 
 	const struct type *type = NULL;
 	if (decl->type) {
-		type = type_store_lookup_atype(ctx->store, decl->type);
+		type = type_store_lookup_atype(ctx, decl->type);
 	}
 	struct expression *init = xcalloc(1, sizeof(struct expression)),
 		*value = xcalloc(1, sizeof(struct expression));
@@ -3993,7 +4023,6 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 	}
 end:
 	idecl->obj.otype = O_CONST;
-	idecl->obj.type = type;
 	idecl->obj.value = value;
 
 	if (!ctx->defines || ctx->errors) {
@@ -4003,39 +4032,37 @@ end:
 		scope_lookup(ctx->defines, &idecl->obj.ident);
 	if (shadow_obj && &idecl->obj != shadow_obj) {
 		// Shadowed by define
-		if (type_is_constant(idecl->obj.type)
-				|| type_is_constant(shadow_obj->type)) {
+		if (type_is_constant(value->result)
+				|| type_is_constant(shadow_obj->value->result)) {
 			const struct type *promoted = promote_const(ctx,
-				idecl->obj.type, shadow_obj->type);
+				value->result, shadow_obj->value->result);
 			if (promoted == NULL) {
 				const char *msg;
 				char *typename = NULL;
-				if (!type_is_constant(idecl->obj.type)) {
+				if (!type_is_constant(value->result)) {
 					msg = "Constant of type %s is shadowed by define of incompatible flexible type";
-					typename = gen_typename(idecl->obj.type);
-				} else if (!type_is_constant(shadow_obj->type)) {
+					typename = gen_typename(value->result);
+				} else if (!type_is_constant(shadow_obj->value->result)) {
 					msg = "Constant of flexible type is shadowed by define of incompatible type %s";
-					typename = gen_typename(shadow_obj->type);
+					typename = gen_typename(shadow_obj->value->result);
 				} else {
 					msg = "Constant of flexible type is shadowed by define of incompatible flexible type";
 				}
 				error(ctx, idecl->decl.loc, NULL, msg, typename);
 				free(typename);
 			} else {
-				shadow_obj->type = promoted;
 				shadow_obj->value = lower_implicit_cast(ctx,
 					promoted, shadow_obj->value);
 			}
-		} else if (idecl->obj.type != shadow_obj->type) {
-			char *typename = gen_typename(idecl->obj.type);
-			char *shadow_typename = gen_typename(shadow_obj->type);
+		} else if (value->result != shadow_obj->value->result) {
+			char *typename = gen_typename(value->result);
+			char *shadow_typename = gen_typename(shadow_obj->value->result);
 			error(ctx, idecl->decl.loc, NULL,
 					"Constant of type %s is shadowed by define of incompatible type %s",
 					typename, shadow_typename);
 			free(typename);
 			free(shadow_typename);
 		}
-		idecl->obj.type = shadow_obj->type;
 		idecl->obj.value = shadow_obj->value;
 	}
 	append_decl(ctx, &(struct declaration){
@@ -4060,8 +4087,7 @@ resolve_function(struct context *ctx, struct incomplete_declaration *idecl)
 		.flags = 0,
 		.func = decl->prototype,
 	};
-	const struct type *fntype = type_store_lookup_atype(
-			ctx->store, &fn_atype);
+	const struct type *fntype = type_store_lookup_atype(ctx, &fn_atype);
 	if (idecl->decl.exported) {
 		check_exported_type(ctx, idecl->decl.loc, fntype);
 	}
@@ -4078,7 +4104,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 	bool context = false;
 	struct expression *init, *value = NULL;
 	if (decl->type) {
-		type = type_store_lookup_atype(ctx->store, decl->type);
+		type = type_store_lookup_atype(ctx, decl->type);
 		context = decl->type->storage == STORAGE_ARRAY
 			&& decl->type->array.contextual;
 		if (context && !decl->init) {
@@ -4176,7 +4202,6 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		wrap_resolver(ctx, new, resolve_enum_field);
 		assert(new->otype == O_CONST);
 		idecl->obj.otype = O_CONST;
-		idecl->obj.type = type;
 		idecl->obj.value = new->value;
 		return;
 	}
@@ -4340,12 +4365,14 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 			loc = idecl->decl.loc;
 		}
 		char *ident = identifier_unparse(&idecl->obj.name);
+		// TODO should i be recovering from this? related to todo in
+		// resolve_type
 		error(ctx, loc, NULL, "'%s' is not a type", ident);
 		free(ident);
 		idecl->obj.type = &builtin_type_error;
 		return;
 	}
-	struct dimensions dim = type_store_lookup_dimensions(ctx->store,
+	struct dimensions dim = type_store_lookup_dimensions(ctx,
 			idecl->decl.type.type);
 	idecl->obj.type = xcalloc(1, sizeof(struct type));
 	*(struct type *)idecl->obj.type = (struct type){
@@ -4372,7 +4399,7 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	// 1. compute type dimensions
 	struct errors **cur_err = ctx->next;
 	struct dimensions dim = type_store_lookup_dimensions(
-			ctx->store, idecl->decl.type.type);
+			ctx, idecl->decl.type.type);
 	idecl->in_progress = false;
 
 	// 2. compute type representation and store it
@@ -4390,12 +4417,12 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 	};
 
 	struct type *alias = (struct type *)type_store_lookup_alias(
-			ctx->store, &_alias, &dim);
+			ctx, &_alias, &dim);
 	idecl->obj.otype = O_TYPE;
 	idecl->obj.type = alias;
 	if (ctx->next == cur_err) {
 		alias->alias.type = type_store_lookup_atype(
-			ctx->store, idecl->decl.type.type);
+			ctx, idecl->decl.type.type);
 	} else {
 		alias->alias.type = &builtin_type_error;
 	}
@@ -4420,7 +4447,7 @@ resolve_type(struct context *ctx, struct incomplete_declaration *idecl)
 
 static struct incomplete_declaration *
 scan_const(struct context *ctx, struct scope *imports, bool exported,
-		struct location loc, struct ast_global_decl *decl)
+		struct location loc, const struct ast_global_decl *decl)
 {
 	struct identifier with_ns = {0};
 	mkident(ctx, &with_ns, &decl->ident, NULL);
@@ -4440,18 +4467,20 @@ scan_const(struct context *ctx, struct scope *imports, bool exported,
 }
 
 static void
-scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
+scan_decl(struct context *ctx, struct scope *imports, const struct ast_decl *decl)
 {
 	struct incomplete_declaration *idecl = {0};
 	struct identifier ident = {0};
 	switch (decl->decl_type) {
 	case ADECL_CONST:
-		for (struct ast_global_decl *g = &decl->constant; g; g = g->next) {
+		for (const struct ast_global_decl *g = &decl->constant;
+				g; g = g->next) {
 			scan_const(ctx, imports, decl->exported, decl->loc, g);
 		}
 		break;
 	case ADECL_GLOBAL:
-		for (struct ast_global_decl *g = &decl->global; g; g = g->next) {
+		for (const struct ast_global_decl *g = &decl->global;
+				g; g = g->next) {
 			mkident(ctx, &ident, &g->ident, g->symbol);
 			check_hosted_main(ctx, decl->loc, NULL, ident, g->symbol);
 			idecl = incomplete_declaration_create(ctx, decl->loc,
@@ -4467,8 +4496,8 @@ scan_decl(struct context *ctx, struct scope *imports, struct ast_decl *decl)
 		}
 		break;
 	case ADECL_FUNC:;
-		struct ast_function_decl *func = &decl->function;
-		struct identifier *name = NULL;
+		const struct ast_function_decl *func = &decl->function;
+		const struct identifier *name = NULL;
 		if (func->flags) {
 			const char *template = NULL;
 			if (func->flags & FN_TEST) {
@@ -4568,6 +4597,8 @@ wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 	ctx->unit->parent = NULL;
 	const struct type *fntype = ctx->fntype;
 	ctx->fntype = NULL;
+	struct ast_types *unresolved = ctx->unresolved;
+	ctx->unresolved = NULL;
 
 	struct incomplete_declaration *idecl = (struct incomplete_declaration *)obj;
 
@@ -4591,38 +4622,28 @@ wrap_resolver(struct context *ctx, struct scope_object *obj, resolvefn resolver)
 	resolver(ctx, idecl);
 
 	idecl->in_progress = false;
+	resolve_unresolved(ctx);
 	// load stored context
+	ctx->unresolved = unresolved;
 	ctx->fntype = fntype;
 	ctx->unit->parent = subunit;
 	ctx->scope = scope;
 }
 
 static void
-load_import(struct context *ctx, struct ast_global_decl *defines,
-	struct ast_imports *import, struct type_store *ts, struct scope *scope)
+load_import(struct context *ctx, const struct ast_global_decl *defines,
+	struct ast_imports *import, struct scope *scope)
 {
-	struct context *old_ctx = ctx->store->check_context;
-	struct scope *mod = module_resolve(ctx, defines, &import->ident, ts);
-	ctx->store->check_context = old_ctx;
+	struct scope *mod = module_resolve(ctx, defines, &import->ident);
 
-	struct identifier _ident = {0};
-	struct identifier *mod_ident = &_ident;
-	if (import->mode & (AST_IMPORT_WILDCARD | AST_IMPORT_ALIAS)) {
-		mod_ident = import->alias;
-	} else {
-		mod_ident->name = import->ident.name;
-	}
-	if (import->mode & AST_IMPORT_MEMBERS) {
-		assert(!(import->mode & AST_IMPORT_WILDCARD));
-		for (struct ast_imports *member = import->members;
+	if (import->mode == IMPORT_MEMBERS) {
+		for (const struct ast_import_members *member = import->members;
 				member; member = member->next) {
 			struct identifier name = {
-				.name = member->alias?
-					member->alias->name : member->ident.name,
-				.ns = import->alias,
+				.name = member->name,
 			};
 			struct identifier ident = {
-				.name = member->ident.name,
+				.name = member->name,
 				.ns = &import->ident,
 			};
 			const struct scope_object *obj = scope_lookup(mod, &ident);
@@ -4630,18 +4651,21 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 				error_norec(ctx, member->loc, "Unknown object '%s'",
 						identifier_unparse(&ident));
 			}
+			assert(obj->otype != O_SCAN);
+			// obj->type and obj->value are a union, so it doesn't
+			// matter which is passed into scope_insert
 			struct scope_object *new = scope_insert(
 					scope, obj->otype, &obj->ident,
-					&name, obj->type, obj->value);
+					&name, obj->type, NULL);
 			new->threadlocal = obj->threadlocal;
 			if (obj->otype != O_TYPE
 					|| type_dealias(ctx, obj->type)->storage
 						!= STORAGE_ENUM) {
 				continue;
-			};
-			struct scope *enum_scope =
+			}
+			const struct scope *enum_scope =
 				type_dealias(ctx, obj->type)->_enum.values;
-			for (struct scope_object *o = enum_scope->objects;
+			for (const struct scope_object *o = enum_scope->objects;
 					o; o = o->lnext) {
 				struct identifier value_ident = {
 					.name = o->name.name,
@@ -4652,39 +4676,69 @@ load_import(struct context *ctx, struct ast_global_decl *defines,
 					.ns = &name,
 				};
 				scope_insert(scope, o->otype, &value_ident,
-					&value_name, o->type, o->value);
-			};
-
-		}
-	} else {
-		for (struct scope_object *obj = mod->objects;
-				obj; obj = obj->lnext) {
-			assert(obj->otype != O_SCAN);
-
-			struct scope_object *new;
-			if (!(import->mode & AST_IMPORT_ALIAS)
-					&& import->ident.ns != NULL) {
-				new = scope_insert(scope, obj->otype, &obj->ident,
-					&obj->name, obj->type, obj->value);
-				new->threadlocal = obj->threadlocal;
+					&value_name, NULL, o->value);
 			}
+		}
+		return;
+	}
 
-			struct identifier ns, name = {
-				.name = obj->name.name,
-				.ns = mod_ident,
-			};
-			if (type_dealias(ctx, obj->type)->storage == STORAGE_ENUM
-					&& obj->otype == O_CONST) {
-				ns = (struct identifier){
-					.name = obj->name.ns->name,
-					.ns = mod_ident,
-				};
-				name.ns = &ns;
-			};
+	struct identifier _ident = {0};
+	struct identifier *prefix = &_ident;
+	switch (import->mode) {
+	case IMPORT_NORMAL:
+		prefix->name = import->ident.name;
+		break;
+	case IMPORT_ALIAS:
+		prefix->name = import->alias;
+		break;
+	case IMPORT_WILDCARD:
+		prefix = NULL;
+		break;
+	case IMPORT_MEMBERS:
+		assert(0); // Unreachable
+	}
+
+	for (const struct scope_object *obj = mod->objects;
+			obj; obj = obj->lnext) {
+		assert(obj->otype != O_SCAN);
+
+		struct scope_object *new;
+		if (import->mode == IMPORT_NORMAL) {
+			// obj->type and obj->value are a union, so it doesn't
+			// matter which is passed into scope_insert
 			new = scope_insert(scope, obj->otype, &obj->ident,
-				&name, obj->type, obj->value);
+				&obj->name, obj->type, NULL);
 			new->threadlocal = obj->threadlocal;
 		}
+
+		struct identifier ns, name = {
+			.name = obj->name.name,
+			.ns = prefix,
+		};
+		if (obj->name.ns == NULL) {
+			// this is only possible if an invalid .td file is used.
+			// this check is necessary since the scope_lookup below
+			// will segfault if obj->name.ns is NULL
+			error_norec(ctx, (struct location){0},
+				"Invalid typedefs for %s",
+				identifier_unparse(&import->ident));
+		}
+		const struct scope_object *_enum = scope_lookup(mod, obj->name.ns);
+		if (_enum != NULL && _enum->otype == O_TYPE
+				&& _enum->type->storage == STORAGE_ENUM) {
+			// include enum type in identifier if object is an enum
+			// constant
+			ns = (struct identifier){
+				.name = obj->name.ns->name,
+				.ns = prefix,
+			};
+			name.ns = &ns;
+		}
+		// obj->type and obj->value are a union, so it doesn't matter
+		// which is passed into scope_insert
+		new = scope_insert(scope, obj->otype, &obj->ident,
+			&name, obj->type, NULL);
+		new->threadlocal = obj->threadlocal;
 	}
 }
 
@@ -4695,11 +4749,11 @@ static const struct location defineloc = {
 };
 
 struct scope *
-check_internal(struct type_store *ts,
+check_internal(type_store *ts,
 	struct modcache **cache,
 	bool is_test,
 	const char *mainsym,
-	struct ast_global_decl *defines,
+	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
 	bool scan_only)
@@ -4709,7 +4763,6 @@ check_internal(struct type_store *ts,
 	ctx.is_test = is_test;
 	ctx.mainsym = mainsym;
 	ctx.store = ts;
-	ctx.store->check_context = &ctx;
 	ctx.next = &ctx.errors;
 	ctx.modcache = cache;
 
@@ -4726,7 +4779,7 @@ check_internal(struct type_store *ts,
 	sources[0] = "-D";
 	ctx.scope = NULL;
 	ctx.unit = scope_push(&ctx.scope, SCOPE_DEFINES);
-	for (struct ast_global_decl *def = defines; def; def = def->next) {
+	for (const struct ast_global_decl *def = defines; def; def = def->next) {
 		struct incomplete_declaration *idecl =
 			scan_const(&ctx, NULL, false , defineloc, def);
 		resolve_const(&ctx, idecl);
@@ -4750,7 +4803,7 @@ check_internal(struct type_store *ts,
 		scope_push(&su_scope, SCOPE_SUBUNIT);
 		for (struct ast_imports *imports = su->imports;
 				imports; imports = imports->next) {
-			load_import(&ctx, defines, imports, ts, su_scope);
+			load_import(&ctx, defines, imports, su_scope);
 
 			bool found = false;
 			for (struct identifiers *uimports = unit->imports;
@@ -4820,6 +4873,7 @@ check_internal(struct type_store *ts,
 		}
 	}
 
+	assert(ctx.unresolved == NULL);
 	handle_errors(ctx.errors);
 	unit->declarations = ctx.decls;
 
@@ -4828,20 +4882,18 @@ check_internal(struct type_store *ts,
 		exit(EXIT_FAILURE);
 	}
 
-	ctx.store->check_context = NULL;
 	ctx.unit->parent = NULL;
 	return ctx.unit;
 }
 
 struct scope *
-check(struct type_store *ts,
+check(type_store *ts,
 	bool is_test,
 	const char *mainsym,
-	struct ast_global_decl *defines,
+	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit)
 {
-	struct modcache *modcache[MODCACHE_BUCKETS];
-	memset(modcache, 0, sizeof(modcache));
+	struct modcache *modcache[MODCACHE_BUCKETS] = {0};
 	return check_internal(ts, modcache, is_test, mainsym, defines, aunit, unit, false);
 }

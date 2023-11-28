@@ -16,3 +16,6 @@ export def val = 42;
 export def val2: int = 90;
 export def val3: enum_alias = 1: enum_alias;
 export let val4 = 69;
+
+// ensure rt isn't imported in this subunit
+static assert(SIZE_RT_SLICE == size([]opaque));

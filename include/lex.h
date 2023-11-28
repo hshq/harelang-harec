@@ -178,7 +178,7 @@ struct lexer {
 void lex_init(struct lexer *lexer, FILE *f, int fileid);
 void lex_finish(struct lexer *lexer);
 enum lexical_token lex(struct lexer *lexer, struct token *out);
-void unlex(struct lexer *lexer, struct token *in);
+void unlex(struct lexer *lexer, const struct token *in);
 
 void token_finish(struct token *tok);
 const char *token_str(const struct token *tok);

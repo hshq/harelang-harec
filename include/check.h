@@ -2,6 +2,7 @@
 #define HARE_CHECK_H
 #include <stdbool.h>
 #include <stdnoreturn.h>
+#include "ast.h"
 #include "identifier.h"
 #include "scope.h"
 #include "types.h"
@@ -17,9 +18,6 @@ struct modcache {
 	struct modcache *next;
 };
 
-struct ast_expression;
-struct ast_unit;
-
 struct errors {
 	struct location loc;
 	char *msg;
@@ -27,8 +25,8 @@ struct errors {
 };
 
 struct context {
+	type_store *store;
 	struct modcache **modcache;
-	struct type_store *store;
 	const struct type *fntype;
 	struct identifier *ns;
 	struct scope *unit;
@@ -40,17 +38,12 @@ struct context {
 	struct errors *errors;
 	struct errors **next;
 	struct declarations *decls;
+	struct ast_types *unresolved;
 };
 
 struct constant_decl {
 	const struct type *type;
 	const struct expression *value;
-};
-
-enum func_decl_flags {
-	FN_FINI = 1 << 0,
-	FN_INIT = 1 << 1,
-	FN_TEST = 1 << 2,
 };
 
 struct function_decl {
@@ -142,18 +135,18 @@ void resolve_type(struct context *ctx,
 void wrap_resolver(struct context *ctx,
 	struct scope_object *obj, resolvefn resolver);
 
-struct scope *check(struct type_store *ts,
+struct scope *check(type_store *ts,
 	bool is_test,
 	const char *mainsym,
-	struct ast_global_decl *defines,
+	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit);
 
-struct scope *check_internal(struct type_store *ts,
+struct scope *check_internal(type_store *ts,
 	struct modcache **cache,
 	bool is_test,
 	const char *mainsym,
-	struct ast_global_decl *defines,
+	const struct ast_global_decl *defines,
 	const struct ast_unit *aunit,
 	struct unit *unit,
 	bool scan_only);
@@ -163,9 +156,6 @@ void check_expression(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint);
 
-void error(struct context *ctx, const struct location loc,
+void error(struct context *ctx, struct location loc,
 	struct expression *expr, const char *fmt, ...);
-
-noreturn void error_norec(struct context *ctx, const struct location loc,
-	const char *fmt, ...);
 #endif

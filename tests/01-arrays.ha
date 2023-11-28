@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS, EXIT_FAILURE};
+use rt::{compile, exited, EXIT_SUCCESS};
 
 fn indexing() void = {
 	let x = [1, 2, 3];
@@ -32,6 +32,7 @@ fn measurements() void = {
 	let x = [1, 2, 3];
 	assert(len(x) == 3);
 	assert(size([3]int) == size(int) * 3);
+	assert(size([0]int) == 0);
 
 	static assert(len(x) == 3);
 	static assert(len(&x) == 3);
@@ -54,6 +55,7 @@ fn measurements() void = {
 	assert(align([2]i16) == 2);
 	assert(align([2]i32) == 4);
 	assert(align([2]i64) == 8);
+	assert(align([0]i32) == 4);
 };
 
 fn storage() void = {
@@ -169,13 +171,17 @@ fn eval_access() void = {
 fn reject() void = {
 	// unbounded arrays of values of undefined size
 	assert(compile("fn f() void = { let x = null: *[*][*]int; };")
-		as exited == EXIT_FAILURE);
+		as exited != EXIT_SUCCESS);
 	assert(compile("fn f() void = { let x = null: *[*]fn ()int; };")
-		as exited == EXIT_FAILURE);
+		as exited != EXIT_SUCCESS);
 
 	// assignment to array of undefined size
 	assert(compile("let x: [*]int; fn f() void = { x = []; };")
-		as exited == EXIT_FAILURE);
+		as exited != EXIT_SUCCESS);
+
+	// compile-time evaluation of len with slice
+	assert(compile("let x: []int; let y = len(x);")
+		as exited != EXIT_SUCCESS);
 };
 
 export fn main() void = {

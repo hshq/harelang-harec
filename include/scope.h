@@ -20,8 +20,10 @@ struct scope_object {
 	struct identifier name, ident;
 	bool threadlocal;
 
-	const struct type *type;
-	struct expression *value; // For O_CONST
+	union {
+		const struct type *type;
+		struct expression *value; // For O_CONST
+	};
 
 	struct scope_object *lnext; // Linked list
 	struct scope_object *mnext; // Hash map

@@ -2,6 +2,6 @@
 #define HAREC_EMIT_H
 
 struct qbe_program;
-void emit(struct qbe_program *program, FILE *out);
+void emit(const struct qbe_program *program, FILE *out);
 
 #endif

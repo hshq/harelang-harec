@@ -1,9 +1,10 @@
 testmod_srcs+=\
-	testmod/testmod.ha
+	testmod/testmod.ha \
+	testmod/measurement.ha
 
 hare_env+=HARE_TD_testmod=$(HARECACHE)/testmod/testmod.td
 
-testmod.a: harec $(testmod_srcs)
+testmod.a: harec libhart.a $(testmod_srcs)
 	@printf 'HAREC\t$@\n'
 	@mkdir -p $(HARECACHE)/testmod
 	@$(hare_env) ./harec -Ntestmod  -t$(HARECACHE)/testmod/testmod.td -o $@.ssa $(testmod_srcs)

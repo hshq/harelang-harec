@@ -5,6 +5,7 @@
 #include "expr.h"
 #include "gen.h"
 #include "scope.h"
+#include "type_store.h"
 #include "typedef.h"
 #include "types.h"
 #include "util.h"
@@ -1210,8 +1211,8 @@ gen_type_assertion_or_test(struct gen_context *ctx, const struct expression *exp
 	assert(expr->cast.kind == C_TEST || expr->cast.kind == C_ASSERTION);
 	const struct type *want = expr->cast.secondary;
 	struct qbe_value tag = mkqtmp(ctx,
-		qtype_lookup(ctx, &builtin_type_uint, false), ".%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+		qtype_lookup(ctx, &builtin_type_u32, false), ".%d");
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
 	struct qbe_value qbase = mkqval(ctx, &base);
 	pushi(ctx->current, &tag, load, &qbase, NULL);
 
@@ -1280,7 +1281,7 @@ tagged_align_compat(const struct type *object, const struct type *want)
 	assert(type_dealias(NULL, object)->storage == STORAGE_TAGGED);
 	assert(type_dealias(NULL, want)->storage == STORAGE_TAGGED);
 	return object->align == want->align
-		|| want->size == builtin_type_uint.size;
+		|| want->size == builtin_type_u32.size;
 }
 
 static void
@@ -1311,20 +1312,20 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		}
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value tag = mkqtmp(ctx,
-			qtype_lookup(ctx, &builtin_type_uint, false), "tag.%d");
-		enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
-		enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+			qtype_lookup(ctx, &builtin_type_u32, false), "tag.%d");
+		enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
+		enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
 		pushi(ctx->current, &tag, load, &qval, NULL);
 		pushi(ctx->current, NULL, store, &tag, &qout, NULL);
-		if (to->size == builtin_type_uint.size ||
-				from->size == builtin_type_uint.size) {
+		if (to->size == builtin_type_u32.size ||
+				from->size == builtin_type_u32.size) {
 			// No data area to copy
 			return;
 		}
 
 		subtype = tagged_subset_compat(NULL, to, from) ? from : to;
 		const struct type *innertype = type_store_tagged_to_union(
-				ctx->store, type_dealias(NULL, subtype));
+			(struct context *)&ctx->store, type_dealias(NULL, subtype));
 		struct gen_value iout = mkgtemp(ctx, innertype, ".%d");
 		struct gen_value ival = mkgtemp(ctx, innertype, ".%d");
 		struct qbe_value qiout = mkqval(ctx, &iout);
@@ -1339,7 +1340,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 		assert(subtype == from); // Lowered by check
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value id = constw(subtype->id);
-		enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+		enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
 		pushi(ctx->current, NULL, store, &id, &qout, NULL);
 		if (subtype->size == 0) {
 			gen_expr(ctx, expr->cast.value); // side-effects
@@ -1859,7 +1860,7 @@ gen_const_tagged_at(struct gen_context *ctx,
 	struct qbe_value qout = mklval(ctx, &out);
 	const struct type *subtype = expr->constant.tagged.tag;
 	struct qbe_value id = constw(subtype->id);
-	enum qbe_instr store = store_for_type(ctx, &builtin_type_uint);
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
 	pushi(ctx->current, NULL, store, &id, &qout, NULL);
 	if (subtype->size == 0) {
 		return;
@@ -2137,6 +2138,9 @@ static struct gen_value
 gen_expr_free(struct gen_context *ctx, const struct expression *expr)
 {
 	const struct type *type = type_dealias(NULL, expr->free.expr->result);
+	if (type->storage == STORAGE_NULL) {
+		return gv_void;
+	}
 	struct gen_value val = gen_expr(ctx, expr->free.expr);
 	struct qbe_value qval = mkqval(ctx, &val);
 	if (type->storage == STORAGE_SLICE || type->storage == STORAGE_STRING) {
@@ -2487,7 +2491,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 	struct gen_value object = gen_expr(ctx, expr->match.value);
 	struct qbe_value qobject = mkqval(ctx, &object);
 	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_uint);
+	enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
 	pushi(ctx->current, &tag, load, &qobject, NULL);
 
 	struct qbe_statement lout;
@@ -2703,70 +2707,39 @@ gen_expr_match_with(struct gen_context *ctx,
 }
 
 static struct gen_value
-gen_expr_measure(struct gen_context *ctx, const struct expression *expr)
+gen_expr_len(struct gen_context *ctx, const struct expression *expr)
 {
 	size_t len;
 	struct gen_value gv, temp;
-	const struct type *type;
-	const struct expression *value = expr->measure.value;
-	switch (expr->measure.op) {
-	case M_LEN:
-		type = type_dealias(NULL, type_dereference(NULL, value->result));
-		switch (type->storage) {
-		case STORAGE_ARRAY:
-			len = type->array.length;
-			assert(len != SIZE_UNDEFINED);
-			return (struct gen_value){
-				.kind = GV_CONST,
-				.type = &builtin_type_size,
-				.lval = len,
-			};
-		case STORAGE_SLICE:
-		case STORAGE_STRING:
-			gv = gen_expr(ctx, value);
-			gv = gen_autoderef(ctx, gv);
-			temp = mkgtemp(ctx, &builtin_type_size, ".%d");
-			struct qbe_value qv = mkqval(ctx, &gv),
-				qtemp = mkqval(ctx, &temp),
-				offs = constl(builtin_type_size.size);
-			enum qbe_instr load = load_for_type(ctx,
-				&builtin_type_size);
-			pushi(ctx->current, &qtemp, Q_ADD, &qv, &offs, NULL);
-			pushi(ctx->current, &qtemp, load, &qtemp, NULL);
-			return temp;
-		default:
-			abort(); // Invariant
-		}
-		break;
-	case M_ALIGN:
+	const struct expression *value = expr->len.value;
+	const struct type *type = type_dereference(NULL, value->result);
+	assert(type != NULL);
+	type = type_dealias(NULL, type);
+	switch (type->storage) {
+	case STORAGE_ARRAY:
+		len = type->array.length;
+		assert(len != SIZE_UNDEFINED);
 		return (struct gen_value){
 			.kind = GV_CONST,
 			.type = &builtin_type_size,
-			.lval = expr->measure.dimensions.align,
+			.lval = len,
 		};
-	case M_SIZE:
-		return (struct gen_value){
-			.kind = GV_CONST,
-			.type = &builtin_type_size,
-			.lval = expr->measure.dimensions.size,
-		};
-	case M_OFFSET:
-		if (expr->measure.value->access.type == ACCESS_FIELD) {
-			return (struct gen_value){
-				.kind = GV_CONST,
-				.type = &builtin_type_size,
-				.lval = expr->measure.value->access.field->offset,
-			};
-		} else {
-			assert(expr->measure.value->access.type == ACCESS_TUPLE);
-			return (struct gen_value){
-				.kind = GV_CONST,
-				.type = &builtin_type_size,
-				.lval = expr->measure.value->access.tvalue->offset,
-			};
-		}
+	case STORAGE_SLICE:
+	case STORAGE_STRING:
+		gv = gen_expr(ctx, value);
+		gv = gen_autoderef(ctx, gv);
+		temp = mkgtemp(ctx, &builtin_type_size, ".%d");
+		struct qbe_value qv = mkqval(ctx, &gv),
+			qtemp = mkqval(ctx, &temp),
+			offs = constl(builtin_type_size.size);
+		enum qbe_instr load = load_for_type(ctx,
+			&builtin_type_size);
+		pushi(ctx->current, &qtemp, Q_ADD, &qv, &offs, NULL);
+		pushi(ctx->current, &qtemp, load, &qtemp, NULL);
+		return temp;
+	default:
+		abort(); // Invariant
 	}
-	abort(); // Invariant
 }
 
 static struct gen_value
@@ -3219,11 +3192,11 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_IF:
 		out = gen_expr_if_with(ctx, expr, NULL);
 		break;
+	case EXPR_LEN:
+		out = gen_expr_len(ctx, expr);
+		break;
 	case EXPR_MATCH:
 		out = gen_expr_match_with(ctx, expr, NULL);
-		break;
-	case EXPR_MEASURE:
-		out = gen_expr_measure(ctx, expr);
 		break;
 	case EXPR_PROPAGATE:
 		assert(0); // Lowered in check (for now?)
@@ -3749,11 +3722,11 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_TAGGED:
 		item->type = QD_VALUE;
 		item->value = constw((uint32_t)constant->tagged.tag->id);
-		if (type->align != builtin_type_uint.align) {
+		if (type->align != builtin_type_u32.align) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
 			item->type = QD_ZEROED;
-			item->zeroed = type->align - builtin_type_uint.align;
+			item->zeroed = type->align - builtin_type_u32.align;
 		}
 		if (constant->tagged.tag->size != 0) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
@@ -3824,7 +3797,7 @@ gen_decl(struct gen_context *ctx, const struct declaration *decl)
 }
 
 void
-gen(const struct unit *unit, struct type_store *store, struct qbe_program *out)
+gen(const struct unit *unit, type_store *store, struct qbe_program *out)
 {
 	struct gen_context ctx = {
 		.out = out,

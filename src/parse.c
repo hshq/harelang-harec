@@ -7,7 +7,6 @@
 #include <stdnoreturn.h>
 #include <string.h>
 #include "ast.h"
-#include "check.h"
 #include "identifier.h"
 #include "lex.h"
 #include "parse.h"
@@ -15,15 +14,28 @@
 #include "utf8.h"
 #include "util.h"
 
+static noreturn void
+error(struct location loc, const char *fmt, ...)
+{
+	xfprintf(stderr, "%s:%d:%d: ", sources[loc.file],
+			loc.lineno, loc.colno);
+
+	va_list ap;
+	va_start(ap, fmt);
+	xvfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	xfprintf(stderr, "\n");
+	errline(loc);
+	exit(EXIT_FAILURE);
+}
+
 static void
 synassert_msg(bool cond, const char *msg, struct token *tok)
 {
 	if (!cond) {
-		xfprintf(stderr, "%s:%d:%d: syntax error: %s (found '%s')\n",
-			sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
+		error(tok->loc, "syntax error: %s (found '%s')",
 			msg, token_str(tok));
-		errline(tok->loc);
-		exit(EXIT_FAILURE);
 	}
 }
 
@@ -54,6 +66,7 @@ synerr(struct token *tok, ...)
 	va_list ap;
 	va_start(ap, tok);
 	vsynerr(tok, ap);
+	va_end(ap);
 }
 
 static void
@@ -63,6 +76,7 @@ synassert(bool cond, struct token *tok, ...)
 		va_list ap;
 		va_start(ap, tok);
 		vsynerr(tok, ap);
+		va_end(ap);
 	}
 }
 
@@ -150,102 +164,69 @@ parse_identifier(struct lexer *lexer, struct identifier *ident, bool trailing)
 	}
 
 	if (len > IDENT_MAX) {
-		xfprintf(stderr, "%s:%d:%d: identifier exceeds maximum length\n",
-			sources[loc.file], loc.lineno, loc.colno);
-		errline(loc);
-		exit(EXIT_FAILURE);
+		error(loc, "identifier exceeds maximum length");
 	}
 	return found_trailing;
 }
 
 static void
-parse_name_list(struct lexer *lexer, struct ast_imports *name)
+parse_import_members(struct lexer *lexer, struct ast_import_members **members)
 {
-	bool more = true;
-	struct ast_imports **next = &name->next;
-	while (more) {
-		struct token tok = {0};
+	struct token tok = {0};
+	while (true) {
+		*members = xcalloc(1, sizeof(struct ast_import_members));
 		want(lexer, T_NAME, &tok);
-		name->ident.name = xstrdup(tok.name);
-		name->loc = tok.loc;
-		token_finish(&tok);
-
-		switch (lex(lexer, &tok)) {
-		case T_EQUAL:
-			want(lexer, T_NAME, &tok);
-			name->alias = xcalloc(1, sizeof(struct identifier));
-			*name->alias = name->ident;
-			name->ident.name = xstrdup(tok.name);
-			break;
-		default:
-			unlex(lexer, &tok);
-			break;
-		};
+		(*members)->loc = tok.loc;
+		(*members)->name = tok.name;
+		members = &(*members)->next;
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
-			switch (lex(lexer, &tok)) {
-			case T_RBRACE:
-				more = false;
-				break;
-			default:
-				unlex(lexer, &tok);
-				name = xcalloc(1, sizeof(struct ast_imports));
-				*next = name;
-				next = &name->next;
-			}
 			break;
 		case T_RBRACE:
-			more = false;
-			break;
+			return;
 		default:
-			synerr(&tok, T_RBRACE, T_EQUAL, T_COMMA, T_EOF);
+			synerr(&tok, T_COMMA, T_RBRACE, T_EOF);
+		}
+		switch (lex(lexer, &tok)) {
+		case T_NAME:
+			unlex(lexer, &tok);
 			break;
+		case T_RBRACE:
+			return;
+		default:
+			synerr(&tok, T_NAME, T_RBRACE, T_EOF);
 		}
 	}
 }
 
 static void
-parse_import(struct lexer *lexer, struct ast_imports *imports)
+parse_import(struct lexer *lexer, struct ast_imports *import)
 {
-	struct identifier ident = {0};
 	struct token tok = {0};
-	imports->mode = 0;
-	while (true) {
-		bool trailing_colon = parse_identifier(lexer, &ident, true);
+	import->mode = IMPORT_NORMAL;
+	bool trailing_colon = parse_identifier(lexer, &import->ident, true);
+	if (trailing_colon) {
+		switch (lex(lexer, &tok)) {
+		case T_LBRACE:
+			import->mode = IMPORT_MEMBERS;
+			parse_import_members(lexer, &import->members);
+			break;
+		case T_TIMES:
+			import->mode = IMPORT_WILDCARD;
+			break;
+		default:
+			synerr(&tok, T_LBRACE, T_TIMES, T_EOF);
+		}
+	} else if (import->ident.ns == NULL) {
 		switch (lex(lexer, &tok)) {
 		case T_EQUAL:
-			synassert(!trailing_colon, &tok, T_NAME, T_EOF);
-			synassert(!(imports->mode & AST_IMPORT_ALIAS), &tok,
-					T_SEMICOLON, T_LBRACE, T_EOF);
-			imports->mode |= AST_IMPORT_ALIAS;
-			imports->alias = xcalloc(1, sizeof(struct identifier));
-			*imports->alias = ident;
+			import->mode = IMPORT_ALIAS;
+			import->alias = import->ident.name;
+			parse_identifier(lexer, &import->ident, false);
 			break;
-		case T_LBRACE:
-			synassert(trailing_colon, &tok, T_DOUBLE_COLON, T_EOF);
-			imports->mode |= AST_IMPORT_MEMBERS;
-			imports->ident = ident;
-			imports->members = xcalloc(1, sizeof(struct ast_imports));
-			parse_name_list(lexer, imports->members);
-			want(lexer, T_SEMICOLON, &tok);
-			return;
-		case T_SEMICOLON:
-			synassert(!trailing_colon, &tok, T_NAME, T_EOF);
-			imports->ident = ident;
-			return;
-		case T_TIMES:
-			synassert(trailing_colon, &tok, T_DOUBLE_COLON, T_EOF);
-			synassert(!(imports->mode & AST_IMPORT_ALIAS), &tok,
-					T_SEMICOLON, T_LBRACE, T_EOF);
-			imports->mode |= AST_IMPORT_WILDCARD;
-			imports->alias = NULL;
-			imports->ident = ident;
-			want(lexer, T_SEMICOLON, &tok);
-			return;
 		default:
-			synassert(!trailing_colon, &tok, T_EQUAL, T_SEMICOLON, T_EOF);
-			synassert(trailing_colon, &tok, T_NAME, T_LBRACE, T_EOF);
+			unlex(lexer, &tok);
 			break;
 		}
 	}
@@ -264,6 +245,7 @@ parse_imports(struct lexer *lexer, struct ast_subunit *subunit)
 		case T_USE:
 			imports = xcalloc(1, sizeof(struct ast_imports));
 			parse_import(lexer, imports);
+			want(lexer, T_SEMICOLON, NULL);
 			*next = imports;
 			next = &imports->next;
 			break;
@@ -870,14 +852,9 @@ parse_constant(struct lexer *lexer)
 		const char *s = exp->constant.string.value;
 		size_t len = exp->constant.string.len;
 		while (s - exp->constant.string.value < (ptrdiff_t)len) {
-			if (utf8_decode(&s) != UTF8_INVALID) {
-				continue;
+			if (utf8_decode(&s) == UTF8_INVALID) {
+				error(loc, "invalid UTF-8 in string literal");
 			}
-			xfprintf(stderr,
-				"%s:%d%d: invalid UTF-8 in string literal\n",
-				sources[loc.file], loc.lineno, loc.colno);
-			errline(loc);
-			exit(EXIT_FAILURE);
 		}
 		break;
 	case STORAGE_BOOL:
@@ -1363,34 +1340,28 @@ parse_append_insert(struct lexer *lexer, struct location loc,
 
 	want(lexer, T_LPAREN, NULL);
 	expr->append.object = parse_object_selector(lexer);
+	if (etype == EXPR_INSERT) {
+		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
+				"expected indexing expression", &tok);
+	}
 	want(lexer, T_COMMA, NULL);
 	expr->append.value = parse_expression(lexer);
 	expr->append.is_static = is_static;
 
 	switch (lex(lexer, &tok)) {
-	case T_ELLIPSIS:
-		expr->append.is_multi = true;
-		break;
-	default:
-		unlex(lexer, &tok);
-		break;
-	}
-
-	if (etype == EXPR_INSERT) {
-		synassert_msg(expr->append.object->access.type == ACCESS_INDEX,
-				"expected indexing expression", &tok);
-	}
-
-	switch (lex(lexer, &tok)) {
 	case T_RPAREN:
 		// This space deliberately left blank
+		break;
+	case T_ELLIPSIS:
+		expr->append.is_multi = true;
+		want(lexer, T_RPAREN, NULL);
 		break;
 	case T_COMMA:
 		expr->append.length = parse_expression(lexer);
 		want(lexer, T_RPAREN, NULL);
 		break;
 	default:
-		synerr(&tok, T_RPAREN, T_COMMA, T_EOF);
+		synerr(&tok, T_RPAREN, T_ELLIPSIS, T_COMMA, T_EOF);
 	}
 
 	return expr;
@@ -1675,12 +1646,16 @@ parse_cast_expression(struct lexer *lexer, struct ast_expression *value)
 	exp->type = EXPR_CAST;
 	exp->cast.kind = kind;
 	exp->cast.value = value;
-	if (lex(lexer, &tok) == T_NULL) {
-		exp->cast.type = mktype(tok.loc);
-		exp->cast.type->storage = STORAGE_NULL;
-	} else {
-		unlex(lexer, &tok);
+	if (kind == C_CAST) {
 		exp->cast.type = parse_type(lexer);
+	} else {
+		if (lex(lexer, &tok) == T_NULL) {
+			exp->cast.type = mktype(tok.loc);
+			exp->cast.type->storage = STORAGE_NULL;
+		} else {
+			unlex(lexer, &tok);
+			exp->cast.type = parse_type(lexer);
+		}
 	}
 	return parse_cast_expression(lexer, exp);
 }

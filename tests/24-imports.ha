@@ -1,18 +1,12 @@
 use rt::{compile, exited, EXIT_SUCCESS};
 use testmod;
 use alias = testmod;
-use testmod::{val, val2};
 use testmod::*;
-use testmod::{alias2 = val2};
-use modalias = testmod::{valalias = val, val2};
 
 static assert(testmod::val == 42);
 static assert(testmod::val == alias::val);
 static assert(testmod::val == val);
 static assert(testmod::val2 == val2);
-static assert(testmod::val2 == alias2);
-static assert(testmod::val == modalias::valalias);
-static assert(testmod::val2 == modalias::val2);
 static assert(testmod::other::EIGHT == 8);
 
 let x: int = testmod::val;
@@ -41,21 +35,32 @@ fn reject() void = {
 		export fn main() void = void;
 	") as exited != EXIT_SUCCESS);
 	assert(compile("
-		use testmod;
 		use testmod*;
 		export fn main() void = void;
 	") as exited != EXIT_SUCCESS);
 	assert(compile("
-		use testmod::{alias = val, val2};
-		export fn main() void = static assert(val == 42);
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
-		use modalias = testmod::{valalias = val, val2};
-		export fn main() void = static assert(valalias == 42);
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
-		use testmod::{a = b = val};
+		use testmod{val};
 		export fn main() void = void;
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		use a::b = testmod;
+		export fn main() void = void;
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		use test:: = testmod;
+		export fn main() void = void;
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		use testmod::;
+		export fn main() void = void;
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		use test = testmod::;
+		export fn main() void = void;
+	") as exited != EXIT_SUCCESS);
+	assert(compile("
+		use testmod;
+		export fn main() void = { testmod::testmod::val3; };
 	") as exited != EXIT_SUCCESS);
 };
 

@@ -13,57 +13,54 @@ struct type_bucket {
 
 struct context;
 
-struct type_store {
-	struct type_bucket *buckets[TYPE_STORE_BUCKETS];
-	struct context *check_context;
-};
+typedef struct type_bucket *type_store[TYPE_STORE_BUCKETS];
 
 // Applies the type reduction algorithm to the given tagged union.
-const struct type *type_store_reduce_result(struct type_store *store,
+const struct type *type_store_reduce_result(struct context *ctx,
 		struct location loc, struct type_tagged_union *in);
 
 struct ast_type;
 
 const struct type *type_store_lookup_atype(
-	struct type_store *store, const struct ast_type *atype);
+	struct context *ctx, const struct ast_type *atype);
 
 struct dimensions type_store_lookup_dimensions(
-	struct type_store *store, const struct ast_type *atype);
+	struct context *ctx, const struct ast_type *atype);
 
 const struct type *builtin_type_for_storage(
 	enum type_storage storage, bool is_const);
 
-const struct type *type_store_lookup_with_flags(struct type_store *store,
+const struct type *type_store_lookup_with_flags(struct context *ctx,
 	const struct type *type, unsigned int flags);
 
-const struct type *type_store_lookup_pointer(struct type_store *store,
+const struct type *type_store_lookup_pointer(struct context *ctx,
 	struct location loc, const struct type *referent, unsigned int ptrflags);
 
-const struct type *type_store_lookup_array(struct type_store *store,
+const struct type *type_store_lookup_array(struct context *ctx,
 	struct location loc, const struct type *members, size_t len,
 	bool expandable);
 
-const struct type *type_store_lookup_slice(struct type_store *store,
+const struct type *type_store_lookup_slice(struct context *ctx,
 	struct location loc, const struct type *members);
 
 // Looks up a type alias, which may be incomplete. If the dimensions of the
 // type are known, provide them as a hint in the dims argument (which can be
 // NULL otherwise). This is used as a hint to skip adding padding to packed
 // struct types.
-const struct type *type_store_lookup_alias(struct type_store *store,
+const struct type *type_store_lookup_alias(struct context *ctx,
 	const struct type *secondary, const struct dimensions *dims);
 
-const struct type *type_store_lookup_tagged(struct type_store *store,
+const struct type *type_store_lookup_tagged(struct context *ctx,
 	struct location loc, struct type_tagged_union *tags);
 
 // Returns a (non-tagged) union of the members of a tagged union type
 const struct type *type_store_tagged_to_union(
-	struct type_store *store, const struct type *tagged);
+	struct context *ctx, const struct type *tagged);
 
-const struct type *type_store_lookup_tuple(struct type_store *store,
-	 struct location loc, struct type_tuple *values);
+const struct type *type_store_lookup_tuple(struct context *ctx,
+	struct location loc, struct type_tuple *values);
 
-const struct type *type_store_lookup_enum(struct type_store *store,
+const struct type *type_store_lookup_enum(struct context *ctx,
 	const struct ast_type *atype, bool exported);
 
 #endif

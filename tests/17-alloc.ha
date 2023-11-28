@@ -157,6 +157,12 @@ fn string() void = {
 	free(y);
 };
 
+fn _null() void = {
+	let x: nullable *int = null;
+	free(x);
+	free(null);
+};
+
 export fn main() void = {
 	assignment();
 	allocation();
@@ -166,4 +172,5 @@ export fn main() void = {
 	slice();
 	slice_copy();
 	string();
+	_null();
 };

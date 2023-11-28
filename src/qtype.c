@@ -70,6 +70,8 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	switch (type->storage) {
 	case STORAGE_ARRAY:
 		if (type->array.length == SIZE_UNDEFINED) {
+			free(def->name);
+			free(def);
 			return &qbe_long; // Special case
 		}
 		field->count = type->array.length;

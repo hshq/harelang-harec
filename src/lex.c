@@ -1054,10 +1054,7 @@ lex(struct lexer *lexer, struct token *out)
 		out->token = T_QUESTION;
 		break;
 	default:
-		xfprintf(stderr, "%s:%d:%d: syntax error: unexpected codepoint '%s'\n",
-			sources[lexer->loc.file], lexer->loc.lineno,
-			lexer->loc.colno, rune_unparse(c));
-		exit(EXIT_FAILURE);
+		error(lexer->loc, "unexpected codepoint '%s'", rune_unparse(c));
 	}
 
 	return out->token;
@@ -1144,7 +1141,7 @@ token_str(const struct token *tok)
 		case STORAGE_UINT:
 		case STORAGE_UINTPTR:
 		case STORAGE_SIZE:
-			snprintf(buf, sizeof(buf), "%llu", tok->uval);
+			snprintf(buf, sizeof(buf), "%" PRIu64, tok->uval);
 			break;
 		case STORAGE_I8:
 		case STORAGE_I16:
@@ -1152,12 +1149,12 @@ token_str(const struct token *tok)
 		case STORAGE_I64:
 		case STORAGE_ICONST:
 		case STORAGE_INT:
-			snprintf(buf, sizeof(buf), "%lld", tok->ival);
+			snprintf(buf, sizeof(buf), "%" PRIi64, tok->ival);
 			break;
 		case STORAGE_F32:
 		case STORAGE_F64:
 		case STORAGE_FCONST:
-			snprintf(buf, sizeof(buf), "%lf", tok->fval);
+			snprintf(buf, sizeof(buf), "%f", tok->fval);
 			break;
 		case STORAGE_RCONST:
 			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
@@ -1195,7 +1192,7 @@ token_str(const struct token *tok)
 }
 
 void
-unlex(struct lexer *lexer, struct token *in)
+unlex(struct lexer *lexer, const struct token *in)
 {
 	assert(lexer->un.token == T_NONE);
 	lexer->un = *in;

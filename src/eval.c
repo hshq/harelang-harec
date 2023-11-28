@@ -678,64 +678,45 @@ eval_cast(struct context *ctx,
 }
 
 static bool
-eval_measurement(struct context *ctx,
+eval_len(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
 {
-	assert(in->type == EXPR_MEASURE);
-	const struct type *expr_type;
-	struct expression obj = {0};
-	switch (in->measure.op) {
-	case M_LEN:
-		expr_type = type_dealias(ctx, type_dereference(ctx, in->measure.value->result));
-		if (expr_type->storage == STORAGE_ARRAY) {
-			out->constant.uval = expr_type->array.length;
-			return true;
-		}
-
-		if (!eval_expr(ctx, in->measure.value, &obj)) {
-			return false;
-		}
-
-		switch (obj.result->storage) {
-		case STORAGE_ARRAY:
-		case STORAGE_SLICE:
-			break;
-		case STORAGE_STRING:
-			out->constant.uval = obj.constant.string.len;
-			return true;
-		case STORAGE_ERROR:
-			out->constant.uval = 0;
-			return true;
-		default:
-			abort(); // Invariant
-		}
-
-		uint64_t len = 0;
-		for (struct array_constant *c = obj.constant.array;
-				c != NULL; c = c->next) {
-			len++;
-		}
-		out->constant.uval = len;
-		return true;
-	case M_ALIGN:
-		out->constant.uval = in->measure.dimensions.align;
-		return true;
-	case M_SIZE:
-		out->constant.uval = in->measure.dimensions.size;
-		return true;
-	case M_OFFSET:
-		if (in->measure.value->access.type == ACCESS_FIELD) {
-			out->constant.uval =
-				in->measure.value->access.field->offset;
-		} else {
-			assert(in->measure.value->access.type == ACCESS_TUPLE);
-			out->constant.uval =
-				in->measure.value->access.tvalue->offset;
-		}
+	assert(in->type == EXPR_LEN);
+	const struct type *expr_type = type_dereference(ctx, in->len.value->result);
+	assert(expr_type != NULL);
+	expr_type = type_dealias(ctx, expr_type);
+	if (expr_type->storage == STORAGE_ARRAY) {
+		out->constant.uval = expr_type->array.length;
 		return true;
 	}
-	assert(0);
+
+	struct expression obj = {0};
+	if (!eval_expr(ctx, in->len.value, &obj)) {
+		return false;
+	}
+
+	switch (obj.result->storage) {
+	case STORAGE_ARRAY:
+	case STORAGE_SLICE:
+		break;
+	case STORAGE_STRING:
+		out->constant.uval = obj.constant.string.len;
+		return true;
+	case STORAGE_ERROR:
+		out->constant.uval = 0;
+		return true;
+	default:
+		abort(); // Invariant
+	}
+
+	uint64_t len = 0;
+	for (struct array_constant *c = obj.constant.array;
+			c != NULL; c = c->next) {
+		len++;
+	}
+	out->constant.uval = len;
+	return true;
 }
 
 static bool
@@ -1070,8 +1051,8 @@ eval_expr(struct context *ctx,
 		}
 	case EXPR_CONSTANT:
 		return eval_const(ctx, in, out);
-	case EXPR_MEASURE:
-		return eval_measurement(ctx, in, out);
+	case EXPR_LEN:
+		return eval_len(ctx, in, out);
 	case EXPR_STRUCT:
 		return eval_struct(ctx, in, out);
 	case EXPR_SLICE:

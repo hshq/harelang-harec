@@ -42,7 +42,7 @@ qemit_type(const struct qbe_def *def, FILE *out)
 	const struct type *base = def->type.base;
 	if (base) {
 		char *tn = gen_typename(base);
-		xfprintf(out, "# %s [id: %u; size: ", tn, base->id);
+		xfprintf(out, "# %s [id: %" PRIu32 "; size: ", tn, base->id);
 		free(tn);
 		if (base->size != SIZE_UNDEFINED) {
 			xfprintf(out, "%zu]\n", base->size);
@@ -83,7 +83,7 @@ qemit_type(const struct qbe_def *def, FILE *out)
 }
 
 static void
-emit_const(struct qbe_value *val, FILE *out)
+emit_const(const struct qbe_value *val, FILE *out)
 {
 	switch (val->type->stype) {
 	case Q_BYTE:
@@ -103,7 +103,7 @@ emit_const(struct qbe_value *val, FILE *out)
 }
 
 static void
-emit_value(struct qbe_value *val, FILE *out)
+emit_value(const struct qbe_value *val, FILE *out)
 {
 	switch (val->kind) {
 	case QV_CONST:
@@ -128,11 +128,11 @@ emit_value(struct qbe_value *val, FILE *out)
 }
 
 static void
-emit_call(struct qbe_statement *stmt, FILE *out)
+emit_call(const struct qbe_statement *stmt, FILE *out)
 {
 	xfprintf(out, "%s ", qbe_instr[stmt->instr]);
 
-	struct qbe_arguments *arg = stmt->args;
+	const struct qbe_arguments *arg = stmt->args;
 	assert(arg);
 	emit_value(&arg->value, out);
 	xfprintf(out, "(");
@@ -154,7 +154,7 @@ emit_call(struct qbe_statement *stmt, FILE *out)
 }
 
 static void
-emit_stmt(struct qbe_statement *stmt, FILE *out)
+emit_stmt(const struct qbe_statement *stmt, FILE *out)
 {
 	switch (stmt->type) {
 	case Q_COMMENT:
@@ -180,7 +180,7 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 		}
 		xfprintf(out, "%s%s", qbe_instr[stmt->instr],
 				stmt->args ? " " : "");
-		struct qbe_arguments *arg = stmt->args;
+		const struct qbe_arguments *arg = stmt->args;
 		while (arg) {
 			xfprintf(out, "%s", arg == stmt->args ? "" : ", ");
 			emit_value(&arg->value, out);
@@ -195,7 +195,7 @@ emit_stmt(struct qbe_statement *stmt, FILE *out)
 }
 
 static void
-emit_func(struct qbe_def *def, FILE *out)
+emit_func(const struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_FUNC);
 	xfprintf(out, "section \".text.%s\" \"ax\"%s\nfunction",
@@ -206,7 +206,7 @@ emit_func(struct qbe_def *def, FILE *out)
 		emit_qtype(def->func.returns, true, out);
 	}
 	xfprintf(out, " $%s(", def->name);
-	struct qbe_func_param *param = def->func.params;
+	const struct qbe_func_param *param = def->func.params;
 	while (param) {
 		emit_qtype(param->type, true, out);
 		xfprintf(out, " %%%s", param->name);
@@ -221,12 +221,12 @@ emit_func(struct qbe_def *def, FILE *out)
 	xfprintf(out, ") {\n");
 
 	for (size_t i = 0; i < def->func.prelude.ln; ++i) {
-		struct qbe_statement *stmt = &def->func.prelude.stmts[i];
+		const struct qbe_statement *stmt = &def->func.prelude.stmts[i];
 		emit_stmt(stmt, out);
 	}
 
 	for (size_t i = 0; i < def->func.body.ln; ++i) {
-		struct qbe_statement *stmt = &def->func.body.stmts[i];
+		const struct qbe_statement *stmt = &def->func.body.stmts[i];
 		emit_stmt(stmt, out);
 	}
 
@@ -260,9 +260,9 @@ emit_data_string(const char *str, size_t sz, FILE *out)
 }
 
 static bool
-is_zeroes(struct qbe_data_item *data)
+is_zeroes(const struct qbe_data_item *data)
 {
-	for (struct qbe_data_item *cur = data; cur; cur = cur->next) {
+	for (const struct qbe_data_item *cur = data; cur; cur = cur->next) {
 		switch (cur->type) {
 		case QD_ZEROED:
 			break;
@@ -302,7 +302,7 @@ is_zeroes(struct qbe_data_item *data)
 }
 
 static void
-emit_data(struct qbe_def *def, FILE *out)
+emit_data(const struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_DATA);
 	if (def->data.section && def->data.secflags) {
@@ -328,7 +328,7 @@ emit_data(struct qbe_def *def, FILE *out)
 	}
 	xfprintf(out, "{ ");
 
-	struct qbe_data_item *item = &def->data.items;
+	const struct qbe_data_item *item = &def->data.items;
 	while (item) {
 		switch (item->type) {
 		case QD_VALUE:
@@ -356,7 +356,7 @@ emit_data(struct qbe_def *def, FILE *out)
 }
 
 static void
-emit_def(struct qbe_def *def, FILE *out)
+emit_def(const struct qbe_def *def, FILE *out)
 {
 	xfprintf(out, "dbgfile \"%s\"\n", sources[def->file]);
 	switch (def->kind) {
@@ -373,9 +373,9 @@ emit_def(struct qbe_def *def, FILE *out)
 }
 
 void
-emit(struct qbe_program *program, FILE *out)
+emit(const struct qbe_program *program, FILE *out)
 {
-	struct qbe_def *def = program->defs;
+	const struct qbe_def *def = program->defs;
 	while (def) {
 		emit_def(def, out);
 		def = def->next;
