@@ -127,7 +127,7 @@ error(struct context *ctx, struct location loc, struct expression *expr,
 	va_end(ap);
 }
 
-static noreturn void
+noreturn void
 error_norec(struct context *ctx, struct location loc, const char *fmt, ...)
 {
 	va_list ap;
