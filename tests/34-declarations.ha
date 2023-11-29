@@ -1,4 +1,5 @@
 use rt::{compile, exited, EXIT_SUCCESS, toutf8};
+use testmod;
 
 def ARR: [3]u8 = [1, 2, 3];
 
@@ -517,11 +518,37 @@ fn complete_graph() void = {
 	static assert(size(t_0) == 4097 * size(*opaque));
 };
 
+export let @symbol("s_y") s_c: int;
+
+fn imported() void = {
+	// Decl. with symbol accessible by identifier
+	testmod::s_a;
+	testmod::s_b;
+
+	// Decl. with symbol not accessible by symbol
+	assert(compile(`
+	use testmod;
+	fn test() void = {
+		testmod::s_x;
+	};`) as exited != EXIT_SUCCESS);
+	assert(compile(`
+	use testmod;
+	fn test() void = {
+		s_x;
+	};`) as exited != EXIT_SUCCESS);
+
+	// Decl. with same symbol are linked together
+	assert(testmod::s_b == 1 && s_c == 1);
+	s_c = 2;
+	assert(testmod::s_b == 2 && s_c == 2);
+};
+
 export fn main() void = {
 	constants();
 	local_constants();
 	sz();
 	reject();
+	imported();
 	hosted_main();
 	complete_graph();
 };

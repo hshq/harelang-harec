@@ -127,7 +127,7 @@ error(struct context *ctx, struct location loc, struct expression *expr,
 	va_end(ap);
 }
 
-noreturn void
+static noreturn void
 error_norec(struct context *ctx, struct location loc, const char *fmt, ...)
 {
 	va_list ap;
@@ -4101,6 +4101,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 {
 	const struct ast_global_decl *decl = &idecl->decl.global;
 	const struct type *type = NULL;
+	struct identifier name = {0};
 	bool context = false;
 	struct expression *init, *value = NULL;
 	if (decl->type) {
@@ -4165,6 +4166,8 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 			decl->type ? decl->type->loc : decl->init->loc;
 		check_exported_type(ctx, loc, type);
 	}
+
+	mkident(ctx, &name, &idecl->obj.name, NULL);
 end:
 	idecl->obj.otype = O_DECL;
 	idecl->obj.type = type;
@@ -4173,7 +4176,7 @@ end:
 	append_decl(ctx, &(struct declaration){
 		.decl_type = DECL_GLOBAL,
 		.file = idecl->decl.loc.file,
-		.ident = idecl->obj.ident,
+		.ident = name,
 		.symbol = ident_to_sym(&idecl->obj.ident),
 
 		.exported = idecl->decl.exported,

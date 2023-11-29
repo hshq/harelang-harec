@@ -3774,7 +3774,8 @@ gen_global_decl(struct gen_context *ctx, const struct declaration *decl)
 	qdef->data.align = ALIGN_UNDEFINED;
 	qdef->data.threadlocal = global->threadlocal;
 	qdef->exported = decl->exported;
-	qdef->name = ident_to_sym(&decl->ident);
+	qdef->name = decl->symbol ? xstrdup(decl->symbol)
+		: ident_to_sym(&decl->ident);
 	qdef->file = decl->file;
 	gen_data_item(ctx, global->value, &qdef->data.items);
 	qbe_append_def(ctx->out, qdef);
