@@ -41,12 +41,9 @@ complete_alias(struct context *ctx, struct type *type)
 	assert(idecl->type == IDECL_DECL);
 
 	if (idecl->dealias_in_progress) {
-		char *identstr = identifier_unparse(&idecl->obj.name);
-		error(ctx, idecl->decl.loc, NULL,
-			"Circular dependency for '%s'");
-		free(identstr);
-		type->alias.type = &builtin_type_error;
-		return;
+		error_norec(ctx, idecl->decl.loc,
+			"Circular dependency for '%s'",
+			identifier_unparse(&idecl->obj.name));
 	}
 	idecl->dealias_in_progress = true;
 	type->alias.type = type_store_lookup_atype(ctx, idecl->decl.type.type);
