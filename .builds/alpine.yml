@@ -31,5 +31,5 @@ tasks:
     make check
 - stdlib-tests: |
     cd hare
-    cp config.example.mk config.mk
+    cp configs/linux.mk config.mk
     make -j2 check
