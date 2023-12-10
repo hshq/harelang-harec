@@ -94,7 +94,7 @@ fn assignment() void = {
 		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0.0; };",
 		"fn f() void = { let t = (0, 1); t = 0.0; };",
 		"fn f() void = { let a = [0, 1]; a = 0.0; };",
-		"fn f() void = { let s = ""; s = 0.0; };",
+		"fn f() void = { let s = \"\"; s = 0.0; };",
 
 		"type my_f32 = f32; fn f() void = { let ftu4: (f32 | my_f32 | void) = void; ftu4 = 0.0; };",
 		"fn f() void = { let ftu5: (str | void) = void; ftu5 = 0.0; };",
@@ -110,7 +110,7 @@ fn assignment() void = {
 		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 'a'; };",
 		"fn f() void = { let t = (0, 1); t = 'a'; };",
 		"fn f() void = { let a = [0, 1]; a = 'a'; };",
-		"fn f() void = { let s = ""; s = 'a'; };",
+		"fn f() void = { let s = \"\"; s = 'a'; };",
 
 		"fn f() void = { let rtu4: (u32 | u64 | void) = void; rtu4 = 'a'; };",
 		"fn f() void = { let rtu5: (str | void) = void; rtu5 = 'a'; };",
