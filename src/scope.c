@@ -33,16 +33,22 @@ scope_pop(struct scope **stack)
 }
 
 struct scope *
-scope_lookup_ancestor(struct scope *scope,
-	enum scope_class class, const char *label)
+scope_lookup_class(struct scope *scope, enum scope_class class)
 {
 	while (scope) {
-		if (label && scope->label && strcmp(scope->label, label) == 0) {
-			if (scope->class != class) {
-				return NULL;
-			}
+		if (scope->class == class) {
 			break;
-		} else if (!label && scope->class == class) {
+		}
+		scope = scope->parent;
+	}
+	return scope;
+}
+
+struct scope *
+scope_lookup_label(struct scope *scope, const char *label)
+{
+	while (scope) {
+		if (scope->label && strcmp(scope->label, label) == 0) {
 			break;
 		}
 		scope = scope->parent;

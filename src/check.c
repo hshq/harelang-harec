@@ -1953,18 +1953,40 @@ check_expr_control(struct context *ctx,
 		abort(); // Invariant
 	}
 
-	struct scope *scope = scope_lookup_ancestor(
-		ctx->scope, want, aexpr->control.label);
+	struct scope *scope = NULL;
+	if (aexpr->control.label) {
+		scope = scope_lookup_label(ctx->scope, aexpr->control.label);
+		if (scope && scope->class != want) {
+			error(ctx, aexpr->loc, expr,
+				"Selected expression must%s be a loop",
+				want == SCOPE_COMPOUND ? " not" : "");
+		}
+	} else {
+		scope = scope_lookup_class(ctx->scope, want);
+	}
 	if (!scope) {
-		// XXX: This error message is bad
-		error(ctx, aexpr->loc, expr, "No eligible loop for operation");
+		const char *msg;
+		switch (expr->type) {
+		case EXPR_BREAK:
+			msg = "No eligible loop to break from";
+			break;
+		case EXPR_CONTINUE:
+			msg = "No eligible loop to continue to";
+			break;
+		case EXPR_YIELD:
+			msg = "No eligible expression to yield from";
+			break;
+		default:
+			assert(0); // Invariant
+		}
+		error(ctx, aexpr->loc, expr, msg);
 		return;
 	}
-	struct scope *defer_scope = scope_lookup_ancestor(
-		ctx->scope, SCOPE_DEFER, NULL);
+	struct scope *defer_scope = scope_lookup_class(ctx->scope, SCOPE_DEFER);
 	if (defer_scope) {
-		defer_scope = scope_lookup_ancestor(
-			defer_scope, want, aexpr->control.label);
+		defer_scope = aexpr->control.label
+			? scope_lookup_label(defer_scope, aexpr->control.label)
+			: scope_lookup_class(defer_scope, want);
 		if (scope == defer_scope) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot jump out of defer expression");
@@ -2418,8 +2440,7 @@ check_expr_propagate(struct context *ctx,
 		return;
 	}
 	if (!aexpr->propagate.abort) {
-		struct scope *defer = scope_lookup_ancestor(
-			ctx->scope, SCOPE_DEFER, NULL);
+		struct scope *defer = scope_lookup_class(ctx->scope, SCOPE_DEFER);
 		if (defer) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot use error propagation in a defer expression");
@@ -2572,8 +2593,7 @@ check_expr_return(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	struct scope *defer = scope_lookup_ancestor(
-		ctx->scope, SCOPE_DEFER, NULL);
+	struct scope *defer = scope_lookup_class(ctx->scope, SCOPE_DEFER);
 	if (defer) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot return inside a defer expression");
