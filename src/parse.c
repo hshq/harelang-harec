@@ -2412,6 +2412,7 @@ parse_attr_symbol(struct lexer *lexer)
 	want(lexer, T_NUMBER, &tok);
 	synassert_msg(tok.storage == STORAGE_STRING,
 		"expected string literal", &tok);
+	synassert_msg(tok.string.len > 0, "invalid symbol", &tok);
 	for (size_t i = 0; i < tok.string.len; i++) {
 		uint32_t c = tok.string.value[i];
 		synassert_msg(c <= 0x7F && (isalnum(c) || c == '_' || c == '$'
