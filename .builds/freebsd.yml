@@ -7,7 +7,7 @@ packages:
 tasks:
 - qbe: |
     cd qbe
-    make PREFIX=/usr
+    make CC=cc PREFIX=/usr
     sudo make install PREFIX=/usr
 - prepare: |
     mkdir harec/build
