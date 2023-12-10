@@ -43,6 +43,10 @@ parse_define(const char *argv_0, const char *in)
 	struct token tok;
 	struct lexer lexer;
 	FILE *f = fmemopen((char *)in, strlen(in), "r");
+	if (f == NULL) {
+		perror("fmemopen");
+		exit(EXIT_FAILURE);
+	}
 	const char *d = "-D";
 	sources = &d;
 	lex_init(&lexer, f, 0);
@@ -103,6 +107,10 @@ main(int argc, char *argv[])
 				unit.ns->ns = NULL;
 			} else {
 				FILE *in = fmemopen(optarg, strlen(optarg), "r");
+				if (in == NULL) {
+					perror("fmemopen");
+					exit(EXIT_FAILURE);
+				}
 				const char *ns = "-N";
 				sources = &ns;
 				lex_init(&lexer, in, 0);
