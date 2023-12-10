@@ -246,6 +246,18 @@ fn binding() void = {
 	};
 };
 
+fn label() void = {
+	match :foo (0: (int | void)) {
+	case int =>
+		if (true) { yield :foo; };
+		abort();
+	case =>
+		if (true) abort(); // unreachable
+		// but still test that this branch inherits the label
+		yield :foo;
+	};
+};
+
 export fn main() void = {
 	tagged();
 	_never();
@@ -258,5 +270,6 @@ export fn main() void = {
 	numeric();
 	alignment_conversion();
 	binding();
+	label();
 	// TODO: Test exhaustiveness and dupe detection
 };

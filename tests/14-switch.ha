@@ -147,7 +147,7 @@ fn exhaustivity() void = {
 	let buf: [4096]u8 = [0...];
 	let buf = buf[..0];
 	static append(buf, toutf8("fn test() void = switch (0u8) {")...);
-	for (let i: u8 = '0'; i <= '2'; i += 1) :outer {
+	for :outer (let i: u8 = '0'; i <= '2'; i += 1) {
 		for (let j: u8 = '0'; j <= '9'; j += 1) {
 			for (let k: u8 = '0'; k <= '9'; k += 1) {
 				if (i == '2' && j == '5' && k == '6') {
@@ -240,10 +240,23 @@ fn duplicates() void = {
 	") as exited != EXIT_SUCCESS);
 };
 
+fn label() void = {
+	switch :foo (0) {
+	case 0 =>
+		if (true) { yield :foo; };
+		abort();
+	case =>
+		if (true) abort(); // unreachable
+		// but still test that this branch inherits the label
+		yield :foo;
+	};
+};
+
 export fn main() void = {
 	basics();
 	tagged_result();
 	binding();
 	exhaustivity();
 	duplicates();
+	label();
 };

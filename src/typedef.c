@@ -54,10 +54,10 @@ storage_to_suffix(enum type_storage storage)
 }
 
 static void
-emit_const(const struct expression *expr, FILE *out)
+emit_literal(const struct expression *expr, FILE *out)
 {
-	assert(expr->type == EXPR_CONSTANT);
-	const struct expression_constant *val = &expr->constant;
+	assert(expr->type == EXPR_LITERAL);
+	const struct expression_literal *val = &expr->literal;
 	assert(!val->object);
 	const struct type *t = type_dealias(NULL, expr->result);
 	switch (t->storage) {
@@ -132,15 +132,15 @@ emit_const(const struct expression *expr, FILE *out)
 		free(ident);
 		break;
 	case STORAGE_TAGGED:
-		emit_const(expr->constant.tagged.value, out);
+		emit_literal(expr->literal.tagged.value, out);
 		xfprintf(out, ": ");
-		emit_type(expr->constant.tagged.tag, out);
+		emit_type(expr->literal.tagged.tag, out);
 		break;
 	case STORAGE_ARRAY:
 		xfprintf(out, "[");
-		for (const struct array_constant *item = val->array;
+		for (const struct array_literal *item = val->array;
 				item; item = item->next) {
-			emit_const(item->value, out);
+			emit_literal(item->value, out);
 			if (item->next) {
 				xfprintf(out, ", ");
 			}
@@ -152,9 +152,9 @@ emit_const(const struct expression *expr, FILE *out)
 		break;
 	case STORAGE_TUPLE:
 		xfprintf(out, "(");
-		for (const struct tuple_constant *item = val->tuple;
+		for (const struct tuple_literal *item = val->tuple;
 				item; item = item->next) {
-			emit_const(item->value, out);
+			emit_literal(item->value, out);
 			if (item->next) {
 				xfprintf(out, ", ");
 			}
@@ -309,8 +309,8 @@ emit_type(const struct type *type, FILE *out)
 		xfprintf(out, ")");
 		break;
 	case STORAGE_ICONST:
-		xfprintf(out, "[iconst min=%" PRIi64 " max=%" PRIi64 "]", type->_const.min,
-			type->_const.max);
+		xfprintf(out, "[iconst min=%" PRIi64 " max=%" PRIi64 "]", type->flexible.min,
+			type->flexible.max);
 		break;
 	}
 }
@@ -327,7 +327,7 @@ emit_decl_const(struct declaration *decl, FILE *out)
 	}
 	free(ident);
 	xfprintf(out, " = ");
-	emit_const(decl->constant.value, out);
+	emit_literal(decl->constant.value, out);
 	xfprintf(out, ";\n");
 }
 
@@ -400,7 +400,7 @@ emit_decl_type(struct declaration *decl, FILE *out)
 				ev; ev = ev->lnext) {
 			assert(ev->otype != O_SCAN);
 			xfprintf(out, "%s = ", ev->name.name);
-			emit_const(ev->value, out);
+			emit_literal(ev->value, out);
 			xfprintf(out, ", ");
 		}
 		xfprintf(out, "}");

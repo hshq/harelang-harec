@@ -33,28 +33,26 @@ scope_pop(struct scope **stack)
 }
 
 struct scope *
-scope_lookup_ancestor(struct scope *scope,
-	enum scope_class class, const char *label)
+scope_lookup_class(struct scope *scope, enum scope_class class)
 {
-	// Implements the algorithm described by "Control statements" item 2, or
-	// 6.6.48.2 at the time of writing
 	while (scope) {
-		if (label && scope->label && strcmp(scope->label, label) == 0) {
-			break;
-		} else if (!label && scope->class == class) {
+		if (scope->class == class) {
 			break;
 		}
 		scope = scope->parent;
 	}
+	return scope;
+}
 
-	if (scope && class != scope->class) {
-		assert(scope->class == SCOPE_COMPOUND);
-		scope = scope->parent;
-		if (scope->class != class) {
-			return NULL;
+struct scope *
+scope_lookup_label(struct scope *scope, const char *label)
+{
+	while (scope) {
+		if (scope->label && strcmp(scope->label, label) == 0) {
+			break;
 		}
+		scope = scope->parent;
 	}
-
 	return scope;
 }
 
@@ -99,9 +97,9 @@ scope_object_init(struct scope_object *object, enum object_type otype,
 	} else if (value) {
 		object->value = value;
 		assert(otype == O_CONST);
-		assert(value->type == EXPR_CONSTANT);
+		assert(value->type == EXPR_LITERAL);
 	}
-	const_refer(type, &object->type);
+	flexible_refer(type, &object->type);
 }
 
 void

@@ -202,13 +202,13 @@ struct ast_expression_cast {
 	struct ast_type *type;
 };
 
-struct ast_array_constant {
+struct ast_array_literal {
 	struct ast_expression *value;
-	struct ast_array_constant *next;
+	struct ast_array_literal *next;
 	bool expand;
 };
 
-struct ast_expression_constant {
+struct ast_expression_literal {
 	enum type_storage storage;
 	union {
 		int64_t ival;
@@ -220,7 +220,7 @@ struct ast_expression_constant {
 			size_t len;
 			char *value;
 		} string;
-		struct ast_array_constant *array;
+		struct ast_array_literal *array;
 	};
 };
 
@@ -239,6 +239,7 @@ struct ast_expression_delete {
 };
 
 struct ast_expression_for {
+	char *label;
 	struct ast_expression *bindings;
 	struct ast_expression *cond;
 	struct ast_expression *afterthought;
@@ -268,6 +269,7 @@ struct ast_match_case {
 };
 
 struct ast_expression_match {
+	char *label;
 	struct ast_expression *value;
 	struct ast_match_case *cases;
 };
@@ -314,6 +316,7 @@ struct ast_switch_case {
 };
 
 struct ast_expression_switch {
+	char *label;
 	struct ast_expression *value;
 	struct ast_switch_case *cases;
 };
@@ -361,13 +364,13 @@ struct ast_expression {
 		struct ast_expression_call call;
 		struct ast_expression_cast cast;
 		struct ast_expression_compound compound;
-		struct ast_expression_constant constant;
 		struct ast_expression_control control;
 		struct ast_expression_defer defer;
 		struct ast_expression_delete delete;
 		struct ast_expression_for _for;
 		struct ast_expression_free free;
 		struct ast_expression_if _if;
+		struct ast_expression_literal literal;
 		struct ast_expression_match match;
 		struct ast_expression_measure measure;
 		struct ast_expression_propagate propagate;

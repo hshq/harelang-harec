@@ -971,8 +971,8 @@ gen_expr_binding_unpack_static(struct gen_context *ctx,
 {
 	assert(binding->object == NULL);
 
-	struct tuple_constant *tupleconst =
-		binding->initializer->constant.tuple;
+	struct tuple_literal *tuplelit =
+		binding->initializer->literal.tuple;
 
 	for (const struct binding_unpack *unpack = binding->unpack;
 			unpack; unpack = unpack->next) {
@@ -986,13 +986,13 @@ gen_expr_binding_unpack_static(struct gen_context *ctx,
 			.ident = unpack->object->ident,
 			.global = {
 				.type = unpack->object->type,
-				.value = tupleconst->value,
+				.value = tuplelit->value,
 			},
 		};
 		gen_global_decl(ctx, &decl);
 
 done:
-		tupleconst = tupleconst->next;
+		tuplelit = tuplelit->next;
 	}
 }
 
@@ -1594,7 +1594,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value intermediate;
 	struct qbe_value qintermediate;
 
-	from = lower_const(NULL, from, NULL);
+	from = lower_flexible(NULL, from, NULL);
 
 	enum qbe_instr op;
 	bool is_signed = type_is_signed(NULL, from);
@@ -1774,11 +1774,11 @@ gen_expr_compound_with(struct gen_context *ctx,
 }
 
 static void
-gen_const_array_at(struct gen_context *ctx,
+gen_literal_array_at(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value out)
 {
-	struct array_constant *aexpr = expr->constant.array;
+	struct array_literal *aexpr = expr->literal.array;
 	struct qbe_value base = mkqval(ctx, &out);
 
 	size_t n = 0;
@@ -1786,7 +1786,7 @@ gen_const_array_at(struct gen_context *ctx,
 	size_t msize = atype->array.members->size;
 	struct gen_value item = mkgtemp(ctx, atype->array.members, "item.%d");
 	struct qbe_value ptr;
-	for (const struct array_constant *ac = aexpr; ac; ac = ac->next) {
+	for (const struct array_literal *ac = aexpr; ac; ac = ac->next) {
 		struct qbe_value offs = constl(n * msize);
 		ptr = mklval(ctx, &item);
 		pushi(ctx->current, &ptr, Q_ADD, &base, &offs, NULL);
@@ -1815,7 +1815,7 @@ static struct qbe_data_item *gen_data_item(struct gen_context *,
 	const struct expression *, struct qbe_data_item *);
 
 static struct gen_value
-gen_const_string(struct gen_context *ctx, const struct expression *expr)
+gen_literal_string(struct gen_context *ctx, const struct expression *expr)
 {
 	struct qbe_def *str = xcalloc(1, sizeof(struct qbe_def));
 	str->kind = Q_DATA;
@@ -1834,14 +1834,14 @@ gen_const_string(struct gen_context *ctx, const struct expression *expr)
 }
 
 static void
-gen_const_struct_at(struct gen_context *ctx,
+gen_literal_struct_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	// TODO: Merge me into constant expressions
+	// TODO: Merge me into literal expressions
 	struct qbe_value base = mkqval(ctx, &out);
 
 	struct gen_value ftemp = mkgtemp(ctx, &builtin_type_void, "field.%d");
-	for (const struct struct_constant *field = expr->constant._struct;
+	for (const struct struct_literal *field = expr->literal._struct;
 			field; field = field->next) {
 		assert(field->value);
 
@@ -1854,11 +1854,11 @@ gen_const_struct_at(struct gen_context *ctx,
 }
 
 static void
-gen_const_tagged_at(struct gen_context *ctx,
+gen_literal_tagged_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
 	struct qbe_value qout = mklval(ctx, &out);
-	const struct type *subtype = expr->constant.tagged.tag;
+	const struct type *subtype = expr->literal.tagged.tag;
 	struct qbe_value id = constw(subtype->id);
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
 	pushi(ctx->current, NULL, store, &id, &qout, NULL);
@@ -1870,18 +1870,18 @@ gen_const_tagged_at(struct gen_context *ctx,
 	struct qbe_value qstor = mklval(ctx, &storage);
 	struct qbe_value offs = constl(expr->result->align);
 	pushi(ctx->current, &qstor, Q_ADD, &qout, &offs, NULL);
-	gen_expr_at(ctx, expr->constant.tagged.value, storage);
+	gen_expr_at(ctx, expr->literal.tagged.value, storage);
 }
 
 static void
-gen_const_tuple_at(struct gen_context *ctx,
+gen_literal_tuple_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
-	// TODO: Merge me into constant expressions
+	// TODO: Merge me into literal expressions
 	struct qbe_value base = mkqval(ctx, &out);
 
 	struct gen_value ftemp = mkgtemp(ctx, &builtin_type_void, "field.%d");
-	for (const struct tuple_constant *field = expr->constant.tuple; field;
+	for (const struct tuple_literal *field = expr->literal.tuple; field;
 			field = field->next) {
 		assert(field->value);
 
@@ -1894,7 +1894,7 @@ gen_const_tuple_at(struct gen_context *ctx,
 }
 
 static void
-gen_expr_const_at(struct gen_context *ctx,
+gen_expr_literal_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
 	if (!type_is_aggregate(type_dealias(NULL, expr->result))) {
@@ -1905,16 +1905,16 @@ gen_expr_const_at(struct gen_context *ctx,
 
 	switch (type_dealias(NULL, expr->result)->storage) {
 	case STORAGE_ARRAY:
-		gen_const_array_at(ctx, expr, out);
+		gen_literal_array_at(ctx, expr, out);
 		break;
 	case STORAGE_STRUCT:
-		gen_const_struct_at(ctx, expr, out);
+		gen_literal_struct_at(ctx, expr, out);
 		break;
 	case STORAGE_TAGGED:
-		gen_const_tagged_at(ctx, expr, out);
+		gen_literal_tagged_at(ctx, expr, out);
 		break;
 	case STORAGE_TUPLE:
-		gen_const_tuple_at(ctx, expr, out);
+		gen_literal_tuple_at(ctx, expr, out);
 		break;
 	default:
 		gen_store(ctx, out, gen_expr(ctx, expr));
@@ -1922,7 +1922,7 @@ gen_expr_const_at(struct gen_context *ctx,
 }
 
 static struct gen_value
-gen_expr_const(struct gen_context *ctx, const struct expression *expr)
+gen_expr_literal(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value val = {
 		.kind = GV_CONST,
@@ -1932,13 +1932,13 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	// Special cases
 	switch (type_dealias(NULL, expr->result)->storage) {
 	case STORAGE_BOOL:
-		val.wval = expr->constant.bval ? 1 : 0;
+		val.wval = expr->literal.bval ? 1 : 0;
 		return val;
 	case STORAGE_NULL:
 		val.lval = 0;
 		return val;
 	case STORAGE_STRING:
-		return gen_const_string(ctx, expr);
+		return gen_literal_string(ctx, expr);
 	default:
 		if (expr->result->size == 0) {
 			return gv_void;
@@ -1957,9 +1957,9 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 		return out;
 	}
 
-	if (expr->constant.object != NULL) {
-		assert(expr->constant.ival == 0);
-		val = gen_access_ident(ctx, expr->constant.object);
+	if (expr->literal.object != NULL) {
+		assert(expr->literal.ival == 0);
+		val = gen_access_ident(ctx, expr->literal.object);
 		val.type = expr->result;
 		return val;
 	}
@@ -1969,18 +1969,18 @@ gen_expr_const(struct gen_context *ctx, const struct expression *expr)
 	case Q_BYTE:
 	case Q_HALF:
 	case Q_WORD:
-		val.wval = (uint32_t)expr->constant.uval;
+		val.wval = (uint32_t)expr->literal.uval;
 		return val;
 	case Q_LONG:
-		val.lval = expr->constant.uval;
+		val.lval = expr->literal.uval;
 		return val;
 	case Q_SINGLE:
-		pushc(ctx->current, "%f", (float)expr->constant.fval);
-		val.sval = (float)expr->constant.fval;
+		pushc(ctx->current, "%f", (float)expr->literal.fval);
+		val.sval = (float)expr->literal.fval;
 		return val;
 	case Q_DOUBLE:
-		pushc(ctx->current, "%f", expr->constant.fval);
-		val.dval = expr->constant.fval;
+		pushc(ctx->current, "%f", expr->literal.fval);
+		val.dval = expr->literal.fval;
 		return val;
 	case Q__VOID:
 	case Q__AGGREGATE:
@@ -2766,7 +2766,7 @@ gen_expr_struct_at(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value out)
 {
-	// TODO: Merge me into constant expressions
+	// TODO: Merge me into literal expressions
 	struct qbe_value base = mkqval(ctx, &out);
 
 	if (expr->_struct.autofill) {
@@ -2844,7 +2844,7 @@ gen_expr_switch_with(struct gen_context *ctx,
 				opt; opt = opt->next) {
 			struct qbe_statement lnextopt;
 			struct qbe_value bnextopt = mklabel(ctx, &lnextopt, ".%d");
-			struct gen_value test = gen_expr_const(ctx, opt->value);
+			struct gen_value test = gen_expr_literal(ctx, opt->value);
 			struct expression lvalue = {
 				.type = EXPR_GEN_VALUE,
 				.result = value.type,
@@ -3017,7 +3017,7 @@ gen_expr_tuple_at(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value out)
 {
-	// TODO: Merge me into constant expressions
+	// TODO: Merge me into literal expressions
 	struct qbe_value base = mkqval(ctx, &out);
 
 	const struct type *type = type_dealias(NULL, expr->result);
@@ -3174,8 +3174,8 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 	case EXPR_COMPOUND:
 		out = gen_expr_compound_with(ctx, expr, NULL);
 		break;
-	case EXPR_CONSTANT:
-		out = gen_expr_const(ctx, expr);
+	case EXPR_LITERAL:
+		out = gen_expr_literal(ctx, expr);
 		break;
 	case EXPR_DEFER:
 		out = gen_expr_defer(ctx, expr);
@@ -3265,8 +3265,8 @@ gen_expr_at(struct gen_context *ctx,
 	case EXPR_COMPOUND:
 		gen_expr_compound_with(ctx, expr, &out);
 		return;
-	case EXPR_CONSTANT:
-		gen_expr_const_at(ctx, expr, out);
+	case EXPR_LITERAL:
+		gen_expr_literal_at(ctx, expr, out);
 		return;
 	case EXPR_IF:
 		gen_expr_if_with(ctx, expr, &out);
@@ -3496,19 +3496,19 @@ static struct qbe_data_item *
 gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	struct qbe_data_item *item)
 {
-	assert(expr->type == EXPR_CONSTANT);
+	assert(expr->type == EXPR_LITERAL);
 
 	struct qbe_def *def;
-	const struct expression_constant *constant = &expr->constant;
+	const struct expression_literal *literal = &expr->literal;
 	const struct type *type = type_dealias(NULL, expr->result);
 	if (type->storage == STORAGE_ENUM) {
 		type = type->alias.type;
 	}
-	type = lower_const(NULL, type, NULL);
-	if (constant->object) {
+	type = lower_flexible(NULL, type, NULL);
+	if (literal->object) {
 		item->type = QD_SYMOFFS;
-		item->sym = ident_to_sym(&constant->object->ident);
-		item->offset = constant->ival;
+		item->sym = ident_to_sym(&literal->object->ident);
+		item->offset = literal->ival;
 		return item;
 	}
 
@@ -3516,18 +3516,18 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_I8:
 	case STORAGE_U8:
 		item->type = QD_VALUE;
-		item->value = constw((uint8_t)constant->uval);
+		item->value = constw((uint8_t)literal->uval);
 		item->value.type = &qbe_byte;
 		break;
 	case STORAGE_BOOL:
 		item->type = QD_VALUE;
-		item->value = constw(constant->bval ? 1 : 0);
+		item->value = constw(literal->bval ? 1 : 0);
 		item->value.type = &qbe_byte;
 		break;
 	case STORAGE_I16:
 	case STORAGE_U16:
 		item->type = QD_VALUE;
-		item->value = constw((uint16_t)constant->uval);
+		item->value = constw((uint16_t)literal->uval);
 		item->value.type = &qbe_half;
 		break;
 	case STORAGE_I32:
@@ -3536,28 +3536,28 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_UINT:
 	case STORAGE_RUNE:
 		item->type = QD_VALUE;
-		item->value = constw((uint32_t)constant->uval);
+		item->value = constw((uint32_t)literal->uval);
 		break;
 	case STORAGE_U64:
 	case STORAGE_I64:
 	case STORAGE_SIZE:
 		item->type = QD_VALUE;
-		item->value = constl((uint64_t)constant->uval);
+		item->value = constl((uint64_t)literal->uval);
 		break;
 	case STORAGE_F32:
 		item->type = QD_VALUE;
-		item->value = consts((float)constant->fval);
+		item->value = consts((float)literal->fval);
 		break;
 	case STORAGE_F64:
 		item->type = QD_VALUE;
-		item->value = constd((double)constant->fval);
+		item->value = constd((double)literal->fval);
 		break;
 	case STORAGE_UINTPTR:
 	case STORAGE_POINTER:
 		item->type = QD_VALUE;
 		switch (ctx->arch.ptr->stype) {
 		case Q_LONG:
-			item->value = constl((uint64_t)constant->uval);
+			item->value = constl((uint64_t)literal->uval);
 			break;
 		default: assert(0);
 		}
@@ -3565,7 +3565,7 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_ARRAY:
 		assert(type->array.length != SIZE_UNDEFINED);
 		size_t n = type->array.length;
-		for (struct array_constant *c = constant->array;
+		for (struct array_literal *c = literal->array;
 				c && n; c = c->next ? c->next : c, --n) {
 			item = gen_data_item(ctx, c->value, item);
 			if (n > 1 || c->next) {
@@ -3581,13 +3581,13 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 		def->kind = Q_DATA;
 		def->data.align = ALIGN_UNDEFINED;
 		def->data.items.type = QD_STRING;
-		def->data.items.str = xcalloc(expr->constant.string.len, 1);
-		def->data.items.sz = expr->constant.string.len;
-		memcpy(def->data.items.str, expr->constant.string.value,
-			expr->constant.string.len);
+		def->data.items.str = xcalloc(expr->literal.string.len, 1);
+		def->data.items.sz = expr->literal.string.len;
+		memcpy(def->data.items.str, expr->literal.string.value,
+			expr->literal.string.len);
 
 		item->type = QD_VALUE;
-		if (expr->constant.string.len != 0) {
+		if (expr->literal.string.len != 0) {
 			qbe_append_def(ctx->out, def);
 			item->value.kind = QV_GLOBAL;
 			item->value.type = &qbe_long;
@@ -3600,11 +3600,11 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 		item->type = QD_VALUE;
-		item->value = constl(expr->constant.string.len);
+		item->value = constl(expr->literal.string.len);
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 		item->type = QD_VALUE;
-		item->value = constl(expr->constant.string.len);
+		item->value = constl(expr->literal.string.len);
 		break;
 	case STORAGE_SLICE:
 		def = xcalloc(1, sizeof(struct qbe_def));
@@ -3614,7 +3614,7 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 
 		size_t len = 0;
 		struct qbe_data_item *subitem = &def->data.items;
-		for (struct array_constant *c = constant->array;
+		for (struct array_literal *c = literal->array;
 				c; c = c->next) {
 			subitem = gen_data_item(ctx, c->value, subitem);
 			if (c->next) {
@@ -3646,7 +3646,7 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 		item->value = constl(len);
 		break;
 	case STORAGE_STRUCT:
-		for (struct struct_constant *f = constant->_struct;
+		for (struct struct_literal *f = literal->_struct;
 				f; f = f->next) {
 			if (f->field->type->size != 0) {
 				item = gen_data_item(ctx, f->value, item);
@@ -3683,7 +3683,7 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 		}
 		break;
 	case STORAGE_TUPLE:
-		for (const struct tuple_constant *tuple = constant->tuple;
+		for (const struct tuple_literal *tuple = literal->tuple;
 				tuple; tuple = tuple->next) {
 			if (tuple->field->type->size != 0) {
 				item = gen_data_item(ctx, tuple->value, item);
@@ -3721,23 +3721,23 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 		break;
 	case STORAGE_TAGGED:
 		item->type = QD_VALUE;
-		item->value = constw((uint32_t)constant->tagged.tag->id);
+		item->value = constw((uint32_t)literal->tagged.tag->id);
 		if (type->align != builtin_type_u32.align) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
 			item->type = QD_ZEROED;
 			item->zeroed = type->align - builtin_type_u32.align;
 		}
-		if (constant->tagged.tag->size != 0) {
+		if (literal->tagged.tag->size != 0) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
-			item = gen_data_item(ctx, constant->tagged.value, item);
+			item = gen_data_item(ctx, literal->tagged.value, item);
 		}
-		if (constant->tagged.tag->size < type->size - type->align) {
+		if (literal->tagged.tag->size < type->size - type->align) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
 			item->type = QD_ZEROED;
-			item->zeroed = type->size - type->align - constant->tagged.tag->size;
+			item->zeroed = type->size - type->align - literal->tagged.tag->size;
 		}
 		break;
 	case STORAGE_VOID:
@@ -3816,7 +3816,7 @@ gen(const struct unit *unit, type_store *store, struct qbe_program *out)
 	for (size_t i = 1; i <= nsources; i++) {
 		struct expression eloc;
 		mkstrconst(&eloc, "%s", sources[i]);
-		ctx.sources[i] = gen_const_string(&ctx, &eloc);
+		ctx.sources[i] = gen_literal_string(&ctx, &eloc);
 	}
 
 	const struct declarations *decls = unit->declarations;

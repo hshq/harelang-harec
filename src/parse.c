@@ -48,7 +48,7 @@ vsynerr(struct token *tok, va_list ap)
 		sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
 		token_str(tok), t == T_EOF ? "\n" : ", expected " );
 	while (t != T_EOF) {
-		if (t == T_LITERAL || t == T_NAME) {
+		if (t == T_NUMBER || t == T_NAME) {
 			xfprintf(stderr, "%s", lexical_token_str(t));
 		} else {
 			xfprintf(stderr, "'%s'", lexical_token_str(t));
@@ -776,32 +776,32 @@ parse_access(struct lexer *lexer, struct identifier ident)
 }
 
 static struct ast_expression *
-parse_constant(struct lexer *lexer)
+parse_literal(struct lexer *lexer)
 {
 	struct ast_expression *exp = mkexpr(lexer->loc);
-	exp->type = EXPR_CONSTANT;
+	exp->type = EXPR_LITERAL;
 
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
 	case T_TRUE:
-		exp->constant.storage = STORAGE_BOOL;
-		exp->constant.bval = true;
+		exp->literal.storage = STORAGE_BOOL;
+		exp->literal.bval = true;
 		return exp;
 	case T_FALSE:
-		exp->constant.storage = STORAGE_BOOL;
-		exp->constant.bval = false;
+		exp->literal.storage = STORAGE_BOOL;
+		exp->literal.bval = false;
 		return exp;
 	case T_NULL:
-		exp->constant.storage = STORAGE_NULL;
+		exp->literal.storage = STORAGE_NULL;
 		return exp;
 	case T_VOID:
-		exp->constant.storage = STORAGE_VOID;
+		exp->literal.storage = STORAGE_VOID;
 		return exp;
-	case T_LITERAL:
-		exp->constant.storage = tok.storage;
+	case T_NUMBER:
+		exp->literal.storage = tok.storage;
 		break;
 	default:
-		synerr(&tok, T_LITERAL, T_TRUE,
+		synerr(&tok, T_NUMBER, T_TRUE,
 			T_FALSE, T_NULL, T_VOID, T_EOF);
 		break;
 	}
@@ -815,7 +815,7 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_SIZE:
-		exp->constant.uval = (uint64_t)tok.uval;
+		exp->literal.uval = (uint64_t)tok.uval;
 		break;
 	case STORAGE_I8:
 	case STORAGE_I16:
@@ -823,35 +823,35 @@ parse_constant(struct lexer *lexer)
 	case STORAGE_I64:
 	case STORAGE_ICONST:
 	case STORAGE_INT:
-		exp->constant.ival = (int64_t)tok.ival;
+		exp->literal.ival = (int64_t)tok.ival;
 		break;
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
-		exp->constant.fval = tok.fval;
+		exp->literal.fval = tok.fval;
 		break;
 	case STORAGE_RCONST:
-		exp->constant.rune = tok.rune;
+		exp->literal.rune = tok.rune;
 		break;
 	case STORAGE_STRING:
-		exp->constant.string.len = tok.string.len;
-		exp->constant.string.value = tok.string.value;
-		while (lex(lexer, &tok) == T_LITERAL
+		exp->literal.string.len = tok.string.len;
+		exp->literal.string.value = tok.string.value;
+		while (lex(lexer, &tok) == T_NUMBER
 				&& tok.storage == STORAGE_STRING) {
-			size_t len = exp->constant.string.len;
-			exp->constant.string.value = xrealloc(
-				exp->constant.string.value,
+			size_t len = exp->literal.string.len;
+			exp->literal.string.value = xrealloc(
+				exp->literal.string.value,
 				len + tok.string.len);
-			memcpy(exp->constant.string.value + len,
+			memcpy(exp->literal.string.value + len,
 				tok.string.value, tok.string.len);
-			exp->constant.string.len += tok.string.len;
+			exp->literal.string.len += tok.string.len;
 		}
 		unlex(lexer, &tok);
 
 		// check for invalid UTF-8 (possible when \x is used)
-		const char *s = exp->constant.string.value;
-		size_t len = exp->constant.string.len;
-		while (s - exp->constant.string.value < (ptrdiff_t)len) {
+		const char *s = exp->literal.string.value;
+		size_t len = exp->literal.string.len;
+		while (s - exp->literal.string.value < (ptrdiff_t)len) {
 			if (utf8_decode(&s) == UTF8_INVALID) {
 				error(loc, "invalid UTF-8 in string literal");
 			}
@@ -889,15 +889,15 @@ parse_array_literal(struct lexer *lexer)
 	want(lexer, T_LBRACKET, &tok);
 
 	struct ast_expression *exp = mkexpr(lexer->loc);
-	exp->type = EXPR_CONSTANT;
-	exp->constant.storage = STORAGE_ARRAY;
+	exp->type = EXPR_LITERAL;
+	exp->literal.storage = STORAGE_ARRAY;
 
-	struct ast_array_constant *item, **next = &exp->constant.array;
+	struct ast_array_literal *item, **next = &exp->literal.array;
 
 	while (lex(lexer, &tok) != T_RBRACKET) {
 		unlex(lexer, &tok);
 
-		item = *next = xcalloc(1, sizeof(struct ast_array_constant));
+		item = *next = xcalloc(1, sizeof(struct ast_array_literal));
 		item->value = parse_expression(lexer);
 		next = &item->next;
 
@@ -1060,13 +1060,13 @@ parse_plain_expression(struct lexer *lexer)
 	struct ast_expression *exp;
 	switch (lex(lexer, &tok)) {
 	// plain-expression
-	case T_LITERAL:
+	case T_NUMBER:
 	case T_TRUE:
 	case T_FALSE:
 	case T_NULL:
 	case T_VOID:
 		unlex(lexer, &tok);
-		return parse_constant(lexer);
+		return parse_literal(lexer);
 	case T_NAME:
 		unlex(lexer, &tok);
 		struct identifier ident = {0};
@@ -1100,7 +1100,7 @@ parse_plain_expression(struct lexer *lexer)
 		};
 		assert(0); // Unreachable
 	default:
-		synerr(&tok, T_LITERAL, T_NAME,
+		synerr(&tok, T_NUMBER, T_NAME,
 			T_LBRACKET, T_STRUCT, T_LPAREN, T_EOF);
 	}
 	assert(0); // Unreachable
@@ -1451,14 +1451,14 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 			exp->access._struct = lvalue;
 			exp->access.field = tok.name;
 			break;
-		case T_LITERAL:
+		case T_NUMBER:
 			exp->access.type = ACCESS_TUPLE;
 			exp->access.tuple = lvalue;
 			unlex(lexer, &tok);
-			exp->access.value = parse_constant(lexer);
+			exp->access.value = parse_literal(lexer);
 			break;
 		default:
-			synerr(&tok, T_NAME, T_LITERAL, T_EOF);
+			synerr(&tok, T_NAME, T_NUMBER, T_EOF);
 		}
 
 		lvalue = exp;
@@ -1823,7 +1823,18 @@ parse_for_expression(struct lexer *lexer)
 
 	struct token tok = {0};
 	want(lexer, T_FOR, &tok);
-	want(lexer, T_LPAREN, &tok);
+	switch (lex(lexer, &tok)) {
+	case T_COLON:
+		want(lexer, T_NAME, &tok);
+		exp->_for.label = tok.name;
+		want(lexer, T_LPAREN, &tok);
+		break;
+	case T_LPAREN:
+		break; // no-op
+	default:
+		synerr(&tok, T_LPAREN, T_COLON, T_EOF);
+		break;
+	}
 	switch (lex(lexer, &tok)) {
 	case T_LET:
 	case T_CONST:
@@ -1919,7 +1930,17 @@ parse_switch_expression(struct lexer *lexer)
 	exp->type = EXPR_SWITCH;
 
 	struct token tok = {0};
-	want(lexer, T_LPAREN, &tok);
+	switch (lex(lexer, &tok)) {
+	case T_COLON:
+		want(lexer, T_NAME, &tok);
+		exp->_switch.label = tok.name;
+		want(lexer, T_LPAREN, &tok);
+		break;
+	case T_LPAREN:
+		break; // no-op
+	default:
+		synerr(&tok, T_LPAREN, T_COLON, T_EOF);
+	}
 	exp->_switch.value = parse_expression(lexer);
 	want(lexer, T_RPAREN, &tok);
 	want(lexer, T_LBRACE, &tok);
@@ -1980,7 +2001,17 @@ parse_match_expression(struct lexer *lexer)
 	exp->type = EXPR_MATCH;
 
 	struct token tok = {0};
-	want(lexer, T_LPAREN, &tok);
+	switch (lex(lexer, &tok)) {
+	case T_COLON:
+		want(lexer, T_NAME, &tok);
+		exp->match.label = tok.name;
+		want(lexer, T_LPAREN, &tok);
+		break;
+	case T_LPAREN:
+		break; // no-op
+	default:
+		synerr(&tok, T_LPAREN, T_COLON, T_EOF);
+	}
 	exp->match.value = parse_expression(lexer);
 	want(lexer, T_RPAREN, &tok);
 	want(lexer, T_LBRACE, &tok);
@@ -2409,9 +2440,10 @@ parse_attr_symbol(struct lexer *lexer)
 {
 	struct token tok = {0};
 	want(lexer, T_LPAREN, NULL);
-	want(lexer, T_LITERAL, &tok);
+	want(lexer, T_NUMBER, &tok);
 	synassert_msg(tok.storage == STORAGE_STRING,
 		"expected string literal", &tok);
+	synassert_msg(tok.string.len > 0, "invalid symbol", &tok);
 	for (size_t i = 0; i < tok.string.len; i++) {
 		uint32_t c = tok.string.value[i];
 		synassert_msg(c <= 0x7F && (isalnum(c) || c == '_' || c == '$'

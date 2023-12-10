@@ -12,14 +12,14 @@ fn assignment() void = {
 	let e = my_enum::FOO;
 
 	// There are five cases that need to be tested for tagged unions:
-	// - The default type for the constant is a member of the union
-	// - A single non-default type the constant could assume is a member of
+	// - The default type for the literal is a member of the union
+	// - A single non-default type the literal could assume is a member of
 	//   the union
-	// - The default type for the constant along with at least one other
-	//   type the constant could assume are both members of the union
-	// - At least two types the constant could assume are members of the
+	// - The default type for the literal along with at least one other
+	//   type the literal could assume are both members of the union
+	// - At least two types the literal could assume are members of the
 	//   union, and the default type isn't a member of the union
-	// - None of the types the constant could assume are members of the
+	// - None of the types the literal could assume are members of the
 	//   union
 	// All but the fourth and fifth case are valid, and the invalid cases
 	// should error out gracefully.
@@ -94,7 +94,7 @@ fn assignment() void = {
 		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 0.0; };",
 		"fn f() void = { let t = (0, 1); t = 0.0; };",
 		"fn f() void = { let a = [0, 1]; a = 0.0; };",
-		"fn f() void = { let s = ""; s = 0.0; };",
+		"fn f() void = { let s = \"\"; s = 0.0; };",
 
 		"type my_f32 = f32; fn f() void = { let ftu4: (f32 | my_f32 | void) = void; ftu4 = 0.0; };",
 		"fn f() void = { let ftu5: (str | void) = void; ftu5 = 0.0; };",
@@ -110,7 +110,7 @@ fn assignment() void = {
 		"fn f() void = { let s: struct { i: int } = struct { i: int = 0 }; s = 'a'; };",
 		"fn f() void = { let t = (0, 1); t = 'a'; };",
 		"fn f() void = { let a = [0, 1]; a = 'a'; };",
-		"fn f() void = { let s = ""; s = 'a'; };",
+		"fn f() void = { let s = \"\"; s = 'a'; };",
 
 		"fn f() void = { let rtu4: (u32 | u64 | void) = void; rtu4 = 'a'; };",
 		"fn f() void = { let rtu5: (str | void) = void; rtu5 = 'a'; };",
@@ -128,7 +128,7 @@ fn aggregates() void = {
 
 	// Kinda hacky way to verify that something has the expected type
 	// The variables are necessary in order to avoid type hints, which would
-	// avoid verifying that constants are lowered when entering aggregate
+	// avoid verifying that literals are lowered when entering aggregate
 	// types
 	let maxiptr = if (true) alloc(2147483647) else void;
 	free(maxiptr as *int);
@@ -534,7 +534,7 @@ fn basics() void = {
 };
 
 export fn main() void = {
-	// The interaction between constants and result type reduction is tested
+	// The interaction between literals and result type reduction is tested
 	// in 30-reduction.c
 	basics();
 	numeric();

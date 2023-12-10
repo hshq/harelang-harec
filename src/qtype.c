@@ -225,7 +225,7 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		return qtype_lookup(ctx, lower_const(NULL, type, NULL), xtype);
+		return qtype_lookup(ctx, lower_flexible(NULL, type, NULL), xtype);
 	}
 	abort(); // Invariant
 }
@@ -272,7 +272,7 @@ type_is_aggregate(const struct type *type)
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		lower_const(NULL, type, NULL);
+		lower_flexible(NULL, type, NULL);
 		return false;
 	case STORAGE_ERROR:
 	case STORAGE_NEVER:

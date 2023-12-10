@@ -438,6 +438,12 @@ fn reject() void = {
 
 		// type alias of never
 		"export type t = never;",
+
+		// invalid symbol
+		`@symbol("") fn f() void;`,
+		`@symbol("#!@%") fn f() void;`,
+		`@symbol("") let x: int;`,
+		`@symbol("#!@%") let x: int;`,
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

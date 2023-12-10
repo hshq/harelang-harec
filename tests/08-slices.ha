@@ -123,7 +123,7 @@ fn assignment() void = {
 		"export fn main() void = { let a: []int = [1]; a[..] += a; };"
 	) as exited != EXIT_SUCCESS);
 	assert(compile(
-		"fn f() void = { let a: []int = [1] + [2];"
+		"fn f() void = { let a: []int = [1] + [2]; };"
 	) as exited != EXIT_SUCCESS);
 	assert(compile(
 		"type t = opaque; fn f() void = { let x: []int = []; let x: []t = x; };"

@@ -358,7 +358,7 @@ type_is_signed(struct context *ctx, const struct type *type)
 	case STORAGE_FCONST:
 		return true;
 	case STORAGE_ICONST:
-		return type->_const.min < 0;
+		return type->flexible.min < 0;
 	case STORAGE_ALIAS:
 		assert(0); // Handled above
 	}
@@ -366,7 +366,7 @@ type_is_signed(struct context *ctx, const struct type *type)
 }
 
 bool
-type_is_constant(const struct type *type)
+type_is_flexible(const struct type *type)
 {
 	return type->storage == STORAGE_FCONST
 		|| type->storage == STORAGE_ICONST
@@ -430,7 +430,7 @@ type_hash(const struct type *type)
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		hash = fnv1a(hash, type->_const.id);
+		hash = fnv1a(hash, type->flexible.id);
 		break;
 	case STORAGE_POINTER:
 		hash = fnv1a(hash, type->pointer.flags);
@@ -556,7 +556,7 @@ max_value(struct context *ctx, const struct type *t)
 }
 
 const struct type *
-type_create_const(enum type_storage storage, int64_t min, int64_t max)
+type_create_flexible(enum type_storage storage, int64_t min, int64_t max)
 {
 	// XXX: This'll be impossible to free. The right solution would be to
 	// store iconsts in the type store, but that'd require passing the store
@@ -568,52 +568,52 @@ type_create_const(enum type_storage storage, int64_t min, int64_t max)
 	type->storage = storage;
 	type->size = SIZE_UNDEFINED;
 	type->align = ALIGN_UNDEFINED;
-	type->_const.min = min;
-	type->_const.max = max;
-	type->_const.id = id++;
+	type->flexible.min = min;
+	type->flexible.max = max;
+	type->flexible.id = id++;
 	type->id = type_hash(type);
-	assert(type_is_constant(type));
+	assert(type_is_flexible(type));
 	return type;
 }
 
-// Register a reference to a flexible constant type. When `type` is lowered in
-// [[lower_const]], *ref will be updated to point to the new type.
+// Register a reference to a flexible type. When `type` is lowered in
+// [[lower_flexible]], *ref will be updated to point to the new type.
 void
-const_refer(const struct type *type, const struct type **ref)
+flexible_refer(const struct type *type, const struct type **ref)
 {
-	if (type == NULL || !type_is_constant(type)) {
+	if (type == NULL || !type_is_flexible(type)) {
 		return;
 	}
-	struct type_const *constant = (struct type_const *)&type->_const;
+	struct type_flexible *flex = (struct type_flexible *)&type->flexible;
 
-	if (constant->nrefs >= constant->zrefs) {
-		constant->zrefs *= 2;
-		if (constant->zrefs == 0) {
-			constant->zrefs++;
+	if (flex->nrefs >= flex->zrefs) {
+		flex->zrefs *= 2;
+		if (flex->zrefs == 0) {
+			flex->zrefs++;
 		}
-		constant->refs = xrealloc(constant->refs,
-			constant->zrefs * sizeof(const struct type **));
+		flex->refs = xrealloc(flex->refs,
+			flex->zrefs * sizeof(const struct type **));
 	}
-	constant->refs[constant->nrefs] = ref;
-	constant->nrefs++;
+	flex->refs[flex->nrefs] = ref;
+	flex->nrefs++;
 }
 
-// Sets the number of references for a flexible constant type to zero.
+// Sets the number of references for a flexible type to zero.
 void
-const_reset_refs(const struct type *type)
+flexible_reset_refs(const struct type *type)
 {
-	if (type == NULL || !type_is_constant(type)) {
+	if (type == NULL || !type_is_flexible(type)) {
 		return;
 	}
-	((struct type *)type)->_const.nrefs = 0;
+	((struct type *)type)->flexible.nrefs = 0;
 }
 
-// Lower a flexible constant type. If new == NULL, lower it to its default type.
+// Lower a flexible type. If new == NULL, lower it to its default type.
 const struct type *
-lower_const(struct context *ctx, const struct type *old, const struct type *new) {
-	if (!type_is_constant(old)) {
+lower_flexible(struct context *ctx, const struct type *old, const struct type *new) {
+	if (!type_is_flexible(old)) {
 		// If new != NULL, we're expected to always do something, and we
-		// can't if it's not a constant
+		// can't if it's not flexible
 		assert(new == NULL);
 		return old;
 	}
@@ -623,8 +623,8 @@ lower_const(struct context *ctx, const struct type *old, const struct type *new)
 			new = &builtin_type_f64;
 			break;
 		case STORAGE_ICONST:
-			if (old->_const.max <= (int64_t)max_value(ctx, &builtin_type_int)
-					&& old->_const.min >= min_value(ctx, &builtin_type_int)) {
+			if (old->flexible.max <= (int64_t)max_value(ctx, &builtin_type_int)
+					&& old->flexible.min >= min_value(ctx, &builtin_type_int)) {
 				new = &builtin_type_int;
 			} else {
 				new = &builtin_type_i64;
@@ -637,55 +637,55 @@ lower_const(struct context *ctx, const struct type *old, const struct type *new)
 			assert(0);
 		}
 	}
-	for (size_t i = 0; i < old->_const.nrefs; i++) {
-		const_refer(new, old->_const.refs[i]);
-		*old->_const.refs[i] = new;
+	for (size_t i = 0; i < old->flexible.nrefs; i++) {
+		flexible_refer(new, old->flexible.refs[i]);
+		*old->flexible.refs[i] = new;
 	}
 	// XXX: Can we free old?
 	return new;
 }
 
-// Implements the flexible constant promotion algorithm
+// Implements the flexible type promotion algorithm
 const struct type *
-promote_const(struct context *ctx,
+promote_flexible(struct context *ctx,
 		const struct type *a, const struct type *b) {
 	if (a->storage == STORAGE_ICONST && b->storage == STORAGE_ICONST) {
-		int64_t min = a->_const.min < b->_const.min
-			? a->_const.min : b->_const.min;
-		int64_t max = a->_const.max > b->_const.max
-			? a->_const.max : b->_const.max;
+		int64_t min = a->flexible.min < b->flexible.min
+			? a->flexible.min : b->flexible.min;
+		int64_t max = a->flexible.max > b->flexible.max
+			? a->flexible.max : b->flexible.max;
 		const struct type *l =
-			type_create_const(STORAGE_ICONST, min, max);
-		lower_const(ctx, a, l);
-		lower_const(ctx, b, l);
+			type_create_flexible(STORAGE_ICONST, min, max);
+		lower_flexible(ctx, a, l);
+		lower_flexible(ctx, b, l);
 		return l;
 	}
-	if (type_is_constant(a)) {
+	if (type_is_flexible(a)) {
 		if (a->storage == b->storage) {
 			const struct type *l =
-				type_create_const(a->storage, 0, 0);
-			lower_const(ctx, a, l);
-			lower_const(ctx, b, l);
+				type_create_flexible(a->storage, 0, 0);
+			lower_flexible(ctx, a, l);
+			lower_flexible(ctx, b, l);
 			return l;
 		}
-		if (type_is_constant(b)) {
+		if (type_is_flexible(b)) {
 			return NULL;
 		}
-		return promote_const(ctx, b, a);
+		return promote_flexible(ctx, b, a);
 	}
-	assert(!type_is_constant(a) && type_is_constant(b));
+	assert(!type_is_flexible(a) && type_is_flexible(b));
 	if (type_dealias(ctx, a)->storage == STORAGE_TAGGED) {
 		const struct type *tag = NULL;
 		for (const struct type_tagged_union *tu =
 				&type_dealias(ctx, a)->tagged; tu; tu = tu->next) {
-			const struct type *p = promote_const(ctx, tu->type, b);
+			const struct type *p = promote_flexible(ctx, tu->type, b);
 			if (!p) {
-				lower_const(ctx, b, tag);
+				lower_flexible(ctx, b, tag);
 				continue;
 			}
 			if (tag) {
 				// Ambiguous
-				b = lower_const(ctx, b, NULL);
+				b = lower_flexible(ctx, b, NULL);
 				if (type_is_assignable(ctx, a, b)) {
 					return b;
 				}
@@ -700,32 +700,32 @@ promote_const(struct context *ctx,
 		if (!type_is_float(ctx, a)) {
 			return NULL;
 		}
-		lower_const(ctx, b, a);
+		lower_flexible(ctx, b, a);
 		return a;
 	case STORAGE_ICONST:
 		if (!type_is_integer(ctx, a)) {
 			return NULL;
 		}
-		if (type_is_signed(ctx, a) && min_value(ctx, a) > b->_const.min) {
+		if (type_is_signed(ctx, a) && min_value(ctx, a) > b->flexible.min) {
 			return NULL;
 		}
-		if (b->_const.max > 0 && max_value(ctx, a) < (uint64_t)b->_const.max) {
+		if (b->flexible.max > 0 && max_value(ctx, a) < (uint64_t)b->flexible.max) {
 			return NULL;
 		}
-		lower_const(ctx, b, a);
+		lower_flexible(ctx, b, a);
 		return a;
 	case STORAGE_RCONST:
 		if (type_dealias(ctx, a)->storage == STORAGE_RUNE) {
-			lower_const(ctx, b, a);
+			lower_flexible(ctx, b, a);
 			return a;
 		}
 		if (!type_is_integer(ctx, a)) {
 			return NULL;
 		}
-		if (max_value(ctx, a) < (uint64_t)b->_const.max) {
+		if (max_value(ctx, a) < (uint64_t)b->flexible.max) {
 			return NULL;
 		};
-		lower_const(ctx, b, a);
+		lower_flexible(ctx, b, a);
 		return a;
 	default:
 		assert(0); // Invariant
@@ -795,8 +795,8 @@ type_is_assignable(struct context *ctx,
 		return true;
 	}
 
-	if (type_is_constant(from)) {
-		return promote_const(ctx, to_orig, from_orig);
+	if (type_is_flexible(from)) {
+		return promote_flexible(ctx, to_orig, from_orig);
 	}
 
 	struct type _to_secondary, _from_secondary;
@@ -805,7 +805,7 @@ type_is_assignable(struct context *ctx,
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
 	case STORAGE_RCONST:
-		return promote_const(ctx, to_orig, from_orig);
+		return promote_flexible(ctx, to_orig, from_orig);
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -955,8 +955,8 @@ const struct type *
 type_is_castable(struct context *ctx, const struct type *to, const struct type *from)
 {
 	if (to->storage == STORAGE_VOID) {
-		if (type_is_constant(from)) {
-			lower_const(ctx, from, NULL);
+		if (type_is_flexible(from)) {
+			lower_flexible(ctx, from, NULL);
 		};
 		return to;
 	} else if (to->storage == STORAGE_ERROR) {
@@ -985,23 +985,23 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 		switch (to->storage) {
 		case STORAGE_F32:
 		case STORAGE_F64:
-			lower_const(ctx, from, NULL);
+			lower_flexible(ctx, from, NULL);
 			return to_orig;
 		case STORAGE_RUNE:
-			lower_const(ctx, from, &builtin_type_u32);
+			lower_flexible(ctx, from, &builtin_type_u32);
 			return to_orig;
 		default:
-			return promote_const(ctx, from_orig, to_orig);
+			return promote_flexible(ctx, from_orig, to_orig);
 		}
 		break;
 	case STORAGE_FCONST:
 		if (type_is_integer(ctx, to)) {
-			lower_const(ctx, from, NULL);
+			lower_flexible(ctx, from, NULL);
 			return to_orig;
 		}
 		// fallthrough
 	case STORAGE_RCONST:
-		return promote_const(ctx, from_orig, to_orig);
+		return promote_flexible(ctx, from_orig, to_orig);
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
@@ -1186,8 +1186,8 @@ struct type builtin_type_bool = {
 },
 builtin_type_error = {
 	.storage = STORAGE_ERROR,
-	.size = 1,
-	.align = 1,
+	.size = 0,
+	.align = 0,
 },
 builtin_type_f32 = {
 	.storage = STORAGE_F32,

@@ -20,7 +20,6 @@ enum expr_type {
 	EXPR_CALL,
 	EXPR_CAST,
 	EXPR_COMPOUND,
-	EXPR_CONSTANT,
 	EXPR_CONTINUE,
 	EXPR_DEFER,
 	EXPR_DEFINE,
@@ -31,6 +30,7 @@ enum expr_type {
 	EXPR_INSERT,
 	EXPR_LEN,
 	EXPR_MEASURE = EXPR_LEN, // for use in AST
+	EXPR_LITERAL,
 	EXPR_MATCH,
 	EXPR_PROPAGATE,
 	EXPR_RETURN,
@@ -190,30 +190,30 @@ struct expression_compound {
 	struct expressions exprs;
 };
 
-struct array_constant {
+struct array_literal {
 	struct expression *value;
-	struct array_constant *next;
+	struct array_literal *next;
 };
 
 // Invariant: these are sorted by field offset
-struct struct_constant {
+struct struct_literal {
 	const struct struct_field *field;
 	struct expression *value;
-	struct struct_constant *next;
+	struct struct_literal *next;
 };
 
-struct tuple_constant {
+struct tuple_literal {
 	const struct type_tuple *field;
 	struct expression *value;
-	struct tuple_constant *next;
+	struct tuple_literal *next;
 };
 
-struct tagged_constant {
+struct tagged_literal {
 	const struct type *tag;
 	struct expression *value;
 };
 
-struct expression_constant {
+struct expression_literal {
 	// If non-null, ival is an offset from this object's address
 	const struct scope_object *object;
 	union {
@@ -226,10 +226,10 @@ struct expression_constant {
 			size_t len;
 			char *value;
 		} string;
-		struct array_constant *array;
-		struct struct_constant *_struct;
-		struct tuple_constant *tuple;
-		struct tagged_constant tagged;
+		struct array_literal *array;
+		struct struct_literal *_struct;
+		struct tuple_literal *tuple;
+		struct tagged_literal tagged;
 	};
 };
 
@@ -250,6 +250,7 @@ struct expression_delete {
 };
 
 struct expression_for {
+	char *label;
 	struct scope *scope;
 	struct expression *bindings;
 	struct expression *cond;
@@ -356,7 +357,6 @@ struct expression {
 		struct expression_call call;
 		struct expression_cast cast;
 		struct expression_compound compound;
-		struct expression_constant constant;
 		struct expression_defer defer;
 		struct expression_delete delete;
 		struct expression_control control;
@@ -364,6 +364,7 @@ struct expression {
 		struct expression_free free;
 		struct expression_if _if;
 		struct expression_len len;
+		struct expression_literal literal;
 		struct expression_match match;
 		struct expression_return _return;
 		struct expression_switch _switch;

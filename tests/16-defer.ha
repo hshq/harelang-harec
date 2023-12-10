@@ -70,6 +70,7 @@ fn reject() void = {
 		"export fn main() void = for (true) { defer continue; };",
 		"export fn main() void = { defer defer 0; };",
 		"export fn main() void = { defer return; };",
+		"export fn main() void = for :outer (true) { defer { break :outer; }; };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {

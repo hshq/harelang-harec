@@ -46,11 +46,11 @@ mkstrconst(struct expression *expr, const char *fmt, ...)
 	va_end(ap);
 
 	*expr = (struct expression) {
-		.type = EXPR_CONSTANT,
+		.type = EXPR_LITERAL,
 		.result = &builtin_type_const_str,
 	};
-	expr->constant.string.value = s;
-	expr->constant.string.len = n;
+	expr->literal.string.value = s;
+	expr->literal.string.len = n;
 }
 
 char *
@@ -90,9 +90,9 @@ handle_errors(struct errors *errors)
 static void
 mkerror(const struct location loc, struct expression *expr)
 {
-	expr->type = EXPR_CONSTANT;
+	expr->type = EXPR_LITERAL;
 	expr->result = &builtin_type_error;
-	expr->constant.uval = 0; // XXX: ival?
+	expr->literal.uval = 0;
 	expr->loc = loc;
 }
 
@@ -191,9 +191,9 @@ check_expr_access(struct context *ctx,
 
 		switch (obj->otype) {
 		case O_CONST:
-			// Lower constants
+			// Lower flexible types
 			*expr = *obj->value;
-			const_reset_refs(expr->result);
+			flexible_reset_refs(expr->result);
 			break;
 		case O_BIND:
 		case O_DECL:
@@ -204,12 +204,12 @@ check_expr_access(struct context *ctx,
 			if (type_dealias(ctx, obj->type)->storage != STORAGE_VOID) {
 				char *ident = identifier_unparse(&obj->type->alias.ident);
 				error(ctx, aexpr->loc, expr,
-					"Cannot use non-void type alias '%s' as constant",
+					"Cannot use non-void type alias '%s' as literal",
 					ident);
 				free(ident);
 				return;
 			}
-			expr->type = EXPR_CONSTANT;
+			expr->type = EXPR_LITERAL;
 			expr->result = obj->type;
 			break;
 		case O_SCAN:
@@ -264,7 +264,7 @@ check_expr_access(struct context *ctx,
 				&& atype->array.length != SIZE_UNDEFINED) {
 			struct expression *evaled = xcalloc(1, sizeof(struct expression));
 			if (eval_expr(ctx, expr->access.index, evaled)) {
-				if (evaled->constant.uval >= atype->array.length) {
+				if (evaled->literal.uval >= atype->array.length) {
 					error(ctx, aexpr->loc, expr,
 						"Index must not be greater than array length");
 					free(evaled);
@@ -310,7 +310,7 @@ check_expr_access(struct context *ctx,
 		struct expression *value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->access.tuple, expr->access.tuple, NULL);
 		check_expression(ctx, aexpr->access.value, value, NULL);
-		assert(value->type == EXPR_CONSTANT);
+		assert(value->type == EXPR_LITERAL);
 
 		const struct type *ttype =
 			type_dereference(ctx, expr->access.tuple->result);
@@ -331,19 +331,19 @@ check_expr_access(struct context *ctx,
 		}
 		if (!type_is_integer(ctx, value->result)) {
 			error(ctx, aexpr->access.tuple->loc, expr,
-				"Cannot use non-integer constant to select tuple value");
+				"Cannot use non-integer literal to select tuple value");
 			return;
 		}
 
 		expr->access.tvalue = type_get_value(ttype,
-			aexpr->access.value->constant.uval);
+			aexpr->access.value->literal.uval);
 		if (!expr->access.tvalue) {
 			error(ctx, aexpr->access.tuple->loc, expr,
 				"No such tuple value '%zu'",
-				aexpr->access.value->constant.uval);
+				aexpr->access.value->literal.uval);
 			return;
 		}
-		expr->access.tindex = aexpr->access.value->constant.uval;
+		expr->access.tindex = aexpr->access.value->literal.uval;
 
 		expr->result = expr->access.tvalue->type;
 		break;
@@ -400,9 +400,9 @@ check_expr_alloc_init(struct context *ctx,
 		assert(htype->array.members == atype->array.members);
 		objtype = inithint;
 	}
-	if (type_is_constant(objtype) && inithint) {
+	if (type_is_flexible(objtype) && inithint) {
 		const struct type *promoted =
-			promote_const(ctx, objtype, inithint);
+			promote_flexible(ctx, objtype, inithint);
 		if (promoted) {
 			objtype = promoted;
 		}
@@ -469,15 +469,15 @@ check_expr_alloc_slice(struct context *ctx,
 	expr->alloc.cap = lower_implicit_cast(ctx, &builtin_type_size, expr->alloc.cap);
 
 	struct expression cap = {0};
-	if (expr->alloc.init->type == EXPR_CONSTANT
-			&& expr->alloc.cap->type == EXPR_CONSTANT
+	if (expr->alloc.init->type == EXPR_LITERAL
+			&& expr->alloc.cap->type == EXPR_LITERAL
 			&& eval_expr(ctx, expr->alloc.cap, &cap)) {
 		uint64_t len = 0;
-		for (struct array_constant *c = expr->alloc.init->constant.array;
+		for (struct array_literal *c = expr->alloc.init->literal.array;
 				c != NULL; c = c->next) {
 			len++;
 		}
-		if (cap.constant.uval < len) {
+		if (cap.literal.uval < len) {
 			error(ctx, aexpr->alloc.cap->loc, expr,
 				"Slice capacity cannot be smaller than length of initializer");
 			return;
@@ -726,7 +726,7 @@ check_assert(struct context *ctx,
 	}
 
 	if (e.is_static) {
-		expr->type = EXPR_CONSTANT;
+		expr->type = EXPR_LITERAL;
 		bool cond = false;
 		if (expr->assert.cond != NULL) {
 			struct expression out = {0}, msgout = {0};
@@ -743,14 +743,14 @@ check_assert(struct context *ctx,
 				}
 			}
 			assert(type_dealias(ctx, out.result)->storage == STORAGE_BOOL);
-			cond = out.constant.bval;
+			cond = out.literal.bval;
 		}
 		// XXX: Should these abort immediately?
 		if (!cond) {
 			if (e.message != NULL) {
 				error(ctx, loc, expr, "Static assertion failed: %.*s",
-					expr->assert.message->constant.string.len,
-					expr->assert.message->constant.string.value);
+					expr->assert.message->literal.string.len,
+					expr->assert.message->literal.string.value);
 			} else {
 				error(ctx, loc, expr, "Static assertion failed");
 			}
@@ -851,7 +851,7 @@ check_expr_assign(struct context *ctx,
 	check_expression(ctx, aexpr->assign.object, object, NULL);
 	check_expression(ctx, aexpr->assign.value, value, object->result);
 
-	if (object->type == EXPR_CONSTANT
+	if (object->type == EXPR_LITERAL
 			&& object->result != &builtin_type_error) {
 		error(ctx, aexpr->assign.object->loc, expr,
 			"Cannot assign to constant");
@@ -914,8 +914,8 @@ type_promote(struct context *ctx, const struct type *a, const struct type *b)
 		return a->storage == STORAGE_ALIAS ? a : b;
 	}
 
-	if (type_is_constant(da) || type_is_constant(db)) {
-		return promote_const(ctx, a, b);
+	if (type_is_flexible(da) || type_is_flexible(db)) {
+		return promote_flexible(ctx, a, b);
 	}
 
 	if (db->storage == STORAGE_ENUM && da->storage == db->alias.type->storage) {
@@ -1083,7 +1083,7 @@ type_has_default(struct context *ctx, const struct type *type)
 				wrap_resolver(ctx, obj, resolve_enum_field);
 			}
 			assert(obj->otype == O_CONST);
-			if (obj->value->constant.uval == 0) {
+			if (obj->value->literal.uval == 0) {
 				return true;
 			}
 		}
@@ -1196,7 +1196,7 @@ check_binding_unpack(struct context *ctx,
 		}
 		// TODO: Free initializer
 		binding->initializer = value;
-		assert(binding->initializer->type == EXPR_CONSTANT);
+		assert(binding->initializer->type == EXPR_LITERAL);
 	}
 
 	if (type->storage != STORAGE_TUPLE) {
@@ -1360,8 +1360,7 @@ check_expr_binding(struct context *ctx,
 				"Initializer is not assignable to binding type");
 			return;
 		}
-		// XXX: Can we avoid this?
-		type = lower_const(ctx, type, NULL);
+		type = lower_flexible(ctx, type, NULL);
 		if (type->size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot create binding for type of undefined size");
@@ -1400,8 +1399,8 @@ lower_vaargs(struct context *ctx,
 	const struct type *type)
 {
 	struct ast_expression val = {
-		.type = EXPR_CONSTANT,
-		.constant = {
+		.type = EXPR_LITERAL,
+		.literal = {
 			.storage = STORAGE_ARRAY,
 		},
 	};
@@ -1409,10 +1408,10 @@ lower_vaargs(struct context *ctx,
 	if (aarg) {
 		val.loc = aarg->value->loc;
 	}
-	struct ast_array_constant **next = &val.constant.array;
+	struct ast_array_literal **next = &val.literal.array;
 	while (aarg) {
-		struct ast_array_constant *item = *next =
-			xcalloc(1, sizeof(struct ast_array_constant));
+		struct ast_array_literal *item = *next =
+			xcalloc(1, sizeof(struct ast_array_literal));
 		item->value = aarg->value;
 		aarg = aarg->next;
 		next = &item->next;
@@ -1429,9 +1428,9 @@ lower_vaargs(struct context *ctx,
 		return;
 	}
 
-	struct ast_array_constant *item = val.constant.array;
+	struct ast_array_literal *item = val.literal.array;
 	while (item) {
-		struct ast_array_constant *next = item->next;
+		struct ast_array_literal *next = item->next;
 		free(item);
 		item = next;
 	}
@@ -1628,8 +1627,8 @@ check_expr_array(struct context *ctx,
 {
 	size_t len = 0;
 	bool expand = false;
-	struct ast_array_constant *item = aexpr->constant.array;
-	struct array_constant *cur, **next = &expr->constant.array;
+	struct ast_array_literal *item = aexpr->literal.array;
+	struct array_literal *cur, **next = &expr->literal.array;
 	const struct type *type = NULL;
 	if (hint) {
 		hint = type_dealias(ctx, hint);
@@ -1664,17 +1663,17 @@ check_expr_array(struct context *ctx,
 	while (item) {
 		struct expression *value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, item->value, value, type);
-		cur = *next = xcalloc(1, sizeof(struct array_constant));
+		cur = *next = xcalloc(1, sizeof(struct array_literal));
 		cur->value = value;
 
 		if (!type) {
 			type = value->result;
 		} else {
 			if (!hint) {
-				// The promote_const in
-				// check_expression_constant might've caused the
+				// The promote_flexible in
+				// check_expression_literal might've caused the
 				// type to change out from under our feet
-				type = expr->constant.array->value->result;
+				type = expr->literal.array->value->result;
 			}
 			if (!type_is_assignable(ctx, type, value->result)) {
 				char *typename1 = gen_typename(type);
@@ -1688,7 +1687,7 @@ check_expr_array(struct context *ctx,
 			}
 			if (!hint) {
 				// Ditto
-				type = expr->constant.array->value->result;
+				type = expr->literal.array->value->result;
 			}
 			cur->value = lower_implicit_cast(ctx, type, cur->value);
 		}
@@ -1790,28 +1789,28 @@ check_expr_compound(struct context *ctx,
 }
 
 static void
-check_expr_constant(struct context *ctx,
+check_expr_literal(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
 	const struct type *hint)
 {
-	expr->type = EXPR_CONSTANT;
-	enum type_storage storage = aexpr->constant.storage;
+	expr->type = EXPR_LITERAL;
+	enum type_storage storage = aexpr->literal.storage;
 	expr->result = builtin_type_for_storage(storage, false);
 	if (storage == STORAGE_ICONST || storage == STORAGE_FCONST
 			|| storage == STORAGE_RCONST) {
-		expr->result = type_create_const(storage,
-			aexpr->constant.ival, aexpr->constant.ival);
+		expr->result = type_create_flexible(storage,
+			aexpr->literal.ival, aexpr->literal.ival);
 	}
 
-	switch (aexpr->constant.storage) {
+	switch (aexpr->literal.storage) {
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_ICONST:
 	case STORAGE_INT:
-		expr->constant.ival = aexpr->constant.ival;
+		expr->literal.ival = aexpr->literal.ival;
 		break;
 	case STORAGE_U8:
 	case STORAGE_U16:
@@ -1819,13 +1818,13 @@ check_expr_constant(struct context *ctx,
 	case STORAGE_U64:
 	case STORAGE_UINT:
 	case STORAGE_SIZE:
-		expr->constant.uval = aexpr->constant.uval;
+		expr->literal.uval = aexpr->literal.uval;
 		break;
 	case STORAGE_RCONST:
-		expr->constant.rune = aexpr->constant.rune;
+		expr->literal.rune = aexpr->literal.rune;
 		break;
 	case STORAGE_BOOL:
-		expr->constant.bval = aexpr->constant.bval;
+		expr->literal.bval = aexpr->literal.bval;
 		break;
 	case STORAGE_NULL:
 	case STORAGE_VOID:
@@ -1835,15 +1834,15 @@ check_expr_constant(struct context *ctx,
 		check_expr_array(ctx, aexpr, expr, hint);
 		break;
 	case STORAGE_STRING:
-		expr->constant.string.len = aexpr->constant.string.len;
-		expr->constant.string.value = xcalloc(1, aexpr->constant.string.len);
-		memcpy(expr->constant.string.value, aexpr->constant.string.value,
-			aexpr->constant.string.len);
+		expr->literal.string.len = aexpr->literal.string.len;
+		expr->literal.string.value = xcalloc(1, aexpr->literal.string.len);
+		memcpy(expr->literal.string.value, aexpr->literal.string.value,
+			aexpr->literal.string.len);
 		break;
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
-		expr->constant.fval = aexpr->constant.fval;
+		expr->literal.fval = aexpr->literal.fval;
 		break;
 	case STORAGE_ENUM:
 	case STORAGE_ERROR:
@@ -1954,18 +1953,40 @@ check_expr_control(struct context *ctx,
 		abort(); // Invariant
 	}
 
-	struct scope *scope = scope_lookup_ancestor(
-		ctx->scope, want, aexpr->control.label);
+	struct scope *scope = NULL;
+	if (aexpr->control.label) {
+		scope = scope_lookup_label(ctx->scope, aexpr->control.label);
+		if (scope && scope->class != want) {
+			error(ctx, aexpr->loc, expr,
+				"Selected expression must%s be a loop",
+				want == SCOPE_COMPOUND ? " not" : "");
+		}
+	} else {
+		scope = scope_lookup_class(ctx->scope, want);
+	}
 	if (!scope) {
-		// XXX: This error message is bad
-		error(ctx, aexpr->loc, expr, "No eligible loop for operation");
+		const char *msg;
+		switch (expr->type) {
+		case EXPR_BREAK:
+			msg = "No eligible loop to break from";
+			break;
+		case EXPR_CONTINUE:
+			msg = "No eligible loop to continue to";
+			break;
+		case EXPR_YIELD:
+			msg = "No eligible expression to yield from";
+			break;
+		default:
+			assert(0); // Invariant
+		}
+		error(ctx, aexpr->loc, expr, msg);
 		return;
 	}
-	struct scope *defer_scope = scope_lookup_ancestor(
-		ctx->scope, SCOPE_DEFER, NULL);
+	struct scope *defer_scope = scope_lookup_class(ctx->scope, SCOPE_DEFER);
 	if (defer_scope) {
-		defer_scope = scope_lookup_ancestor(
-			defer_scope, want, aexpr->control.label);
+		defer_scope = aexpr->control.label
+			? scope_lookup_label(defer_scope, aexpr->control.label)
+			: scope_lookup_class(defer_scope, want);
 		if (scope == defer_scope) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot jump out of defer expression");
@@ -1987,7 +2008,7 @@ check_expr_control(struct context *ctx,
 		check_expression(ctx, aexpr->control.value,
 			expr->control.value, scope->hint);
 	} else {
-		expr->control.value->type = EXPR_CONSTANT;
+		expr->control.value->type = EXPR_LITERAL;
 		expr->control.value->result = &builtin_type_void;
 	}
 
@@ -2014,6 +2035,11 @@ check_expr_for(struct context *ctx,
 
 	struct scope *scope = scope_push(&ctx->scope, SCOPE_LOOP);
 	expr->_for.scope = scope;
+
+	if (aexpr->_for.label) {
+		expr->_for.label = xstrdup(aexpr->_for.label);
+		scope->label = xstrdup(aexpr->_for.label);
+	}
 
 	struct expression *bindings = NULL,
 		*cond = NULL, *afterthought = NULL, *body = NULL;
@@ -2056,7 +2082,7 @@ check_expr_for(struct context *ctx,
 	expr->_for.body = body;
 	struct expression evaled;
 	if (eval_expr(ctx, cond, &evaled)) {
-		if (evaled.constant.bval && !scope->has_break) {
+		if (evaled.literal.bval && !scope->has_break) {
 			expr->result = &builtin_type_never;
 		};
 	}
@@ -2242,6 +2268,7 @@ check_expr_match(struct context *ctx,
 		struct ast_expression compound = {
 			.type = EXPR_COMPOUND,
 			.compound = {
+				.label = aexpr->match.label,
 				.list = acase->exprs,
 			},
 		};
@@ -2338,7 +2365,7 @@ check_expr_measure(struct context *ctx,
 		}
 		return;
 	case M_OFFSET:
-		expr->type = EXPR_CONSTANT;
+		expr->type = EXPR_LITERAL;
 		if (aexpr->measure.value->type != EXPR_ACCESS) {
 			error(ctx, aexpr->measure.value->loc, expr,
 				"offset argument must be a field or tuple access");
@@ -2353,15 +2380,15 @@ check_expr_measure(struct context *ctx,
 		struct expression *value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, value, NULL);
 		if (value->access.type == ACCESS_FIELD) {
-			expr->constant.uval = value->access.field->offset;
+			expr->literal.uval = value->access.field->offset;
 		} else {
 			assert(value->access.type == ACCESS_TUPLE);
-			expr->constant.uval = value->access.tvalue->offset;
+			expr->literal.uval = value->access.tvalue->offset;
 		}
 		return;
 	}
 
-	expr->type = EXPR_CONSTANT;
+	expr->type = EXPR_LITERAL;
 	struct errors **cur_err = ctx->next;
 	struct dimensions dim = type_store_lookup_dimensions(
 		ctx, aexpr->measure.type);
@@ -2379,14 +2406,14 @@ check_expr_measure(struct context *ctx,
 				"Cannot take alignment of a type with undefined alignment");
 			return;
 		}
-		expr->constant.uval = dim.align;
+		expr->literal.uval = dim.align;
 	} else {
 		if (dim.size == SIZE_UNDEFINED) {
 			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot take size of a type with undefined size");
 			return;
 		}
-		expr->constant.uval = dim.size;
+		expr->literal.uval = dim.size;
 	}
 }
 
@@ -2413,8 +2440,7 @@ check_expr_propagate(struct context *ctx,
 		return;
 	}
 	if (!aexpr->propagate.abort) {
-		struct scope *defer = scope_lookup_ancestor(
-			ctx->scope, SCOPE_DEFER, NULL);
+		struct scope *defer = scope_lookup_class(ctx->scope, SCOPE_DEFER);
 		if (defer) {
 			error(ctx, aexpr->loc, expr,
 				"Cannot use error propagation in a defer expression");
@@ -2503,7 +2529,7 @@ check_expr_propagate(struct context *ctx,
 		case_ok->value->access.type = ACCESS_IDENTIFIER;
 		case_ok->value->access.object = ok_obj;
 	} else {
-		case_ok->value->type = EXPR_CONSTANT;
+		case_ok->value->type = EXPR_LITERAL;
 	}
 
 	case_err->value = xcalloc(1, sizeof(struct expression));
@@ -2547,7 +2573,7 @@ check_expr_propagate(struct context *ctx,
 			rval->access.type = ACCESS_IDENTIFIER;
 			rval->access.object = err_obj;
 		} else {
-			rval->type = EXPR_CONSTANT;
+			rval->type = EXPR_LITERAL;
 		}
 		case_err->value->_return.value = lower_implicit_cast(ctx, 
 				ctx->fntype->func.result, rval);
@@ -2567,8 +2593,7 @@ check_expr_return(struct context *ctx,
 	struct expression *expr,
 	const struct type *hint)
 {
-	struct scope *defer = scope_lookup_ancestor(
-		ctx->scope, SCOPE_DEFER, NULL);
+	struct scope *defer = scope_lookup_class(ctx->scope, SCOPE_DEFER);
 	if (defer) {
 		error(ctx, aexpr->loc, expr,
 			"Cannot return inside a defer expression");
@@ -2586,7 +2611,7 @@ check_expr_return(struct context *ctx,
 	if (aexpr->_return.value) {
 		check_expression(ctx, aexpr->_return.value, rval, ctx->fntype->func.result);
 	} else {
-		rval->type = EXPR_CONSTANT;
+		rval->type = EXPR_LITERAL;
 		rval->result = &builtin_type_void;
 	}
 
@@ -2624,7 +2649,7 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 
 		if (dtype->storage == STORAGE_ARRAY
 				&& dtype->array.length != SIZE_UNDEFINED) {
-			if (end->constant.uval > dtype->array.length) {
+			if (end->literal.uval > dtype->array.length) {
 				error(ctx, expr->loc, expr,
 					"End index must not be greater than array length");
 				free(end);
@@ -2651,7 +2676,7 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 
 	if (dtype->storage == STORAGE_ARRAY
 			&& dtype->array.length != SIZE_UNDEFINED) {
-		if (start->constant.uval > dtype->array.length) {
+		if (start->literal.uval > dtype->array.length) {
 			error(ctx, expr->loc, expr,
 				"Start index must not be greater than array length");
 			free(start);
@@ -2663,7 +2688,7 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 	}
 
 	if (end != NULL) {
-		if (start->constant.uval > end->constant.uval) {
+		if (start->literal.uval > end->literal.uval) {
 			error(ctx, expr->loc, expr,
 				"Start index must not be greater than end index");
 		}
@@ -2934,7 +2959,7 @@ casecmp(const void *_a, const void *_b)
 {
 	const struct expression *a = *(const struct expression **)_a;
 	const struct expression *b = *(const struct expression **)_b;
-	assert(a->type == EXPR_CONSTANT && b->type == EXPR_CONSTANT);
+	assert(a->type == EXPR_LITERAL && b->type == EXPR_LITERAL);
 	if (a->result->storage == STORAGE_ERROR) {
 		return b->result->storage == STORAGE_ERROR ? 0 : 1;
 	} else if (b->result->storage == STORAGE_ERROR) {
@@ -2943,14 +2968,14 @@ casecmp(const void *_a, const void *_b)
 	assert(type_dealias(NULL, a->result)->storage
 		== type_dealias(NULL, b->result)->storage);
 	if (type_is_signed(NULL, a->result)) {
-		return a->constant.ival < b->constant.ival ? -1
-			: a->constant.ival > b->constant.ival ? 1 : 0;
+		return a->literal.ival < b->literal.ival ? -1
+			: a->literal.ival > b->literal.ival ? 1 : 0;
 	} else if (type_is_integer(NULL, a->result)) {
-		return a->constant.uval < b->constant.uval ? -1
-			: a->constant.uval > b->constant.uval ? 1 : 0;
+		return a->literal.uval < b->literal.uval ? -1
+			: a->literal.uval > b->literal.uval ? 1 : 0;
 	} else if (type_dealias(NULL, a->result)->storage == STORAGE_POINTER) {
-		const struct scope_object *obja = a->constant.object;
-		const struct scope_object *objb = b->constant.object;
+		const struct scope_object *obja = a->literal.object;
+		const struct scope_object *objb = b->literal.object;
 		if (obja != objb) {
 			if (obja == NULL) {
 				return -1;
@@ -2962,26 +2987,26 @@ casecmp(const void *_a, const void *_b)
 			assert(a != b);
 			return a < b ? -1 : 1;
 		} else {
-			return a->constant.uval < b->constant.uval ? -1
-				: a->constant.uval > b->constant.uval ? 1 : 0;
+			return a->literal.uval < b->literal.uval ? -1
+				: a->literal.uval > b->literal.uval ? 1 : 0;
 		}
 	} else if (type_dealias(NULL, a->result)->storage == STORAGE_STRING) {
-		size_t len = a->constant.string.len < b->constant.string.len
-			? a->constant.string.len : b->constant.string.len;
-		int ret = memcmp(a->constant.string.value,
-			b->constant.string.value, len);
+		size_t len = a->literal.string.len < b->literal.string.len
+			? a->literal.string.len : b->literal.string.len;
+		int ret = memcmp(a->literal.string.value,
+			b->literal.string.value, len);
 		if (ret != 0) {
 			return ret;
 		}
-		return a->constant.string.len < b->constant.string.len ? -1
-			: a->constant.string.len > b->constant.string.len ? 1 : 0;
+		return a->literal.string.len < b->literal.string.len ? -1
+			: a->literal.string.len > b->literal.string.len ? 1 : 0;
 	} else if (type_dealias(NULL, a->result)->storage == STORAGE_BOOL) {
-		return (int)a->constant.bval - (int)b->constant.bval;
+		return (int)a->literal.bval - (int)b->literal.bval;
 	} else {
 		assert(type_dealias(NULL, a->result)->storage == STORAGE_RCONST
 			|| type_dealias(NULL, a->result)->storage == STORAGE_RUNE);
-		return a->constant.rune < b->constant.rune ? -1
-			: a->constant.rune > b->constant.rune ? 1 : 0;
+		return a->literal.rune < b->literal.rune ? -1
+			: a->literal.rune > b->literal.rune ? 1 : 0;
 	}
 }
 
@@ -3017,8 +3042,8 @@ num_cases(struct context *ctx, const struct type *type)
 					wrap_resolver(ctx, other, resolve_enum_field);
 				}
 				assert(other->otype == O_CONST);
-				if (obj->value->constant.uval
-						== other->value->constant.uval) {
+				if (obj->value->literal.uval
+						== other->value->literal.uval) {
 					should_count = false;
 					break;
 				}
@@ -3032,7 +3057,7 @@ num_cases(struct context *ctx, const struct type *type)
 		assert(type_is_integer(ctx, type)
 			|| type->storage == STORAGE_POINTER
 			|| type->storage == STORAGE_RUNE);
-		assert(!type_is_constant(type));
+		assert(!type_is_flexible(type));
 		if (type->size >= sizeof(size_t)) {
 			return -1;
 		}
@@ -3050,7 +3075,7 @@ check_expr_switch(struct context *ctx,
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_switch.value, value, NULL);
-	const struct type *type = lower_const(ctx, value->result, NULL);
+	const struct type *type = lower_flexible(ctx, value->result, NULL);
 	expr->_switch.value = value;
 	if (!type_is_integer(ctx, type)
 			&& type_dealias(ctx, type)->storage != STORAGE_POINTER
@@ -3118,6 +3143,7 @@ check_expr_switch(struct context *ctx,
 		struct ast_expression compound = {
 			.type = EXPR_COMPOUND,
 			.compound = {
+				.label = aexpr->_switch.label,
 				.list = acase->exprs,
 			},
 		};
@@ -3163,8 +3189,8 @@ check_expr_switch(struct context *ctx,
 		if (cases_array[i]._case->result->storage == STORAGE_ERROR) {
 			break;
 		}
-		const struct expression_constant *a = &cases_array[i - 1]._case->constant;
-		const struct expression_constant *b = &cases_array[i]._case->constant;
+		const struct expression_literal *a = &cases_array[i - 1]._case->literal;
+		const struct expression_literal *b = &cases_array[i]._case->literal;
 		bool equal;
 		if (type_is_integer(ctx, value->result)) {
 			equal = a->uval == b->uval;
@@ -3375,10 +3401,10 @@ check_expr_unarithm(struct context *ctx,
 			// operand->result to be lowered with expr->result, and
 			// this is correct enough
 			const struct type *old = operand->result;
-			const struct type *new = type_create_const(
-				STORAGE_ICONST, -old->_const.min,
-				-old->_const.max);
-			lower_const(ctx, old, new);
+			const struct type *new = type_create_flexible(
+				STORAGE_ICONST, -old->flexible.min,
+				-old->flexible.max);
+			lower_flexible(ctx, old, new);
 		}
 		expr->result = operand->result;
 		break;
@@ -3390,9 +3416,9 @@ check_expr_unarithm(struct context *ctx,
 				ptrhint = NULL;
 			}
 		}
-		if (type_is_constant(operand->result) && ptrhint) {
+		if (type_is_flexible(operand->result) && ptrhint) {
 			const struct type *promoted =
-				promote_const(ctx, operand->result, ptrhint);
+				promote_flexible(ctx, operand->result, ptrhint);
 			if (promoted) {
 				operand->result = promoted;
 			}
@@ -3536,8 +3562,8 @@ check_expression(struct context *ctx,
 	case EXPR_COMPOUND:
 		check_expr_compound(ctx, aexpr, expr, hint);
 		break;
-	case EXPR_CONSTANT:
-		check_expr_constant(ctx, aexpr, expr, hint);
+	case EXPR_LITERAL:
+		check_expr_literal(ctx, aexpr, expr, hint);
 		break;
 	case EXPR_DEFER:
 		check_expr_defer(ctx, aexpr, expr, hint);
@@ -3595,7 +3621,7 @@ check_expression(struct context *ctx,
 		break;
 	}
 	assert(expr->result);
-	const_refer(expr->result, &expr->result);
+	flexible_refer(expr->result, &expr->result);
 }
 
 static void
@@ -4009,7 +4035,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 	if (decl->type) {
 		if (decl->type->storage == STORAGE_ARRAY
 				&& decl->type->array.contextual) {
-			type = lower_const(ctx, init->result, NULL);
+			type = lower_flexible(ctx, init->result, NULL);
 		} else {
 			init = lower_implicit_cast(ctx, type, init);
 		}
@@ -4017,7 +4043,7 @@ resolve_const(struct context *ctx, struct incomplete_declaration *idecl)
 
 	if (!eval_expr(ctx, init, value)) {
 		error(ctx, decl->init->loc, value,
-			"Unable to evaluate constant init at compile time");
+			"Unable to evaluate initializer at compile time");
 		type = &builtin_type_error;
 		goto end;
 	}
@@ -4032,17 +4058,17 @@ end:
 		scope_lookup(ctx->defines, &idecl->obj.ident);
 	if (shadow_obj && &idecl->obj != shadow_obj) {
 		// Shadowed by define
-		if (type_is_constant(value->result)
-				|| type_is_constant(shadow_obj->value->result)) {
-			const struct type *promoted = promote_const(ctx,
+		if (type_is_flexible(value->result)
+				|| type_is_flexible(shadow_obj->value->result)) {
+			const struct type *promoted = promote_flexible(ctx,
 				value->result, shadow_obj->value->result);
 			if (promoted == NULL) {
 				const char *msg;
 				char *typename = NULL;
-				if (!type_is_constant(value->result)) {
+				if (!type_is_flexible(value->result)) {
 					msg = "Constant of type %s is shadowed by define of incompatible flexible type";
 					typename = gen_typename(value->result);
-				} else if (!type_is_constant(shadow_obj->value->result)) {
+				} else if (!type_is_flexible(shadow_obj->value->result)) {
 					msg = "Constant of flexible type is shadowed by define of incompatible type %s";
 					typename = gen_typename(shadow_obj->value->result);
 				} else {
@@ -4125,7 +4151,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 				char *typename1 = gen_typename(init->result);
 				char *typename2 = gen_typename(type);
 				error(ctx, decl->init->loc, value,
-					"Initializer type %s is not assignable to constant type %s",
+					"Initializer type %s is not assignable to global type %s",
 					typename1, typename2);
 				free(typename1);
 				free(typename2);
@@ -4133,7 +4159,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 				goto end;
 			}
 		} else {
-			type = lower_const(ctx, init->result, NULL);
+			type = lower_flexible(ctx, init->result, NULL);
 		}
 		if (context) {
 			type = init->result;
@@ -4155,7 +4181,7 @@ resolve_global(struct context *ctx, struct incomplete_declaration *idecl)
 		}
 		if (!eval_expr(ctx, init, value)) {
 			error(ctx, decl->init->loc, value,
-				"Unable to evaluate constant init at compile time");
+				"Unable to evaluate initializer at compile time");
 			type = &builtin_type_error;
 			goto end;
 		}
@@ -4235,18 +4261,18 @@ resolve_enum_field(struct context *ctx, struct incomplete_declaration *idecl)
 		struct scope_object *obj = idecl->obj.lnext;
 		// find previous enum value
 		wrap_resolver(ctx, obj, resolve_enum_field);
-		value->type = EXPR_CONSTANT;
+		value->type = EXPR_LITERAL;
 		if (type_is_signed(ctx, type_dealias(ctx, type))) {
 			if (obj == NULL) {
-				value->constant.ival = 0;
+				value->literal.ival = 0;
 			} else {
-				value->constant.ival = obj->value->constant.ival + 1;
+				value->literal.ival = obj->value->literal.ival + 1;
 			}
 		} else {
 			if (obj == NULL) {
-				value->constant.uval = 0;
+				value->literal.uval = 0;
 			} else {
-				value->constant.uval = obj->value->constant.uval + 1;
+				value->literal.uval = obj->value->literal.uval + 1;
 			}
 		}
 	}
@@ -4728,7 +4754,7 @@ load_import(struct context *ctx, const struct ast_global_decl *defines,
 		}
 		const struct scope_object *_enum = scope_lookup(mod, obj->name.ns);
 		if (_enum != NULL && _enum->otype == O_TYPE
-				&& _enum->type->storage == STORAGE_ENUM) {
+				&& type_dealias(NULL, _enum->type)->storage == STORAGE_ENUM) {
 			// include enum type in identifier if object is an enum
 			// constant
 			ns = (struct identifier){

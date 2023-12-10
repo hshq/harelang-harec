@@ -331,7 +331,7 @@ compute_exp(uint64_t n, int exponent, bool _signed)
 }
 
 static void
-lex_literal(struct lexer *lexer, struct token *out)
+lex_number(struct lexer *lexer, struct token *out)
 {
 	enum bases {
 		BIN = 1, OCT, HEX, DEC = 0x07, MASK = DEC
@@ -439,7 +439,7 @@ end:
 want_int:
 		push(lexer, c, true);
 	}
-	out->token = T_LITERAL;
+	out->token = T_NUMBER;
 	lexer->require_int = false;
 
 	enum kind {
@@ -633,7 +633,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		}
 		char *s = xcalloc(lexer->buflen + 1, 1);
 		memcpy(s, lexer->buf, lexer->buflen);
-		out->token = T_LITERAL;
+		out->token = T_NUMBER;
 		out->storage = STORAGE_STRING;
 		out->string.len = lexer->buflen;
 		out->string.value = s;
@@ -661,7 +661,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		if (next(lexer, NULL, false) != '\'') {
 			error(out->loc, "Expected trailing single quote");
 		}
-		out->token = T_LITERAL;
+		out->token = T_NUMBER;
 		out->storage = STORAGE_RCONST;
 		return out->token;
 	default:
@@ -990,8 +990,8 @@ lex(struct lexer *lexer, struct token *out)
 
 	if (c <= 0x7F && isdigit(c)) {
 		push(lexer, c, false);
-		lex_literal(lexer, out);
-		return T_LITERAL;
+		lex_number(lexer, out);
+		return T_NUMBER;
 	}
 
 	lexer->require_int = false;
@@ -1067,7 +1067,7 @@ token_finish(struct token *tok)
 	case T_NAME:
 		free(tok->name);
 		break;
-	case T_LITERAL:
+	case T_NUMBER:
 		switch (tok->storage) {
 		case STORAGE_STRING:
 			free(tok->string.value);
@@ -1092,8 +1092,8 @@ lexical_token_str(enum lexical_token tok)
 	switch (tok) {
 	case T_NAME:
 		return "name";
-	case T_LITERAL:
-		return "literal";
+	case T_NUMBER:
+		return "number";
 	case T_EOF:
 		return "end of file";
 	case T_NONE:
@@ -1108,7 +1108,7 @@ static const char *
 string_unparse(const struct token *tok)
 {
 	static char buf[1024];
-	assert(tok->token == T_LITERAL && tok->storage == STORAGE_STRING);
+	assert(tok->token == T_NUMBER && tok->storage == STORAGE_STRING);
 	int bytes = 0;
 	memset(buf, 0, sizeof(buf));
 	bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "\"");
@@ -1132,7 +1132,7 @@ token_str(const struct token *tok)
 	case T_NAME:
 		snprintf(buf, sizeof(buf), "name %s", tok->name);
 		return buf;
-	case T_LITERAL:
+	case T_NUMBER:
 		switch (tok->storage) {
 		case STORAGE_U8:
 		case STORAGE_U16:

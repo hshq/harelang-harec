@@ -139,6 +139,12 @@ fn aliases() void = {
 	assert(imported_double_alias::ONE == testmod::_enum::ONE);
 	assert(imported_double_alias::TWO == testmod::_enum::TWO);
 	assert(imported_double_alias::THREE == testmod::_enum::THREE);
+
+	// regression test: imported alias of enum where imported module's
+	// namespace has multiple components
+	assert(testmod::namespaced_alias::ONE == testmod::_enum::ONE);
+	assert(testmod::namespaced_alias::TWO == testmod::_enum::TWO);
+	assert(testmod::namespaced_alias::THREE == testmod::_enum::THREE);
 };
 
 // Force T2 to be resolved before t2::T3 and t2::T3 before t2::T1

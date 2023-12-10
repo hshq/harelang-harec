@@ -73,8 +73,8 @@ fn _continue() void = {
 
 fn label() void = {
 	let i = 0;
-	for (i < 10) :outer {
-		for (let j = 0; j < 7; j += 1) :inner {
+	for :outer (i < 10) {
+		for :inner (let j = 0; j < 7; j += 1) {
 			i += 1;
 			if (j == 6) {
 				for (let k = 0; k < 5; k += 1) {
@@ -91,12 +91,13 @@ fn label() void = {
 		};
 	};
 	assert(i == 8);
-	assert(compile("fn test() void = { :foo for (true) { break :bar; }; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { for :foo (true) { break :bar; }; };") as exited != EXIT_SUCCESS);
 	assert(compile("fn test() void = { for (true) { break :bar; }; };") as exited != EXIT_SUCCESS);
 	assert(compile("fn test() void = { break :bar; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { :foo for (true) { :foo for (true) void; } ; };") as exited != EXIT_SUCCESS);
 	assert(compile("fn test() void = :foo { break :foo; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { for (true) { { break; }; void; }; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = { for :foo (true) { yield :foo; }; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = :foo { for :foo (true) { yield :foo; }; };") as exited != EXIT_SUCCESS);
+	assert(compile("fn test() void = for :foo (true) :foo { break :foo; };") as exited != EXIT_SUCCESS);
 };
 
 type abool = bool;
@@ -119,7 +120,7 @@ fn _static() void = {
 
 fn result() void = {
 	for (true) break;
-	for (true) :loop {
+	for :loop (true) {
 		for (true) break :loop;
 	};
 	let integer = switch (0) {
