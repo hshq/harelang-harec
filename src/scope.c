@@ -99,9 +99,9 @@ scope_object_init(struct scope_object *object, enum object_type otype,
 	} else if (value) {
 		object->value = value;
 		assert(otype == O_CONST);
-		assert(value->type == EXPR_CONSTANT);
+		assert(value->type == EXPR_LITERAL);
 	}
-	const_refer(type, &object->type);
+	flexible_refer(type, &object->type);
 }
 
 void

@@ -144,7 +144,7 @@ int main(void) {
 		"if (true) null: *int "
 		"else if (true) null");
 
-	// However, constants behave differently in if vs switch/match
+	// However, literals behave differently in if vs switch/match
 
 	test(&ctx, "int", "if (true) 0 else if (true) 1 else 2");
 	test(&ctx, "(int | i64)", "if (true) 0 else 9223372036854775807");

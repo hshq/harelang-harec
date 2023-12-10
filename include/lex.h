@@ -135,8 +135,8 @@ enum lexical_token {
 	T_LAST_OPERATOR = T_BXOREQ,
 
 	// Tokens with additional information
-	T_LITERAL,
 	T_NAME,
+	T_NUMBER,
 
 	// Magic tokens
 	T_EOF,

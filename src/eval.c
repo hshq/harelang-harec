@@ -25,11 +25,11 @@ eval_access(struct context *ctx,
 		if (!eval_expr(ctx, in->access.array, &tmp)) {
 			return false;
 		}
-		const struct array_constant *array = tmp.constant.array;
+		const struct array_literal *array = tmp.literal.array;
 		if (!eval_expr(ctx, in->access.index, &tmp)) {
 			return false;
 		}
-		for (size_t i = tmp.constant.uval; i > 0; --i) {
+		for (size_t i = tmp.literal.uval; i > 0; --i) {
 			if (array == NULL) {
 				error(ctx, in->loc, NULL,
 					"slice or array access out of bounds");
@@ -42,7 +42,7 @@ eval_access(struct context *ctx,
 		if (!eval_expr(ctx, in->access._struct, &tmp)) {
 			return false;
 		}
-		const struct struct_constant *fields = tmp.constant._struct;
+		const struct struct_literal *fields = tmp.literal._struct;
 		for (; fields != NULL; fields = fields->next) {
 			if (!strcmp(fields->field->name, in->access.field->name)) {
 				break;
@@ -56,7 +56,7 @@ eval_access(struct context *ctx,
 		if (!eval_expr(ctx, in->access.tuple, &tmp)) {
 			return false;
 		}
-		const struct tuple_constant *tuple = tmp.constant.tuple;
+		const struct tuple_literal *tuple = tmp.literal.tuple;
 		for (size_t i = in->access.tindex; i > 0; --i) {
 			if (tuple == NULL) {
 				// out of bounds
@@ -159,13 +159,13 @@ eval_binarithm(struct context *ctx,
 	uint64_t ulval = 0, urval = 0, uval = 0;
 	double flval = 0, frval = 0, fval = 0;
 	if (type_is_float(ctx, lvalue.result)) {
-		flval = lvalue.constant.fval, frval = rvalue.constant.fval;
+		flval = lvalue.literal.fval, frval = rvalue.literal.fval;
 	} else if (type_is_signed(ctx, lvalue.result)) {
-		ilval = lvalue.constant.ival, irval = rvalue.constant.ival;
+		ilval = lvalue.literal.ival, irval = rvalue.literal.ival;
 	} else if (type_is_integer(ctx, lvalue.result)) {
-		ulval = lvalue.constant.uval, urval = rvalue.constant.uval;
+		ulval = lvalue.literal.uval, urval = rvalue.literal.uval;
 	} else if (type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL) {
-		blval = lvalue.constant.bval, brval = rvalue.constant.bval;
+		blval = lvalue.literal.bval, brval = rvalue.literal.bval;
 	}
 
 	// Type promotion is lowered in check
@@ -333,18 +333,18 @@ eval_binarithm(struct context *ctx,
 				|| type_dealias(ctx, lvalue.result)->storage == STORAGE_POINTER) {
 			bval = itrunc(ctx, lvalue.result, ulval) == itrunc(ctx, rvalue.result, urval);
 		} else if (type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL) {
-			bval = lvalue.constant.bval == rvalue.constant.bval;
+			bval = lvalue.literal.bval == rvalue.literal.bval;
 		} else if (type_dealias(ctx, lvalue.result)->storage == STORAGE_RCONST
 				|| type_dealias(ctx, lvalue.result)->storage == STORAGE_RUNE) {
-			bval = lvalue.constant.rune == rvalue.constant.rune;
+			bval = lvalue.literal.rune == rvalue.literal.rune;
 		} else {
 			assert(type_dealias(ctx, lvalue.result)->storage == STORAGE_STRING);
-			if (lvalue.constant.string.len != rvalue.constant.string.len) {
+			if (lvalue.literal.string.len != rvalue.literal.string.len) {
 				bval = false;
 			} else {
-				bval = memcmp(lvalue.constant.string.value,
-					rvalue.constant.string.value,
-					lvalue.constant.string.len) == 0;
+				bval = memcmp(lvalue.literal.string.value,
+					rvalue.literal.string.value,
+					lvalue.literal.string.len) == 0;
 			}
 		}
 		bval = bval != neg;
@@ -381,22 +381,22 @@ eval_binarithm(struct context *ctx,
 		break;
 	}
 	if (type_is_float(ctx, in->result)) {
-		out->constant.fval = ftrunc(ctx, in->result, fval);
+		out->literal.fval = ftrunc(ctx, in->result, fval);
 	} else if (type_is_signed(ctx, in->result)) {
-		out->constant.ival = itrunc(ctx, in->result, ival);
+		out->literal.ival = itrunc(ctx, in->result, ival);
 	} else if (type_dealias(ctx, in->result)->storage == STORAGE_BOOL
 			|| type_dealias(ctx, in->result)->storage == STORAGE_STRING) {
-		out->constant.bval = bval;
+		out->literal.bval = bval;
 	} else {
 		assert(type_is_integer(ctx, in->result)
 			|| type_dealias(ctx, in->result)->storage == STORAGE_POINTER);
-		out->constant.uval = itrunc(ctx, in->result, uval);
+		out->literal.uval = itrunc(ctx, in->result, uval);
 	}
 	return true;
 }
 
 static bool
-eval_const(struct context *ctx,
+eval_literal(struct context *ctx,
 	const struct expression *in,
 	struct expression *out)
 {
@@ -409,36 +409,36 @@ eval_const(struct context *ctx,
 	case STORAGE_ENUM:
 		assert(0); // Handled above
 	case STORAGE_ARRAY:;
-		struct array_constant **anext = &out->constant.array;
-		for (struct array_constant *arr = in->constant.array; arr;
+		struct array_literal **anext = &out->literal.array;
+		for (struct array_literal *arr = in->literal.array; arr;
 				arr = arr->next) {
-			struct array_constant *aconst = *anext =
-				xcalloc(1, sizeof(struct array_constant));
-			aconst->value = xcalloc(1, sizeof(struct expression));
-			if (!eval_expr(ctx, arr->value, aconst->value)) {
+			struct array_literal *alit = *anext =
+				xcalloc(1, sizeof(struct array_literal));
+			alit->value = xcalloc(1, sizeof(struct expression));
+			if (!eval_expr(ctx, arr->value, alit->value)) {
 				return false;
 			}
-			anext = &aconst->next;
+			anext = &alit->next;
 		}
 		break;
 	case STORAGE_STRING:
-		out->constant.string.len = in->constant.string.len;
-		out->constant.string.value = xcalloc(1, in->constant.string.len);
-		memcpy(out->constant.string.value,
-			in->constant.string.value,
-			in->constant.string.len);
+		out->literal.string.len = in->literal.string.len;
+		out->literal.string.value = xcalloc(1, in->literal.string.len);
+		memcpy(out->literal.string.value,
+			in->literal.string.value,
+			in->literal.string.len);
 		break;
 	case STORAGE_TAGGED:
-		out->constant.tagged.tag = in->constant.tagged.tag;
-		out->constant.tagged.value = xcalloc(sizeof(struct expression), 1);
-		return eval_expr(ctx, in->constant.tagged.value,
-				out->constant.tagged.value);
+		out->literal.tagged.tag = in->literal.tagged.tag;
+		out->literal.tagged.value = xcalloc(sizeof(struct expression), 1);
+		return eval_expr(ctx, in->literal.tagged.value,
+				out->literal.tagged.value);
 	case STORAGE_STRUCT:;
-		struct struct_constant **next = &out->constant._struct;
-		for (struct struct_constant *_struct = in->constant._struct;
+		struct struct_literal **next = &out->literal._struct;
+		for (struct struct_literal *_struct = in->literal._struct;
 				_struct; _struct = _struct->next) {
-			struct struct_constant *cur = *next =
-				xcalloc(sizeof(struct struct_constant), 1);
+			struct struct_literal *cur = *next =
+				xcalloc(sizeof(struct struct_literal), 1);
 			cur->field = _struct->field;
 			cur->value = xcalloc(sizeof(struct expression), 1);
 			if (!eval_expr(ctx, _struct->value, cur->value)) {
@@ -450,11 +450,11 @@ eval_const(struct context *ctx,
 	case STORAGE_UNION:
 		assert(0); // TODO
 	case STORAGE_TUPLE:;
-		struct tuple_constant **tnext = &out->constant.tuple;
-		for (struct tuple_constant *tuple = in->constant.tuple; tuple;
+		struct tuple_literal **tnext = &out->literal.tuple;
+		for (struct tuple_literal *tuple = in->literal.tuple; tuple;
 				tuple = tuple->next) {
-			struct tuple_constant *tconst = *tnext =
-				xcalloc(1, sizeof(struct tuple_constant));
+			struct tuple_literal *tconst = *tnext =
+				xcalloc(1, sizeof(struct tuple_literal));
 			tconst->field = tuple->field;
 			tconst->value = xcalloc(1, sizeof(struct expression));
 			if (!eval_expr(ctx, tuple->value, tconst->value)) {
@@ -486,7 +486,7 @@ eval_const(struct context *ctx,
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
-		out->constant = in->constant;
+		out->literal = in->literal;
 		break;
 	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:
@@ -503,15 +503,15 @@ eval_expand_array(struct context *ctx,
 	const struct type *intype, const struct type *outtype,
 	const struct expression *in, struct expression *out)
 {
-	assert(in->type == EXPR_CONSTANT);
-	assert(out->type == EXPR_CONSTANT);
+	assert(in->type == EXPR_LITERAL);
+	assert(out->type == EXPR_LITERAL);
 	assert(intype->storage == STORAGE_ARRAY);
 	assert(outtype->storage == STORAGE_ARRAY);
-	struct array_constant *array_in = in->constant.array;
-	struct array_constant **next = &out->constant.array;
+	struct array_literal *array_in = in->literal.array;
+	struct array_literal **next = &out->literal.array;
 	for (size_t i = 0; i < outtype->array.length; i++) {
-		struct array_constant *item = *next =
-			xcalloc(1, sizeof(struct array_constant));
+		struct array_literal *item = *next =
+			xcalloc(1, sizeof(struct array_literal));
 		item->value = array_in->value;
 		next = &item->next;
 		if (array_in->next) {
@@ -531,8 +531,8 @@ eval_type_assertion(struct context *ctx, const struct expression *in,
 
 	const struct type *from = type_dealias(ctx, in->cast.value->result);
 	assert(from->storage == STORAGE_TAGGED);
-	if (val.constant.tagged.tag == in->cast.secondary) {
-		out->constant = val.constant.tagged.value->constant;
+	if (val.literal.tagged.tag == in->cast.secondary) {
+		out->literal = val.literal.tagged.value->literal;
 		return true;
 	} else {
 		error(ctx, in->loc, NULL, "type assertion failed");
@@ -552,7 +552,7 @@ eval_type_test(struct context *ctx, const struct expression *in,
 	const struct type *from = type_dealias(ctx, in->cast.value->result);
 	assert(from->storage == STORAGE_TAGGED);
 
-	out->constant.bval = val.constant.tagged.tag == in->cast.secondary;
+	out->literal.bval = val.literal.tagged.tag == in->cast.secondary;
 
 	return true;
 }
@@ -572,7 +572,7 @@ eval_cast(struct context *ctx,
 	// The STORAGE_ARRAY exception is to make sure we handle expandable
 	// arrays at this point.
 	if (to->storage == from->storage && to->storage != STORAGE_ARRAY) {
-		out->constant = val.constant;
+		out->literal = val.literal;
 		return true;
 	}
 
@@ -587,12 +587,12 @@ eval_cast(struct context *ctx,
 	switch (to->storage) {
 	case STORAGE_POINTER:
 		if (from->storage == STORAGE_NULL) {
-			out->constant.uval = 0;
+			out->literal.uval = 0;
 			return true;
 		}
 		assert(from->storage == STORAGE_POINTER
 			|| from->storage == STORAGE_UINTPTR);
-		out->constant.uval = val.constant.uval;
+		out->literal.uval = val.literal.uval;
 		return true;
 	case STORAGE_ENUM:
 	case STORAGE_I16:
@@ -611,12 +611,12 @@ eval_cast(struct context *ctx,
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 		if (type_is_float(ctx, val.result)) {
-			out->constant.ival =
-				itrunc(ctx, to, (int64_t)val.constant.fval);
+			out->literal.ival =
+				itrunc(ctx, to, (int64_t)val.literal.fval);
 		} else if (type_is_signed(ctx, val.result)) {
-			out->constant.ival = itrunc(ctx, to, val.constant.ival);
+			out->literal.ival = itrunc(ctx, to, val.literal.ival);
 		} else {
-			out->constant.ival = itrunc(ctx, to, val.constant.uval);
+			out->literal.ival = itrunc(ctx, to, val.literal.uval);
 		}
 		return true;
 	case STORAGE_ARRAY:
@@ -624,36 +624,36 @@ eval_cast(struct context *ctx,
 		if (from->array.expandable) {
 			eval_expand_array(ctx, from, to, &val, out);
 		} else {
-			out->constant = val.constant;
+			out->literal = val.literal;
 		}
 		return true;
 	case STORAGE_SLICE:
 		assert(type_dealias(ctx, val.result)->storage == STORAGE_ARRAY);
-		out->constant = val.constant;
+		out->literal = val.literal;
 		return true;
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
 		if (type_is_float(ctx, val.result)) {
-			out->constant.fval = ftrunc(ctx, to, val.constant.fval);
+			out->literal.fval = ftrunc(ctx, to, val.literal.fval);
 		} else if (type_is_signed(ctx, val.result)) {
-			out->constant.fval =
-				ftrunc(ctx, to, (double)val.constant.ival);
+			out->literal.fval =
+				ftrunc(ctx, to, (double)val.literal.ival);
 		} else {
-			out->constant.fval =
-				ftrunc(ctx, to, (double)val.constant.uval);
+			out->literal.fval =
+				ftrunc(ctx, to, (double)val.literal.uval);
 		}
 		return true;
 	case STORAGE_TAGGED:
 		subtype = tagged_select_subtype(ctx, to, val.result, true);
-		out->constant.tagged.value =
+		out->literal.tagged.value =
 			xcalloc(1, sizeof(struct expression));
 		if (subtype) {
-			out->constant.tagged.tag = subtype;
-			*out->constant.tagged.value = val;
+			out->literal.tagged.tag = subtype;
+			*out->literal.tagged.value = val;
 		} else {
-			out->constant.tagged.tag = from;
-			*out->constant.tagged.value = val;
+			out->literal.tagged.tag = from;
+			*out->literal.tagged.value = val;
 		}
 		return true;
 	case STORAGE_NULL:
@@ -687,7 +687,7 @@ eval_len(struct context *ctx,
 	assert(expr_type != NULL);
 	expr_type = type_dealias(ctx, expr_type);
 	if (expr_type->storage == STORAGE_ARRAY) {
-		out->constant.uval = expr_type->array.length;
+		out->literal.uval = expr_type->array.length;
 		return true;
 	}
 
@@ -701,26 +701,26 @@ eval_len(struct context *ctx,
 	case STORAGE_SLICE:
 		break;
 	case STORAGE_STRING:
-		out->constant.uval = obj.constant.string.len;
+		out->literal.uval = obj.literal.string.len;
 		return true;
 	case STORAGE_ERROR:
-		out->constant.uval = 0;
+		out->literal.uval = 0;
 		return true;
 	default:
 		abort(); // Invariant
 	}
 
 	uint64_t len = 0;
-	for (struct array_constant *c = obj.constant.array;
+	for (struct array_literal *c = obj.literal.array;
 			c != NULL; c = c->next) {
 		len++;
 	}
-	out->constant.uval = len;
+	out->literal.uval = len;
 	return true;
 }
 
 static bool
-constant_default(struct context *ctx, struct expression *v)
+literal_default(struct context *ctx, struct expression *v)
 {
 	struct expression b = {0};
 	switch (type_dealias(ctx, v->result)->storage) {
@@ -758,29 +758,29 @@ constant_default(struct context *ctx, struct expression *v)
 		assert(r);
 		break;
 	case STORAGE_STRING:
-		v->constant.string.value = NULL;
-		v->constant.string.len = 0;
+		v->literal.string.value = NULL;
+		v->literal.string.len = 0;
 		break;
 	case STORAGE_ARRAY:
-		v->constant.array = xcalloc(1, sizeof(struct array_constant));
-		v->constant.array->value = xcalloc(1, sizeof(struct expression));
-		v->constant.array->value->type = EXPR_CONSTANT;
-		v->constant.array->value->result =
+		v->literal.array = xcalloc(1, sizeof(struct array_literal));
+		v->literal.array->value = xcalloc(1, sizeof(struct expression));
+		v->literal.array->value->type = EXPR_LITERAL;
+		v->literal.array->value->result =
 			type_dealias(ctx, v->result)->array.members;
-		return constant_default(ctx, v->constant.array->value);
+		return literal_default(ctx, v->literal.array->value);
 		break;
 	case STORAGE_TAGGED:
 		return false;
 	case STORAGE_TUPLE:;
-		struct tuple_constant **c = &v->constant.tuple;
+		struct tuple_literal **c = &v->literal.tuple;
 		for (const struct type_tuple *t = &type_dealias(ctx, v->result)->tuple;
 				t != NULL; t = t->next) {
-			*c = xcalloc(1, sizeof(struct tuple_constant));
+			*c = xcalloc(1, sizeof(struct tuple_literal));
 			(*c)->field = t;
 			(*c)->value = xcalloc(1, sizeof(struct expression));
-			(*c)->value->type = EXPR_CONSTANT;
+			(*c)->value->type = EXPR_LITERAL;
 			(*c)->value->result = t->type;
-			if (!constant_default(ctx, (*c)->value)) {
+			if (!literal_default(ctx, (*c)->value)) {
 				return false;
 			}
 			c = &(*c)->next;
@@ -802,8 +802,8 @@ constant_default(struct context *ctx, struct expression *v)
 static int
 field_compar(const void *_a, const void *_b)
 {
-	const struct struct_constant **a = (const struct struct_constant **)_a;
-	const struct struct_constant **b = (const struct struct_constant **)_b;
+	const struct struct_literal **a = (const struct struct_literal **)_a;
+	const struct struct_literal **b = (const struct struct_literal **)_b;
 	return (*a)->field->offset - (*b)->field->offset;
 }
 
@@ -824,7 +824,7 @@ count_struct_fields(struct context *ctx, const struct type *type)
 }
 
 static bool
-autofill_struct(struct context *ctx, const struct type *type, struct struct_constant **fields)
+autofill_struct(struct context *ctx, const struct type *type, struct struct_literal **fields)
 {
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
 	for (const struct struct_field *field = type->struct_union.fields;
@@ -846,14 +846,14 @@ autofill_struct(struct context *ctx, const struct type *type, struct struct_cons
 			}
 		}
 		if (!skip) {
-			fields[i] = xcalloc(1, sizeof(struct struct_constant));
+			fields[i] = xcalloc(1, sizeof(struct struct_literal));
 			fields[i]->field = field;
 			fields[i]->value = xcalloc(1, sizeof(struct expression));
-			fields[i]->value->type = EXPR_CONSTANT;
+			fields[i]->value->type = EXPR_LITERAL;
 			fields[i]->value->result = field->type;
 			// TODO: there should probably be a better error message
 			// when this happens
-			if (!constant_default(ctx, fields[i]->value)) {
+			if (!literal_default(ctx, fields[i]->value)) {
 				return false;
 			}
 		}
@@ -875,13 +875,13 @@ eval_struct(struct context *ctx,
 	assert(n > 0);
 
 	size_t i = 0;
-	struct struct_constant **fields =
-		xcalloc(n, sizeof(struct struct_constant *));
+	struct struct_literal **fields =
+		xcalloc(n, sizeof(struct struct_literal *));
 	for (const struct expr_struct_field *field_in = in->_struct.fields;
 			field_in; field_in = field_in->next, ++i) {
 		const struct struct_field *field =
 			type_get_field(ctx, type, field_in->field->name);
-		fields[i] = xcalloc(1, sizeof(struct struct_constant));
+		fields[i] = xcalloc(1, sizeof(struct struct_literal));
 		fields[i]->field = field;
 		fields[i]->value = xcalloc(1, sizeof(struct expression));
 
@@ -897,13 +897,13 @@ eval_struct(struct context *ctx,
 		}
 	}
 
-	qsort(fields, n, sizeof(struct struct_constant *), field_compar);
+	qsort(fields, n, sizeof(struct struct_literal *), field_compar);
 
 	for (size_t i = 0; i < n - 1; ++i) {
 		fields[i]->next = fields[i + 1];
 	}
 
-	out->constant._struct = fields[0];
+	out->literal._struct = fields[0];
 	free(fields);
 	return true;
 }
@@ -916,8 +916,8 @@ eval_tuple(struct context *ctx,
 	assert(in->type == EXPR_TUPLE);
 	const struct type *type = type_dealias(ctx, in->result);
 
-	struct tuple_constant *out_tuple_start, *out_tuple;
-	out_tuple_start = out_tuple = xcalloc(1, sizeof(struct tuple_constant));
+	struct tuple_literal *out_tuple_start, *out_tuple;
+	out_tuple_start = out_tuple = xcalloc(1, sizeof(struct tuple_literal));
 	const struct expression_tuple *in_tuple = &in->tuple;
 	for (const struct type_tuple *field_type = &type->tuple; field_type;
 			field_type = field_type->next) {
@@ -929,12 +929,12 @@ eval_tuple(struct context *ctx,
 		if (in_tuple->next) {
 			in_tuple = in_tuple->next;
 			out_tuple->next =
-				xcalloc(1, sizeof(struct tuple_constant));
+				xcalloc(1, sizeof(struct tuple_literal));
 			out_tuple = out_tuple->next;
 		}
 	}
 
-	out->constant.tuple = out_tuple_start;
+	out->literal.tuple = out_tuple_start;
 	return true;
 }
 
@@ -946,9 +946,9 @@ eval_unarithm(struct context *ctx,
 {
 	if (in->unarithm.op == UN_ADDRESS) {
 		if (in->unarithm.operand->result == &builtin_type_error) {
-			out->type = EXPR_CONSTANT;
+			out->type = EXPR_LITERAL;
 			out->result = &builtin_type_error;
-			out->constant.uval = 0;
+			out->literal.uval = 0;
 			return true;
 		}
 		if (in->unarithm.operand->type != EXPR_ACCESS) {
@@ -962,8 +962,8 @@ eval_unarithm(struct context *ctx,
 			if (access->object->otype != O_DECL) {
 				return false;
 			}
-			out->constant.object = access->object;
-			out->constant.ival = 0;
+			out->literal.object = access->object;
+			out->literal.ival = 0;
 			return true;
 		case ACCESS_INDEX:
 			new_in = *in;
@@ -975,7 +975,7 @@ eval_unarithm(struct context *ctx,
 			if (!eval_expr(ctx, access->index, &index)) {
 				return false;
 			}
-			out->constant.ival += index.constant.uval * type_dealias(ctx,
+			out->literal.ival += index.literal.uval * type_dealias(ctx,
 				access->array->result)->array.members->size;
 			return true;
 		case ACCESS_FIELD:
@@ -984,7 +984,7 @@ eval_unarithm(struct context *ctx,
 			if (!eval_expr(ctx, &new_in, out)) {
 				return false;
 			}
-			out->constant.ival += access->field->offset;
+			out->literal.ival += access->field->offset;
 			return true;
 		case ACCESS_TUPLE:
 			new_in = *in;
@@ -992,7 +992,7 @@ eval_unarithm(struct context *ctx,
 			if (!eval_expr(ctx, &new_in, out)) {
 				return false;
 			}
-			out->constant.ival += access->tvalue->offset;
+			out->literal.ival += access->tvalue->offset;
 			return true;
 		}
 	}
@@ -1006,18 +1006,18 @@ eval_unarithm(struct context *ctx,
 	case UN_ADDRESS:
 		assert(0); // handled above
 	case UN_BNOT:
-		out->constant.uval = ~lvalue.constant.uval;
+		out->literal.uval = ~lvalue.literal.uval;
 		break;
 	case UN_DEREF:
 		return false;
 	case UN_LNOT:
-		out->constant.bval = !lvalue.constant.bval;
+		out->literal.bval = !lvalue.literal.bval;
 		break;
 	case UN_MINUS:
 		if (type_is_float(ctx, out->result)) {
-			out->constant.fval = -lvalue.constant.fval;
+			out->literal.fval = -lvalue.literal.fval;
 		} else {
-			out->constant.ival = -(uint64_t)lvalue.constant.ival;
+			out->literal.ival = -(uint64_t)lvalue.literal.ival;
 		}
 		break;
 	}
@@ -1031,7 +1031,7 @@ eval_expr(struct context *ctx,
 	struct expression *out)
 {
 	out->result = in->result;
-	out->type = EXPR_CONSTANT;
+	out->type = EXPR_LITERAL;
 
 	switch (in->type) {
 	case EXPR_ACCESS:
@@ -1049,10 +1049,10 @@ eval_expr(struct context *ctx,
 		default:
 			assert(0); // Unreacheable
 		}
-	case EXPR_CONSTANT:
-		return eval_const(ctx, in, out);
 	case EXPR_LEN:
 		return eval_len(ctx, in, out);
+	case EXPR_LITERAL:
+		return eval_literal(ctx, in, out);
 	case EXPR_STRUCT:
 		return eval_struct(ctx, in, out);
 	case EXPR_SLICE:

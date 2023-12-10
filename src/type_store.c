@@ -35,12 +35,12 @@ ast_array_len(struct context *ctx, const struct ast_type *atype)
 		error(ctx, atype->loc, NULL, "Array length must be an integer");
 		return SIZE_UNDEFINED;
 	}
-	if (type_is_signed(ctx, out.result) && out.constant.ival < 0) {
+	if (type_is_signed(ctx, out.result) && out.literal.ival < 0) {
 		error(ctx, atype->loc, NULL,
 			"Array length must be non-negative");
 		return SIZE_UNDEFINED;
 	}
-	return (size_t)out.constant.uval;
+	return (size_t)out.literal.uval;
 }
 
 const struct type *
@@ -192,17 +192,17 @@ struct_new_field(struct context *ctx, const struct struct_field *fields,
 		} else if (!type_is_integer(ctx, out.result)) {
 			error(ctx, in.loc, NULL,
 				"Field offset must be an integer");
-		} else if (type_is_signed(ctx, out.result) && out.constant.ival < 0) {
+		} else if (type_is_signed(ctx, out.result) && out.literal.ival < 0) {
 			error(ctx, in.loc, NULL,
 				"Field offset must not be less than 0");
-		} else if (out.constant.uval < *offset) {
+		} else if (out.literal.uval < *offset) {
 			error(ctx, in.loc, NULL,
 				"Field offset must be greater than or equal to previous field's offset");
-		} else if (out.constant.uval < *size) {
+		} else if (out.literal.uval < *size) {
 			error(ctx, in.loc, NULL,
 				"Fields must not have overlapping storage");
 		} else {
-			field->offset = *offset = (size_t)out.constant.uval;
+			field->offset = *offset = (size_t)out.literal.uval;
 		}
 	} else if (atype->packed) {
 		field->offset = *offset = *size;
@@ -475,7 +475,7 @@ collect_tagged_memb(struct context *ctx,
 		}
 		struct type_tagged_union *tu;
 		ta[*i] = tu = xcalloc(1, sizeof(struct type_tagged_union));
-		tu->type = lower_const(ctx, type, NULL);
+		tu->type = lower_flexible(ctx, type, NULL);
 		*i += 1;
 	}
 }
@@ -494,7 +494,7 @@ collect_atagged_memb(struct context *ctx,
 		}
 		struct type_tagged_union *tu;
 		ta[*i] = tu = xcalloc(1, sizeof(struct type_tagged_union));
-		tu->type = lower_const(ctx, type, NULL);
+		tu->type = lower_flexible(ctx, type, NULL);
 		*i += 1;
 	}
 }
@@ -1060,7 +1060,7 @@ type_store_lookup_pointer(struct context *ctx, struct location loc,
 		error(ctx, loc, NULL, "Can't have pointer to never");
 		return &builtin_type_error;
 	}
-	referent = lower_const(ctx, referent, NULL);
+	referent = lower_flexible(ctx, referent, NULL);
 
 	struct type ptr = {
 		.storage = STORAGE_POINTER,
@@ -1085,7 +1085,7 @@ type_store_lookup_array(struct context *ctx, struct location loc,
 		error(ctx, loc, NULL, "Null type not allowed in this context");
 		return &builtin_type_error;
 	}
-	members = lower_const(ctx, members, NULL);
+	members = lower_flexible(ctx, members, NULL);
 	if (members->size == 0) {
 		error(ctx, loc, NULL,
 			"Type of size 0 is not a valid array member");
@@ -1125,7 +1125,7 @@ type_store_lookup_slice(struct context *ctx, struct location loc,
 		error(ctx, loc, NULL, "Null type not allowed in this context");
 		return &builtin_type_error;
 	}
-	members = lower_const(ctx, members, NULL);
+	members = lower_flexible(ctx, members, NULL);
 	if (members->size == 0) {
 		error(ctx, loc, NULL,
 			"Type of size 0 is not a valid slice member");
@@ -1233,7 +1233,7 @@ type_store_lookup_tuple(struct context *ctx, struct location loc,
 				"Null type not allowed in this context");
 			return &builtin_type_error;
 		}
-		t->type = lower_const(ctx, t->type, NULL);
+		t->type = lower_flexible(ctx, t->type, NULL);
 		if (t->type->size == SIZE_UNDEFINED) {
 			error(ctx, loc, NULL,
 				"Type of undefined size is not a valid tuple member");

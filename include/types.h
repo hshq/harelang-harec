@@ -87,7 +87,7 @@ struct type_func {
 	struct type_func_param *params;
 };
 
-struct type_const {
+struct type_flexible {
 	int64_t min, max;
 	uint32_t id;
 	const struct type ***refs;
@@ -150,8 +150,8 @@ struct type {
 			struct type_enum _enum;
 		};
 		struct type_array array;
+		struct type_flexible flexible;
 		struct type_func func;
-		struct type_const _const;
 		struct type_pointer pointer;
 		struct type_struct_union struct_union;
 		struct type_tagged_union tagged;
@@ -181,24 +181,24 @@ bool type_is_signed(struct context *ctx, const struct type *type);
 bool type_is_integer(struct context *ctx, const struct type *type);
 bool type_is_numeric(struct context *ctx, const struct type *type);
 bool type_is_float(struct context *ctx, const struct type *type);
-bool type_is_constant(const struct type *type);
+bool type_is_flexible(const struct type *type);
 bool type_has_error(struct context *ctx, const struct type *type);
 
 uint32_t type_hash(const struct type *type);
 
-const struct type *promote_const(struct context *ctx,
+const struct type *promote_flexible(struct context *ctx,
 	const struct type *a, const struct type *b);
 bool type_is_assignable(struct context *ctx,
 	const struct type *to, const struct type *from);
 const struct type *type_is_castable(struct context *ctx,
 	const struct type *to, const struct type *from);
 
-const struct type *type_create_const(enum type_storage storage,
+const struct type *type_create_flexible(enum type_storage storage,
 	int64_t min, int64_t max);
-const struct type *lower_const(struct context *ctx,
+const struct type *lower_flexible(struct context *ctx,
 	const struct type *old, const struct type *new);
-void const_refer(const struct type *type, const struct type **ref);
-void const_reset_refs(const struct type *type);
+void flexible_refer(const struct type *type, const struct type **ref);
+void flexible_reset_refs(const struct type *type);
 
 void builtin_types_init(const char *target);
 
