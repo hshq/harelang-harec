@@ -4727,7 +4727,7 @@ load_import(struct context *ctx, const struct ast_global_decl *defines,
 		}
 		const struct scope_object *_enum = scope_lookup(mod, obj->name.ns);
 		if (_enum != NULL && _enum->otype == O_TYPE
-				&& _enum->type->storage == STORAGE_ENUM) {
+				&& type_dealias(NULL, _enum->type)->storage == STORAGE_ENUM) {
 			// include enum type in identifier if object is an enum
 			// constant
 			ns = (struct identifier){

@@ -12,6 +12,12 @@ export type other = enum {
 export type enum_alias = _enum;
 export type error_enum = !_enum;
 
+// used for a test in tests/15-enums.ha
+// this is kinda a hack; it simulates a declaration in a module whose namespace
+// has multiple components (in this case testmod::x)
+// as of now this relies on unspecified details of harec
+export type testmod::x::namespaced_alias = _enum;
+
 export def val = 42;
 export def val2: int = 90;
 export def val3: enum_alias = 1: enum_alias;
