@@ -40,20 +40,15 @@ module_resolve(struct context *ctx,
 
 	char *path = getenv(env);
 	if (!path) {
-		char *identstr = identifier_unparse(ident);
 		xfprintf(stderr, "Could not open module '%s': typedef variable $%s not set\n",
-			identstr, env);
-		free(identstr);
+			&env[strlen_HARE_TD_], env);
 		exit(EXIT_FAILURE);
 	}
 
 	FILE *f = fopen(path, "r");
 	if (!f) {
-		const char *errstr = strerror(errno);
-		char *identstr = identifier_unparse(ident);
 		xfprintf(stderr, "Could not open module '%s' for reading from %s: %s\n",
-			identstr, path, errstr);
-		free(identstr);
+			&env[strlen_HARE_TD_], path, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
