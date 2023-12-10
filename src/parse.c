@@ -1919,7 +1919,17 @@ parse_switch_expression(struct lexer *lexer)
 	exp->type = EXPR_SWITCH;
 
 	struct token tok = {0};
-	want(lexer, T_LPAREN, &tok);
+	switch (lex(lexer, &tok)) {
+	case T_COLON:
+		want(lexer, T_NAME, &tok);
+		exp->_switch.label = tok.name;
+		want(lexer, T_LPAREN, &tok);
+		break;
+	case T_LPAREN:
+		break; // no-op
+	default:
+		synerr(&tok, T_LPAREN, T_COLON, T_EOF);
+	}
 	exp->_switch.value = parse_expression(lexer);
 	want(lexer, T_RPAREN, &tok);
 	want(lexer, T_LBRACE, &tok);
@@ -1980,7 +1990,17 @@ parse_match_expression(struct lexer *lexer)
 	exp->type = EXPR_MATCH;
 
 	struct token tok = {0};
-	want(lexer, T_LPAREN, &tok);
+	switch (lex(lexer, &tok)) {
+	case T_COLON:
+		want(lexer, T_NAME, &tok);
+		exp->match.label = tok.name;
+		want(lexer, T_LPAREN, &tok);
+		break;
+	case T_LPAREN:
+		break; // no-op
+	default:
+		synerr(&tok, T_LPAREN, T_COLON, T_EOF);
+	}
 	exp->match.value = parse_expression(lexer);
 	want(lexer, T_RPAREN, &tok);
 	want(lexer, T_LBRACE, &tok);

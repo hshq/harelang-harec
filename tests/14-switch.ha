@@ -240,10 +240,23 @@ fn duplicates() void = {
 	") as exited != EXIT_SUCCESS);
 };
 
+fn label() void = {
+	switch :foo (0) {
+	case 0 =>
+		if (true) { yield :foo; };
+		abort();
+	case =>
+		if (true) abort(); // unreachable
+		// but still test that this branch inherits the label
+		yield :foo;
+	};
+};
+
 export fn main() void = {
 	basics();
 	tagged_result();
 	binding();
 	exhaustivity();
 	duplicates();
+	label();
 };

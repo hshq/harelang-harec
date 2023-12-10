@@ -2241,6 +2241,7 @@ check_expr_match(struct context *ctx,
 		struct ast_expression compound = {
 			.type = EXPR_COMPOUND,
 			.compound = {
+				.label = aexpr->match.label,
 				.list = acase->exprs,
 			},
 		};
@@ -3117,6 +3118,7 @@ check_expr_switch(struct context *ctx,
 		struct ast_expression compound = {
 			.type = EXPR_COMPOUND,
 			.compound = {
+				.label = aexpr->_switch.label,
 				.list = acase->exprs,
 			},
 		};

@@ -268,6 +268,7 @@ struct ast_match_case {
 };
 
 struct ast_expression_match {
+	char *label;
 	struct ast_expression *value;
 	struct ast_match_case *cases;
 };
@@ -314,6 +315,7 @@ struct ast_switch_case {
 };
 
 struct ast_expression_switch {
+	char *label;
 	struct ast_expression *value;
 	struct ast_switch_case *cases;
 };
