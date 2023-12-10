@@ -247,6 +247,11 @@ fn reject() void = {
 			void;
 		};"
 	) as exited != EXIT_SUCCESS);
+	assert(compile(
+		"fn test() ((void | void) | void) = {
+			void;
+		};"
+	) as exited != EXIT_SUCCESS);
 
 	assert(compile(
 		"fn test() void = {

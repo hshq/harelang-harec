@@ -560,7 +560,7 @@ tagged_init_from_atype(struct context *ctx,
 		xcalloc(nmemb, sizeof(struct type_tagged_union *));
 	size_t i = 0;
 	collect_atagged_memb(ctx, tu, &atype->tagged_union, &i);
-	tagged_init(type, tu, nmemb);
+	tagged_init(type, tu, i);
 	if (!enforce_tagged_invariants(ctx, atype->loc, type)) {
 		*type = builtin_type_error;
 	};
