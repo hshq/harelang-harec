@@ -1186,8 +1186,8 @@ struct type builtin_type_bool = {
 },
 builtin_type_error = {
 	.storage = STORAGE_ERROR,
-	.size = 1,
-	.align = 1,
+	.size = 0,
+	.align = 0,
 },
 builtin_type_f32 = {
 	.storage = STORAGE_F32,

@@ -786,6 +786,10 @@ type_init_from_atype(struct context *ctx,
 		} else {
 			memb = lookup_atype_with_dimensions(ctx,
 				&type->array.members, atype->array.members);
+			if (type->array.members->storage == STORAGE_ERROR) {
+				*type = builtin_type_error;
+				return (struct dimensions){0};
+			}
 		}
 		if (memb.size == 0) {
 			error(ctx, atype->loc, NULL,
@@ -843,6 +847,10 @@ type_init_from_atype(struct context *ctx,
 		type->pointer.flags = atype->pointer.flags;
 		type->pointer.referent = lookup_atype(
 			ctx, atype->pointer.referent);
+		if (type->pointer.referent->storage == STORAGE_ERROR) {
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		if (type->pointer.referent->size == 0) {
 			error(ctx, atype->loc, NULL,
 				"Can't have pointer to zero-sized type");
@@ -864,6 +872,10 @@ type_init_from_atype(struct context *ctx,
 			break;
 		}
 		type->array.members = lookup_atype(ctx, atype->array.members);
+		if (type->array.members->storage == STORAGE_ERROR) {
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		if (type->array.members->size == 0) {
 			error(ctx, atype->loc, NULL,
 				"Type of size 0 is not a valid slice member");
