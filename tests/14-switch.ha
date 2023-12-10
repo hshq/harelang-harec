@@ -147,7 +147,7 @@ fn exhaustivity() void = {
 	let buf: [4096]u8 = [0...];
 	let buf = buf[..0];
 	static append(buf, toutf8("fn test() void = switch (0u8) {")...);
-	for (let i: u8 = '0'; i <= '2'; i += 1) :outer {
+	for :outer (let i: u8 = '0'; i <= '2'; i += 1) {
 		for (let j: u8 = '0'; j <= '9'; j += 1) {
 			for (let k: u8 = '0'; k <= '9'; k += 1) {
 				if (i == '2' && j == '5' && k == '6') {

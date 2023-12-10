@@ -39,8 +39,25 @@ fn cast_lowering() void = {
 	assert(x is void);
 };
 
+fn shadowing() void = {
+	let i = 0;
+	:foo {
+		:foo {
+			for :foo (true) {
+				break :foo;
+			};
+			i += 1;
+			yield :foo;
+		};
+		i += 1;
+		yield :foo;
+	};
+	assert(i == 2);
+};
+
 export fn main() void = {
 	basics();
 	_never();
 	cast_lowering();
+	shadowing();
 };

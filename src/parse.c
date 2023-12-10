@@ -1823,7 +1823,18 @@ parse_for_expression(struct lexer *lexer)
 
 	struct token tok = {0};
 	want(lexer, T_FOR, &tok);
-	want(lexer, T_LPAREN, &tok);
+	switch (lex(lexer, &tok)) {
+	case T_COLON:
+		want(lexer, T_NAME, &tok);
+		exp->_for.label = tok.name;
+		want(lexer, T_LPAREN, &tok);
+		break;
+	case T_LPAREN:
+		break; // no-op
+	default:
+		synerr(&tok, T_LPAREN, T_COLON, T_EOF);
+		break;
+	}
 	switch (lex(lexer, &tok)) {
 	case T_LET:
 	case T_CONST:

@@ -250,6 +250,7 @@ struct expression_delete {
 };
 
 struct expression_for {
+	char *label;
 	struct scope *scope;
 	struct expression *bindings;
 	struct expression *cond;

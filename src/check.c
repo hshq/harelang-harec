@@ -2014,6 +2014,11 @@ check_expr_for(struct context *ctx,
 	struct scope *scope = scope_push(&ctx->scope, SCOPE_LOOP);
 	expr->_for.scope = scope;
 
+	if (aexpr->_for.label) {
+		expr->_for.label = xstrdup(aexpr->_for.label);
+		scope->label = xstrdup(aexpr->_for.label);
+	}
+
 	struct expression *bindings = NULL,
 		*cond = NULL, *afterthought = NULL, *body = NULL;
 

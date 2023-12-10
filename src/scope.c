@@ -36,25 +36,17 @@ struct scope *
 scope_lookup_ancestor(struct scope *scope,
 	enum scope_class class, const char *label)
 {
-	// Implements the algorithm described by "Control statements" item 2, or
-	// 6.6.48.2 at the time of writing
 	while (scope) {
 		if (label && scope->label && strcmp(scope->label, label) == 0) {
+			if (scope->class != class) {
+				return NULL;
+			}
 			break;
 		} else if (!label && scope->class == class) {
 			break;
 		}
 		scope = scope->parent;
 	}
-
-	if (scope && class != scope->class) {
-		assert(scope->class == SCOPE_COMPOUND);
-		scope = scope->parent;
-		if (scope->class != class) {
-			return NULL;
-		}
-	}
-
 	return scope;
 }
 

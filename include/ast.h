@@ -239,6 +239,7 @@ struct ast_expression_delete {
 };
 
 struct ast_expression_for {
+	char *label;
 	struct ast_expression *bindings;
 	struct ast_expression *cond;
 	struct ast_expression *afterthought;
