@@ -35,7 +35,7 @@ export fn compile(src: const str, flags: str...) exit_status = {
 
 		const buf = constchar(src): *const [*]u8;
 		for (let n = 0z; n < len(src)) {
-			let m = write(pipefd[1], &buf[n], len(src) - n);
+			let m = write(pipefd[1], &buf[n], len(src) - n): size;
 			assert(m > 0, "write(2) failed");
 			n += m;
 		};

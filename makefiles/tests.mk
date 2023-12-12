@@ -24,15 +24,13 @@ rt_ha = \
 	rt/compile.ha \
 	rt/cstrings.ha \
 	rt/ensure.ha \
-	rt/malloc.ha \
 	rt/memcpy.ha \
 	rt/memmove.ha \
 	rt/memset.ha \
-	rt/rtmain.ha \
 	rt/strcmp.ha \
 	rt/+$(PLATFORM)/errno.ha \
-	rt/+$(PLATFORM)/segmalloc.ha \
 	rt/+$(PLATFORM)/syscalls.ha \
+	rt/+$(PLATFORM)/start.ha \
 	$(_rt_ha)
 
 $(HARECACHE)/rt.ssa: $(rt_ha)
@@ -40,7 +38,7 @@ $(HARECACHE)/rt.ssa: $(rt_ha)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ -t $(HARECACHE)/rt.td.tmp -N rt $(rt_ha)
 
-rt_s = $(HARECACHE)/rt.s rt/+$(PLATFORM)/start+$(ARCH).s rt/+$(PLATFORM)/syscall+$(ARCH).s
+rt_s = $(HARECACHE)/rt.s $(_rt_s)
 $(HARECACHE)/rt.o: $(rt_s)
 	@printf 'AS\t%s\n' '$@'
 	@$(AS) $(ASFLAGS) -o $@ $(rt_s)

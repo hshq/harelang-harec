@@ -5,7 +5,7 @@ BINDIR = $(PREFIX)/bin
 # variables used during build
 PLATFORM = openbsd
 ARCH = x86_64
-HARECFLAGS =
+HARECFLAGS = -N "" -m .main
 QBEFLAGS =
 ASFLAGS =
 LDLINKFLAGS = -z nobtcfi
@@ -18,7 +18,7 @@ LIBS = -lm
 CC = cc
 # OpenBSD: gas is in the binutils package. as from the base system is too old.
 AS = gas
-LD = ld
+LD = cc
 QBE = qbe
 
 # build locations
