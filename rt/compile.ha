@@ -18,7 +18,8 @@ export fn compile(src: const str, flags: str...) exit_status = {
 		defer for (let i = 0z; i < len(argv); i += 1) {
 			free(argv[i]);
 		};
-		append(argv, alloc_constchar("./harec"));
+		// FIXME use $BINOUT variable
+		append(argv, alloc_constchar("./.bin/harec"));
 		for (let i = 0z; i < len(flags); i += 1) {
 			append(argv, alloc_constchar(flags[i]));
 		};
@@ -26,7 +27,7 @@ export fn compile(src: const str, flags: str...) exit_status = {
 		append(argv, alloc_constchar("-"));
 		append(argv, null);
 
-		execve(constchar("./harec\0"), *(&argv: **[*]nullable *const u8), envp);
+		execve(constchar("./.bin/harec\0"), *(&argv: **[*]nullable *const u8), envp);
 		abort();
 	} else {
 		assert(child != -1, "fork(2) failed");

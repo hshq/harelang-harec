@@ -1,11 +1,8 @@
-build
-.build/
-mod/
-harec*
-**/*.o
-**/*.a
+.bin/
+.cache/
+src/*.o
 tests/*
 !tests/*.ha
+!tests/*.c
 !tests/run
-!Makefile
-!configure
+config.mk

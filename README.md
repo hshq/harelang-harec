@@ -14,9 +14,7 @@ POSIX-compatible systems.
 ## Building
 
 ```
-mkdir build
-cd build
-../configure
+cp configs/$platform.mk config.mk
 make
 ```
 

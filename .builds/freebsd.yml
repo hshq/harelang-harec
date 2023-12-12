@@ -9,13 +9,10 @@ tasks:
     cd qbe
     make CC=cc PREFIX=/usr
     sudo make install PREFIX=/usr
-- prepare: |
-    mkdir harec/build
-    cd harec/build
-    ../configure
 - build: |
-    cd harec/build
+    cd harec
+    cp configs/freebsd.mk config.mk
     make -j2
 - tests: |
-    cd harec/build
+    cd harec
     make check
