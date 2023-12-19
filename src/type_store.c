@@ -453,7 +453,7 @@ sum_atagged_memb(struct context *ctx, const struct ast_tagged_union_type *u)
 		if (type != NULL && type->storage == STORAGE_TAGGED) {
 			nmemb += sum_tagged_memb(ctx, &type->tagged);
 		} else if (atype->storage == STORAGE_TAGGED) {
-			nmemb += sum_atagged_memb(ctx, &atype->tagged_union);
+			nmemb += sum_atagged_memb(ctx, &atype->tagged);
 		} else {
 			++nmemb;
 		}
@@ -555,11 +555,11 @@ static void
 tagged_init_from_atype(struct context *ctx,
 	struct type *type, const struct ast_type *atype)
 {
-	size_t nmemb = sum_atagged_memb(ctx, &atype->tagged_union);
+	size_t nmemb = sum_atagged_memb(ctx, &atype->tagged);
 	struct type_tagged_union **tu =
 		xcalloc(nmemb, sizeof(struct type_tagged_union *));
 	size_t i = 0;
-	collect_atagged_memb(ctx, tu, &atype->tagged_union, &i);
+	collect_atagged_memb(ctx, tu, &atype->tagged, &i);
 	tagged_init(type, tu, i);
 	if (!enforce_tagged_invariants(ctx, atype->loc, type)) {
 		*type = builtin_type_error;
@@ -586,7 +586,7 @@ _tagged_size(struct context *ctx, const struct ast_tagged_union_type *u)
 				}
 			}
 		} else if (atype->storage == STORAGE_TAGGED) {
-			memb = _tagged_size(ctx, &atype->tagged_union);
+			memb = _tagged_size(ctx, &atype->tagged);
 		} else {
 			memb = lookup_atype_with_dimensions(ctx, NULL, atype);
 		}
@@ -609,7 +609,7 @@ _tagged_size(struct context *ctx, const struct ast_tagged_union_type *u)
 static struct dimensions
 tagged_size(struct context *ctx, const struct ast_type *atype)
 {
-	struct dimensions dim = _tagged_size(ctx, &atype->tagged_union);
+	struct dimensions dim = _tagged_size(ctx, &atype->tagged);
 	if (dim.align < builtin_type_u32.align) {
 		dim.align = builtin_type_u32.align;
 	}

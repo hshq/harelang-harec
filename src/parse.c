@@ -584,7 +584,7 @@ parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 {
 	struct ast_type *type = mktype(first->loc);
 	type->storage = STORAGE_TAGGED;
-	struct ast_tagged_union_type *next = &type->tagged_union;
+	struct ast_tagged_union_type *next = &type->tagged;
 	next->type = first;
 	struct token tok = {0};
 	while (tok.token != T_RPAREN) {

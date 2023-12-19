@@ -100,7 +100,7 @@ struct ast_type {
 		struct ast_pointer_type pointer;
 		struct ast_list_type slice;
 		struct ast_struct_union_type struct_union;
-		struct ast_tagged_union_type tagged_union;
+		struct ast_tagged_union_type tagged;
 		struct ast_tuple_type tuple;
 		struct {
 			struct identifier alias;
