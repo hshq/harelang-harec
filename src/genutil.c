@@ -133,3 +133,12 @@ branch_copyresult(struct gen_context *ctx,
 	struct qbe_value qval = mkqval(ctx, &result);
 	pushi(ctx->current, &qmerged, Q_COPY, &qval, NULL);
 }
+
+struct qbe_value
+compute_tagged_memb_offset(const struct type *subtype)
+{
+	if (builtin_type_u32.align > subtype->align) {
+		return constl(builtin_type_u32.align);
+	}
+	return constl(subtype->align);
+}

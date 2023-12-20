@@ -141,6 +141,19 @@ gen_store(struct gen_context *ctx,
 	pushi(ctx->current, NULL, qi, &qval, &qobj, NULL);
 }
 
+// Generates code to store the type ID (id) in a tagged union's tag field (at
+// address "out" and of type "tagged")
+static void
+gen_store_tag(struct gen_context *ctx,
+	struct qbe_value *out,
+	const struct type *tagged,
+	struct qbe_value *id)
+{
+	assert(type_dealias(NULL, tagged)->storage == STORAGE_TAGGED);
+	const enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
+	pushi(ctx->current, NULL, store, id, out, NULL);
+}
+
 static struct gen_value
 gen_load(struct gen_context *ctx, struct gen_value object)
 {
@@ -169,6 +182,19 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 	enum qbe_instr qi = load_for_type(ctx, object.type);
 	pushi(ctx->current, &qval, qi, &qobj, NULL);
 	return value;
+}
+
+// Generates code to load the type ID (into "out") from the tag field of a
+// tagged union (at "from" and of type "tagged").
+static void
+gen_load_tag(struct gen_context *ctx,
+	struct qbe_value *out,
+	struct qbe_value *from,
+	const struct type *tagged)
+{
+	assert(type_dealias(NULL, tagged)->storage == STORAGE_TAGGED);
+	const enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
+	pushi(ctx->current, out, load, from, NULL);
 }
 
 static void
@@ -1203,16 +1229,15 @@ static struct gen_value gen_nested_match_tests(struct gen_context *ctx,
 		const struct type *type);
 
 static struct gen_value
-gen_type_assertion_or_test(struct gen_context *ctx, const struct expression *expr,
-		struct gen_value base)
+gen_type_assertion_or_test(struct gen_context *ctx,
+	const struct expression *expr,
+	struct gen_value base)
 {
 	assert(expr->cast.kind == C_TEST || expr->cast.kind == C_ASSERTION);
 	const struct type *want = expr->cast.secondary;
-	struct qbe_value tag = mkqtmp(ctx,
-		qtype_lookup(ctx, &builtin_type_u32, false), ".%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
+	struct qbe_value tag = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value qbase = mkqval(ctx, &base);
-	pushi(ctx->current, &tag, load, &qbase, NULL);
+	gen_load_tag(ctx, &tag, &qbase, expr->cast.value->result);
 
 	struct qbe_statement failedl, passedl;
 	struct qbe_value bfailed, bpassed = mklabel(ctx, &passedl, "passed.%d");
@@ -1272,74 +1297,45 @@ gen_expr_cast_slice_at(struct gen_context *ctx,
 	pushi(ctx->current, NULL, store, &ln, &qptr, NULL);
 }
 
-// Returns true if object's storage can be interpreted as want.
-static bool
-tagged_align_compat(const struct type *object, const struct type *want)
-{
-	assert(type_dealias(NULL, object)->storage == STORAGE_TAGGED);
-	assert(type_dealias(NULL, want)->storage == STORAGE_TAGGED);
-	return object->align == want->align
-		|| want->size == builtin_type_u32.size;
-}
-
 static void
 gen_expr_cast_tagged_at(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value out)
 {
+	// Generate a cast from type "from" to type "to". Two cases are handled
+	// here:
+	//
+	// 1. "from" is a tagged union which is compatible with "to"
+	//    let from: (i32 | void);
+	//    let to: (i32 | i64 | void) = from;
+	// 2. "from" is a member of "to"
+	//    let from: i32;
+	//    let to: (i32 | void) = from;
 	assert(expr->type == EXPR_CAST);
 	const struct type *to = expr->result, *from = expr->cast.value->result;
 	const struct type *subtype = tagged_select_subtype(NULL, to, from, true);
 
-	if (!subtype && tagged_align_compat(from, to)) {
-		// Case 1: from is a union whose members are a subset or
-		// superset of to, and the alignment matches, so we can just
-		// interpret values of type 'from' as if it were of type 'to'
+	if (!subtype) {
+		// Compatible tagged unions
+		//
+		// Create a new "out" parameter with the same storage location
+		// as the target of this expression, but with the "from" type.
+		// The "from" type is a tagged union and will produce a
+		// compatible tagged union when evaluated there.
 		struct gen_value out2 = out;
 		out2.type = from;
 		gen_expr_at(ctx, expr->cast.value, out2);
 		if (expr->cast.kind == C_ASSERTION) {
 			gen_type_assertion_or_test(ctx, expr, out2);
 		}
-	} else if (!subtype) {
-		// Case 2: like case 1, but with an alignment mismatch; more
-		// work is required.
-		struct gen_value value = gen_expr(ctx, expr->cast.value);
-		struct qbe_value qval = mkqval(ctx, &value);
-		if (expr->cast.kind == C_ASSERTION) {
-			gen_type_assertion_or_test(ctx, expr, value);
-		}
-		struct qbe_value qout = mkqval(ctx, &out);
-		struct qbe_value tag = mkqtmp(ctx,
-			qtype_lookup(ctx, &builtin_type_u32, false), "tag.%d");
-		enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
-		enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
-		pushi(ctx->current, &tag, load, &qval, NULL);
-		pushi(ctx->current, NULL, store, &tag, &qout, NULL);
-		if (to->size == builtin_type_u32.size ||
-				from->size == builtin_type_u32.size) {
-			// No data area to copy
-			return;
-		}
-
-		subtype = tagged_subset_compat(NULL, to, from) ? from : to;
-		const struct type *innertype = type_store_tagged_to_union(
-			(struct context *)&ctx->store, type_dealias(NULL, subtype));
-		struct gen_value iout = mkgtemp(ctx, innertype, ".%d");
-		struct gen_value ival = mkgtemp(ctx, innertype, ".%d");
-		struct qbe_value qiout = mkqval(ctx, &iout);
-		struct qbe_value qival = mkqval(ctx, &ival);
-		struct qbe_value offs = constl(to->align);
-		pushi(ctx->current, &qiout, Q_ADD, &qout, &offs, NULL);
-		offs = constl(from->align);
-		pushi(ctx->current, &qival, Q_ADD, &qval, &offs, NULL);
-		gen_copy_aligned(ctx, iout, ival);
 	} else {
-		// Case 3: from is a member of to
-		assert(subtype == from); // Lowered by check
+		// "from" is a member of "to"
+		//
+		// Update the tag and generate the "from" expression at the
+		// offset of the value field.
 		struct qbe_value qout = mkqval(ctx, &out);
 		struct qbe_value id = constw(subtype->id);
-		enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
-		pushi(ctx->current, NULL, store, &id, &qout, NULL);
+		gen_store_tag(ctx, &qout, to, &id);
+
 		if (subtype->size == 0) {
 			gen_expr(ctx, expr->cast.value); // side-effects
 			return;
@@ -1347,7 +1343,7 @@ gen_expr_cast_tagged_at(struct gen_context *ctx,
 
 		struct gen_value storage = mkgtemp(ctx, subtype, ".%d");
 		struct qbe_value qstor = mklval(ctx, &storage);
-		struct qbe_value offs = constl(to->align);
+		struct qbe_value offs = compute_tagged_memb_offset(from);
 		pushi(ctx->current, &qstor, Q_ADD, &qout, &offs, NULL);
 		gen_expr_at(ctx, expr->cast.value, storage);
 	}
@@ -1858,15 +1854,15 @@ gen_literal_tagged_at(struct gen_context *ctx,
 	struct qbe_value qout = mklval(ctx, &out);
 	const struct type *subtype = expr->literal.tagged.tag;
 	struct qbe_value id = constw(subtype->id);
-	enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
-	pushi(ctx->current, NULL, store, &id, &qout, NULL);
+	gen_store_tag(ctx, &qout, expr->result, &id);
+
 	if (subtype->size == 0) {
 		return;
 	}
 
 	struct gen_value storage = mkgtemp(ctx, subtype, ".%d");
 	struct qbe_value qstor = mklval(ctx, &storage);
-	struct qbe_value offs = constl(expr->result->align);
+	struct qbe_value offs = compute_tagged_memb_offset(subtype);
 	pushi(ctx->current, &qstor, Q_ADD, &qout, &offs, NULL);
 	gen_expr_at(ctx, expr->literal.tagged.value, storage);
 }
@@ -1982,6 +1978,7 @@ gen_expr_literal(struct gen_context *ctx, const struct expression *expr)
 		return val;
 	case Q__VOID:
 	case Q__AGGREGATE:
+	case Q__UNION:
 		assert(0); // Invariant
 	}
 
@@ -2349,14 +2346,8 @@ enum match_compat {
 	// The case type is a member of the match object type and can be used
 	// directly from the match object's tagged union storage area.
 	COMPAT_SUBTYPE,
-	// The case type is a tagged union which is a subset of the object type,
-	// and alignment-compatible. In this case we can use the match object
-	// directly.
-	COMPAT_ALIGNED,
-	// The case type is a tagged union which is a subset of the object type,
-	// but with a different alignment. In this case we must convert the
-	// match object before using it.
-	COMPAT_MISALIGNED,
+	// The case type is a tagged union which is a subset of the object type.
+	COMPAT_SUBSET,
 };
 
 static struct qbe_value
@@ -2367,17 +2358,19 @@ nested_tagged_offset(const struct type *tu, const struct type *target)
 	// type foo = (int | void);
 	// type bar = (size | foo);
 	//
-	// Offset of the foo field from the start of bar is 8 and offset of int
-	// inside foo is 4, so the offset of the int from the start of bar is 12
+	// The offset of the "foo" field from the start of "bar" is 4, and the
+	// offset of int inside "foo" is 4, so the offset of int from the start
+	// of "bar" is 8. The size is at offset 8.
 	const struct type *test = tu;
-	struct qbe_value offset = constl(tu->align);
+	struct qbe_value offset = constl(0);
 	do {
+		offset.lval += builtin_type_u32.align;
 		test = tagged_select_subtype(NULL, tu, target, false);
 		if (!test) {
 			break;
 		}
-		if (test->id != target->id && type_dealias(NULL, test)->id != target->id) {
-			offset.lval += test->align;
+		if (offset.lval % test->align != 0) {
+			offset.lval += test->align - offset.lval % test->align;
 		}
 		tu = test;
 	} while (test->id != target->id && type_dealias(NULL, test)->id != target->id);
@@ -2429,10 +2422,17 @@ gen_nested_match_tests(struct gen_context *ctx, struct gen_value object,
 		pushi(ctx->current, NULL, Q_JNZ, &qmatch, &bsubtype, &bnext, NULL);
 		push(&ctx->current->body, &lsubtype);
 
-		if (test->id != type->id && type_dealias(NULL, test)->id != type->id) {
-			struct qbe_value offs = constl(subtype->align);
+		// In the case of a tagged union which is a subset of the
+		// object, where we're testing for a type within that subset,
+		// move the pointer to this tagged union and continue looking
+		// for the relevant type ID there.
+		if (test->id != type->id
+				&& type_dealias(NULL, test)->id != type->id
+				&& type_dealias(NULL, test)->storage == STORAGE_TAGGED) {
+			struct qbe_value offs =
+				compute_tagged_memb_offset(test);
 			pushi(ctx->current, &subval, Q_ADD, &subval, &offs, NULL);
-			pushi(ctx->current, &temp, Q_LOADUW, &subval, NULL);
+			gen_load_tag(ctx, &temp, &subval, test);
 			subtag = &temp;
 		}
 
@@ -2489,8 +2489,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 	struct gen_value object = gen_expr(ctx, expr->match.value);
 	struct qbe_value qobject = mkqval(ctx, &object);
 	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_u32);
-	pushi(ctx->current, &tag, load, &qobject, NULL);
+	gen_load_tag(ctx, &tag, &qobject, objtype);
 
 	struct qbe_statement lout;
 	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
@@ -2516,11 +2515,7 @@ gen_match_with_tagged(struct gen_context *ctx,
 		} else {
 			assert(type_dealias(NULL, _case->type)->storage == STORAGE_TAGGED);
 			assert(tagged_subset_compat(NULL, objtype, _case->type));
-			if (tagged_align_compat(objtype, _case->type)) {
-				compat = COMPAT_ALIGNED;
-			} else {
-				compat = COMPAT_MISALIGNED;
-			}
+			compat = COMPAT_SUBSET;
 			const struct type *casetype = type_dealias(NULL, _case->type);
 			gen_subset_match_tests(ctx, bmatch, bnext, tag, casetype);
 		}
@@ -2557,28 +2552,10 @@ gen_match_with_tagged(struct gen_context *ctx,
 			load = gen_load(ctx, src);
 			gen_store(ctx, gb->value, load);
 			break;
-		case COMPAT_ALIGNED:
+		case COMPAT_SUBSET:
 			pushi(ctx->current, &ptr, Q_COPY, &qobject, NULL);
 			load = gen_load(ctx, src);
 			gen_store(ctx, gb->value, load);
-			break;
-		case COMPAT_MISALIGNED:
-			;
-			struct expression value = {
-				.type = EXPR_GEN_VALUE,
-				.result = objtype,
-				.user = &object,
-			};
-			struct expression cast = {
-				.type = EXPR_CAST,
-				.result = _case->type,
-				.cast = {
-					.kind = C_CAST,
-					.secondary = _case->type,
-					.value = &value,
-				},
-			};
-			gen_expr_at(ctx, &cast, gb->value);
 			break;
 		}
 
@@ -3720,22 +3697,26 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	case STORAGE_TAGGED:
 		item->type = QD_VALUE;
 		item->value = constw((uint32_t)literal->tagged.tag->id);
-		if (type->align != builtin_type_u32.align) {
+		size_t offs = builtin_type_u32.size;
+		size_t tag_align = literal->tagged.tag->align;
+		if (tag_align > offs) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
 			item->type = QD_ZEROED;
-			item->zeroed = type->align - builtin_type_u32.align;
+			item->zeroed = tag_align - offs;
+			offs = tag_align;
 		}
 		if (literal->tagged.tag->size != 0) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
 			item = gen_data_item(ctx, literal->tagged.value, item);
+			offs += literal->tagged.tag->size;
 		}
-		if (literal->tagged.tag->size < type->size - type->align) {
+		if (offs < type->size) {
 			item->next = xcalloc(1, sizeof(struct qbe_data_item));
 			item = item->next;
 			item->type = QD_ZEROED;
-			item->zeroed = type->size - type->align - literal->tagged.tag->size;
+			item->zeroed = type->size - offs;
 		}
 		break;
 	case STORAGE_VOID:
