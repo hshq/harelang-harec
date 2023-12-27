@@ -43,10 +43,11 @@ static noreturn void
 vsynerr(struct token *tok, va_list ap)
 {
 	enum lexical_token t = va_arg(ap, enum lexical_token);
+	
 	xfprintf(stderr,
-		"%s:%d:%d: syntax error: unexpected '%s'%s",
-		sources[tok->loc.file], tok->loc.lineno, tok->loc.colno,
-		token_str(tok), t == T_EOF ? "\n" : ", expected " );
+		"%s:%d:%d: syntax error: expected ",
+		sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
+
 	while (t != T_EOF) {
 		if (t == T_NUMBER || t == T_NAME) {
 			xfprintf(stderr, "%s", lexical_token_str(t));
@@ -54,8 +55,13 @@ vsynerr(struct token *tok, va_list ap)
 			xfprintf(stderr, "'%s'", lexical_token_str(t));
 		}
 		t = va_arg(ap, enum lexical_token);
-		xfprintf(stderr, "%s", t == T_EOF ? "\n" : ", ");
+		xfprintf(stderr, ", ");
 	}
+
+	xfprintf(stderr,
+		"found '%s'\n",
+		token_str(tok));
+
 	errline(tok->loc);
 	exit(EXIT_FAILURE);
 }
