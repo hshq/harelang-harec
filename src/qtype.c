@@ -49,6 +49,7 @@ tagged_qtype(struct gen_context *ctx,
 		case 2: valuesname = "values.align2.%d"; break;
 		case 4: valuesname = "values.align4.%d"; break;
 		case 8: valuesname = "values.align8.%d"; break;
+		default: abort();
 		};
 
 		// Produces type :values = { { x, y, z } }
@@ -85,6 +86,7 @@ tagged_qtype(struct gen_context *ctx,
 		case 2: batchname = "tagged.align2.%d"; break;
 		case 4: batchname = "tagged.align4.%d"; break;
 		case 8: batchname = "tagged.align8.%d"; break;
+		default: abort();
 		};
 
 		// Produces type :batch = { w 1, :values }
