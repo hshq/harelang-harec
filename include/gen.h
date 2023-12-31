@@ -92,6 +92,7 @@ struct qbe_value mklabel(struct gen_context *ctx,
 	struct qbe_statement *stmt, const char *fmt);
 void branch_copyresult(struct gen_context *ctx, struct gen_value result,
 	struct gen_value merged, struct gen_value *out);
+struct qbe_value compute_tagged_memb_offset(const struct type *subtype);
 
 // qinstr.c
 enum qbe_instr alloc_for_align(size_t align);

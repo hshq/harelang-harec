@@ -18,9 +18,19 @@ fn measurements() void = {
 fn storage() void = {
 	let x: (u8 | u16 | u32 | u64) = 42u8;
 	const y = &x: *struct {
-		tag: uint,
-		union { _u8: u8, _u16: u16, _u32: u32, _u64: u64 },
+		tag: u32,
+		@offset(4) union {
+			_u8: u8,
+			_u16: u16,
+			_u32: u32,
+		},
+		@offset(8) _u64: u64,
 	};
+	assert(offset(y._u8) == 4);
+	assert(offset(y._u16) == 4);
+	assert(offset(y._u32) == 4);
+	assert(offset(y._u64) == 8);
+
 	assert(y.tag == 1268499444); // u8 type ID
 	assert(y._u8 == 42);
 
@@ -134,14 +144,12 @@ fn subsetcast() void = {
 	let x: (size | void) = 1337z;
 	let y: (size | int | void) = x;
 	let p = &y: *struct {
-		tag: uint,
-		data: union {
-			z: size,
-			i: int,
-		},
+		tag: u32,
+		@offset(4) i: int,
+		@offset(8) z: size,
 	};
 	assert(p.tag == 2843771249);
-	assert(p.data.z == 1337z);
+	assert(p.z == 1337z);
 	// superset -> subset
 	let x: (size | void | int) = 2z;
 	assert(x: (size | void) as size == 2);
@@ -153,14 +161,12 @@ fn subsetcast() void = {
 	let x: (int | void) = 1337;
 	let y: (size | int | void) = x;
 	let p = &y: *struct {
-		tag: uint,
-		data: union {
-			z: size,
-			i: int,
-		},
+		tag: u32,
+		@offset(4) i: int,
+		@offset(8) z: size,
 	};
 	assert(p.tag == 2674862226);
-	assert(p.data.i == 1337);
+	assert(p.i == 1337);
 	// superset -> subset
 	let x: (size | int | void) = 2i;
 	assert(x: (int | void) as int == 2);
@@ -288,6 +294,30 @@ fn translation() void = {
 	assert(val3type == true);
 };
 
+export type align4 = (i32 | u32);
+export type align8 = (i32 | u32 | u64);
+
+export fn abi4(t4: align4) align4 = {
+	assert(t4 as i32 == 1337);
+	return t4;
+};
+
+fn abi8_v4(t8: align8) align8 = {
+	assert(t8 as i32 == 1337);
+	return t8;
+};
+
+fn abi8_v8(t8: align8) align8 = {
+	assert(t8 as u64 == 1337);
+	return t8;
+};
+
+fn abi() void = {
+	assert(abi4(1337i32) as i32 == 1337);
+	assert(abi8_v4(1337i32) as i32 == 1337);
+	assert(abi8_v8(1337u64) as u64 == 1337);
+};
+
 export fn main() void = {
 	measurements();
 	storage();
@@ -300,4 +330,5 @@ export fn main() void = {
 	assertions();
 	reject();
 	translation();
+	abi();
 };

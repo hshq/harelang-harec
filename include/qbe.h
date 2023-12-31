@@ -14,6 +14,7 @@ enum qbe_stype {
 	Q_SINGLE = 's',
 	Q_DOUBLE = 'd',
 	Q__AGGREGATE = 'A',
+	Q__UNION = 'U',
 };
 
 struct qbe_type;

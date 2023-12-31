@@ -9,38 +9,124 @@
 #include "util.h"
 
 static const struct qbe_type *
-tagged_qtype(struct gen_context *ctx, const struct type *type)
+tagged_qtype(struct gen_context *ctx,
+	const struct type *type,
+	struct qbe_def *def)
 {
-	struct qbe_def *def = xcalloc(1, sizeof(struct qbe_def));
-	def->kind = Q_TYPE;
-	def->name = gen_name(&ctx->id, "tags.%d");
-	def->exported = false;
-	def->type.stype = Q__AGGREGATE;
-	def->type.base = NULL;
-	def->type.name = def->name;
-	def->type.size = type->size - type->align;
+	def->type.stype = Q__UNION;
 
-	struct qbe_field *field = &def->type.fields;
-	struct qbe_field **next = &field->next;
+	// Identify maximum alignment among members
+	size_t maxalign = 0, minalign = SIZE_MAX;
 	for (const struct type_tagged_union *tu = &type->tagged;
 			tu; tu = tu->next) {
-		if (tu->type->size == 0) {
-			if (!tu->next && *next) {
-				free(*next);
-				*next = NULL;
-			}
-			continue;
+		if (maxalign < tu->type->align) {
+			maxalign = tu->type->align;
 		}
-		field->type = qtype_lookup(ctx, tu->type, true);
-		field->count = 1;
-		if (tu->next) {
-			field->next = xcalloc(1, sizeof(struct qbe_field));
-			next = &field->next;
-			field = field->next;
+		if (minalign > tu->type->align) {
+			minalign = tu->type->align;
 		}
 	}
 
-	qbe_append_def(ctx->out, def);
+	// Create union members for each batch of alignments
+	struct qbe_field *field = &def->type.fields;
+	for (size_t align = 1; align <= 8; align <<= 1) {
+		size_t nalign = 0;
+		for (const struct type_tagged_union *tu = &type->tagged;
+				tu; tu = tu->next) {
+			if (tu->type->align != align || tu->type->size == 0) {
+				continue;
+			}
+			++nalign;
+		}
+		if (nalign == 0) {
+			// No members of this alignment
+			continue;
+		}
+
+		const char *valuesname;
+		switch (align) {
+		case 1: valuesname = "values.align1.%d"; break;
+		case 2: valuesname = "values.align2.%d"; break;
+		case 4: valuesname = "values.align4.%d"; break;
+		case 8: valuesname = "values.align8.%d"; break;
+		};
+
+		// Produces type :values = { { x, y, z } }
+		struct qbe_def *values = xcalloc(1, sizeof(struct qbe_def));
+		values->kind = Q_TYPE;
+		values->name = gen_name(&ctx->id, valuesname);
+		values->exported = false;
+		values->type.stype = Q__UNION;
+		values->type.base = NULL;
+		values->type.name = values->name;
+		values->type.size = type->size - type->align;
+
+		size_t nfield = 0;
+		struct qbe_field *bfield = &values->type.fields;
+		for (const struct type_tagged_union *tu = &type->tagged;
+				tu; tu = tu->next) {
+			if (tu->type->align != align || tu->type->size == 0) {
+				continue;
+			}
+
+			bfield->type = qtype_lookup(ctx, tu->type, true);
+			bfield->count = 1;
+			if (++nfield < nalign) {
+				bfield->next = xcalloc(1, sizeof(struct qbe_field));
+				bfield = bfield->next;
+			}
+		}
+
+		qbe_append_def(ctx->out, values);
+
+		const char *batchname;
+		switch (align) {
+		case 1: batchname = "tagged.align1.%d"; break;
+		case 2: batchname = "tagged.align2.%d"; break;
+		case 4: batchname = "tagged.align4.%d"; break;
+		case 8: batchname = "tagged.align8.%d"; break;
+		};
+
+		// Produces type :batch = { w 1, :values }
+		struct qbe_def *batch = xcalloc(1, sizeof(struct qbe_def));
+		batch->kind = Q_TYPE;
+		batch->name = gen_name(&ctx->id, batchname);
+		batch->exported = false;
+		batch->type.stype = Q__AGGREGATE;
+		batch->type.base = NULL;
+		batch->type.name = batch->name;
+		batch->type.size = type->size - type->align;
+
+		bfield = &batch->type.fields;
+		bfield->type = &qbe_word;
+		bfield->count = 1;
+		bfield->next = xcalloc(1, sizeof(struct qbe_field));
+		bfield = bfield->next;
+		bfield->type = &values->type;
+		bfield->count = 1;
+
+		qbe_append_def(ctx->out, batch);
+
+		// And adds it to the tagged union type:
+		// type :tagged = { :batch, :batch, ... }
+		field->type = &batch->type;
+		field->count = 1;
+
+		if (align < maxalign) {
+			field->next = xcalloc(1, sizeof(struct qbe_field));
+			field = field->next;
+		};
+	}
+
+	if (minalign != 0) {
+		return &def->type;
+	}
+
+	// Add a case for values of size zero
+	field->next = xcalloc(1, sizeof(struct qbe_field));
+	field = field->next;
+	field->type = &qbe_word;
+	field->count = 1;
 	return &def->type;
 }
 
@@ -89,8 +175,10 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		field->type = ctx->arch.ptr;
 		field->count = 3;
 		break;
-	case STORAGE_STRUCT:
 	case STORAGE_UNION:
+		def->type.stype = Q__UNION;
+		// fallthrough
+	case STORAGE_STRUCT:
 		if (!type->struct_union.c_compat) {
 			field->type = NULL;
 			field->count = type->size;
@@ -126,14 +214,7 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 		}
 		break;
 	case STORAGE_TAGGED:
-		field->type = &qbe_word;
-		field->count = 1;
-		if (type->size != builtin_type_u32.size) {
-			field->next = xcalloc(1, sizeof(struct qbe_field));
-			field = field->next;
-			field->type = tagged_qtype(ctx, type);
-			field->count = 1;
-		}
+		tagged_qtype(ctx, type, def);
 		break;
 	case STORAGE_ENUM:
 	case STORAGE_ERROR:

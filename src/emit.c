@@ -24,6 +24,7 @@ emit_qtype(const struct qbe_type *type, bool aggr, FILE *out)
 		xfprintf(out, "%c", (char)type->stype);
 		break;
 	case Q__AGGREGATE:
+	case Q__UNION:
 		if (aggr) {
 			xfprintf(out, ":%s", type->name);
 		} else {
@@ -39,7 +40,8 @@ static void
 qemit_type(const struct qbe_def *def, FILE *out)
 {
 	assert(def->kind == Q_TYPE);
-	const struct type *base = def->type.base;
+	const struct qbe_type *qtype = &def->type;
+	const struct type *base = qtype->base;
 	if (base) {
 		char *tn = gen_typename(base);
 		xfprintf(out, "# %s [id: %" PRIu32 "; size: ", tn, base->id);
@@ -58,10 +60,9 @@ qemit_type(const struct qbe_def *def, FILE *out)
 	}
 	xfprintf(out, " {");
 
-	bool is_union = base == NULL || type_dealias(NULL, base)->storage == STORAGE_UNION;
-	const struct qbe_field *field = &def->type.fields;
+	const struct qbe_field *field = &qtype->fields;
 	while (field) {
-		if (is_union) {
+		if (qtype->stype == Q__UNION) {
 			xfprintf(out, " {");
 		}
 		if (field->type) {
@@ -71,7 +72,7 @@ qemit_type(const struct qbe_def *def, FILE *out)
 		if (field->count) {
 			xfprintf(out, " %zu", field->count);
 		}
-		if (is_union) {
+		if (qtype->stype == Q__UNION) {
 			xfprintf(out, " }");
 		} else if (field->next) {
 			xfprintf(out, ",");
@@ -98,6 +99,7 @@ emit_const(const struct qbe_value *val, FILE *out)
 		break;
 	case Q__VOID:
 	case Q__AGGREGATE:
+	case Q__UNION:
 		assert(0); // Invariant
 	}
 }

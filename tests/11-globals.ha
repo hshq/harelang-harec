@@ -29,11 +29,11 @@ fn write() void = {
 	assert(x == 42 && y == 69);
 	x = 1337;
 	assert(x == 1337);
-	
+
 	assert(nohint == 12);
 	assert(nohintconst == 123);
 	assert(NOHINT == 1234);
-	assert(nhval.field == 1);	
+	assert(nhval.field == 1);
 };
 
 let ar: [3]int = [1, 2, 3];
@@ -150,6 +150,12 @@ let subtype: foo = 10u;
 
 let arr_of_tagged_of_tuple: [3]((int, int)|void) = [(1, 2), (3, 4), (5, 6)];
 
+type align4 = (i32 | u32);
+type align8 = (i32 | u32 | u64);
+let tagged4: align4 = 10u32;
+let tagged8: align8 = 10u32;
+let tagged8_u64: align8 = 10u64;
+
 fn tagged() void = {
 	assert((arr_of_tagged_of_tuple[0] as (int, int)).0 == 1);
 	assert((arr_of_tagged_of_tuple[0] as (int, int)).1 == 2);
@@ -159,6 +165,38 @@ fn tagged() void = {
 	assert((arr_of_tagged_of_tuple[2] as (int, int)).1 == 6);
 	assert(subtype is uint);
 	// TODO: subset-compat
+
+	let t4 = &tagged4: *struct {
+		tag: u32,
+		@offset(4) union {
+			_i32: i32,
+			_u32: u32,
+		},
+	};
+	assert(t4.tag == 3481467866); // u32 type ID
+	assert(t4._u32 == 10);
+
+	let t8 = &tagged8: *struct {
+		tag: u32,
+		@offset(4) union {
+			_i32: i32,
+			_u32: u32,
+		},
+		@offset(8) _u64: u64,
+	};
+	assert(t8.tag == 3481467866); // u32 type ID
+	assert(t8._u32 == 10);
+
+	let t8 = &tagged8_u64: *struct {
+		tag: u32,
+		@offset(4) union {
+			_i32: i32,
+			_u32: u32,
+		},
+		@offset(8) _u64: u64,
+	};
+	assert(t8.tag == 1906196061); // u64 type ID
+	assert(t8._u64 == 10);
 };
 
 // Real-world sample
