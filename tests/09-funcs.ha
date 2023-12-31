@@ -101,6 +101,9 @@ fn reject() void = {
 		"fn test() void = { test = test; };",
 
 		"fn f() void = { size(*never); };",
+
+		// https://todo.sr.ht/~sircmpwn/hare/917
+		"fn f(arg: T...) void; fn g() void = f(1);",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
