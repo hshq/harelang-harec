@@ -4,7 +4,7 @@ BINDIR = $(PREFIX)/bin
 
 # variables used during build
 PLATFORM = darwin
-ARCH = $(shell source "./rt/+darwin/arch.sh" --arch)
+ARCH = $(shell source "$(HAREC_SRC)/rt/+darwin/arch.sh" --arch)
 HARECFLAGS =
 QBEFLAGS =
 ASFLAGS =
@@ -17,8 +17,8 @@ LIBS = -lm
 
 # commands used by the build script
 CC = /usr/bin/cc
-AS = ./rt/+darwin/as.sh
-LD = ./rt/+darwin/ld.sh
+AS =  ./rt/+darwin/as.sh
+LD =  ./rt/+darwin/ld.sh
 QBE = ./rt/+darwin/qbe.sh
 
 # build locations
