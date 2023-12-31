@@ -9,13 +9,12 @@ tasks:
     cd qbe
     make PREFIX=/usr check
     sudo make install PREFIX=/usr
-- prepare: |
-    mkdir -p harec/build
-    cd harec/build
-    ../configure
 - build: |
-    cd harec/build
+    cd harec
+    ln -sf configs/darwin.mk config.mk
     make -j2
+    make check
+    sudo -E make install
 - tests: |
-    cd harec/build
+    cd harec
     make check

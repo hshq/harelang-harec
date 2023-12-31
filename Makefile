@@ -67,6 +67,8 @@ check: $(BINOUT)/harec $(tests)
 	@./tests/run
 
 install: $(BINOUT)/harec
-	install -Dm755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
+	@# install -Dm755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
+	@# install -dm755 $(DESTDIR)$(BINDIR)
+	install -m755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
 
 .PHONY: clean check install

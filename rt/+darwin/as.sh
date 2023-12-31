@@ -1,8 +1,8 @@
 #!/bin/sh
 
-# eval ". $HAREC_SRC/rt/+darwin/arch.sh"
+# eval ". ./rt/+darwin/arch.sh"
 # COMMENT="$(arch_config --comment)"
-COMMENT=$(source "$HAREC_SRC/rt/+darwin/arch.sh" --comment)
+COMMENT=$(source "./rt/+darwin/arch.sh" --comment)
 
 AS="/usr/bin/as"
 
