@@ -23,7 +23,7 @@ QBE = ./rt/+darwin/qbe.sh
 
 # build locations
 # HARECACHE = .cache
-HARECACHE = /Volumes/hare-cache/harec
+HARECACHE = /Volumes/hare-cache/harec.cache
 BINOUT = .bin
 
 # variables that will be embedded in the binary with -D definitions
