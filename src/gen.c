@@ -3108,7 +3108,8 @@ gen_expr(struct gen_context *ctx, const struct expression *expr)
 {
 	if (expr->loc.file && expr->loc.lineno) {
 		struct qbe_value qline = constl(expr->loc.lineno);
-		pushi(ctx->current, NULL, Q_DBGLOC, &qline, NULL);
+		struct qbe_value qcol = constl(expr->loc.colno);
+		pushi(ctx->current, NULL, Q_DBGLOC, &qline, &qcol, NULL);
 	}
 
 	struct gen_value out;
