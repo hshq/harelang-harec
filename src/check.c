@@ -1803,18 +1803,16 @@ check_expr_literal(struct context *ctx,
 	expr->type = EXPR_LITERAL;
 	enum type_storage storage = aexpr->literal.storage;
 	expr->result = builtin_type_for_storage(storage, false);
-	if (storage == STORAGE_ICONST || storage == STORAGE_FCONST
-			|| storage == STORAGE_RCONST) {
-		expr->result = type_create_flexible(storage,
-			aexpr->literal.ival, aexpr->literal.ival);
-	}
 
 	switch (aexpr->literal.storage) {
+	case STORAGE_ICONST:
+		expr->result = type_create_flexible(storage,
+			aexpr->literal.ival, aexpr->literal.ival);
+		/* fallthrough */
 	case STORAGE_I8:
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
-	case STORAGE_ICONST:
 	case STORAGE_INT:
 		expr->literal.ival = aexpr->literal.ival;
 		break;
@@ -1827,6 +1825,8 @@ check_expr_literal(struct context *ctx,
 		expr->literal.uval = aexpr->literal.uval;
 		break;
 	case STORAGE_RCONST:
+		expr->result = type_create_flexible(storage,
+			aexpr->literal.rune, aexpr->literal.rune);
 		expr->literal.rune = aexpr->literal.rune;
 		break;
 	case STORAGE_BOOL:
@@ -1848,6 +1848,8 @@ check_expr_literal(struct context *ctx,
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
+		expr->result = type_create_flexible(storage,
+			aexpr->literal.fval, aexpr->literal.fval);
 		expr->literal.fval = aexpr->literal.fval;
 		break;
 	case STORAGE_ENUM:
