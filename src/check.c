@@ -1845,11 +1845,12 @@ check_expr_literal(struct context *ctx,
 		memcpy(expr->literal.string.value, aexpr->literal.string.value,
 			aexpr->literal.string.len);
 		break;
-	case STORAGE_F32:
-	case STORAGE_F64:
 	case STORAGE_FCONST:
 		expr->result = type_create_flexible(storage,
 			aexpr->literal.fval, aexpr->literal.fval);
+		// fallthrough
+	case STORAGE_F32:
+	case STORAGE_F64:
 		expr->literal.fval = aexpr->literal.fval;
 		break;
 	case STORAGE_ENUM:
