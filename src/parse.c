@@ -584,7 +584,7 @@ parse_tagged_type(struct lexer *lexer, struct ast_type *first)
 {
 	struct ast_type *type = mktype(first->loc);
 	type->storage = STORAGE_TAGGED;
-	struct ast_tagged_union_type *next = &type->tagged_union;
+	struct ast_tagged_union_type *next = &type->tagged;
 	next->type = first;
 	struct token tok = {0};
 	while (tok.token != T_RPAREN) {
@@ -1105,6 +1105,14 @@ parse_plain_expression(struct lexer *lexer)
 			synerr(&tok, T_RPAREN, T_COMMA, T_EOF);
 		};
 		assert(0); // Unreachable
+	// empty block
+	case T_RBRACE:
+		xfprintf(stderr,
+		"%s:%d:%d: syntax error: cannot have empty block",
+		sources[tok.loc.file], tok.loc.lineno, tok.loc.colno);
+
+		errline(tok.loc);
+		exit(EXIT_FAILURE);
 	default:
 		synerr(&tok, T_NUMBER, T_NAME,
 			T_LBRACKET, T_STRUCT, T_LPAREN, T_EOF);

@@ -524,6 +524,7 @@ fn complete_graph() void = {
 	static assert(size(t_0) == 4097 * size(*opaque));
 };
 
+export let @symbol("s_x") s_d: int = 0;
 export let @symbol("s_y") s_c: int;
 
 fn imported() void = {
