@@ -180,6 +180,26 @@ fn arithmetic() void = {
 	static assert(-625 % -5 == 0);
 };
 
+fn comparison() void = {
+	assert(3 > 2);
+	assert(2 < 3);
+	assert(-3 < -2);
+	assert(-2 > -3);
+	assert(3 >= 3);
+	assert(3 <= 3);
+	assert(0 > -1);
+	assert(0 < -1u);
+
+	static assert(3 > 2);
+	static assert(2 < 3);
+	static assert(-3 < -2);
+	static assert(-2 > -3);
+	static assert(3 >= 3);
+	static assert(3 <= 3);
+	static assert(0 > -1);
+	static assert(0 < -1u);
+};
+
 def FLOAT: f64 = 6.0 * 7.0;
 def I8: i8 = 127 * 2;
 def U8: u8 = 128 * 2;
@@ -222,6 +242,7 @@ export fn main() void = {
 	andorxor();
 	sar_shr();
 	arithmetic();
+	comparison();
 	eval();
 	reject();
 };

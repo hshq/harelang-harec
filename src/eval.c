@@ -300,7 +300,7 @@ eval_binarithm(struct context *ctx,
 		if (type_is_float(ctx, lvalue.result)) {
 			bval = ftrunc(ctx, lvalue.result, flval) > ftrunc(ctx, rvalue.result, frval);
 		} else if (type_is_signed(ctx, lvalue.result)) {
-			bval = itrunc(ctx, lvalue.result, ilval) > itrunc(ctx, rvalue.result, irval);
+			bval = (int64_t)itrunc(ctx, lvalue.result, ilval) > (int64_t)itrunc(ctx, rvalue.result, irval);
 		} else {
 			assert(type_is_integer(ctx, lvalue.result));
 			bval = itrunc(ctx, lvalue.result, ulval) > itrunc(ctx, rvalue.result, urval);
@@ -310,7 +310,7 @@ eval_binarithm(struct context *ctx,
 		if (type_is_float(ctx, lvalue.result)) {
 			bval = ftrunc(ctx, lvalue.result, flval) >= ftrunc(ctx, rvalue.result, frval);
 		} else if (type_is_signed(ctx, lvalue.result)) {
-			bval = itrunc(ctx, lvalue.result, ilval) >= itrunc(ctx, rvalue.result, irval);
+			bval = (int64_t)itrunc(ctx, lvalue.result, ilval) >= (int64_t)itrunc(ctx, rvalue.result, irval);
 		} else {
 			assert(type_is_integer(ctx, lvalue.result));
 			bval = itrunc(ctx, lvalue.result, ulval) >= itrunc(ctx, rvalue.result, urval);
@@ -353,7 +353,7 @@ eval_binarithm(struct context *ctx,
 		if (type_is_float(ctx, lvalue.result)) {
 			bval = ftrunc(ctx, lvalue.result, flval) < ftrunc(ctx, rvalue.result, frval);
 		} else if (type_is_signed(ctx, lvalue.result)) {
-			bval = itrunc(ctx, lvalue.result, ilval) < itrunc(ctx, rvalue.result, irval);
+			bval = (int64_t)itrunc(ctx, lvalue.result, ilval) < (int64_t)itrunc(ctx, rvalue.result, irval);
 		} else {
 			assert(type_is_integer(ctx, lvalue.result));
 			bval = itrunc(ctx, lvalue.result, ulval) < itrunc(ctx, rvalue.result, urval);
@@ -363,7 +363,7 @@ eval_binarithm(struct context *ctx,
 		if (type_is_float(ctx, lvalue.result)) {
 			bval = ftrunc(ctx, lvalue.result, flval) <= ftrunc(ctx, rvalue.result, frval);
 		} else if (type_is_signed(ctx, lvalue.result)) {
-			bval = itrunc(ctx, lvalue.result, ilval) <= itrunc(ctx, rvalue.result, irval);
+			bval = (int64_t)itrunc(ctx, lvalue.result, ilval) <= (int64_t)itrunc(ctx, rvalue.result, irval);
 		} else {
 			assert(type_is_integer(ctx, lvalue.result));
 			bval = itrunc(ctx, lvalue.result, ulval) <= itrunc(ctx, rvalue.result, urval);
