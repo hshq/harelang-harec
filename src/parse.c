@@ -299,11 +299,13 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 			}
 			break;
 		case T_ELLIPSIS:
+			free(*next);
 			*next = NULL;
 			type->variadism = VARIADISM_C;
 			want(lexer, T_RPAREN, NULL);
 			return;
 		case T_RPAREN:
+			free(*next);
 			*next = NULL;
 			return;
 		default:

@@ -2180,6 +2180,17 @@ gen_expr_if_with(struct gen_context *ctx,
 		struct gen_value vfalse = gen_expr_with(ctx,
 				expr->_if.false_branch, out);
 		branch_copyresult(ctx, vfalse, gvout, out);
+	} else if (expr->result->storage == STORAGE_TAGGED) {
+		// if false branch is absent, store void tag
+		struct qbe_value qout = mkqval(ctx, out ? out : &gvout);
+		if (!out) {
+			struct qbe_value sz = constl(builtin_type_u32.size);
+			enum qbe_instr alloc = alloc_for_align(expr->result->align);
+			pushprei(ctx->current, &qout, alloc, &sz, NULL);
+		}
+		struct qbe_value id = constw(builtin_type_void.id);
+		enum qbe_instr store = store_for_type(ctx, &builtin_type_u32);
+		pushi(ctx->current, NULL, store, &id, &qout, NULL);
 	}
 
 	push(&ctx->current->body, &lend);
