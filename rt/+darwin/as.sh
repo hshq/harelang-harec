@@ -25,6 +25,7 @@ sed -r \
     -e "s/^(\.global) (rt\..+)$/\1 _\2/g" \
     -e "s/^(rt\..+:)$/_\1/g" \
     -e "s/^(crypto\.aes\.x86ni_.+:)$/_\1/g" \
+    -e "s/^(debug\.getfp:)$/_\1/g" \
     \
     $1
 }
