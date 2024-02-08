@@ -2026,8 +2026,7 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &qlenptr, Q_ADD, &qobj, &offset, NULL);
 	pushi(ctx->current, &qlen, load, &qlenptr, NULL);
 
-	struct qbe_value qstart = mkqval(ctx, &start);
-	struct qbe_value qend = {0};
+	struct qbe_value qend, qstart = mkqval(ctx, &start);
 	if (dexpr->type == EXPR_SLICE) {
 		if (dexpr->slice.end) {
 			struct gen_value end = gen_expr(ctx, dexpr->slice.end);
@@ -2035,30 +2034,32 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 		} else {
 			qend = qlen;
 		}
+
+		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value startend_oob = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
+		pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlen, NULL);
+		pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlen, NULL);
+		pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
+		pushi(ctx->current, &startend_oob, Q_CULEL, &qstart, &qend, NULL);
+		pushi(ctx->current, &valid, Q_AND, &valid, &startend_oob, NULL);
+
+		struct qbe_statement linvalid, lvalid;
+		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
+		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
+
+		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
+		push(&ctx->current->body, &linvalid);
+		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
+		push(&ctx->current->body, &lvalid);
 	} else {
+		gen_indexing_bounds_check(ctx, expr->loc, Q_CULTL, &qstart, &qlen);
 		struct qbe_value tmp = constl(1);
 		qend = mkqtmp(ctx, qstart.type, ".%d");
 		pushi(ctx->current, &qend, Q_ADD, &qstart, &tmp, NULL);
 	}
 
-	struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
-	struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
-	struct qbe_value startend_oob = mkqtmp(ctx, &qbe_word, ".%d");
-	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-	pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlen, NULL);
-	pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlen, NULL);
-	pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
-	pushi(ctx->current, &startend_oob, Q_CULEL, &qstart, &qend, NULL);
-	pushi(ctx->current, &valid, Q_AND, &valid, &startend_oob, NULL);
-
-	struct qbe_statement linvalid, lvalid;
-	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-
-	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
-	push(&ctx->current->body, &linvalid);
-	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-	push(&ctx->current->body, &lvalid);
 
 	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value startptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
