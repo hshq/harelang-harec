@@ -176,7 +176,7 @@ gen_load(struct gen_context *ctx, struct gen_value object)
 		break; // no-op
 	}
 
-	struct gen_value value = mkgtemp(ctx, object.type, "load.%d");
+	struct gen_value value = mkgtemp(ctx, object.type, ".%d");
 	struct qbe_value qobj = mkqval(ctx, &object),
 		qval = mkqval(ctx, &value);
 	enum qbe_instr qi = load_for_type(ctx, object.type);
@@ -837,7 +837,7 @@ extend(struct gen_context *ctx, struct qbe_value v, const struct type *type)
 		return v;
 	}
 
-	struct qbe_value temp = mkqtmp(ctx, &qbe_word, "ext.%d");
+	struct qbe_value temp = mkqtmp(ctx, &qbe_word, ".%d");
 	pushi(ctx->current, &temp, op, &v, NULL);
 	return temp;
 }
@@ -1583,7 +1583,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 
 	struct gen_value value = gen_expr(ctx, expr->cast.value);
 	struct qbe_value qvalue = mkqval(ctx, &value);
-	struct gen_value result = mkgtemp(ctx, expr->result, "cast.%d");
+	struct gen_value result = mkgtemp(ctx, expr->result, ".%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
 	struct gen_value intermediate;
 	struct qbe_value qintermediate;
@@ -1663,7 +1663,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 				case 1:
 				case 2:
 					intermediate = mkgtemp(ctx,
-						&builtin_type_i32, "cast.%d");
+						&builtin_type_i32, ".%d");
 					qintermediate = mkqval(ctx, &intermediate);
 					pushi(ctx->current, &qintermediate,
 						from->size == 1? Q_EXTSB : Q_EXTSH,
@@ -1683,7 +1683,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 				case 1:
 				case 2:
 					intermediate = mkgtemp(ctx,
-						&builtin_type_i32, "cast.%d");
+						&builtin_type_i32, ".%d");
 					qintermediate = mkqval(ctx, &intermediate);
 					pushi(ctx->current, &qintermediate,
 						from->size == 1? Q_EXTUB : Q_EXTUH,
