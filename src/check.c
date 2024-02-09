@@ -2056,10 +2056,7 @@ check_expr_for(struct context *ctx,
 	if (aexpr->_for.bindings) {
 		bindings = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_for.bindings, bindings, NULL);
-		if (type_has_error(ctx, bindings->result)) {
-			error(ctx, aexpr->_for.bindings->loc, bindings,
-				"Cannot ignore error here");
-		}
+		assert(bindings->result->storage == STORAGE_VOID);
 		expr->_for.bindings = bindings;
 	}
 
