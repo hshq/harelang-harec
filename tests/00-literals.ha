@@ -499,9 +499,9 @@ fn numeric() void = {
 	for (let i = 0z; i < len(invalid); i += 1) {
 		for (let j = 0z; j < len(suffix); j += 1) {
 			let buf = buf[..0];
-			append(buf, toutf8("let t = ")...);
-			append(buf, toutf8(invalid[i])...);
-			append(buf, toutf8(suffix[j])...);
+			static append(buf, toutf8("let t = ")...);
+			static append(buf, toutf8(invalid[i])...);
+			static append(buf, toutf8(suffix[j])...);
 			compile(void, *(&buf: *str))!;
 		};
 	};
