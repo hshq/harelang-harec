@@ -4403,8 +4403,6 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 			loc = idecl->decl.loc;
 		}
 		char *ident = identifier_unparse(&idecl->obj.name);
-		// TODO should i be recovering from this? related to todo in
-		// resolve_type
 		error(ctx, loc, NULL, "'%s' is not a type", ident);
 		free(ident);
 		idecl->obj.type = &builtin_type_error;
