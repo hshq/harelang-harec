@@ -103,7 +103,7 @@ clean:
 	@rm -rf -- $(HARECACHE) $(BINOUT) $(harec_objects) $(tests)
 
 check: $(BINOUT)/harec $(tests)
-	@./tests/run
+	@$(TDENV) ./tests/run
 
 install: $(BINOUT)/harec
 	install -Dm755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
