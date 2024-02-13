@@ -15,7 +15,7 @@
 #include "util.h"
 
 static const char *tokens[] = {
-	// Must be alpha sorted and match lex.h
+	// Must match enum lexical_token (lex.h)
 	[T_ATTR_FINI] = "@fini",
 	[T_ATTR_INIT] = "@init",
 	[T_ATTR_OFFSET] = "@offset",
