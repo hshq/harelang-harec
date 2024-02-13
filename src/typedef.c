@@ -83,7 +83,7 @@ emit_literal(const struct expression *expr, FILE *out)
 	case STORAGE_I8:
 	case STORAGE_ICONST:
 	case STORAGE_INT:
-		xfprintf(out, "%" PRIiMAX "%s", val->ival,
+		xfprintf(out, "%" PRIi64 "%s", val->ival,
 			storage_to_suffix(type_dealias(NULL, expr->result)->storage));
 		break;
 	case STORAGE_NULL:
@@ -96,7 +96,7 @@ emit_literal(const struct expression *expr, FILE *out)
 	case STORAGE_U8:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
-		xfprintf(out, "%" PRIuMAX "%s", val->uval,
+		xfprintf(out, "%" PRIu64 "%s", val->uval,
 			storage_to_suffix(type_dealias(NULL, expr->result)->storage));
 		break;
 	case STORAGE_VOID:
@@ -104,7 +104,7 @@ emit_literal(const struct expression *expr, FILE *out)
 		break;
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
-		xfprintf(out, "\'\\U%08" PRIx32 "\'", (uint32_t)val->uval);
+		xfprintf(out, "\'\\U%08" PRIx32 "\'", val->rune);
 		break;
 	case STORAGE_STRING:
 		xfprintf(out, "\"");
@@ -121,12 +121,12 @@ emit_literal(const struct expression *expr, FILE *out)
 	case STORAGE_ENUM:;
 		char *ident = identifier_unparse(&expr->result->alias.ident);
 		if (t->alias.type->storage == STORAGE_UINTPTR) {
-			xfprintf(out, "%" PRIuMAX ": uintptr", val->uval);
+			xfprintf(out, "%" PRIu64 ": uintptr", val->uval);
 		} else if (type_is_signed(NULL, t->alias.type)) {
-			xfprintf(out, "%" PRIiMAX "%s: %s", val->ival,
+			xfprintf(out, "%" PRIi64 "%s: %s", val->ival,
 				storage_to_suffix(t->alias.type->storage), ident);
 		} else {
-			xfprintf(out, "%" PRIuMAX "%s: %s", val->uval,
+			xfprintf(out, "%" PRIu64 "%s: %s", val->uval,
 				storage_to_suffix(t->alias.type->storage), ident);
 		}
 		free(ident);
