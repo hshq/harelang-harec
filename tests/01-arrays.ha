@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 fn indexing() void = {
 	let x = [1, 2, 3];
@@ -18,12 +18,12 @@ fn indexing() void = {
 	*q = 1337;
 	assert(x[0] == 1337 && y[0] == 1337);
 
-	assert(compile("
+	compile(status::CHECK, "
 		export fn main() void = {
 			let a = [1, 2, 3];
 			a[3];
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 };
 
 type array_alias = [3]int;
@@ -78,7 +78,7 @@ fn assignment() void = {
 	assert(w[0] == 2 && w[1] == 1);
 	let v: *[*]int = &x;
 
-	assert(compile("
+	compile(status::CHECK, "
 		export fn main() void = {
 			let a: [3]uint = [1u,2u,3u];
 			let b: uint = 0;
@@ -86,22 +86,22 @@ fn assignment() void = {
 			let ptr: *[3]uint = &a;
 			ptr = &b;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		export fn main() void = {
 			let a: *[*]uint = &[1u,2u,3u];
 			let b: [3]str = ["a", "b", "c"];
 			a = &b;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn f() void = {
 			let a = [1u, 2u, 3u];
 			a += [3u, 2u, 1u];
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 };
 
 fn param(x: [3]int) void = {
@@ -170,18 +170,14 @@ fn eval_access() void = {
 
 fn reject() void = {
 	// unbounded arrays of values of undefined size
-	assert(compile("fn f() void = { let x = null: *[*][*]int; };")
-		as exited != EXIT_SUCCESS);
-	assert(compile("fn f() void = { let x = null: *[*]fn ()int; };")
-		as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "fn f() void = { let x = null: *[*][*]int; };")!;
+	compile(status::CHECK, "fn f() void = { let x = null: *[*]fn ()int; };")!;
 
 	// assignment to array of undefined size
-	assert(compile("let x: [*]int; fn f() void = { x = []; };")
-		as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "let x: [*]int; fn f() void = { x = []; };")!;
 
 	// compile-time evaluation of len with slice
-	assert(compile("let x: []int; let y = len(x);")
-		as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "let x: []int; let y = len(x);")!;
 };
 
 export fn main() void = {

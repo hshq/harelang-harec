@@ -45,7 +45,7 @@ parse_define(const char *argv_0, const char *in)
 	FILE *f = fmemopen((char *)in, strlen(in), "r");
 	if (f == NULL) {
 		perror("fmemopen");
-		exit(EXIT_FAILURE);
+		exit(EXIT_ABNORMAL);
 	}
 	const char *d = "-D";
 	sources = &d;
@@ -61,7 +61,7 @@ parse_define(const char *argv_0, const char *in)
 	if (tok.token != T_EQUAL) {
 		lex_finish(&lexer);
 		usage(argv_0);
-		exit(EXIT_FAILURE);
+		exit(EXIT_USER);
 	}
 	def->init = parse_expression(&lexer);
 
@@ -109,7 +109,7 @@ main(int argc, char *argv[])
 				FILE *in = fmemopen(optarg, strlen(optarg), "r");
 				if (in == NULL) {
 					perror("fmemopen");
-					exit(EXIT_FAILURE);
+					exit(EXIT_ABNORMAL);
 				}
 				const char *ns = "-N";
 				sources = &ns;
@@ -132,7 +132,7 @@ main(int argc, char *argv[])
 			return EXIT_SUCCESS;
 		default:
 			usage(argv[0]);
-			return EXIT_FAILURE;
+			return EXIT_USER;
 		}
 	}
 
@@ -141,7 +141,7 @@ main(int argc, char *argv[])
 	nsources = argc - optind;
 	if (nsources == 0) {
 		usage(argv[0]);
-		return EXIT_FAILURE;
+		return EXIT_USER;
 	}
 
 	struct ast_unit aunit = {0};
@@ -174,14 +174,14 @@ main(int argc, char *argv[])
 				&& S_ISDIR(buf.st_mode) != 0) {
 				xfprintf(stderr, "Unable to open %s for reading: Is a directory\n",
 					path);
-				return EXIT_FAILURE;
+				return EXIT_USER;
 			}
 		}
 
 		if (!in) {
 			xfprintf(stderr, "Unable to open %s for reading: %s\n",
 					path, strerror(errno));
-			return EXIT_FAILURE;
+			return EXIT_ABNORMAL;
 		}
 
 		lex_init(&lexer, in,  i + 1);
@@ -202,7 +202,7 @@ main(int argc, char *argv[])
 		if (!out) {
 			xfprintf(stderr, "Unable to open %s for writing: %s\n",
 					typedefs, strerror(errno));
-			return EXIT_FAILURE;
+			return EXIT_ABNORMAL;
 		}
 		emit_typedefs(&unit, out);
 		fclose(out);
@@ -219,7 +219,7 @@ main(int argc, char *argv[])
 		if (!out) {
 			xfprintf(stderr, "Unable to open %s for writing: %s\n",
 					output, strerror(errno));
-			return EXIT_FAILURE;
+			return EXIT_ABNORMAL;
 		}
 	}
 	emit(&prog, out);

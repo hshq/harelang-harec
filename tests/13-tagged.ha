@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 fn measurements() void = {
 	const x: (u8 | u16 | u32 | u64) = 1337u16;	// With padding
@@ -67,19 +67,19 @@ fn reduction() void = {
 	const b: (i16 | i8) = a;
 	const c: (i8 | i16 | i32) = a;
 	const d: (i8 | i16 | i8 | i16) = a;
-	assert(compile(
+	compile(status::CHECK,
 		// Cannot reduce to a single member
 		"fn test() void = {
 			let a: (u8 | u8) = 42u8;
 		};"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		// Cannot assign from more general type
 		"fn test() void = {
 			let a: (i8 | i16 | i32) = 42i8;
 			let b: (i8 | i16) = a;
 		};"
-	) as exited != EXIT_SUCCESS);
+	)!;
 	assert(a is i8 && b is i8 && c is i8 && d is i8);
 	assert(size((i8 | i16 | i32)) == size((i8 | (i16 | i32))));
 	assert(size(integer) == size(signed));
@@ -209,67 +209,67 @@ fn assertions() void = {
 
 fn reject() void = {
 	// cannot type assert into a disjoint tagged type
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = {
 			let a: (u8 | u16) = 42u8;
 			let b = a as (str | void);
 		};"
-	) as exited != EXIT_SUCCESS);
+	)!;
 
 	// cannot type assert into non-member type
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = {
 			let a: (u8 | u16) = 42u8;
 			let b = a as *str;
 		};"
-	) as exited != EXIT_SUCCESS);
+	)!;
 
 	// cannot type assert into superset
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = {
 			let a: (u8 | u16) = 42u8;
 			let b = a as (u8 | u16 | void);
 		};"
-	) as exited != EXIT_SUCCESS);
+	)!;
 
 	// cannot type assert into the same type
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = {
 			let a: (u8 | u16) = 42u8;
 			let b = a as (u8 | u16);
 		};"
-	) as exited != EXIT_SUCCESS);
+	)!;
 
 	// cannot have members of undefined size
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() (void | [*]int) = {
 			void;
 		};"
-	) as exited != EXIT_SUCCESS);
+	)!;
 
 	// cannot have <2 members
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() (void | void) = {
 			void;
 		};"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() ((void | void) | void) = {
 			void;
 		};"
-	) as exited != EXIT_SUCCESS);
+	)!;
 
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = {
 			let x = 3: (int | void) + 5: (int | void);
 		};"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = {
 			let x = 3: (int | void);
 			x += 5: (int | void);
 		};"
-	) as exited != EXIT_SUCCESS);
+	)!;
 };
 
 def val1: integer = 8u8;

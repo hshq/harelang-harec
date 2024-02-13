@@ -27,7 +27,7 @@ error(struct location loc, const char *fmt, ...)
 
 	xfprintf(stderr, "\n");
 	errline(loc);
-	exit(EXIT_FAILURE);
+	exit(EXIT_PARSE);
 }
 
 static void
@@ -63,7 +63,7 @@ vsynerr(struct token *tok, va_list ap)
 		token_str(tok));
 
 	errline(tok->loc);
-	exit(EXIT_FAILURE);
+	exit(EXIT_PARSE);
 }
 
 static noreturn void

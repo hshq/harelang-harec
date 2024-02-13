@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS, toutf8};
+use rt::{compile, status, toutf8};
 use testmod;
 
 def ARR: [3]u8 = [1, 2, 3];
@@ -94,37 +94,37 @@ fn local_constants() void = {
 	};
 	assert(len(x) == LEN && LEN == 8);
 
-	assert(compile(`fn test() void = {
+	compile(status::CHECK, `fn test() void = {
 		{ def X = 0; };
 		def C = X;
-	};`) as exited != EXIT_SUCCESS);
-	assert(compile(`fn test() void = {
+	};`)!;
+	compile(status::CHECK, `fn test() void = {
 		{ def X = 0; };
 		X;
-	};`) as exited != EXIT_SUCCESS);
-	assert(compile(`fn test() void = {
+	};`)!;
+	compile(status::CHECK, `fn test() void = {
 		let x = 0;
 		def X = x;
-	};`) as exited != EXIT_SUCCESS);
-	assert(compile(`fn test() void = {
+	};`)!;
+	compile(status::CHECK, `fn test() void = {
 		let x = 0;
 		def X = &x;
-	};`) as exited != EXIT_SUCCESS);
-	assert(compile(`fn test() void = {
+	};`)!;
+	compile(status::CHECK, `fn test() void = {
 		static let x = 0;
 		def X = x;
-	};`) as exited != EXIT_SUCCESS);
-	assert(compile(`
+	};`)!;
+	compile(status::SUCCESS, `
 		def X = 42;
 		fn test() void = {
 			static assert(X == 1337);
 			def X = 42;
 			static assert(X == 42);
 		};
-	`, "-DX=1337") as exited == EXIT_SUCCESS);
-	assert(compile(`fn test() void = {
+	`, "-DX=1337")!;
+	compile(status::PARSE, `fn test() void = {
 		static def X = 0;
-	};`) as exited != EXIT_SUCCESS);
+	};`)!;
 };
 
 // elementary self-referential types
@@ -365,7 +365,7 @@ fn hosted_main() void = {
 	];
 
 	for (let i = 0z; i < len(pass); i += 1) {
-		assert(compile(pass[i]) as exited == EXIT_SUCCESS);
+		compile(status::SUCCESS, pass[i])!;
 	};
 
 	let failures = [
@@ -381,16 +381,16 @@ fn hosted_main() void = {
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
-		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
-		assert(compile(failures[i], "-m\0", "\0") as exited == EXIT_SUCCESS);
+		compile(status::CHECK, failures[i])!;
+		compile(status::SUCCESS, failures[i], "-m\0", "\0")!;
 	};
 
-	assert(compile(`export @symbol(".main") fn main() int;`,
-		"-m\0", ".main\0") as exited != EXIT_SUCCESS);
-	assert(compile(`export @symbol("main") fn main() int;`,
-		"-m\0", ".main\0") as exited == EXIT_SUCCESS);
-	assert(compile(`export fn main() int;`,
-		"-m\0", ".main\0") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, `export @symbol(".main") fn main() int;`,
+		"-m\0", ".main\0")!;
+	compile(status::SUCCESS, `export @symbol("main") fn main() int;`,
+		"-m\0", ".main\0")!;
+	compile(status::CHECK, `export fn main() int;`,
+		"-m\0", ".main\0")!;
 };
 
 fn reject() void = {
@@ -419,10 +419,6 @@ fn reject() void = {
 		"let a: int = 4; type x = union { y: str, z: a};",
 		"let a: int = 4; fn x(y: str, z: a) void = { void; };",
 
-		// binding not directly in compound expression
-		"export fn main() void = let a = 4;",
-		"export fn main() void = { if (true) let a = 4; };",
-
 		// attributes on prototypes
 		"@init fn f() void;",
 		"@fini fn f() void;",
@@ -438,6 +434,16 @@ fn reject() void = {
 
 		// type alias of never
 		"export type t = never;",
+	];
+
+	for (let i = 0z; i < len(failures); i += 1) {
+		compile(status::CHECK, failures[i])!;
+	};
+
+	let failures = [
+		// binding not directly in compound expression
+		"export fn main() void = let a = 4;",
+		"export fn main() void = { if (true) let a = 4; };",
 
 		// invalid symbol
 		`@symbol("") fn f() void;`,
@@ -447,7 +453,7 @@ fn reject() void = {
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
-		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+		compile(status::PARSE, failures[i])!;
 	};
 
 	// usage of unexported type in exported declaration
@@ -489,9 +495,9 @@ fn reject() void = {
 				static append(buf, toutf8(t.1)...);
 				static append(buf, toutf8(d.2)...);
 			};
-			assert(compile(*(&buf: *str)) as exited != EXIT_SUCCESS);
+			compile(status::CHECK, *(&buf: *str))!;
 			static insert(buf[0], toutf8("export ")...);
-			assert(compile(*(&buf: *str)) as exited == EXIT_SUCCESS);
+			compile(status::SUCCESS, *(&buf: *str))!;
 		};
 	};
 };
@@ -533,16 +539,16 @@ fn imported() void = {
 	testmod::s_b;
 
 	// Decl. with symbol not accessible by symbol
-	assert(compile(`
+	compile(status::CHECK, `
 	use testmod;
 	fn test() void = {
 		testmod::s_x;
-	};`) as exited != EXIT_SUCCESS);
-	assert(compile(`
+	};`)!;
+	compile(status::CHECK, `
 	use testmod;
 	fn test() void = {
 		s_x;
-	};`) as exited != EXIT_SUCCESS);
+	};`)!;
 
 	// Decl. with same symbol are linked together
 	assert(testmod::s_b == 1 && s_c == 1);

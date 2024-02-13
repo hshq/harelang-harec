@@ -4,7 +4,17 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "lex.h"
+
+enum exit_status {
+	/* EXIT_SUCCESS = 0 (defined in stdlib.h) */
+	EXIT_USER = 1,
+	EXIT_LEX = 2,
+	EXIT_PARSE = 3,
+	EXIT_CHECK = 4,
+	EXIT_ABNORMAL = 255,
+};
 
 extern const char **sources;
 extern size_t nsources;

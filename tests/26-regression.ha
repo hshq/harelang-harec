@@ -1,5 +1,6 @@
 // Miscellaneous regression tests
 use rt;
+use rt::{compile, status};
 
 type embedded = struct {
 	a: u64,
@@ -147,53 +148,48 @@ export fn main() void = {
 	let s: []f64 = [1.0, 2.0, 3.0];
 	s[..] = [0.0...];
 
-	assert(rt::compile("
+	compile(status::CHECK, "
 		fn a() void = switch (b) {
 		case &c => void;
 		};"
-	) as rt::exited != rt::EXIT_SUCCESS);
+	)!;
 
-	assert(rt::compile("let a;") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("
+	compile(status::PARSE, "let a;")!;
+	compile(status::CHECK, "
 		type a = struct {
 			b: int,
 			c: int,
 		};
 		def A: a = a { b = 0 };"
-	) as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("let a = &0;") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("def A: a = 1 % 1;") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("def A: b = void;") as rt::exited != rt::EXIT_SUCCESS);
+	)!;
+	compile(status::CHECK, "let a = &0;")!;
+	compile(status::CHECK, "def A: a = 1 % 1;")!;
+	compile(status::CHECK, "def A: b = void;")!;
 	static assert(true == true && true != false);
-	assert(rt::compile("
+	compile(status::CHECK, "
 		type a = str;
 		type b = struct { a };
 		def A = b { c = 0 };"
-	) as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("
-		fn a() void = {
-			let x: (void | int) = abort();
-		};"
-	) as rt::exited == rt::EXIT_SUCCESS);
-	assert(rt::compile("
+	)!;
+	compile(status::CHECK, "
 		def A = 0;
 		fn a() void = A = 0;"
-	) as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("def A = x && true;") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("type a = struct { b: fn() void };") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("fn a() []int = alloc([]: [*]int, 0);") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("fn a() [1]int = [1]: []int: [1]int;") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("fn a() void = &*&a;") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("let a = [*&0];") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("fn a() *opaque = alloc(void);") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("fn a() void = { static let b = x & struct { a: int = 0 }; };") as rt::exited != rt::EXIT_SUCCESS);
+	)!;
+	compile(status::CHECK, "def A = x && true;")!;
+	compile(status::CHECK, "type a = struct { b: fn() void };")!;
+	compile(status::CHECK, "fn a() []int = alloc([]: [*]int, 0);")!;
+	compile(status::CHECK, "fn a() [1]int = [1]: []int: [1]int;")!;
+	compile(status::CHECK, "fn a() void = &*&a;")!;
+	compile(status::CHECK, "let a = [*&0];")!;
+	compile(status::CHECK, "fn a() *opaque = alloc(void);")!;
+	compile(status::CHECK, "fn a() void = { static let b = x & struct { a: int = 0 }; };")!;
 	let a: (size | mod::t) = 0;
 	assert(0xffu8 + 1 >> 1 == 0);
-	assert(rt::compile("type a = *...b; type b = *...a;") as rt::exited != rt::EXIT_SUCCESS);
-	assert(rt::compile("def A = len([1]: []str);") as rt::exited != rt::EXIT_SUCCESS);
+	compile(status::CHECK, "type a = *...b; type b = *...a;")!;
+	compile(status::CHECK, "def A = len([1]: []str);")!;
 
 	control_never();
-	assert(rt::compile("fn a() void = { abort(): int; };") as rt::exited != rt::EXIT_SUCCESS);
+	compile(status::CHECK, "fn a() void = { abort(): int; };")!;
 
 	// identifier exceeds maximum length
 	let buf: [1024]u8 = [0...];
@@ -205,9 +201,9 @@ export fn main() void = {
 	};
 	const n = len(buf);
 	static append(buf, rt::toutf8(" = 0;")...);
-	assert(rt::compile(*(&buf: *str)) as rt::exited == rt::EXIT_SUCCESS);
+	compile(status::SUCCESS, *(&buf: *str))!;
 	static insert(buf[n], rt::toutf8("::a")...);
-	assert(rt::compile(*(&buf: *str)) as rt::exited != rt::EXIT_SUCCESS);
+	compile(status::PARSE, *(&buf: *str))!;
 	assert(size(packed) == packedsz);
 	assert(size(packed) == 9);
 
@@ -222,9 +218,10 @@ export fn main() void = {
 		abort();
 	};
 
-	assert(rt::compile("fn f() void = { let x = 0; x { ... }; };") as rt::exited != rt::EXIT_SUCCESS);
+	compile(status::CHECK, "fn f() void = { let x = 0; x { ... }; };")!;
 
-	assert(rt::compile("static assert(size(b) == 0); let b = 0;") as rt::exited != rt::EXIT_SUCCESS);
+	compile(status::CHECK, "static assert(size(b) == 0); let b = 0;")!;
+
 	assert((if (false) 0) is void);
 	let v = if (false) 0;
 	assert(v is void);

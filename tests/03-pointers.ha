@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 type inta = int;
 type intp = *int;
@@ -31,9 +31,8 @@ fn _nullable() void = {
 	x = &y;
 	assert(*(x: *int) == 42);
 
-	assert(compile(
-		"fn test() void = { let x: nullable *int = null; let z = *x; };",
-	) as exited != EXIT_SUCCESS);
+	compile(status::CHECK,
+		"fn test() void = { let x: nullable *int = null; let z = *x; };")!;
 };
 
 fn casts() void = {
@@ -66,231 +65,231 @@ fn casts() void = {
 };
 
 fn reject() void = {
-	assert(compile("
+	compile(status::PARSE, "
 		type s = null;
 		fn test() void = {
 			void;
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		type s = *null;
 		fn test() void = {
 			void;
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		fn test() void = {
 			let a = &null;
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		fn test() void = {
 			let a = &3: null;
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		fn test() void = {
 			let a: nullable *int = &3: null;
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		fn test() void = {
 			let b: nullable *int = null;
 			let a = b as null;
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		fn test() void = {
 			let a = (null, 3);
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		fn test() void = {
 			let a: []null = [null];
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		fn test() void = {
 			let a = [null];
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		fn test() void = {
 			let a: [_]null = [null];
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		fn test() void = {
 			let a = null;
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		fn test() void = {
 			let a: nullable *int = &4;
 			a as int;
 		};
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		fn test() void = {
 			let a: nullable *int = &4;
 			a as *str;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
 	// type assertions on non-nullable pointers are prohibited
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = {
 			let a: *int = &4;
 			assert(a as *int);
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
 	// dereference expression not in translation-compatible subset
-	assert(compile("
+	compile(status::CHECK, "
 		let a: int = 0;
 		let b: *int = &a;
 		let c: int = *b;
-	") as exited != EXIT_SUCCESS);
+	")!;
 
 	// can't cast to alias of opaque
-	assert(compile("
+	compile(status::CHECK, "
 		type t = opaque;
 		fn test() void = {
 			let x: *t = &0;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
 	// can't have pointer to void
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = {
 			let a: *void = &12;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = {
 			let a = &void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = {
 			&12: *void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn f() void = {
 			let a: nullable *void = null;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
 	// arithmetic on pointer types is not allowed
-	assert(compile(`
+	compile(status::CHECK, `
 		fn f() void = {
 			let a = &12i + &8i;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn f() void = {
 			let a = &12i + 8i: uintptr;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn f() void = {
 			let a = &12i + 8i;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn f() void = {
 			let a = &12i;
 			a += &8i;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn f() void = {
 			let a = &12i;
 			a += 8i: uintptr;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn f() void = {
 			let a = &12i;
 			a += 8i;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
 	// type promotion
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			let a: *str = &0;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			let a: *str = alloc(0);
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
 	// pointer to never
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			&abort();
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() nullable *never = null;
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			*(&0: *never);
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
 	// pointer to zero-size type
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			let a = &void;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			let a = &(void, void);
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::PARSE, `
 		fn test() void = {
 			let a = &(int, void).1;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			let a = &([]: [0]int);
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			let a = &struct { v: void = void };
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn test() void = {
 			let a = &struct { i: int = 0, v: void = void }.v;
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 };
 
 export fn main() void = {

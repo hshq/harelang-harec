@@ -1,5 +1,5 @@
 use rt;
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 let x: int = 10;
 
@@ -60,21 +60,26 @@ fn control() void = {
 };
 
 fn reject() void = {
-	let failures = [
+	let parse = [
 		"export fn main() void = defer 0;",
 		"export fn main() void = { if (true) defer 0; };",
 		"export fn main() void = { for (defer 0; true; true) void; };",
+		"export fn main() void = { defer defer 0; };",
+	];
+	let check = [
 		"export fn main() void = { defer yield; };",
 		"export fn main() void = :outer { defer { yield :outer; }; };",
 		"export fn main() void = for (true) { defer break; };",
 		"export fn main() void = for (true) { defer continue; };",
-		"export fn main() void = { defer defer 0; };",
 		"export fn main() void = { defer return; };",
 		"export fn main() void = for :outer (true) { defer { break :outer; }; };",
 	];
 
-	for (let i = 0z; i < len(failures); i += 1) {
-		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+	for (let i = 0z; i < len(parse); i += 1) {
+		compile(status::PARSE, parse[i])!;
+	};
+	for (let i = 0z; i < len(check); i += 1) {
+		compile(status::CHECK, check[i])!;
 	};
 };
 

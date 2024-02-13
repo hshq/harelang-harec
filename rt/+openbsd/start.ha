@@ -5,7 +5,7 @@ let argc: size = 0;
 let argv: *[*]*const u8 = null: *[*]*const u8;
 let envp: *[*]nullable *const u8 = null: *[*]nullable *const u8;
 
-export let status = 0;
+export let exit_status = 0;
 
 // The real main function.
 @symbol(".main") fn main() void;
@@ -28,5 +28,5 @@ export @symbol("preinit_hare") fn preinit_hare(
 // they are ran by crt0.
 export @symbol("main") fn _main() void = {
 	main();
-	exit(status);
+	exit(exit_status);
 };

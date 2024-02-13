@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 type subtype = struct {
 	foo: int,
@@ -46,7 +46,7 @@ fn rules() void = {
 
 	// Implementation-defined precision
 	if (size(int) == 8) {
-		assert(compile("fn test() void = { let i: int = 42i64; };") as exited == EXIT_SUCCESS);
+		compile(status::SUCCESS, "fn test() void = { let i: int = 42i64; };")!;
 	};
 	let i: int = 42i;
 	i = 42i32;
@@ -54,7 +54,7 @@ fn rules() void = {
 	i = 42i8;
 
 	if (size(uint) == 8) {
-		assert(compile("fn test() void = { let u: uint = 42u64; };") as exited == EXIT_SUCCESS);
+		compile(status::SUCCESS, "fn test() void = { let u: uint = 42u64; };")!;
 	};
 	let u: uint = 42u;
 	u = 42u32;
@@ -62,21 +62,21 @@ fn rules() void = {
 	u = 42u8;
 
 	// Precision loss (should fail)
-	assert(compile("fn test() void = { let _i8: i8 = 42i16; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _i8: i8 = 42i32; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _i8: i8 = 42i64; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _i8: i8 = 42i; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _i16: i16 = 42i32; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _i16: i16 = 42i64; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _i32: i32 = 42i64; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _u8: u8 = 42u16; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _u8: u8 = 42u32; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _u8: u8 = 42u64; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _u8: u8 = 42u; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _u16: u16 = 42u32; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _u16: u16 = 42u64; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _u32: u32 = 42u64; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { let _f32: f32 = 42f64; };") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "fn test() void = { let _i8: i8 = 42i16; };")!;
+	compile(status::CHECK, "fn test() void = { let _i8: i8 = 42i32; };")!;
+	compile(status::CHECK, "fn test() void = { let _i8: i8 = 42i64; };")!;
+	compile(status::CHECK, "fn test() void = { let _i8: i8 = 42i; };")!;
+	compile(status::CHECK, "fn test() void = { let _i16: i16 = 42i32; };")!;
+	compile(status::CHECK, "fn test() void = { let _i16: i16 = 42i64; };")!;
+	compile(status::CHECK, "fn test() void = { let _i32: i32 = 42i64; };")!;
+	compile(status::CHECK, "fn test() void = { let _u8: u8 = 42u16; };")!;
+	compile(status::CHECK, "fn test() void = { let _u8: u8 = 42u32; };")!;
+	compile(status::CHECK, "fn test() void = { let _u8: u8 = 42u64; };")!;
+	compile(status::CHECK, "fn test() void = { let _u8: u8 = 42u; };")!;
+	compile(status::CHECK, "fn test() void = { let _u16: u16 = 42u32; };")!;
+	compile(status::CHECK, "fn test() void = { let _u16: u16 = 42u64; };")!;
+	compile(status::CHECK, "fn test() void = { let _u32: u32 = 42u64; };")!;
+	compile(status::CHECK, "fn test() void = { let _f32: f32 = 42f64; };")!;
 
 	// Pointer conversions
 	let nptr: nullable *int = null;
@@ -93,30 +93,30 @@ fn rules() void = {
 	let sptr: *struct { foo: int } = &super3 { ... };
 
 	// Invalid pointer conversions
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = { let x: nullable *int = null; let y: *int = x; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { let x: int = 10; let y: *int = &x; let y: *uint = x; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"type i = int;"
 		"fn test() void = { let x = &42; let y: *i = x; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"type v = void;"
 		"fn test() void = { let x = &0; let x: *v = x; };"
-	) as exited != EXIT_SUCCESS);
+	)!;
 
 	// Invalid slice conversions
-	assert(compile(
+	compile(status::CHECK,
 		"type i = int;"
 		"fn test() void = { let x: []int = [1, 2, 3]; let y: []i = x; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"type v = void;"
 		"fn test() void = { let x: []int = [0]; let x: []v = x; };"
-	) as exited != EXIT_SUCCESS);
+	)!;
 
 	// Non-const from const (copy)
 	const j = 10;

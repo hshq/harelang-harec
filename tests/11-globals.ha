@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 // globals without type hint
 def NOHINT = 1234z;
@@ -72,6 +72,9 @@ let renum_val = renum::R1;
 const float: f32 = 1234.5678;
 const double: f64 = 1234.5678;
 
+def A: [_]int = [1, 2];
+let a: [_]int = [1, 2];
+
 fn storage() void = {
 	assert(len(ar) == 3);
 	assert(ar[0] == 1 && ar[1] == 2 && ar[2] == 3);
@@ -92,25 +95,23 @@ fn storage() void = {
 };
 
 fn invalid() void = {
-	assert(compile("fn test() int; let x: int = test();") as exited != EXIT_SUCCESS);
-	assert(compile("const a: u8 = 2; const b: u8 = a + 5;") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "fn test() int; let x: int = test();")!;
+	compile(status::CHECK, "const a: u8 = 2; const b: u8 = a + 5;")!;
 
-	assert(compile("def a;") as exited != EXIT_SUCCESS);
-	assert(compile("def a: int;") as exited != EXIT_SUCCESS);
-	assert(compile("let a;") as exited != EXIT_SUCCESS);
+	compile(status::PARSE, "def a;")!;
+	compile(status::PARSE, "def a: int;")!;
+	compile(status::PARSE, "let a;")!;
 
-	assert(compile("def a: [_]str = 0;") as exited != EXIT_SUCCESS);
-	assert(compile("def a: int = \"string\";") as exited != EXIT_SUCCESS);
-	assert(compile("def a: [_]int = [\"string\"];") as exited != EXIT_SUCCESS);
-	assert(compile("def a: [_]int = [1, 2];") as exited == EXIT_SUCCESS);
+	compile(status::CHECK, "def a: [_]str = 0;")!;
+	compile(status::CHECK, "def a: int = \"string\";")!;
+	compile(status::CHECK, "def a: [_]int = [\"string\"];")!;
 
-	assert(compile("let a: [_]str = 0;") as exited != EXIT_SUCCESS);
-	assert(compile("let a: int = \"string\";") as exited != EXIT_SUCCESS);
-	assert(compile("let a: [_]int = [\"string\"];") as exited != EXIT_SUCCESS);
-	assert(compile("let a: [_]int = [1, 2];") as exited == EXIT_SUCCESS);
+	compile(status::CHECK, "let a: [_]str = 0;")!;
+	compile(status::CHECK, "let a: int = \"string\";")!;
+	compile(status::CHECK, "let a: [_]int = [\"string\"];")!;
 
-	assert(compile("let a = [];") as exited != EXIT_SUCCESS);
-	assert(compile("def a = [];") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "let a = [];")!;
+	compile(status::CHECK, "def a = [];")!;
 };
 
 fn counter() int = {
@@ -140,8 +141,8 @@ fn pointers() void = {
 	assert(ptr_struct == &_struct.y && *ptr_struct == 2);
 	assert(ptr_tup == &tup.1 && *ptr_tup == "asdf");
 
-	assert(compile("let a = [1, 2, 3]; let b = &a[3];") as exited != EXIT_SUCCESS);
-	assert(compile("let a = (1, 2, 3); let b = &a.3;") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "let a = [1, 2, 3]; let b = &a[3];")!;
+	compile(status::CHECK, "let a = (1, 2, 3); let b = &a.3;")!;
 };
 
 type foo = (int | uint);

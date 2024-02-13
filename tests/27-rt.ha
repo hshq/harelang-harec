@@ -3,16 +3,16 @@
 use rt;
 
 fn compile() void = {
-	assert(rt::compile("
+	rt::compile(rt::status::SUCCESS, "
 		fn test() void = {
 			void;
 		};"
-	) as rt::exited == rt::EXIT_SUCCESS);
-	assert(rt::compile("
+	)!;
+	rt::compile(rt::status::CHECK, "
 		fn test() void = {
 			let a: int = [1, 2, 3];
 		};"
-	) as rt::exited != rt::EXIT_SUCCESS);
+	)!;
 };
 
 let global = 0i;
@@ -67,12 +67,13 @@ fn assert_() void = {
 
 		// top-level static assertions
 		"static assert(false);",
-		"export static assert(true);",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
-		assert(rt::compile(failures[i]) as rt::exited != rt::EXIT_SUCCESS);
+		rt::compile(rt::status::CHECK, failures[i])!;
 	};
+
+	rt::compile(rt::status::PARSE, "export static assert(true);")!;
 };
 
 export fn main() void = {

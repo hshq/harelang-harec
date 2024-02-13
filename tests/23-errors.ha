@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 type err_int = !int;
 
@@ -29,19 +29,19 @@ fn propagate() void = {
 };
 
 fn cannotignore() void = {
-	assert(compile("
+	compile(status::CHECK, "
 		type error = !void;
 
 		export fn main() int = {
 			error;
 			return 42;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 	err_if_false(true)!;
 };
 
 fn void_assignability() void = {
-	assert(compile(`
+	compile(status::CHECK, `
 		type err = !void;
 
 		fn reterr() (int | err) = {
@@ -53,9 +53,9 @@ fn void_assignability() void = {
 		};
 
 		export fn main() void = void;
-	`) as exited != EXIT_SUCCESS); // error types cannot be assigned to void
+	`)!; // error types cannot be assigned to void
 
-	assert(compile(`
+	compile(status::CHECK, `
 		fn disallow_1() void = {
 			return "I am illegal";
 		};
@@ -65,7 +65,7 @@ fn void_assignability() void = {
 		};
 
 		export fn main() void = void;
-	`) as exited != EXIT_SUCCESS); // non-void types cannot be assigned to void
+	`)!; // non-void types cannot be assigned to void
 };
 
 fn measurements() void = {

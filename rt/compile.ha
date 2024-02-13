@@ -1,9 +1,40 @@
-export type exited = int, signaled = int;
-export type exit_status = (exited | signaled);
+export type status = enum {
+	SUCCESS,
+	USER,
+	LEX,
+	PARSE,
+	CHECK,
+	ABNORMAL = 255,
+};
+
+fn strstatus(status: int) str = {
+	switch (status) {
+	case status::SUCCESS =>
+		return "success (0)";
+	case status::USER =>
+		return "user (1)";
+	case status::LEX =>
+		return "lex (2)";
+	case status::PARSE =>
+		return "parse (3)";
+	case status::CHECK =>
+		return "check (4)";
+	case status::ABNORMAL =>
+		return "abnormal (255)";
+	case =>
+		return itos(status: int);
+	};
+};
+
+export type error = !void;
 
 // Runs the Hare compiler and returns the exit status.
-export fn compile(src: const str, flags: str...) exit_status = {
-	let status = 0;
+export fn compile(
+	expected: (status | void),
+	src: str,
+	flags: str...
+) (void | error) = {
+	let wstatus = 0;
 	let pipefd = [-1, -1];
 	assert(pipe2(&pipefd, 0) == 0);
 
@@ -41,10 +72,34 @@ export fn compile(src: const str, flags: str...) exit_status = {
 		};
 
 		close(pipefd[1]);
-		wait4(child, &status, 0, null);
+		wait4(child, &wstatus, 0, null);
 	};
 
-	return if (wifexited(status)) wexitstatus(status): exited
-		else if (wifsignaled(status)) wtermsig(status): signaled
-		else abort();
+	if (!wifexited(wstatus)) {
+		assert(wifsignaled(wstatus));
+		let s = "signaled ";
+		write(2, constchar(s), len(s));
+		s = itos(wtermsig(wstatus));
+		write(2, constchar(s), len(s));
+		write(2, constchar("\n"), 1);
+		return error;
+	};
+
+	match (expected) {
+	case void => void;
+	case let expected: status =>
+		const status = wexitstatus(wstatus);
+		if (status != expected) {
+			let s = "expected ";
+			write(2, constchar(s), len(s));
+			s = strstatus(expected);
+			write(2, constchar(s), len(s));
+			s = ", got ";
+			write(2, constchar(s), len(s));
+			s = strstatus(status);
+			write(2, constchar(s), len(s));
+			write(2, constchar("\n"), 1);
+			return error;
+		};
+	};
 };

@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS, toutf8};
+use rt::{compile, status, toutf8};
 
 type t = int;
 type e = !int;
@@ -60,34 +60,34 @@ fn basics() void = {
 	case => abort();
 	};
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = switch (0.0) {
 		case 0.0 => void;
 		case 1.0 => void;
 		case => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn test(x: int) void = switch (0) {
 		case x => void;
 		case => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = switch (&0) {
 		case &0 => void;
 		case => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = switch (0i32) {
 		case 0i64 => void;
 		case => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 };
 
 fn tagged_result() void = {
@@ -166,61 +166,61 @@ fn exhaustivity() void = {
 		};
 	};
 	static append(buf, toutf8("};")...);
-	assert(compile(*(&buf: *str)) as exited == EXIT_SUCCESS);
+	compile(status::SUCCESS, *(&buf: *str))!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = switch (0) {
 		case 0 => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		type x = enum { A, B, C };
 		fn test() void = switch (x::A) {
 		case x::A => void;
 		case x::B => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 };
 
 fn duplicates() void = {
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = switch (0) {
 		case 0 => void;
 		case 1 => void;
 		case 2, 0, 3 => void;
 		case => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		fn test() void = switch (0) {
 		case 0 => void;
 		case => void;
 		case => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		let x = 0;
 		fn test() void = switch (&x) {
 		case &x => void;
 		case &x => void;
 		case => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		let x = ([1, 2, 3, 4], 5);
 		fn test() void = switch (&0) {
 		case &(x.0: [*]int)[4] => void;
 		case &x.1 => void;
 		case => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 
 	// TODO: uncomment this once translation-time unions actually work
-	//assert(compile("
+	//compile(status::CHECK, "
 	//	type t = union { x: [2]int, y: (int, int) };
 	//	let x = t { ... };
 	//	fn test() void = switch (&0) {
@@ -228,16 +228,16 @@ fn duplicates() void = {
 	//	case &x.y.1 => void;
 	//	case => void;
 	//	};
-	//") as exited != EXIT_SUCCESS);
+	//")!;
 
-	assert(compile("
+	compile(status::CHECK, "
 		type x = enum { A, B, C = B };
 		fn test() void = switch (x::A) {
 		case x::A => void;
 		case x::B => void;
 		case x::C => void;
 		};
-	") as exited != EXIT_SUCCESS);
+	")!;
 };
 
 fn label() void = {
