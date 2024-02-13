@@ -2056,10 +2056,7 @@ check_expr_for(struct context *ctx,
 	if (aexpr->_for.bindings) {
 		bindings = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_for.bindings, bindings, NULL);
-		if (type_has_error(ctx, bindings->result)) {
-			error(ctx, aexpr->_for.bindings->loc, bindings,
-				"Cannot ignore error here");
-		}
+		assert(bindings->result->storage == STORAGE_VOID);
 		expr->_for.bindings = bindings;
 	}
 
@@ -4403,8 +4400,6 @@ resolve_dimensions(struct context *ctx, struct incomplete_declaration *idecl)
 			loc = idecl->decl.loc;
 		}
 		char *ident = identifier_unparse(&idecl->obj.name);
-		// TODO should i be recovering from this? related to todo in
-		// resolve_type
 		error(ctx, loc, NULL, "'%s' is not a type", ident);
 		free(ident);
 		idecl->obj.type = &builtin_type_error;
