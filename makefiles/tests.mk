@@ -44,7 +44,7 @@ $(HARECACHE)/rt.o: $(rt_s)
 	@$(AS) $(ASFLAGS) -o $@ $(rt_s)
 
 tests = \
-	tests/00-constants \
+	tests/00-literals \
 	tests/01-arrays \
 	tests/02-integers \
 	tests/03-pointers \
@@ -83,15 +83,15 @@ tests = \
 	tests/36-defines
 
 
-tests/00-constants: $(HARECACHE)/rt.o $(HARECACHE)/testmod.o $(HARECACHE)/tests_00_constants.o
+tests/00-literals: $(HARECACHE)/rt.o $(HARECACHE)/testmod.o $(HARECACHE)/tests_00_literals.o
 	@printf 'LD\t%s\t\n' '$@'
-	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/testmod.o $(HARECACHE)/tests_00_constants.o
+	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/testmod.o $(HARECACHE)/tests_00_literals.o
 
-tests_00_constants_ha = tests/00-constants.ha
-$(HARECACHE)/tests_00_constants.ssa: $(tests_00_constants_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
+tests_00_literals_ha = tests/00-literals.ha
+$(HARECACHE)/tests_00_literals.ssa: $(tests_00_literals_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
-	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_00_constants_ha)
+	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_00_literals_ha)
 
 
 tests/01-arrays: $(HARECACHE)/rt.o $(HARECACHE)/tests_01_arrays.o
