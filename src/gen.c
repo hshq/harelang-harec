@@ -1817,7 +1817,7 @@ gen_literal_string(struct gen_context *ctx, const struct expression *expr)
 	str->kind = Q_DATA;
 	str->data.align = ALIGN_UNDEFINED;
 	str->exported = false;
-	str->name = gen_name(&ctx->id, "strconst.%d");
+	str->name = gen_name(&ctx->id, "strliteral.%d");
 	str->file = expr->loc.file;
 	gen_data_item(ctx, expr, &str->data.items);
 	qbe_append_def(ctx->out, str);
@@ -3463,7 +3463,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		char *ident = identifier_unparse(&decl->ident);
 		struct qbe_data_item *dataitem = &test->data.items;
 		struct expression expr;
-		mkstrconst(&expr, "%s", ident);
+		mkstrliteral(&expr, "%s", ident);
 		free(ident);
 		dataitem = gen_data_item(ctx, &expr, dataitem);
 
@@ -3808,7 +3808,7 @@ gen(const struct unit *unit, type_store *store, struct qbe_program *out)
 	ctx.sources = xcalloc(nsources + 1, sizeof(struct gen_value));
 	for (size_t i = 1; i <= nsources; i++) {
 		struct expression eloc;
-		mkstrconst(&eloc, "%s", sources[i]);
+		mkstrliteral(&eloc, "%s", sources[i]);
 		ctx.sources[i] = gen_literal_string(&ctx, &eloc);
 	}
 

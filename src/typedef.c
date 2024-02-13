@@ -104,7 +104,7 @@ emit_literal(const struct expression *expr, FILE *out)
 		break;
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
-		xfprintf(out, "\'\\U%08" PRIx32 "\'", (uint32_t)val->uval);
+		xfprintf(out, "\'\\U%08" PRIx32 "\'", val->rune);
 		break;
 	case STORAGE_STRING:
 		xfprintf(out, "\"");

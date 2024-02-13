@@ -119,7 +119,7 @@ struct incomplete_declaration {
 void mkident(struct context *ctx, struct identifier *out,
 		const struct identifier *in, const char *symbol);
 
-void mkstrconst(struct expression *expr, const char *fmt, ...);
+void mkstrliteral(struct expression *expr, const char *fmt, ...);
 
 char *gen_typename(const struct type *type);
 

@@ -321,8 +321,6 @@ struct ast_expression_switch {
 	struct ast_switch_case *cases;
 };
 
-struct ast_expression_struct;
-
 struct ast_field_value {
 	char *name;
 	struct ast_type *type;
