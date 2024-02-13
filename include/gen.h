@@ -31,6 +31,10 @@ struct gen_value {
 	};
 };
 
+struct gen_slice {
+	struct qbe_value base, len, cap;
+};
+
 struct gen_binding {
 	const struct scope_object *object;
 	struct gen_value value;

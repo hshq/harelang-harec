@@ -227,6 +227,43 @@ gen_autoderef(struct gen_context *ctx, struct gen_value val)
 	return val;
 }
 
+struct gen_slice
+gen_slice_ptrs(struct gen_context *ctx, struct gen_value object)
+{
+	struct gen_slice slice = {
+		.base = mkqval(ctx, &object),
+		.len = mkqtmp(ctx, ctx->arch.ptr, ".%d"),
+		.cap = mkqtmp(ctx, ctx->arch.ptr, ".%d"),
+	};
+	struct qbe_value lenoff = constl(ctx->arch.ptr->size);
+	struct qbe_value capoff = constl(ctx->arch.ptr->size + ctx->arch.sz->size);
+	pushi(ctx->current, &slice.len, Q_ADD, &slice.base, &lenoff, NULL);
+	pushi(ctx->current, &slice.cap, Q_ADD, &slice.base, &capoff, NULL);
+	return slice;
+}
+
+
+void
+load_slice_data(struct gen_context *ctx, struct gen_slice *slobj,
+		struct qbe_value *base, struct qbe_value *len,
+		struct qbe_value *cap)
+{
+	enum qbe_instr ptrload = load_for_type(ctx, &builtin_type_uintptr);
+	enum qbe_instr szload = load_for_type(ctx, &builtin_type_size);
+	if (base) {
+		*base = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+		pushi(ctx->current, base, ptrload, &slobj->base, NULL);
+	}
+	if (len) {
+		*len = mkqtmp(ctx, ctx->arch.sz, ".%d");
+		pushi(ctx->current, len, szload, &slobj->len, NULL);
+	}
+	if (cap) {
+		*cap = mkqtmp(ctx, ctx->arch.sz, ".%d");
+		pushi(ctx->current, cap, szload, &slobj->cap, NULL);
+	}
+}
+
 static struct gen_value
 gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 {
@@ -279,26 +316,17 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 {
 	struct gen_value glval = gen_expr(ctx, expr->access.array);
 	glval = gen_autoderef(ctx, glval);
-	struct qbe_value qlval = mkqval(ctx, &glval);
 	struct qbe_value qival = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	bool checkbounds = !expr->access.bounds_checked;
-	struct qbe_value length;
+	struct qbe_value length, qlval;
 	const struct type *ty = type_dealias(NULL, glval.type);
 	switch (ty->storage) {
 	case STORAGE_SLICE:;
-		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
-		struct qbe_value base = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		pushi(ctx->current, &base, load, &qlval, NULL);
-
-		struct qbe_value temp = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		length = mkqtmp(ctx, ctx->arch.sz, "len.%d");
-		struct qbe_value offset = constl(builtin_type_size.size);
-		pushi(ctx->current, &temp, Q_ADD, &qlval, &offset, NULL);
-		pushi(ctx->current, &length, load, &temp, NULL);
-
-		qlval = base;
+		struct gen_slice sl = gen_slice_ptrs(ctx, glval);
+		load_slice_data(ctx, &sl, &qlval, &length, NULL);
 		break;
 	case STORAGE_ARRAY:
+		qlval = mkqval(ctx, &glval);
 		if (ty->array.length != SIZE_UNDEFINED) {
 			length = constl(ty->array.length);
 		} else {
@@ -409,8 +437,6 @@ gen_alloc_slice_at(struct gen_context *ctx,
 		qcap = mkqval(ctx, &cap);
 	}
 
-	struct gen_value init;
-	struct qbe_value qinit;
 	struct qbe_value length, initdata;
 	const struct type *inittype = type_dealias(NULL, expr->alloc.init->result);
 	switch (inittype->storage) {
@@ -418,17 +444,10 @@ gen_alloc_slice_at(struct gen_context *ctx,
 		assert(inittype->array.length != SIZE_UNDEFINED);
 		length = constl(inittype->array.length);
 		break;
-	case STORAGE_SLICE:
-		init = gen_expr(ctx, expr->alloc.init);
-		qinit = mkqval(ctx, &init);
-		enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
-		initdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		pushi(ctx->current, &initdata, load, &qinit, NULL);
-		struct qbe_value offset = constl(builtin_type_size.size);
-		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		pushi(ctx->current, &ptr, Q_ADD, &qinit, &offset, NULL);
-		length = mkqtmp(ctx, ctx->arch.sz, ".%d");
-		pushi(ctx->current, &length, load, &ptr, NULL);
+	case STORAGE_SLICE:;
+		struct gen_value init = gen_expr(ctx, expr->alloc.init);
+		struct gen_slice sl = gen_slice_ptrs(ctx, init);
+		load_slice_data(ctx, &sl, &initdata, &length, NULL);
 		break;
 	default: abort(); // Invariant
 	}
@@ -599,24 +618,16 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 		pushprei(ctx->current, &base, alloc, &sz, NULL);
 	}
 
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
-	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
-
 	struct gen_value src = gen_expr(ctx, expr->alloc.init);
 	struct qbe_value dbase = mkcopy(ctx, out, ".%d");
 	struct qbe_value offs = constl(builtin_type_size.size);
 
 	const struct type *initres = type_dealias(NULL, expr->alloc.init->result);
-	struct qbe_value srcdata;
-	struct qbe_value length;
+	struct qbe_value srcdata, length;
 	if (initres->storage == STORAGE_SLICE) {
 		assert(initres->array.length == SIZE_UNDEFINED);
-		srcdata = mkqtmp(ctx, ctx->arch.sz, ".%d");
-		struct qbe_value sbase = mkcopy(ctx, &src, ".%d");
-		pushi(ctx->current, &srcdata, load, &sbase, NULL);
-		pushi(ctx->current, &sbase, Q_ADD, &sbase, &offs, NULL);
-		length = mkqtmp(ctx, ctx->arch.sz, ".%d");
-		pushi(ctx->current, &length, load, &sbase, NULL);
+		struct gen_slice sl = gen_slice_ptrs(ctx, src);
+		load_slice_data(ctx, &sl, &srcdata, &length, NULL);
 	} else if (initres->storage == STORAGE_ARRAY) {
 		assert(initres->array.length != SIZE_UNDEFINED);
 		srcdata = mkcopy(ctx, &src, ".%d"); // TODO: object.%d
@@ -655,6 +666,7 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	push(&ctx->current->body, &lcopy);
 	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &newdata, &srcdata, &sz, NULL);
 
+	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	push(&ctx->current->body, &lvalid);
 	pushi(ctx->current, NULL, store, &newdata, &dbase, NULL);
 	pushi(ctx->current, &dbase, Q_ADD, &dbase, &offs, NULL);
@@ -2018,13 +2030,9 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 	object = gen_autoderef(ctx, object);
 	assert(type_dealias(NULL, object.type)->storage == STORAGE_SLICE);
 
-	struct qbe_value qobj = mkqval(ctx, &object);
-	struct qbe_value qlenptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	struct qbe_value qlen = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	struct qbe_value offset = constl(builtin_type_size.size);
-	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
-	pushi(ctx->current, &qlenptr, Q_ADD, &qobj, &offset, NULL);
-	pushi(ctx->current, &qlen, load, &qlenptr, NULL);
+	struct qbe_value data, qlen;
+	struct gen_slice sl = gen_slice_ptrs(ctx, object);
+	load_slice_data(ctx, &sl, &data, &qlen, NULL);
 
 	struct qbe_value qend, qstart = mkqval(ctx, &start);
 	if (dexpr->type == EXPR_SLICE) {
@@ -2060,12 +2068,9 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 		pushi(ctx->current, &qend, Q_ADD, &qstart, &tmp, NULL);
 	}
 
-
-	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value startptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value endptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value mlen = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &data, load, &qobj, NULL);
 	struct qbe_value membsz =
 		constl(type_dealias(NULL, object.type)->array.members->size);
 	pushi(ctx->current, &startptr, Q_MUL, &qstart, &membsz, NULL);
@@ -2080,10 +2085,10 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 
 	pushi(ctx->current, &qlen, Q_ADD, &qlen, &qstart, NULL);
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
-	pushi(ctx->current, NULL, store, &qlen, &qlenptr, NULL);
+	pushi(ctx->current, NULL, store, &qlen, &sl.len, NULL);
 
 	if (!expr->delete.is_static) {
-		qobj = mklval(ctx, &object);
+		struct qbe_value qobj = mklval(ctx, &object);
 		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.unensure, &qobj, &membsz,
 			NULL);
 	}
@@ -2210,14 +2215,11 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 		slice = gen_expr(ctx, objexpr->access.array);
 	}
 	slice = gen_autoderef(ctx, slice);
-	struct qbe_value qslice = mkqval(ctx, &slice);
+	struct qbe_value prevlen, cap;
+	struct gen_slice sl = gen_slice_ptrs(ctx, slice);
+	load_slice_data(ctx, &sl, NULL, &prevlen, expr->append.is_static ? &cap : NULL);
 
-	struct qbe_value lenptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	struct qbe_value prevlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	struct qbe_value offs = constl(builtin_type_size.size);
-	pushi(ctx->current, &lenptr, Q_ADD, &qslice, &offs, NULL);
 	enum qbe_instr load = load_for_type(ctx, &builtin_type_size);
-	pushi(ctx->current, &prevlen, load, &lenptr, NULL);
 	struct qbe_value qindex, *qindex_ptr;
 	if (expr->type == EXPR_APPEND) {
 		qindex_ptr = &prevlen;
@@ -2260,7 +2262,7 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 		} else {
 			appendlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 			struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-			offs = constl(builtin_type_size.size);
+			struct qbe_value offs = constl(builtin_type_size.size);
 			pushi(ctx->current, &ptr, Q_ADD, &qvalue, &offs, NULL);
 			pushi(ctx->current, &appendlen, load, &ptr, NULL);
 		}
@@ -2269,7 +2271,7 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value newlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 	pushi(ctx->current, &newlen, Q_ADD, &prevlen, &appendlen, NULL);
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
-	pushi(ctx->current, NULL, store, &newlen, &lenptr, NULL);
+	pushi(ctx->current, NULL, store, &newlen, &sl.len, NULL);
 
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	const struct type *mtype = type_dealias(NULL, slice.type)->array.members;
@@ -2278,11 +2280,6 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 		struct qbe_value lval = mklval(ctx, &slice);
 		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.ensure, &lval, &membsz, NULL);
 	} else {
-		offs = constl(builtin_type_size.size * 2);
-		pushi(ctx->current, &ptr, Q_ADD, &qslice, &offs, NULL);
-		struct qbe_value cap = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		pushi(ctx->current, &cap, load, &ptr, NULL);
-
 		struct qbe_statement lvalid, linvalid;
 		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
 		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
@@ -2296,7 +2293,7 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 	}
 
 	struct qbe_value base = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &base, load, &qslice, NULL);
+	pushi(ctx->current, &base, load, &sl.base, NULL);
 	pushi(ctx->current, &ptr, Q_MUL, qindex_ptr, &membsz, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &base, &ptr, NULL);
 
@@ -2697,7 +2694,7 @@ static struct gen_value
 gen_expr_len(struct gen_context *ctx, const struct expression *expr)
 {
 	size_t len;
-	struct gen_value gv, temp;
+	struct gen_value gv;
 	const struct expression *value = expr->len.value;
 	const struct type *type = type_dereference(NULL, value->result);
 	assert(type != NULL);
@@ -2715,15 +2712,14 @@ gen_expr_len(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_STRING:
 		gv = gen_expr(ctx, value);
 		gv = gen_autoderef(ctx, gv);
-		temp = mkgtemp(ctx, &builtin_type_size, ".%d");
-		struct qbe_value qv = mkqval(ctx, &gv),
-			qtemp = mkqval(ctx, &temp),
-			offs = constl(builtin_type_size.size);
-		enum qbe_instr load = load_for_type(ctx,
-			&builtin_type_size);
-		pushi(ctx->current, &qtemp, Q_ADD, &qv, &offs, NULL);
-		pushi(ctx->current, &qtemp, load, &qtemp, NULL);
-		return temp;
+		struct qbe_value len;
+		struct gen_slice sl = gen_slice_ptrs(ctx, gv);
+		load_slice_data(ctx, &sl, NULL, &len, NULL);
+		return (struct gen_value){
+			.kind = GV_TEMP,
+			.type = &builtin_type_size,
+			.name = len.name
+		};
 	default:
 		abort(); // Invariant
 	}
