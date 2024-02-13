@@ -110,7 +110,7 @@ tests/02-integers: $(HARECACHE)/rt.o $(HARECACHE)/tests_02_integers.o
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/tests_02_integers.o
 
 tests_02_integers_ha = tests/02-integers.ha
-$(HARECACHE)/tests_02_integers.ssa: $(tests_02_integers_ha) $(BINOUT)/harec
+$(HARECACHE)/tests_02_integers.ssa: $(tests_02_integers_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_02_integers_ha)
@@ -165,7 +165,7 @@ tests/07-aliases: $(HARECACHE)/rt.o $(HARECACHE)/tests_07_aliases.o
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/tests_07_aliases.o
 
 tests_07_aliases_ha = tests/07-aliases.ha
-$(HARECACHE)/tests_07_aliases.ssa: $(tests_07_aliases_ha) $(BINOUT)/harec
+$(HARECACHE)/tests_07_aliases.ssa: $(tests_07_aliases_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_07_aliases_ha)
@@ -275,7 +275,7 @@ tests/17-alloc: $(HARECACHE)/rt.o $(HARECACHE)/tests_17_alloc.o
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/tests_17_alloc.o
 
 tests_17_alloc_ha = tests/17-alloc.ha
-$(HARECACHE)/tests_17_alloc.ssa: $(tests_17_alloc_ha) $(BINOUT)/harec
+$(HARECACHE)/tests_17_alloc.ssa: $(tests_17_alloc_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_17_alloc_ha)
@@ -286,7 +286,7 @@ tests/18-match: $(HARECACHE)/rt.o $(HARECACHE)/tests_18_match.o
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/tests_18_match.o
 
 tests_18_match_ha = tests/18-match.ha
-$(HARECACHE)/tests_18_match.ssa: $(tests_18_match_ha) $(BINOUT)/harec
+$(HARECACHE)/tests_18_match.ssa: $(tests_18_match_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_18_match_ha)
@@ -363,7 +363,7 @@ tests/25-promotion: $(HARECACHE)/rt.o $(HARECACHE)/tests_25_promotion.o
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/tests_25_promotion.o
 
 tests_25_promotion_ha = tests/25-promotion.ha
-$(HARECACHE)/tests_25_promotion.ssa: $(tests_25_promotion_ha) $(BINOUT)/harec
+$(HARECACHE)/tests_25_promotion.ssa: $(tests_25_promotion_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_25_promotion_ha)
@@ -423,7 +423,7 @@ tests/31-postfix: $(HARECACHE)/rt.o $(HARECACHE)/tests_31_postfix.o
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/tests_31_postfix.o
 
 tests_31_postfix_ha = tests/31-postfix.ha
-$(HARECACHE)/tests_31_postfix.ssa: $(tests_31_postfix_ha) $(BINOUT)/harec
+$(HARECACHE)/tests_31_postfix.ssa: $(tests_31_postfix_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_31_postfix_ha)
@@ -434,7 +434,7 @@ tests/32-copy: $(HARECACHE)/rt.o $(HARECACHE)/tests_32_copy.o
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/tests_32_copy.o
 
 tests_32_copy_ha = tests/32-copy.ha
-$(HARECACHE)/tests_32_copy.ssa: $(tests_32_copy_ha) $(BINOUT)/harec
+$(HARECACHE)/tests_32_copy.ssa: $(tests_32_copy_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_32_copy_ha)
@@ -467,7 +467,7 @@ tests/35-floats: $(HARECACHE)/rt.o $(HARECACHE)/tests_35_floats.o
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/tests_35_floats.o
 
 tests_35_floats_ha = tests/35-floats.ha
-$(HARECACHE)/tests_35_floats.ssa: $(tests_35_floats_ha) $(BINOUT)/harec
+$(HARECACHE)/tests_35_floats.ssa: $(tests_35_floats_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_35_floats_ha)
