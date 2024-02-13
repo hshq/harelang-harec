@@ -108,4 +108,7 @@ check: $(BINOUT)/harec $(tests)
 install: $(BINOUT)/harec
 	install -Dm755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
 
-.PHONY: clean check install
+uninstall:
+	rm -- '$(DESTDIR)$(BINDIR)/harec'
+
+.PHONY: clean check install uninstall
