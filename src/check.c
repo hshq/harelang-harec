@@ -34,7 +34,7 @@ mkident(struct context *ctx, struct identifier *out, const struct identifier *in
 }
 
 void
-mkstrconst(struct expression *expr, const char *fmt, ...)
+mkstrliteral(struct expression *expr, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
