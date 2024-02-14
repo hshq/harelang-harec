@@ -110,4 +110,7 @@ install: $(BINOUT)/harec
 	@# install -dm755 $(DESTDIR)$(BINDIR)
 	install -m755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
 
-.PHONY: clean check install
+uninstall:
+	rm -- '$(DESTDIR)$(BINDIR)/harec'
+
+.PHONY: clean check install uninstall
