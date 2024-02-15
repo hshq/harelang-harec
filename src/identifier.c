@@ -89,7 +89,7 @@ identifier_eq(const struct identifier *a, const struct identifier *b)
 {
 	if (!a && !b) {
 		return true;
-	} else if ((!a && b) || (a && !b)) {
+	} else if (!a || !b) {
 		return false;
 	}
 	if (strcmp(a->name, b->name) != 0) {
