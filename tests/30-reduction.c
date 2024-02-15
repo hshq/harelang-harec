@@ -136,7 +136,7 @@ int main(void) {
 	test(&ctx, "",
 		"if (true) null "
 		"else if (true) null: *int "
-		"else null: *void");
+		"else null: *opaque");
 	test(&ctx, "",
 		"if (true) null "
 		"else void");
