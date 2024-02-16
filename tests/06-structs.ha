@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 fn padding() void = {
 	assert(size(struct { x: i32, y: i32 }) == 8);
@@ -304,7 +304,7 @@ fn invariants() void = {
 	"type foo = struct { x: u64, @offset(4) y: u32 };",
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
-		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+		compile(status::CHECK, failures[i])!;
 	};
 };
 

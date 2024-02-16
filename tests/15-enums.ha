@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 use testmod;
 
 type implicit_values = enum {
@@ -67,27 +67,26 @@ fn storage() void = {
 
 fn reject() void = {
 	// enum type definition used outside type declaration
-	assert(compile("export let a: enum { A, B } = 0;") as exited != EXIT_SUCCESS);
-	assert(compile("export let a: int = 0: enum{A, B}: int;") as exited != EXIT_SUCCESS);
+	compile(status::PARSE, "export let a: enum { A, B } = 0;")!;
+	compile(status::PARSE, "export let a: int = 0: enum{A, B}: int;")!;
 
 	// enum circular dependencies
-	assert(compile("type a = enum { A = B, B = A };") as exited != EXIT_SUCCESS);
-	assert(compile("type a = enum { A = b::B },
-				b = enum { B = a::A };") as exited != EXIT_SUCCESS);
-	assert(compile("
+	compile(status::CHECK, "type a = enum { A = B, B = A };")!;
+	compile(status::CHECK, "type a = enum { A = b::B }, b = enum { B = a::A };")!;
+	compile(status::CHECK, "
 		def a: int = e::VAL1;
 		type e = enum { VAL1 = a };
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		def a: int = e::VAL1;
 		type e = enum { VAL1 = VAL2, VAL2 = a };
-	") as exited != EXIT_SUCCESS);
+	")!;
 
 	// invalid storage
-	assert(compile("type a = enum f64 { A = 0.0 };") as exited != EXIT_SUCCESS);
+	compile(status::PARSE, "type a = enum f64 { A = 0.0 };")!;
 
 	// invalid value
-	assert(compile("type a = enum { A = void };") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "type a = enum { A = void };")!;
 };
 
 type interdependent1 = enum {

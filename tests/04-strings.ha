@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS, toutf8};
+use rt::{compile, status, toutf8};
 
 fn measurements() void = {
 	const x = "Hello!";
@@ -83,28 +83,28 @@ fn raw() void = {
 };
 
 fn reject() void = {
-	assert(compile(`
+	compile(status::CHECK, `
 		fn f() void = {
 			let x = "asdf" + "fdsa";
 		};
-	`) as exited != EXIT_SUCCESS);
-	assert(compile(`
+	`)!;
+	compile(status::CHECK, `
 		fn f() void = {
 			let x = "asdf";
 			x += "fdsa";
 		};
-	`) as exited != EXIT_SUCCESS);
+	`)!;
 
-	assert(compile(`let s = "\xc3";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\xc3\x00";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\xc30";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\xc3" "\xc3";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\xa";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\u69";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\U1234567";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\xah";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\uahij";`) as exited != EXIT_SUCCESS);
-	assert(compile(`let s = "\Uahijklmn";`) as exited != EXIT_SUCCESS);
+	compile(status::PARSE, `let s = "\xc3";`)!;
+	compile(status::PARSE, `let s = "\xc3\x00";`)!;
+	compile(status::PARSE, `let s = "\xc30";`)!;
+	compile(status::PARSE, `let s = "\xc3" "\xc3";`)!;
+	compile(status::LEX, `let s = "\xa";`)!;
+	compile(status::LEX, `let s = "\u69";`)!;
+	compile(status::LEX, `let s = "\U1234567";`)!;
+	compile(status::LEX, `let s = "\xah";`)!;
+	compile(status::LEX, `let s = "\uahij";`)!;
+	compile(status::LEX, `let s = "\Uahijklmn";`)!;
 };
 
 export fn main() void = {

@@ -156,7 +156,7 @@ error(struct location loc, const char *fmt, ...)
 
 	xfprintf(stderr, "\n");
 	errline(loc);
-	exit(EXIT_FAILURE);
+	exit(EXIT_LEX);
 }
 
 void

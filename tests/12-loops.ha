@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 fn scope() void = {
 	let x = 0;
@@ -9,7 +9,7 @@ fn scope() void = {
 			break;
 		};
 	};
-	assert(compile("fn test() void = { for (true) { let x = 10; }; x; };") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "fn test() void = { for (true) { let x = 10; }; x; };")!;
 	// To make sure that the afterthought is part of the loop's scope
 	for (let i = 0; true; (if (true) { break; })) true;
 };
@@ -91,13 +91,13 @@ fn label() void = {
 		};
 	};
 	assert(i == 8);
-	assert(compile("fn test() void = { for :foo (true) { break :bar; }; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { for (true) { break :bar; }; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { break :bar; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = :foo { break :foo; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = { for :foo (true) { yield :foo; }; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = :foo { for :foo (true) { yield :foo; }; };") as exited != EXIT_SUCCESS);
-	assert(compile("fn test() void = for :foo (true) :foo { break :foo; };") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "fn test() void = { for :foo (true) { break :bar; }; };")!;
+	compile(status::CHECK, "fn test() void = { for (true) { break :bar; }; };")!;
+	compile(status::CHECK, "fn test() void = { break :bar; };")!;
+	compile(status::CHECK, "fn test() void = :foo { break :foo; };")!;
+	compile(status::CHECK, "fn test() void = { for :foo (true) { yield :foo; }; };")!;
+	compile(status::CHECK, "fn test() void = :foo { for :foo (true) { yield :foo; }; };")!;
+	compile(status::CHECK, "fn test() void = for :foo (true) :foo { break :foo; };")!;
 };
 
 type abool = bool;

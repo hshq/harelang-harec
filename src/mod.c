@@ -42,14 +42,14 @@ module_resolve(struct context *ctx,
 	if (!path) {
 		xfprintf(stderr, "Could not open module '%s': typedef variable $%s not set\n",
 			&env[strlen_HARE_TD_], env);
-		exit(EXIT_FAILURE);
+		exit(EXIT_USER);
 	}
 
 	FILE *f = fopen(path, "r");
 	if (!f) {
 		xfprintf(stderr, "Could not open module '%s' for reading from %s: %s\n",
 			&env[strlen_HARE_TD_], path, strerror(errno));
-		exit(EXIT_FAILURE);
+		exit(EXIT_ABNORMAL);
 	}
 
 	const char *old = sources[0];

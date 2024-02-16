@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 fn from_array() void = {
 	let src = [1, 2, 3];
@@ -49,12 +49,12 @@ fn casting() void = {
 
 	[]: []int: []opaque;
 
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = { []: []opaque; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { [1]: []opaque; };"
-	) as exited != EXIT_SUCCESS);
+	)!;
 };
 
 fn measurements() void = {
@@ -70,15 +70,15 @@ fn measurements() void = {
 fn indexing() void = {
 	let x = [1, 3, 3, 7];
 	assert(x[0] == 1 && x[1] == 3 && x[2] == 3 && x[3] == 7);
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = { let x: []int = [1, 2, 3]; x[\"hello\"]; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { let x = 10; x[10]; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { let s: []u8 = []; let ss = s: []opaque; ss[0] = ss[1]; };"
-	) as exited != EXIT_SUCCESS);
+	)!;
 };
 
 fn zero3(s: []int) void = {
@@ -119,15 +119,15 @@ fn assignment() void = {
 	let opaqueslice: []opaque = x;
 	let opaqueslice: []opaque = []: []int;
 
-	assert(compile(
+	compile(status::CHECK,
 		"export fn main() void = { let a: []int = [1]; a[..] += a; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn f() void = { let a: []int = [1] + [2]; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"type t = opaque; fn f() void = { let x: []int = []; let x: []t = x; };"
-	) as exited != EXIT_SUCCESS);
+	)!;
 };
 
 fn assert_slice_eq(actual: []int, expected: []int) void = {
@@ -159,18 +159,18 @@ fn slicing() void = {
 	assert_slice_eq(p[1..], [2, 3, 4, 5]);
 	assert_slice_eq(p[5..], []);
 
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = { let x = \"test\"; x[1..3]; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { let x = [1, 2, 3]; x[\"hi\"..]; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { let x = [1, 2, 3]; x[2..1]; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { let x = [1, 2, 3]; x[..4]; };"
-	) as exited != EXIT_SUCCESS);
+	)!;
 };
 
 type tree = struct {
@@ -225,21 +225,21 @@ fn expandable() void = {
 
 fn misc_reject() void = {
 	// can't have slice of void
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = { let x: []void = [12]; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { let x = [void]: []opaque; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { []: []void; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { let x: ([]void | void) = void; };"
-	) as exited != EXIT_SUCCESS);
-	assert(compile(
+	)!;
+	compile(status::CHECK,
 		"fn test() void = { []: []never; };"
-	) as exited != EXIT_SUCCESS);
+	)!;
 };
 
 fn lencap(s: []int) (size, size) = {

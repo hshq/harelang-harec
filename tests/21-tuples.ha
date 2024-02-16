@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 def CONST1: (int, str) = (15, "foo");
 def CONST2: [_](int, str) = [(15, "foo"), (30, "bar")];
@@ -155,7 +155,22 @@ fn regression() void = {
 };
 
 fn reject() void = {
-	let tests = [
+	let parse = [
+		// unpack with def
+		"fn t() void = { def (x, y) = (1, 2); };",
+		// empty tuple
+		"fn t() void = { let a: (() | void) = void; };",
+		"fn t() void = { let a = (); };",
+		"fn t() void = { let () = (); };",
+		// one member
+		"fn t() void = { let a: ((int) | void) = void; };",
+		// null type
+		"fn t() void = { let a: ((null, int) | void) = void; };",
+		// invalid field access
+		"fn t() void = { let a = (0, 1, 2); a.-1; };",
+		"fn t() void = { let a = (0, 1, 2).-1; };",
+	];
+	let check = [
 		// no name in unpack
 		"fn t() void = { let (_, _) = (1, 2); };",
 		// unpack of non-tuple type
@@ -164,8 +179,6 @@ fn reject() void = {
 		// static unpack
 		"fn getval() int = 5; fn t() void = { static let (a, b) = (2, getval()); };",
 		"fn getval() int = 5; fn t() void = { static let (a, _) = (2, getval()); };",
-		// unpack with def
-		"fn t() void = { def (x, y) = (1, 2); };",
 
 		// member count mismatch
 		"fn t() void = { let a: (u8, u8, u8) = (2, 3); };",
@@ -176,12 +189,7 @@ fn reject() void = {
 		"fn t() void = { let (x, y, z) = (1, 2); };",
 		"fn t() void = { let (x, y, _) = (1, 2); };",
 		"fn t() void = { let (x, _, _) = (1, 2); };",
-		// empty tuple
-		"fn t() void = { let a: (() | void) = void; };",
-		"fn t() void = { let a = () };",
-		"fn t() void = { let () = () };",
 		// one member
-		"fn t() void = { let a: ((int) | void) = void; };",
 		"fn t() void = { let a = (4u); a.0; };",
 		"fn t() void = { let (a) = (4u); a.0; };",
 		"fn t() void = { let (a) = 4u; a.0; };",
@@ -191,23 +199,23 @@ fn reject() void = {
 		"fn t() void = { let (a, b) = (t, 2); };",
 		"fn t() void = { let (_, b) = (t, 2); };",
 		// null type member
-		"fn t() void = { let a: ((null, int) | void) = void; };",
 		"fn t() void = { let a = (null, 2); };",
 		"fn t() void = { let (a, b) = (null, 2); };",
 		"fn t() void = { let (_, b) = (null, 2); };",
 		// invalid field access
 		"fn t() void = { let a = (0, 1, 2); a.3; };",
-		"fn t() void = { let a = (0, 1, 2); a.-1; };",
 		"fn t() void = { let a = (0, 1, 2).3; };",
-		"fn t() void = { let a = (0, 1, 2).-1; };",
 
 		// arithmetic on tuples
 		"fn t() void = { let a = (0, 1) + (2, 3); };",
 		"fn t() void = { let a = (0, 1); a += (2, 3); };",
 	];
 
-	for (let i = 0z; i < len(tests); i += 1) {
-		assert(compile(tests[i]) as exited != EXIT_SUCCESS);
+	for (let i = 0z; i < len(parse); i += 1) {
+		compile(status::PARSE, parse[i])!;
+	};
+	for (let i = 0z; i < len(check); i += 1) {
+		compile(status::CHECK, check[i])!;
 	};
 };
 

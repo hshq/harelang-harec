@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 use testmod;
 use alias = testmod;
 use testmod::*;
@@ -13,55 +13,55 @@ let x: int = testmod::val;
 let y: u8 = testmod::val;
 
 fn reject() void = {
-	assert(compile("
+	compile(status::USER, "
 		use wrong;
 		export fn main() void = { testmod::val; };
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		use testmod::{val};
 		export fn main() void = static assert(
 			testmod::val == 42
 		);
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		use testmod::{val};
 		export fn main() void = static assert(
 			val2 == 90
 		);
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		use testmod;
 		use test = testmod::*;
 		export fn main() void = void;
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		use testmod*;
 		export fn main() void = void;
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		use testmod{val};
 		export fn main() void = void;
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		use a::b = testmod;
 		export fn main() void = void;
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		use test:: = testmod;
 		export fn main() void = void;
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		use testmod::;
 		export fn main() void = void;
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		use test = testmod::;
 		export fn main() void = void;
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		use testmod;
 		export fn main() void = { testmod::testmod::val3; };
-	") as exited != EXIT_SUCCESS);
+	")!;
 };
 
 

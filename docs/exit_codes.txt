@@ -1,0 +1,9 @@
+When harec's exit code is non-zero, it indicates the stage at which compilation
+failed. This is used pretty much exclusively in tests.
+
+0 - success
+1 - misc user-caused error (e.g. invalid arguments or unset typedef variables)
+2 - lexing error
+3 - parsing error
+4 - checking error
+255 - misc abnormal error (e.g. I/O error)

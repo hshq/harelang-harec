@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 type abool = bool;
 
@@ -19,20 +19,20 @@ fn addr() void = {
 	*{ yield q; } = 12;
 	assert(*q == 12);
 
-	assert(compile("
+	compile(status::CHECK, "
 		export fn main() void = { &null; };
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		export fn main() void = { &void; };
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		type foo = void;
 		export fn main() void = { &foo; };
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::CHECK, "
 		fn f() void = void;
 		export fn main() void = { &f(); };
-	") as exited != EXIT_SUCCESS);
+	")!;
 };
 
 fn neg() void = {
@@ -47,12 +47,12 @@ fn deref() void = {
 	assert(*switch (0) { case => yield &42; } == 42);
 	assert(*match (0: (int | void)) { case => yield &42; } == 42);
 
-	assert(compile("
+	compile(status::CHECK, "
 		export fn main() void = { *static assert(true); };
-	") as exited != EXIT_SUCCESS);
-	assert(compile("
+	")!;
+	compile(status::PARSE, "
 		export fn main() void = { *if (true) &42 else &1337; };
-	") as exited != EXIT_SUCCESS);
+	")!;
 };
 
 export fn main() void = {

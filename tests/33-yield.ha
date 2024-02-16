@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 
 fn basics() void = {
 	let x = {
@@ -22,9 +22,9 @@ fn _never() void = {
 		abort();
 	};
 
-	assert(compile(
+	compile(status::CHECK,
 		"fn test() void = { let x: int = if (true) { yield; } else 1; };"
-	) as exited != EXIT_SUCCESS);
+	)!;
 };
 
 fn cast_lowering() void = {

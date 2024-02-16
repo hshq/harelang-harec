@@ -62,7 +62,7 @@ gen_typename(const struct type *type)
 	if (f == NULL) {
 		xfprintf(stderr, "Unable to open memstream: %s\n",
 			strerror(errno));
-		exit(EXIT_FAILURE);
+		exit(EXIT_ABNORMAL);
 	}
 	emit_type(type, f);
 	fclose(f);
@@ -83,7 +83,7 @@ handle_errors(struct errors *errors)
 		error = next;
 	}
 	if (errors) {
-		exit(EXIT_FAILURE);
+		exit(EXIT_CHECK);
 	}
 }
 
@@ -4912,7 +4912,7 @@ check_internal(type_store *ts,
 
 	if (!(scan_only || unit->declarations)) {
 		xfprintf(stderr, "Error: module contains no declarations\n");
-		exit(EXIT_FAILURE);
+		exit(EXIT_CHECK);
 	}
 
 	ctx.unit->parent = NULL;

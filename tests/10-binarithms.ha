@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS};
+use rt::{compile, status};
 use testmod;
 
 fn error() bool = {
@@ -231,10 +231,10 @@ fn eval() void = {
 };
 
 fn reject() void = {
-	assert(compile("let x = 1 / 0;") as exited != EXIT_SUCCESS);
-	assert(compile("let x = -2147483648i32 / -1;") as exited != EXIT_SUCCESS);
-	assert(compile("let x = 1 % 0;") as exited != EXIT_SUCCESS);
-	assert(compile("let x = -2147483648i32 % -1;") as exited != EXIT_SUCCESS);
+	compile(status::CHECK, "let x = 1 / 0;")!;
+	compile(status::CHECK, "let x = -2147483648i32 / -1;")!;
+	compile(status::CHECK, "let x = 1 % 0;")!;
+	compile(status::CHECK, "let x = -2147483648i32 % -1;")!;
 };
 
 export fn main() void = {

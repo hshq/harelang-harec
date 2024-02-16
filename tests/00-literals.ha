@@ -1,4 +1,4 @@
-use rt::{compile, exited, EXIT_SUCCESS, toutf8};
+use rt::{compile, error, status, toutf8};
 
 type my_enum = enum u8 {
 	FOO,
@@ -119,7 +119,7 @@ fn assignment() void = {
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
-		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+		compile(status::CHECK, failures[i])!;
 	};
 };
 
@@ -499,14 +499,14 @@ fn numeric() void = {
 	for (let i = 0z; i < len(invalid); i += 1) {
 		for (let j = 0z; j < len(suffix); j += 1) {
 			let buf = buf[..0];
-			append(buf, toutf8("let t = ")...);
-			append(buf, toutf8(invalid[i])...);
-			append(buf, toutf8(suffix[j])...);
-			assert(compile(*(&buf: *str)) as exited != EXIT_SUCCESS);
+			static append(buf, toutf8("let t = ")...);
+			static append(buf, toutf8(invalid[i])...);
+			static append(buf, toutf8(suffix[j])...);
+			compile(void, *(&buf: *str))!;
 		};
 	};
 	for (let i = 0z; i < len(extra); i += 1) {
-		assert(compile(extra[i]) as exited != EXIT_SUCCESS);
+		compile(void, extra[i])!;
 	};
 };
 
@@ -522,15 +522,15 @@ fn basics() void = {
 	static assert('à' == '\u00e0');
 	static assert('à' == '\U000000e0');
 	static assert('à' == 0xe0u32);
-	assert(compile(`let r = 'abc';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\033';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\xc3';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\x123';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\u69';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\U1234567';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\xah';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\uahij';`) as exited != EXIT_SUCCESS);
-	assert(compile(`let r = '\Uahijklmn';`) as exited != EXIT_SUCCESS);
+	compile(status::LEX, `let r = 'abc';`)!;
+	compile(status::LEX, `let r = '\033';`)!;
+	compile(status::LEX, `let r = '\xc3';`)!;
+	compile(status::LEX, `let r = '\x123';`)!;
+	compile(status::LEX, `let r = '\u69';`)!;
+	compile(status::LEX, `let r = '\U1234567';`)!;
+	compile(status::LEX, `let r = '\xah';`)!;
+	compile(status::LEX, `let r = '\uahij';`)!;
+	compile(status::LEX, `let r = '\Uahijklmn';`)!;
 };
 
 export fn main() void = {

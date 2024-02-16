@@ -1,5 +1,5 @@
 use rt;
-use rt::{compile, exit, exited, EXIT_SUCCESS};
+use rt::{compile, exit, status};
 
 fn simple() int = return 69;
 
@@ -37,7 +37,7 @@ let x: int = 42;
 
 @init fn init() void = {
 	x = 1337;
-	rt::status = 42;
+	rt::exit_status = 42;
 };
 
 @init fn init() void = {
@@ -45,7 +45,7 @@ let x: int = 42;
 };
 
 @fini fn fini() void = {
-	rt::status = 0;
+	rt::exit_status = 0;
 };
 
 @fini fn fini() void = {
@@ -107,7 +107,7 @@ fn reject() void = {
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
-		assert(compile(failures[i]) as exited != EXIT_SUCCESS);
+		compile(status::CHECK, failures[i])!;
 	};
 };
 
