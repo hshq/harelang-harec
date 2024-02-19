@@ -17,13 +17,13 @@ fn reject() void = {
 		use wrong;
 		export fn main() void = { testmod::val; };
 	")!;
-	compile(status::CHECK, "
+	compile(status::USER, "
 		use testmod::{val};
 		export fn main() void = static assert(
 			testmod::val == 42
 		);
 	")!;
-	compile(status::CHECK, "
+	compile(status::USER, "
 		use testmod::{val};
 		export fn main() void = static assert(
 			val2 == 90
@@ -58,7 +58,7 @@ fn reject() void = {
 		use test = testmod::;
 		export fn main() void = void;
 	")!;
-	compile(status::CHECK, "
+	compile(status::USER, "
 		use testmod;
 		export fn main() void = { testmod::testmod::val3; };
 	")!;
