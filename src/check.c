@@ -2643,65 +2643,36 @@ slice_bounds_check(struct context *ctx, struct expression *expr)
 {
 	const struct type *atype = type_dereference(ctx, expr->slice.object->result);
 	const struct type *dtype = type_dealias(ctx, atype);
+	struct expression start, end;
+	enum {
+		START = 1, END = 1 << 1, LENGTH = 1 << 2
+	} bounds = 0;
 
-	struct expression *start = NULL, *end = NULL;
-
-	if (expr->slice.end != NULL) {
-		end = xcalloc(1, sizeof(struct expression));
-		if (!eval_expr(ctx, expr->slice.end, end)) {
-			free(end);
-			return;
-		}
-
-		if (dtype->storage == STORAGE_ARRAY
-				&& dtype->array.length != SIZE_UNDEFINED) {
-			if (end->literal.uval > dtype->array.length) {
-				error(ctx, expr->loc, expr,
-					"End index must not be greater than array length");
-				free(end);
-				return;
-			}
-		}
-	} else {
-		if (dtype->storage != STORAGE_ARRAY) {
-			return;
-		}
-		assert(dtype->array.length != SIZE_UNDEFINED);
+	if (expr->slice.start && eval_expr(ctx, expr->slice.start, &start)) {
+		bounds |= START;
+	}
+	if (expr->slice.end && eval_expr(ctx, expr->slice.end, &end)) {
+		bounds |= END;
+	}
+	if (dtype->storage == STORAGE_ARRAY && dtype->array.length != SIZE_UNDEFINED) {
+		bounds |= LENGTH;
 	}
 
-	if (expr->slice.start == NULL) {
-		if (end) free(end);
-		return;
+	if ((bounds & (START | LENGTH)) == (START | LENGTH)
+			&& start.literal.uval > dtype->array.length) {
+		error(ctx, expr->loc, expr,
+			"Start index must not be greater than array length");
 	}
-	start = xcalloc(1, sizeof(struct expression));
-	if (!eval_expr(ctx, expr->slice.start, start)) {
-		free(start);
-		if (end) free(end);
-		return;
+	if ((bounds & (START | END)) == (START | END)
+			&& start.literal.uval > end.literal.uval) {
+		error(ctx, expr->loc, expr,
+			"Start index must not be greater than end index");
 	}
-
-	if (dtype->storage == STORAGE_ARRAY
-			&& dtype->array.length != SIZE_UNDEFINED) {
-		if (start->literal.uval > dtype->array.length) {
-			error(ctx, expr->loc, expr,
-				"Start index must not be greater than array length");
-			free(start);
-			if (end) free(end);
-			return;
-		}
-
-		expr->slice.bounds_checked = true;
+	if ((bounds & (END | LENGTH)) == (END | LENGTH)
+			&& end.literal.uval > dtype->array.length) {
+		error(ctx, expr->loc, expr,
+			"End index must not be greater than array length");
 	}
-
-	if (end != NULL) {
-		if (start->literal.uval > end->literal.uval) {
-			error(ctx, expr->loc, expr,
-				"Start index must not be greater than end index");
-		}
-		free(end);
-	}
-	free(start);
-	return;
 }
 
 static void
