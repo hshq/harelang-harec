@@ -6,7 +6,6 @@
 #include "check.h"
 #include "emit.h"
 #include "qbe.h"
-#include "typedef.h"
 #include "types.h"
 #include "util.h"
 
