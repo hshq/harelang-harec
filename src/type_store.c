@@ -6,7 +6,6 @@
 #include "check.h"
 #include "eval.h"
 #include "scope.h"
-#include "typedef.h"
 #include "type_store.h"
 #include "types.h"
 #include "util.h"

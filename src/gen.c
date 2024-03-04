@@ -6,7 +6,6 @@
 #include "gen.h"
 #include "scope.h"
 #include "type_store.h"
-#include "typedef.h"
 #include "types.h"
 #include "util.h"
 

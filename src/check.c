@@ -2063,7 +2063,8 @@ check_expr_for(struct context *ctx,
 	cond = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->_for.cond, cond, &builtin_type_bool);
 	expr->_for.cond = cond;
-	if (type_dealias(ctx, cond->result)->storage != STORAGE_BOOL) {
+	if (type_dealias(ctx, cond->result)->storage != STORAGE_BOOL
+			&& cond->result->storage != STORAGE_ERROR) {
 		error(ctx, aexpr->_for.cond->loc, expr,
 			"Expected for condition to be boolean");
 		return;
@@ -3191,6 +3192,7 @@ check_expr_switch(struct context *ctx,
 	}
 	free(cases_array);
 	if (!has_default_case && !has_duplicate
+			&& value->result->storage != STORAGE_ERROR
 			&& (n == (size_t)-1 || n != num_cases(ctx, value->result))) {
 		error(ctx, aexpr->loc, value,
 			"Switch expression isn't exhaustive");
