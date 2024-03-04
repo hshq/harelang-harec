@@ -919,18 +919,18 @@ parse_array_literal(struct lexer *lexer)
 	exp->type = EXPR_LITERAL;
 	exp->literal.storage = STORAGE_ARRAY;
 
-	struct ast_array_literal *item, **next = &exp->literal.array;
+	struct ast_expression_list *item, **next = &exp->literal.array.exprs;
 
 	while (lex(lexer, &tok) != T_RBRACKET) {
 		unlex(lexer, &tok);
 
-		item = *next = xcalloc(1, sizeof(struct ast_array_literal));
-		item->value = parse_expression(lexer);
+		item = *next = xcalloc(1, sizeof(struct ast_expression_list));
+		item->expr = parse_expression(lexer);
 		next = &item->next;
 
 		switch (lex(lexer, &tok)) {
 		case T_ELLIPSIS:
-			item->expand = true;
+			exp->literal.array.expand = true;
 			want(lexer, T_RBRACKET, &tok);
 			// fallthrough
 		case T_RBRACKET:

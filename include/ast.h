@@ -207,12 +207,6 @@ struct ast_expression_cast {
 	struct ast_type *type;
 };
 
-struct ast_array_literal {
-	struct ast_expression *value;
-	struct ast_array_literal *next;
-	bool expand;
-};
-
 struct ast_expression_literal {
 	enum type_storage storage;
 	union {
@@ -225,7 +219,10 @@ struct ast_expression_literal {
 			size_t len;
 			char *value;
 		} string;
-		struct ast_array_literal *array;
+		struct {
+			struct ast_expression_list *exprs;
+			bool expand;
+		} array;
 	};
 };
 
