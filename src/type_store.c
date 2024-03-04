@@ -950,7 +950,7 @@ type_init_from_atype(struct context *ctx,
 		if (size_only) {
 			break;
 		}
-		type->array.members = lookup_atype(ctx, atype->array.members);
+		type->array.members = lookup_atype(ctx, atype->slice.members);
 		if (type->array.members->storage == STORAGE_ERROR) {
 			*type = builtin_type_error;
 			return (struct dimensions){0};
