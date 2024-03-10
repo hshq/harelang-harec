@@ -2165,57 +2165,28 @@ gen_expr_defer(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 {
-	struct gen_value object, start;
+	struct gen_value object;
+	struct qbe_value qstart;
 	const struct expression *dexpr = expr->delete.expr;
 	if (dexpr->type == EXPR_SLICE) {
 		object = gen_expr(ctx, dexpr->slice.object);
-		if (dexpr->slice.start) {
-			start = gen_expr(ctx, dexpr->slice.start);
-		} else {
-			start.kind = GV_CONST;
-			start.type = &builtin_type_size;
-			start.lval = 0;
-		}
 	} else {
 		assert(dexpr->type == EXPR_ACCESS
 			&& dexpr->access.type == ACCESS_INDEX);
 		object = gen_expr(ctx, dexpr->access.array);
-		start = gen_expr(ctx, dexpr->access.index);
+		struct gen_value start = gen_expr(ctx, dexpr->access.index);
+		qstart = mkqval(ctx, &start);
 	}
 	object = gen_autoderef(ctx, object);
 	assert(type_dealias(NULL, object.type)->storage == STORAGE_SLICE);
 
-	struct qbe_value data, qlen;
+	struct qbe_value data, qlen, qcap;
 	struct gen_slice sl = gen_slice_ptrs(ctx, object);
-	load_slice_data(ctx, &sl, &data, &qlen, NULL);
+	load_slice_data(ctx, &sl, &data, &qlen, &qcap);
 
-	struct qbe_value qend, qstart = mkqval(ctx, &start);
+	struct qbe_value qend;
 	if (dexpr->type == EXPR_SLICE) {
-		if (dexpr->slice.end) {
-			struct gen_value end = gen_expr(ctx, dexpr->slice.end);
-			qend = mkqval(ctx, &end);
-		} else {
-			qend = qlen;
-		}
-
-		struct qbe_value start_oob = mkqtmp(ctx, &qbe_word, ".%d");
-		struct qbe_value end_oob = mkqtmp(ctx, &qbe_word, ".%d");
-		struct qbe_value startend_oob = mkqtmp(ctx, &qbe_word, ".%d");
-		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-		pushi(ctx->current, &start_oob, Q_CULEL, &qstart, &qlen, NULL);
-		pushi(ctx->current, &end_oob, Q_CULEL, &qend, &qlen, NULL);
-		pushi(ctx->current, &valid, Q_AND, &start_oob, &end_oob, NULL);
-		pushi(ctx->current, &startend_oob, Q_CULEL, &qstart, &qend, NULL);
-		pushi(ctx->current, &valid, Q_AND, &valid, &startend_oob, NULL);
-
-		struct qbe_statement linvalid, lvalid;
-		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-
-		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
-		push(&ctx->current->body, &linvalid);
-		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-		push(&ctx->current->body, &lvalid);
+		gen_subslice_info(ctx, dexpr, &qlen, &qcap, &qstart, &qend, NULL, NULL);
 	} else {
 		gen_indexing_bounds_check(ctx, expr->loc, Q_CULTL, &qstart, &qlen);
 		struct qbe_value tmp = constl(1);
