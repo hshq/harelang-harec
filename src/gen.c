@@ -493,7 +493,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 
 	struct qbe_value base = mklval(ctx, &out);
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	struct qbe_value offset = constl(builtin_type_size.size);
+	struct qbe_value offset = constl(ctx->arch.ptr->size);
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	pushi(ctx->current, NULL, store, &data, &base, NULL);
 	pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
@@ -504,7 +504,7 @@ gen_alloc_slice_at(struct gen_context *ctx,
 		pushi(ctx->current, NULL, store, &length, &ptr, NULL);
 	}
 
-	offset = constl(builtin_type_size.size * 2);
+	offset = constl(ctx->arch.ptr->size + ctx->arch.sz->size);
 	pushi(ctx->current, &ptr, Q_ADD, &base, &offset, NULL);
 	pushi(ctx->current, NULL, store, &qcap, &ptr, NULL);
 
@@ -618,7 +618,6 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 
 	struct gen_value src = gen_expr(ctx, expr->alloc.init);
 	struct qbe_value dbase = mkcopy(ctx, out, ".%d");
-	struct qbe_value offs = constl(builtin_type_size.size);
 
 	const struct type *initres = type_dealias(NULL, expr->alloc.init->result);
 	struct qbe_value srcdata, length;
@@ -664,11 +663,13 @@ gen_expr_alloc_copy_with(struct gen_context *ctx,
 	push(&ctx->current->body, &lcopy);
 	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &newdata, &srcdata, &sz, NULL);
 
+	struct qbe_value offs = constl(ctx->arch.ptr->size);
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	push(&ctx->current->body, &lvalid);
 	pushi(ctx->current, NULL, store, &newdata, &dbase, NULL);
 	pushi(ctx->current, &dbase, Q_ADD, &dbase, &offs, NULL);
 	pushi(ctx->current, NULL, store, &length, &dbase, NULL);
+	offs = constl(ctx->arch.sz->size);
 	pushi(ctx->current, &dbase, Q_ADD, &dbase, &offs, NULL);
 	pushi(ctx->current, NULL, store, &length, &dbase, NULL);
 
@@ -1299,10 +1300,11 @@ gen_expr_cast_slice_at(struct gen_context *ctx,
 		pushi(ctx->current, NULL, store, &qvalue, &base, NULL);
 	}
 	struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	sz = constl(builtin_type_size.size);
+	sz = constl(ctx->arch.ptr->size);
 	struct qbe_value ln = constl(from->array.length);
 	pushi(ctx->current, &qptr, Q_ADD, &base, &sz, NULL);
 	pushi(ctx->current, NULL, store, &ln, &qptr, NULL);
+	sz = constl(ctx->arch.sz->size);
 	pushi(ctx->current, &qptr, Q_ADD, &qptr, &sz, NULL);
 	pushi(ctx->current, NULL, store, &ln, &qptr, NULL);
 }
@@ -2528,7 +2530,7 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 		} else {
 			appendlen = mkqtmp(ctx, ctx->arch.sz, ".%d");
 			struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-			struct qbe_value offs = constl(builtin_type_size.size);
+			struct qbe_value offs = constl(ctx->arch.ptr->size);
 			pushi(ctx->current, &ptr, Q_ADD, &qvalue, &offs, NULL);
 			pushi(ctx->current, &appendlen, load, &ptr, NULL);
 		}
@@ -3146,7 +3148,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	struct qbe_value qlength;
 	struct qbe_value qbase;
 	struct qbe_value qobject = mkqval(ctx, &object);
-	struct qbe_value offset = constl(builtin_type_size.size);
+	struct qbe_value offset = constl(ctx->arch.ptr->size);
 	struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	switch (srctype->storage) {
 	case STORAGE_ARRAY:
@@ -3241,7 +3243,7 @@ gen_expr_slice_at(struct gen_context *ctx,
 	pushi(ctx->current, NULL, store, &data, &qout, NULL);
 	pushi(ctx->current, &qptr, Q_ADD, &qout, &offset, NULL);
 	pushi(ctx->current, NULL, store, &newlen, &qptr, NULL);
-	offset = constl(builtin_type_size.size * 2);
+	offset = constl(ctx->arch.ptr->size + ctx->arch.sz->size);
 	pushi(ctx->current, &qptr, Q_ADD, &qout, &offset, NULL);
 	pushi(ctx->current, NULL, store, &newcap, &qptr, NULL);
 }
