@@ -4,7 +4,7 @@
 # COMMENT="$(arch_config --comment)"
 COMMENT=$(source "$HAREC_SRC/rt/+darwin/arch.sh" --comment)
 
-AS="/usr/bin/as"
+AS="/usr/bin/as -I$HAREC_SRC/rt/+darwin"
 
 function fix_asm() {
     # -e 's/^(\.section \.note\.GNU-stack,\"\",@progbits)$/$COMMENT \1/g' \
