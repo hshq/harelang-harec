@@ -14,6 +14,9 @@ for o in $*; do
 			;;
 		--gc-sections|--script=?*)
 			;;
+        -Wl,--no-gc-sections)
+            args="$args -Wl,-no_pie"
+            ;;
 		*)
 			if [ "$hasVal" != "" ]; then
 				hasVal=
