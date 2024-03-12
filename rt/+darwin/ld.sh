@@ -1,7 +1,6 @@
 #!/bin/sh
 
 LDFLAGS="-e _start \
-	-dead_strip \
 	-lSystem \
 	-L$(xcrun --show-sdk-path -sdk macosx)/usr/lib"
 

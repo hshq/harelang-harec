@@ -1,11 +1,5 @@
 #!/usr/bin/env sh
 
-# LDFLAGS="-e _start \
-# 	-Wl,-dead_strip \
-# 	-lSystem \
-# 	-L$(xcrun --show-sdk-path -sdk macosx)/usr/lib"
-LDFLAGS="-Wl,-dead_strip"
-
 args=
 hasVal=
 for o in $*; do
@@ -28,4 +22,4 @@ for o in $*; do
 	esac
 done
 
-/usr/bin/cc $LDFLAGS $args
+/usr/bin/cc $args

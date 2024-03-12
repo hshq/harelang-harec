@@ -9,10 +9,10 @@ HARECFLAGS =
 QBEFLAGS =
 ASFLAGS =
 # LDLINKFLAGS = --gc-sections -z noexecstack
-LDLINKFLAGS =
+LDLINKFLAGS = -dead_strip
 CFLAGS = -g -std=c11 -D_XOPEN_SOURCE=700 -Iinclude \
 	-Wall -Wextra -Werror -pedantic -Wno-unused-parameter
-LDFLAGS =
+LDFLAGS = -dead_strip
 LIBS = -lm
 
 # commands used by the build script
