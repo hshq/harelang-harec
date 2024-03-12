@@ -108,6 +108,7 @@ check: $(BINOUT)/harec $(tests)
 install: $(BINOUT)/harec
 	@# install -Dm755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
 	@# install -dm755 $(DESTDIR)$(BINDIR)
+	@mkdir -p -- $(DESTDIR)$(BINDIR)
 	install -m755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
 
 uninstall:

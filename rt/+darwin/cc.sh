@@ -1,22 +1,17 @@
 #!/usr/bin/env sh
 
-# LDFLAGS="-e _start \
-# 	-Wl,-dead_strip \
-# 	-lSystem \
-# 	-L$(xcrun --show-sdk-path -sdk macosx)/usr/lib"
-LDFLAGS="-Wl,-dead_strip"
-
+CCFLAGS=
 args=
 hasVal=
 for o in $*; do
 	case $o in
 		-T)
 			hasVal="$o"
-            args="$args $HAREC_SRC/rt/+darwin/start+libc.s"
 			;;
         -Wl,--gc-sections)
             ;;
         -Wl,--no-gc-sections)
+            args="$args -Wl,-no_pie"
             ;;
 		*)
 			if [ "$hasVal" != "" ]; then
@@ -28,4 +23,4 @@ for o in $*; do
 	esac
 done
 
-/usr/bin/cc $LDFLAGS $args
+/usr/bin/cc $CCFLAGS $args
