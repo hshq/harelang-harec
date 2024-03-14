@@ -1,7 +1,7 @@
 use rt::{compile, status};
 
 fn import() void = {
-	compile(status::USER, "
+	compile(status::CHECK, "
 		use a = rt;
 		def b = a::TESTDEFINE;
 	", "-DTESTDEFINE=1")!;

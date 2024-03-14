@@ -539,12 +539,12 @@ fn imported() void = {
 	testmod::s_b;
 
 	// Decl. with symbol not accessible by symbol
-	compile(status::USER, `
+	compile(status::CHECK, `
 	use testmod;
 	fn test() void = {
 		testmod::s_x;
 	};`)!;
-	compile(status::USER, `
+	compile(status::CHECK, `
 	use testmod;
 	fn test() void = {
 		s_x;
