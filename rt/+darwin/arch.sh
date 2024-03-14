@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 archs=('x86_64' 'aarch64')
 comments=('#' ';')

@@ -7,4 +7,4 @@ _start:
 	add 	sp, x0, #-16
 	b 		_rt.start_ha
 
-.include "start-libc.s"
+.include "rt/+darwin/start-libc.s"

@@ -1,16 +1,12 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
-# eval ". $HAREC_SRC/rt/+darwin/arch.sh"
-# COMMENT="$(arch_config --comment)"
-COMMENT=$(source "$HAREC_SRC/rt/+darwin/arch.sh" --comment)
-ARCH=$(source "$HAREC_SRC/rt/+darwin/arch.sh" --arch)
-
-AS="/usr/bin/as -I$HAREC_SRC/rt/+darwin"
+COMMENT=$(hare-arch.sh --comment)
+ARCH=$(hare-arch.sh --arch)
 
 function fix_asm() {
-    # -e 's/^(\.section \.note\.GNU-stack,\"\",@progbits)$/$COMMENT \1/g' \
-    # -e 's/^(\.section \.rodata)$/$COMMENT \1/g' \
-    # -e 's/^(\.size .+)$/$COMMENT \1/g' \
+        # -e "s/^(\.section \.note\.GNU-stack,\"\",@progbits)$/$COMMENT \1/g" \
+        # -e "s/^(\.section \.rodata)$/$COMMENT \1/g" \
+        # -e "s/^(\.size .+)$/$COMMENT \1/g" \
     sed \
         -e "s/^\.section \"\.text([^\"]*)\"(,\"([^\"]*))?\"$/.text $COMMENT \1, \3/g" \
         -e "s/^\.section \"\.data([^\"]*)\"$/.data $COMMENT \1/g" \
@@ -83,5 +79,4 @@ until [ $# -eq 0 ]; do
     shift
 done
 
-# echo "$code" | $AS $args --
-echo "$code" | fix_asm | fix_got | $AS $args --
+echo "$code" | fix_asm | fix_got | as $args --

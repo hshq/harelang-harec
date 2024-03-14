@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 LDFLAGS="-e _start \
 	-lSystem \
@@ -6,7 +6,7 @@ LDFLAGS="-e _start \
 
 args=
 hasVal=
-for o in $*; do
+for o in $@; do
 	case $o in
 		-T|-z)
 			hasVal="$o"
@@ -23,4 +23,4 @@ for o in $*; do
 	esac
 done
 
-/usr/bin/ld $LDFLAGS $args
+ld $LDFLAGS $args
