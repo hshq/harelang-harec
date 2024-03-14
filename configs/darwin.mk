@@ -4,7 +4,7 @@ BINDIR = $(PREFIX)/bin
 
 # variables used during build
 PLATFORM = darwin
-ARCH = $(shell hare-arch.sh --arch)
+ARCH = $(shell hare-arch.sh)
 HARECFLAGS =
 QBEFLAGS =
 ASFLAGS =
@@ -17,8 +17,8 @@ LIBS = -lm
 
 # commands used by the build script
 CC = cc
-AS = hare-as.sh
-LD =  hare-ld.sh
+AS = hare-build.sh -as
+LD = hare-build.sh ld
 QBE = qbe
 
 # build locations
