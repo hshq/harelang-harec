@@ -28,7 +28,7 @@ LD =  hare-ld.sh
 QBE = qbe
 
 # build locations
-HARECACHE = /Volumes/hare-cache/harec.cache
+HARECACHE ?= .cache
 BINOUT = .bin
 
 # variables that will be embedded in the binary with -D definitions

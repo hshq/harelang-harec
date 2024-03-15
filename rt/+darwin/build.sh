@@ -42,6 +42,8 @@ function QBE() {
 
 # -------------------------------- AS --------------------------------
 
+ASFLAGS="-I/usr/local/src/hare/stdlib -I/usr/local/src/hare/third-party"
+
 COMMENT=$(ARCH_COMMENT)
 
 function fix_asm() {
@@ -108,7 +110,7 @@ function AS() {
         shift
     done
 
-    echo "$code" | fix_asm | as $args --
+    echo "$code" | fix_asm | as $ASFLAGS $args --
 }
 
 
