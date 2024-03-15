@@ -117,7 +117,7 @@ function AS() {
 # -------------------------------- ld --------------------------------
 
 function LD() {
-    LDFLAGS="-e _start \
+    LDLINKFLAGS="-e _start \
         -lSystem \
         -L$(xcrun --show-sdk-path -sdk macosx)/usr/lib"
 
@@ -140,7 +140,7 @@ function LD() {
         esac
     done
 
-    ld $LDFLAGS $args
+    ld $LDLINKFLAGS $args
 }
 
 
