@@ -7,4 +7,5 @@ _rt_ha = \
 
 _rt_s = \
 	rt/+$(PLATFORM)/start+$(ARCH).s \
+	rt/+$(PLATFORM)/@func-libc.s \
 	rt/+$(PLATFORM)/syscall+$(ARCH).s

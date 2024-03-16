@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 
+EINVAL=22
 
 # -------------------------------- ARCH --------------------------------
 
@@ -13,7 +14,7 @@ function dict() {
             ;;
         *)
             printf "Error: unsupported or unrecognized architecture %s\n" "$(uname -m)"
-            exit
+            exit $EINVAL
             ;;
     esac
 }
@@ -42,7 +43,8 @@ function QBE() {
 
 # -------------------------------- AS --------------------------------
 
-ASFLAGS="-I/usr/local/src/hare/stdlib -I/usr/local/src/hare/third-party"
+# ASFLAGS="-I/usr/local/src/hare/stdlib -I/usr/local/src/hare/third-party"
+# ASFLAGS="$(hare version -v 2>&1 | sed -r -n -e 's/^\t(\/.+)$/-I\1/p')"
 
 COMMENT=$(ARCH_COMMENT)
 
@@ -87,16 +89,14 @@ function AS() {
     code=
     until [ $# -eq 0 ]; do
         case $1 in
-            -o)
+            --)
+                ;;
+            -o|-I|-arch)
                 args="$args $1 $2"
                 shift
                 ;;
-            -g)
-                args="$args $1"
-                ;;
             -*)
-                echo "Unsupported options: $*"
-                exit 1
+                args="$args $1"
                 ;;
             *)
                 # file="$(fix_asm $1)"
@@ -110,17 +110,18 @@ function AS() {
         shift
     done
 
-    echo "$code" | fix_asm | as $ASFLAGS $args --
+    echo "$code" | fix_asm | as $args --
+    # echo "$code" | fix_asm | as $ASFLAGS $args --
 }
 
 
 # -------------------------------- ld --------------------------------
 
-function LD() {
-    LDLINKFLAGS="-e _start \
-        -lSystem \
-        -L$(xcrun --show-sdk-path -sdk macosx)/usr/lib"
+LDLINKFLAGS="-e _start \
+    -lSystem \
+    -L$(xcrun --show-sdk-path -sdk macosx)/usr/lib"
 
+function LD() {
     args=
     hasVal=
     for o in $@; do
@@ -128,7 +129,7 @@ function LD() {
             -T|-z)
                 hasVal="$o"
                 ;;
-            --gc-sections|--script=?*)
+            -T*|-z*|--gc-sections|--script=?*)
                 ;;
             *)
                 if [ "$hasVal" != "" ]; then
@@ -141,6 +142,7 @@ function LD() {
     done
 
     ld $LDLINKFLAGS $args
+    # ld $args
 }
 
 
@@ -154,9 +156,7 @@ function CC() {
             -T)
                 hasVal="$o"
                 ;;
-            -Wl,--gc-sections)
-                ;;
-            -Wl,--no-gc-sections)
+            -T*|-Wl,--gc-sections|-Wl,--no-gc-sections)
                 ;;
             *)
                 if [ "$hasVal" != "" ]; then
@@ -168,6 +168,7 @@ function CC() {
         esac
     done
 
+    # cc $LDFLAGS $args
     cc $args
 }
 
@@ -190,7 +191,7 @@ case "$STEP" in
     *)
         printf "Error: unsupported or unrecognized option %s\n" "$STEP"
         echo $0 $@
-        exit
+        exit $EINVAL
         ;;
 esac
 
