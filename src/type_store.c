@@ -182,6 +182,7 @@ struct_new_field(struct context *ctx, struct type *type,
 
 	if (afield->offset) {
 		type->struct_union.c_compat = false;
+		bool err = true;
 		struct expression in, out;
 		check_expression(ctx, afield->offset, &in, NULL);
 		field->offset = *offset;
@@ -201,7 +202,11 @@ struct_new_field(struct context *ctx, struct type *type,
 			error(ctx, in.loc, NULL,
 				"Fields must not have overlapping storage");
 		} else {
+			err = false;
 			field->offset = *offset = (size_t)out.literal.uval;
+		}
+		if (err) {
+			return NULL;
 		}
 	} else if (type->struct_union.packed) {
 		field->offset = *offset = type->size;
@@ -308,7 +313,7 @@ shift_fields(struct context *ctx,
 	parent->type = type_store_lookup_type(ctx, &new);
 }
 
-static void
+static bool
 struct_init_from_atype(struct context *ctx, struct type *type,
 	const struct ast_struct_union_type *atype, bool size_only)
 {
@@ -322,8 +327,8 @@ struct_init_from_atype(struct context *ctx, struct type *type,
 			afield; afield = afield->next) {
 		struct struct_field *field = struct_new_field(ctx, type,
 			afield, &usize, &offset, size_only);
-	if (field == NULL) {
-			return;
+		if (field == NULL) {
+			return false;
 		}
 		if (size_only) {
 			free(field);
@@ -331,7 +336,7 @@ struct_init_from_atype(struct context *ctx, struct type *type,
 		} else if (!field->name) {
 			if (!check_embedded_member(ctx, afield, field,
 						type->struct_union.fields)) {
-				return;
+				return false;
 			}
 			// We need to shift the embedded struct/union's fields
 			// so that their offsets are from the start of the
@@ -348,6 +353,7 @@ struct_init_from_atype(struct context *ctx, struct type *type,
 	if (type->storage == STORAGE_UNION) {
 		type->size = usize;
 	}
+	return true;
 }
 
 static bool
@@ -952,7 +958,11 @@ type_init_from_atype(struct context *ctx,
 	case STORAGE_UNION:
 		type->struct_union.c_compat = !atype->struct_union.packed;
 		type->struct_union.packed = atype->struct_union.packed;
-		struct_init_from_atype(ctx, type, &atype->struct_union, size_only);
+		if (!struct_init_from_atype(ctx, type,
+				&atype->struct_union, size_only)) {
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		break;
 	case STORAGE_TAGGED:
 		if (size_only) {
