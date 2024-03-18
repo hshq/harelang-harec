@@ -647,8 +647,11 @@ tuple_init_from_atype(struct context *ctx,
 			return (struct dimensions){0};
 		}
 		if (memb.align != 0) {
-			offset = dim.size % memb.align + dim.size;
-			dim.size += dim.size % memb.align + memb.size;
+			offset = dim.size;
+			if (dim.size % memb.align) {
+				offset += memb.align - dim.size % memb.align;
+			}
+			dim.size = offset + memb.size;
 		}
 		if (dim.align < memb.align) {
 			dim.align = memb.align;
@@ -1303,8 +1306,11 @@ type_store_lookup_tuple(struct context *ctx, struct location loc,
 			type.align = t->type->align;
 		}
 		if (t->type->align != 0) {
-			t->offset = type.size % t->type->align + type.size;
-			type.size += type.size % t->type->align + t->type->size;
+			t->offset = type.size;
+			if (type.size % t->type->align) {
+				t->offset += t->type->align - type.size % t->type->align;
+			}
+			type.size = t->offset + t->type->size;
 		}
 	}
 	type.tuple = *values;
