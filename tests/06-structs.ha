@@ -278,6 +278,10 @@ fn invariants() void = {
 	// Members of undefined size before last
 	"type s = struct { x: [*]int, a: str };",
 
+	// size() of struct/union of undefined size
+	"type s = struct { x: str, a: [*]u8 }; let a = size(s);",
+	"type s = union { x: str, a: [*]u8 }; let a = size(s);",
+
 	// No arithmetic on structs
 	"type s = struct { a: int };"
 	"fn f() void = { let x = s { a = 3 } + s { a = 5 }; };",
@@ -316,6 +320,8 @@ fn invariants() void = {
 	"type foo = struct { @offset(4) x: int, @offset(0) y: int };",
 
 	"type foo = struct { x: u64, @offset(4) y: u32 };",
+
+	"type foo = union { x: u32, @offset(4) y: u32 };",
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		compile(status::CHECK, failures[i])!;

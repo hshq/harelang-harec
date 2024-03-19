@@ -148,7 +148,7 @@ struct_union_has_field(struct context *ctx,
 static struct struct_field *
 struct_new_field(struct context *ctx, struct type *type,
 	const struct ast_struct_union_field *afield,
-	size_t *usize, size_t *offset, bool size_only)
+	size_t *offset, bool size_only)
 {
 	if (afield->name != NULL && !size_only) {
 		if (struct_union_has_field(ctx, afield->name, type->struct_union.fields)) {
@@ -178,6 +178,23 @@ struct_new_field(struct context *ctx, struct type *type,
 		error(ctx, afield->type->loc, NULL,
 			"Type of undefined alignment is not a valid struct/union member");
 		return NULL;
+	}
+
+	type->align = dim.align > type->align ? dim.align : type->align;
+	field->size = dim.size;
+
+	if (type->storage == STORAGE_UNION) {
+		if (afield->offset) {
+			error(ctx, afield->type->loc, NULL,
+				"Union fields cannot be given explicit offset");
+		}
+		field->offset = 0;
+		if (dim.size == SIZE_UNDEFINED || type->size == SIZE_UNDEFINED) {
+			type->size = SIZE_UNDEFINED;
+		} else {
+			type->size = dim.size > type->size ? dim.size : type->size;
+		}
+		return field;
 	}
 
 	if (afield->offset) {
@@ -221,13 +238,9 @@ struct_new_field(struct context *ctx, struct type *type,
 
 	if (dim.size == SIZE_UNDEFINED || type->size == SIZE_UNDEFINED) {
 		type->size = SIZE_UNDEFINED;
-	} else if (type->storage == STORAGE_STRUCT) {
-		type->size = field->offset + dim.size;
 	} else {
-		*usize = dim.size > *usize ? dim.size : *usize;
+		type->size = field->offset + dim.size;
 	}
-	type->align = dim.align > type->align ? dim.align : type->align;
-	field->size = dim.size;
 	return field;
 }
 
@@ -318,7 +331,6 @@ struct_init_from_atype(struct context *ctx, struct type *type,
 	const struct ast_struct_union_type *atype, bool size_only)
 {
 	// TODO: fields with size SIZE_UNDEFINED
-	size_t usize = 0;
 	size_t offset = 0;
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
 	struct struct_field **next = &type->struct_union.fields;
@@ -326,7 +338,7 @@ struct_init_from_atype(struct context *ctx, struct type *type,
 	for (const struct ast_struct_union_field *afield = &atype->fields;
 			afield; afield = afield->next) {
 		struct struct_field *field = struct_new_field(ctx, type,
-			afield, &usize, &offset, size_only);
+			afield, &offset, size_only);
 		if (field == NULL) {
 			return false;
 		}
@@ -348,10 +360,6 @@ struct_init_from_atype(struct context *ctx, struct type *type,
 		}
 		*next = field;
 		next = &field->next;
-	}
-
-	if (type->storage == STORAGE_UNION) {
-		type->size = usize;
 	}
 	return true;
 }
