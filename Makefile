@@ -56,14 +56,13 @@ clean:
 	@rm -rf -- $(HARECACHE) $(BINOUT) $(harec_objects) $(tests) tests/ssa-bin.mk
 
 check: $(BINOUT)/harec tests/ssa-bin.mk
-	@echo "\n"
+	@echo
 	@make $(HARECACHE)/rt.o
 	@echo "\n\t$(patsubst rt/%,%,$(rt_ha))\n"
 
 	@make $(HARECACHE)/testmod.o
 	@#echo "\n\t$(notdir $(testmod_ha))\n"
-	@echo "\n\t$(patsubst rt/%,%,$(testmod_ha))\n"
-	@echo "\n"
+	@echo "\n\t$(patsubst testmod/%,%,$(testmod_ha))\n"
 
 	@make -f tests/ssa-bin.mk
 	@$(TDENV) ./tests/run
