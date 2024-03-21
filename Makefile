@@ -37,31 +37,31 @@ $(harec_objects): $(headers)
 	@$(CC) -c $(CFLAGS) $(C_DEFINES) -o $@ $<
 
 .s.o:
-	@printf ' :[AS]> .o'
 	@$(AS) $(ASFLAGS) -o $@ $<
 
 .ssa.s:
-	@printf ' :[QBE]> .s'
 	@$(QBE) $(QBEFLAGS) -o $@ $<
 
 .ssa.td:
 	@cmp -s $@ $@.tmp 2>/dev/null || cp $@.tmp $@
 
 .ha.ssa:
-	@#printf '%s :[HAREC]> .ssa\n' $(shell basename '$<')
-	@printf '%s :[HAREC]> .ssa\n' $(notdir $<)
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $<
 
 clean:
 	@rm -rf -- $(HARECACHE) $(BINOUT) $(harec_objects) $(tests)
 
 check: $(BINOUT)/harec
-	@echo
+	@echo "\nMOD/ :[HAREC]> .ssa :[QBE]> .s :[AS]> MOD.o"
+
+	@echo "rt\n\t$(patsubst rt/%,%,$(rt_ha))"
 	@make $(HARECACHE)/rt.o
 
+	@echo "testmod\n\t$(patsubst testmod/%,%,$(testmod_ha))\n"
 	@make $(HARECACHE)/testmod.o
-	@#echo "\n\t$(notdir $(testmod_ha))\n"
 
+	@echo "tests/ID-TEST.ha :[HAREC]> .ssa :[QBE]> .s :[AS]> .o :[LD]> EXE"
+	@#echo $(notdir $(tests))
 	@make tests
 	@$(TDENV) ./tests/run
 

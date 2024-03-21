@@ -16,14 +16,7 @@ test_objects = \
 testmod_ha = testmod/measurement.ha testmod/testmod.ha
 $(HARECACHE)/testmod.ssa: $(testmod_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
-	@printf '%-8s :[HAREC]> .ssa' testmod/
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ -t $(HARECACHE)/testmod.td.tmp -N testmod $(testmod_ha)
-
-$(HARECACHE)/testmod.o: $(HARECACHE)/testmod.s
-	@mkdir -p -- $(HARECACHE)
-	@printf ' :[AS]> .o'
-	@$(AS) $(ASFLAGS) -o $@ $<
-	@echo "\n\t$(patsubst testmod/%,%,$(testmod_ha))\n"
 
 rt_ha = \
 	rt/abort.ha \
@@ -42,14 +35,11 @@ rt_ha = \
 
 $(HARECACHE)/rt.ssa: $(rt_ha) $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
-	@printf '%-8s :[HAREC]> .ssa' rt/
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ -t $(HARECACHE)/rt.td.tmp -N rt $(rt_ha)
 
 rt_s = $(HARECACHE)/rt.s $(_rt_s)
 $(HARECACHE)/rt.o: $(rt_s)
-	@printf ' :[AS]> .o'
 	@$(AS) $(ASFLAGS) -o $@ $(rt_s)
-	@echo "\n\t$(patsubst rt/%,%,$(rt_ha))\n"
 
 ha_tests = $(patsubst %.ha,%,$(shell ls tests/*-*.ha))
 # ha_tests =
@@ -60,13 +50,11 @@ tests: $(tests)
 
 
 $(HARECACHE)/tests/%: $(HARECACHE)/rt.o $(HARECACHE)/tests/%.o
-	@#printf "LD\t%s\t\n" $@
-	@printf " :[LD]> $(notdir $@)\n"
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $^
 
 $(HARECACHE)/tests/%.ssa: tests/%.ha $(HARECACHE)/rt.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)/tests
-	@printf "%-20s :[HAREC]> .ssa" $(notdir $<)
+	@echo $(notdir $<)
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $<
 
 
