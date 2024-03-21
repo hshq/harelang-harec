@@ -28,6 +28,8 @@ $(BINOUT)/harec: $(harec_objects)
 .SUFFIXES:
 .SUFFIXES: .ha .ssa .td .c .o .s .scd .1 .5
 
+.PRECIOUS: %.s
+
 $(harec_objects): $(headers)
 
 .c.o:
@@ -35,25 +37,35 @@ $(harec_objects): $(headers)
 	@$(CC) -c $(CFLAGS) $(C_DEFINES) -o $@ $<
 
 .s.o:
-	@printf 'AS\t%s\n' '$@'
+	@printf ' :[AS]> .o'
 	@$(AS) $(ASFLAGS) -o $@ $<
 
 .ssa.s:
-	@printf 'QBE\t%s\n' '$@'
+	@printf ' :[QBE]> .s'
 	@$(QBE) $(QBEFLAGS) -o $@ $<
 
 .ssa.td:
 	@cmp -s $@ $@.tmp 2>/dev/null || cp $@.tmp $@
 
 .ha.ssa:
-	@printf 'HAREC\t%s\n' '$@'
+	@#printf '%s :[HAREC]> .ssa\n' $(shell basename '$<')
+	@printf '%s :[HAREC]> .ssa\n' $(notdir $<)
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $<
 
 clean:
 	@rm -rf -- $(HARECACHE) $(BINOUT) $(harec_objects) $(tests) tests/ssa-bin.mk
 
 check: $(BINOUT)/harec tests/ssa-bin.mk
-	make -f tests/ssa-bin.mk
+	@echo "\n"
+	@make $(HARECACHE)/rt.o
+	@echo "\n\t$(patsubst rt/%,%,$(rt_ha))\n"
+
+	@make $(HARECACHE)/testmod.o
+	@#echo "\n\t$(notdir $(testmod_ha))\n"
+	@echo "\n\t$(patsubst rt/%,%,$(testmod_ha))\n"
+	@echo "\n"
+
+	@make -f tests/ssa-bin.mk
 	@$(TDENV) ./tests/run
 
 install: $(BINOUT)/harec
