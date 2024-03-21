@@ -43,7 +43,7 @@ $(harec_objects): $(headers)
 	@$(QBE) $(QBEFLAGS) -o $@ $<
 
 .ssa.td:
-	@cmp -s $@ $@.tmp 2>/dev/null || cp $@.tmp $@
+	@cmp -s $@ $@.tmp 2>/dev/null || mv $@.tmp $@
 
 .ha.ssa:
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $<
