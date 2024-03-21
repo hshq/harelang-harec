@@ -28,7 +28,7 @@ $(BINOUT)/harec: $(harec_objects)
 .SUFFIXES:
 .SUFFIXES: .ha .ssa .td .c .o .s .scd .1 .5
 
-.PRECIOUS: %.s
+.PRECIOUS: %.td %.ssa %.s %.o
 
 $(harec_objects): $(headers)
 
@@ -53,22 +53,20 @@ $(harec_objects): $(headers)
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $<
 
 clean:
-	@rm -rf -- $(HARECACHE) $(BINOUT) $(harec_objects) $(tests) tests/ssa-bin.mk
+	@rm -rf -- $(HARECACHE) $(BINOUT) $(harec_objects) $(tests)
 
-check: $(BINOUT)/harec tests/ssa-bin.mk
+check: $(BINOUT)/harec
 	@echo
 	@make $(HARECACHE)/rt.o
-	@echo "\n\t$(patsubst rt/%,%,$(rt_ha))\n"
 
 	@make $(HARECACHE)/testmod.o
 	@#echo "\n\t$(notdir $(testmod_ha))\n"
-	@echo "\n\t$(patsubst testmod/%,%,$(testmod_ha))\n"
 
-	@make -f tests/ssa-bin.mk
+	@make tests
 	@$(TDENV) ./tests/run
 
 install: $(BINOUT)/harec
-	@# install -Dm755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
+	@#install -Dm755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
 	@install -dm755 $(DESTDIR)$(BINDIR)
 	install -m755 $(BINOUT)/harec $(DESTDIR)$(BINDIR)/harec
 
