@@ -54,7 +54,7 @@ clean:
 check: $(BINOUT)/harec
 	@echo "\nMOD/ :[HAREC]> .ssa :[QBE]> .s :[AS]> MOD.o"
 
-	@echo "rt\n\t$(patsubst rt/%,%,$(rt_ha))"
+	@echo "rt\n\t$(sort $(patsubst rt/%,%,$(rt_ha)))"
 	@make $(HARECACHE)/rt.o
 
 	@echo "testmod\n\t$(patsubst testmod/%,%,$(testmod_ha))\n"
