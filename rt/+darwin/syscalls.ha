@@ -48,8 +48,10 @@ export fn wait4(pid: int, status: *int, options: int, rusage: nullable *opaque) 
 		options: u64, rusage: uintptr: u64);
 };
 
+// <sys/wait.h>: WIFEXITED, WEXITSTATUS, WTERMSIG(_WSTATUS), WIFSIGNALED
 export fn wifexited(status: int) bool = wtermsig(status) == 0;
 export fn wexitstatus(status: int) int = (status & 0xff00) >> 8;
+// export fn wexitstatus(status: int) int = (status >> 8) & 0x00ff;
 
 export fn wtermsig(status: int) int = status & 0x7f;
 export fn wifsignaled(status: int) bool =

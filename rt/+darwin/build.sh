@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 
-EINVAL=22
+# man 3 sysexits: <sysexits.h>
+EX_USAGE=64
 
 # -------------------------------- ARCH --------------------------------
 
@@ -14,7 +15,7 @@ function dict() {
             ;;
         *)
             printf "Error: unsupported or unrecognized architecture %s\n" "$(uname -m)"
-            exit $EINVAL
+            exit $EX_USAGE
             ;;
     esac
 }
@@ -191,7 +192,7 @@ case "$STEP" in
     *)
         printf "Error: unsupported or unrecognized option %s\n" "$STEP"
         echo $0 $@
-        exit $EINVAL
+        exit $EX_USAGE
         ;;
 esac
 
