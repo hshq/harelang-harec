@@ -2386,6 +2386,9 @@ check_expr_measure(struct context *ctx,
 		}
 		struct expression *value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, value, NULL);
+		if (value->result->storage == STORAGE_ERROR) {
+			return;
+		}
 		if (value->access.type == ACCESS_FIELD) {
 			expr->literal.uval = value->access.field->offset;
 		} else {
