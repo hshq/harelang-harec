@@ -599,7 +599,7 @@ check_expr_append_insert(struct context *ctx,
 	}
 	sltype = type_dereference(ctx, sltypename);
 	if (!sltype) {
-		error(ctx, aexpr->access.tuple->loc, expr,
+		error(ctx, aexpr->append.object->loc, expr,
 			"Cannot dereference nullable pointer for %s expression",
 			exprtype_name);
 		return;
