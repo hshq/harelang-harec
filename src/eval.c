@@ -580,6 +580,9 @@ eval_cast(struct context *ctx,
 
 	if (from->storage == STORAGE_ERROR) {
 		return true;
+	} else if (from->storage == STORAGE_TAGGED) {
+		out->literal = val.literal.tagged.value->literal;
+		return true;
 	}
 
 	// XXX: We should also be able to handle expressions which use

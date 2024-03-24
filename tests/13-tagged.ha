@@ -108,6 +108,11 @@ fn casts() void = {
 	a = 0xCAFEu16;
 	x = a: u8;
 	assert(x == (if (is_little) 0xFEu8 else 0xCAu8));
+
+	// compile time
+	static assert(4: (size | void) is size);
+	static assert(4: (size | void) as size == 4z);
+	static assert(4: (size | void): size == 4z);
 };
 
 fn membercast() void = {
