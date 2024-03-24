@@ -9,7 +9,7 @@ fn scope() void = {
 			break;
 		};
 	};
-	compile(status::CHECK, "fn test() void = { for (true) { let x = 10; }; x; };")!;
+	compile(status::CHECK, "fn test() void = { for (true) { let x = 10; break; }; x; };")!;
 	// To make sure that the afterthought is part of the loop's scope
 	for (let i = 0; true; (if (true) { break; })) true;
 };
