@@ -65,6 +65,10 @@ fn measurements() void = {
 	assert(len(x) == 5);
 	assert(&x[0]: uintptr: size % size(int) == 0);
 	static assert(len([1, 2, 3, 4, 5]: []int) == 5);
+
+	compile(status::CHECK,
+		"fn test() void = { let x = []; static assert(len(x) == 0); };"
+	)!;
 };
 
 fn indexing() void = {

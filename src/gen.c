@@ -2960,36 +2960,20 @@ gen_expr_match_with(struct gen_context *ctx,
 static struct gen_value
 gen_expr_len(struct gen_context *ctx, const struct expression *expr)
 {
-	size_t len;
-	struct gen_value gv;
 	const struct expression *value = expr->len.value;
 	const struct type *type = type_dereference(NULL, value->result);
 	assert(type != NULL);
 	type = type_dealias(NULL, type);
-	switch (type->storage) {
-	case STORAGE_ARRAY:
-		len = type->array.length;
-		assert(len != SIZE_UNDEFINED);
-		return (struct gen_value){
-			.kind = GV_CONST,
-			.type = &builtin_type_size,
-			.lval = len,
-		};
-	case STORAGE_SLICE:
-	case STORAGE_STRING:
-		gv = gen_expr(ctx, value);
-		gv = gen_autoderef(ctx, gv);
-		struct qbe_value len;
-		struct gen_slice sl = gen_slice_ptrs(ctx, gv);
-		load_slice_data(ctx, &sl, NULL, &len, NULL);
-		return (struct gen_value){
-			.kind = GV_TEMP,
-			.type = &builtin_type_size,
-			.name = len.name
-		};
-	default:
-		abort(); // Invariant
-	}
+	assert(type->storage == STORAGE_SLICE || type->storage == STORAGE_STRING);
+	struct gen_value gv = gen_autoderef(ctx, gen_expr(ctx, value));
+	struct qbe_value len;
+	struct gen_slice sl = gen_slice_ptrs(ctx, gv);
+	load_slice_data(ctx, &sl, NULL, &len, NULL);
+	return (struct gen_value){
+		.kind = GV_TEMP,
+		.type = &builtin_type_size,
+		.name = len.name
+	};
 }
 
 static struct gen_value

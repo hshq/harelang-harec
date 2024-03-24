@@ -692,10 +692,6 @@ eval_len(struct context *ctx,
 	const struct type *expr_type = type_dereference(ctx, in->len.value->result);
 	assert(expr_type != NULL);
 	expr_type = type_dealias(ctx, expr_type);
-	if (expr_type->storage == STORAGE_ARRAY) {
-		out->literal.uval = expr_type->array.length;
-		return true;
-	}
 
 	struct expression obj = {0};
 	if (!eval_expr(ctx, in->len.value, &obj)) {
@@ -703,7 +699,6 @@ eval_len(struct context *ctx,
 	}
 
 	switch (obj.result->storage) {
-	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 		break;
 	case STORAGE_STRING:
@@ -712,6 +707,7 @@ eval_len(struct context *ctx,
 	case STORAGE_ERROR:
 		out->literal.uval = 0;
 		return true;
+	case STORAGE_ARRAY:
 	default:
 		abort(); // Invariant
 	}

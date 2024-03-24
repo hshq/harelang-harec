@@ -2558,17 +2558,17 @@ check_expr_measure(struct context *ctx,
 	case M_SIZE:
 		break;
 	case M_LEN:
-		expr->type = EXPR_LEN;
 		expr->len.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->len.value, NULL);
-		const struct type *atype =
+		const struct type *type =
 			type_dereference(ctx, expr->len.value->result);
-		if (!atype) {
+		if (!type) {
 			error(ctx, aexpr->access.array->loc, expr,
 				"Cannot dereference nullable pointer for len");
 			return;
 		}
-		enum type_storage vstor = type_dealias(ctx, atype)->storage;
+		type = type_dealias(ctx, type);
+		enum type_storage vstor = type->storage;
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
 			|| vstor == STORAGE_STRING || vstor == STORAGE_ERROR;
 		if (!valid) {
@@ -2579,11 +2579,19 @@ check_expr_measure(struct context *ctx,
 			free(typename);
 			return;
 		}
-		if (atype->size == SIZE_UNDEFINED) {
-			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take length of unbounded array type");
+		if (vstor == STORAGE_ARRAY) {
+			if (type->array.length == SIZE_UNDEFINED) {
+				error(ctx, aexpr->measure.value->loc, expr,
+					"Cannot take length of unbounded array type");
+				return;
+			}
+			expr->type = EXPR_LITERAL;
+			expr->result = &builtin_type_size;
+			expr->literal.object = NULL;
+			expr->literal.uval = type->array.length;
 			return;
 		}
+		expr->type = EXPR_LEN;
 		return;
 	case M_OFFSET:
 		expr->type = EXPR_LITERAL;
