@@ -3905,6 +3905,7 @@ check_exported_type(struct context *ctx,
 {
 	switch (type->storage) {
 	case STORAGE_ALIAS:
+	case STORAGE_ENUM:
 		if (!type->alias.exported) {
 			unexported_type_error(ctx, loc, type);
 		}
@@ -3962,7 +3963,6 @@ check_exported_type(struct context *ctx,
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
-	case STORAGE_ENUM:
 	case STORAGE_VALIST:
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
