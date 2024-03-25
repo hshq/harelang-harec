@@ -3315,37 +3315,25 @@ check_expr_switch(struct context *ctx,
 		}
 	}
 
-	struct located_case {
-		struct expression *_case;
-		struct location loc;
-	};
-	struct located_case *cases_array = xcalloc(n, sizeof(struct located_case));
+	struct expression **cases_array = xcalloc(n, sizeof(struct expression *));
 	size_t i = 0;
-	for (acase = aexpr->_switch.cases, _case = expr->_switch.cases;
-			_case; acase = acase->next, _case = _case->next) {
-		assert(acase);
-		const struct ast_case_option *aopt;
-		const struct case_option *opt;
-		for (aopt = acase->options, opt = _case->options;
-				opt; aopt = aopt->next, opt = opt->next) {
-			assert(aopt);
+	for (_case = expr->_switch.cases; _case; _case = _case->next) {
+		for (const struct case_option *opt = _case->options;
+				opt; opt = opt->next) {
 			assert(i < n);
-			cases_array[i]._case = opt->value;
-			cases_array[i].loc = aopt->value->loc;
+			cases_array[i] = opt->value;
 			i++;
 		}
-		assert(!aopt);
 	}
-	assert(!acase);
 	assert(i == n);
-	qsort(cases_array, n, sizeof(struct located_case), &casecmp);
+	qsort(cases_array, n, sizeof(struct expression *), &casecmp);
 	bool has_duplicate = false;
 	for (size_t i = 1; i < n; i++) {
-		if (cases_array[i]._case->result->storage == STORAGE_ERROR) {
+		if (cases_array[i]->result->storage == STORAGE_ERROR) {
 			break;
 		}
-		const struct expression_literal *a = &cases_array[i - 1]._case->literal;
-		const struct expression_literal *b = &cases_array[i]._case->literal;
+		const struct expression_literal *a = &cases_array[i - 1]->literal;
+		const struct expression_literal *b = &cases_array[i]->literal;
 		bool equal;
 		if (type_is_integer(ctx, value->result)) {
 			equal = a->uval == b->uval;
@@ -3362,7 +3350,7 @@ check_expr_switch(struct context *ctx,
 			equal = a->rune == b->rune;
 		}
 		if (equal) {
-			error(ctx, cases_array[i].loc, cases_array[i]._case,
+			error(ctx, cases_array[i]->loc, cases_array[i],
 				"Duplicate switch case");
 			has_duplicate = true;
 		}
