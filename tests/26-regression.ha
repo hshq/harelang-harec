@@ -228,4 +228,6 @@ export fn main() void = {
 	assert((if (true) 0) is int);
 	v = if (true) 0;
 	assert(v is int);
+
+	compile(status::CHECK, "fn a() void = { offset(a.b); };")!;
 };

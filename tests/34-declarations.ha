@@ -500,6 +500,8 @@ fn reject() void = {
 			compile(status::SUCCESS, *(&buf: *str))!;
 		};
 	};
+	compile(status::SUCCESS, "export type e = enum {FOO}; export fn f(x: e) e = x;")!;
+	compile(status::CHECK, "type e = enum {FOO}; export fn f(x: e) e = x;")!;
 };
 
 // Types t_0 to t_9 form a complete directed graph on 10 vertices.

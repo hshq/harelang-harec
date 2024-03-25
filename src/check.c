@@ -2386,6 +2386,9 @@ check_expr_measure(struct context *ctx,
 		}
 		struct expression *value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, value, NULL);
+		if (value->result->storage == STORAGE_ERROR) {
+			return;
+		}
 		if (value->access.type == ACCESS_FIELD) {
 			expr->literal.uval = value->access.field->offset;
 		} else {
@@ -3905,6 +3908,7 @@ check_exported_type(struct context *ctx,
 {
 	switch (type->storage) {
 	case STORAGE_ALIAS:
+	case STORAGE_ENUM:
 		if (!type->alias.exported) {
 			unexported_type_error(ctx, loc, type);
 		}
@@ -3962,7 +3966,6 @@ check_exported_type(struct context *ctx,
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
-	case STORAGE_ENUM:
 	case STORAGE_VALIST:
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
