@@ -1172,7 +1172,7 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	struct gen_value rval = gv_void;
 	if (rtype->func.result->size != 0
 			&& rtype->func.result->size != SIZE_UNDEFINED) {
-		rval = mkgtemp(ctx, rtype->func.result, "returns.%d");
+		rval = mkgtemp(ctx, rtype->func.result, ".%d");
 		call.out = xcalloc(1, sizeof(struct qbe_value));
 		*call.out = mkqval(ctx, &rval);
 		call.out->type = qtype_lookup(ctx, rtype->func.result, false);
