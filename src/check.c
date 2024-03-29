@@ -565,7 +565,6 @@ check_expr_append_insert(struct context *ctx,
 	const struct type *hint)
 {
 	assert(aexpr->type == EXPR_APPEND || aexpr->type == EXPR_INSERT);
-	expr->loc = aexpr->loc;
 	expr->type = aexpr->type;
 	expr->result = &builtin_type_void;
 	expr->append.is_static = aexpr->append.is_static;
