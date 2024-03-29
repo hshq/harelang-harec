@@ -1764,11 +1764,8 @@ check_expr_compound(struct context *ctx,
 			scope->results);
 
 	for (struct yield *yield = scope->yields; yield;) {
-		struct expression *lowered = lower_implicit_cast(ctx, 
-				expr->result, *yield->expression);
-		if (*yield->expression != lowered) {
-			*yield->expression = lowered;
-		}
+		*yield->expression = lower_implicit_cast(ctx, expr->result,
+			*yield->expression);
 
 		struct yield *next = yield->next;
 		free(yield);
