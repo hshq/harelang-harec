@@ -328,14 +328,21 @@ shift_fields(struct context *ctx,
 
 static bool
 struct_init_from_atype(struct context *ctx, struct type *type,
-	const struct ast_struct_union_type *atype, bool size_only)
+	const struct ast_type *atype, bool size_only)
 {
 	// TODO: fields with size SIZE_UNDEFINED
+	if (type->storage == STORAGE_UNION && atype->struct_union.packed) {
+		error(ctx, atype->loc, NULL,
+				"Cannot use @packed attribute for union type");
+		return false;
+	}
+	type->struct_union.packed = atype->struct_union.packed;
+	type->struct_union.c_compat = !atype->struct_union.packed;
+
 	size_t offset = 0;
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
 	struct struct_field **next = &type->struct_union.fields;
-	type->struct_union.packed = atype->packed;
-	for (const struct ast_struct_union_field *afield = &atype->fields;
+	for (const struct ast_struct_union_field *afield = &atype->struct_union.fields;
 			afield; afield = afield->next) {
 		struct struct_field *field = struct_new_field(ctx, type,
 			afield, &offset, size_only);
@@ -964,10 +971,7 @@ type_init_from_atype(struct context *ctx,
 		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		type->struct_union.c_compat = !atype->struct_union.packed;
-		type->struct_union.packed = atype->struct_union.packed;
-		if (!struct_init_from_atype(ctx, type,
-				&atype->struct_union, size_only)) {
+		if (!struct_init_from_atype(ctx, type, atype, size_only)) {
 			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}

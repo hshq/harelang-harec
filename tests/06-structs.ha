@@ -322,6 +322,9 @@ fn invariants() void = {
 	"type foo = struct { x: u64, @offset(4) y: u32 };",
 
 	"type foo = union { x: u32, @offset(4) y: u32 };",
+
+	// @packed union
+	"type foo = union @packed { x: u32, y: str };",
 	];
 	for (let i = 0z; i < len(failures); i += 1) {
 		compile(status::CHECK, failures[i])!;
