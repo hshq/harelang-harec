@@ -126,6 +126,7 @@ itrunc(struct context *ctx, const struct type *type, uint64_t val)
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		assert(0);
 	}
 	assert(0);
@@ -486,6 +487,7 @@ eval_literal(struct context *ctx,
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		out->literal = in->literal;
 		break;
 	case STORAGE_FUNCTION:
@@ -671,6 +673,7 @@ eval_cast(struct context *ctx,
 		assert(0); // Invariant
 	case STORAGE_ERROR:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		return true;
 	}
 
@@ -793,6 +796,7 @@ literal_default(struct context *ctx, struct expression *v)
 	case STORAGE_VALIST:
 		assert(0); // Invariant
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		break; // no-op
 	}
 
@@ -953,7 +957,7 @@ eval_unarithm(struct context *ctx,
 		}
 		if (in->unarithm.operand->type != EXPR_ACCESS) {
 			return false;
-		};
+		}
 		const struct expression_access *access =
 			&in->unarithm.operand->access;
 		struct expression new_in = {0};

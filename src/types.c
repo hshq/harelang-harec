@@ -74,7 +74,7 @@ type_get_field(struct context *ctx, const struct type *type, const char *name)
 {
 	if (type->storage == STORAGE_ERROR) {
 		return NULL;
-	};
+	}
 	assert(type->storage == STORAGE_STRUCT
 			|| type->storage == STORAGE_UNION);
 	struct struct_field *field = type->struct_union.fields;
@@ -206,6 +206,8 @@ type_storage_unparse(enum type_storage storage)
 		return "valist";
 	case STORAGE_VOID:
 		return "void";
+	case STORAGE_DONE:
+		return "done";
 	}
 	assert(0);
 }
@@ -215,6 +217,7 @@ type_is_integer(struct context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:
@@ -262,6 +265,7 @@ type_is_numeric(struct context *ctx, const struct type *type)
 {
 	switch (type->storage) {
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:
@@ -322,6 +326,7 @@ type_is_signed(struct context *ctx, const struct type *type)
 	}
 	switch (storage) {
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 	case STORAGE_ARRAY:
 	case STORAGE_ENUM:
 	case STORAGE_ERROR: // XXX?
@@ -402,6 +407,7 @@ type_hash(const struct type *type)
 	case STORAGE_UINTPTR:
 	case STORAGE_VALIST:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 	case STORAGE_STRING:
 		break; // built-ins
 	case STORAGE_ENUM:
@@ -480,6 +486,23 @@ strip_flags(const struct type *t, struct type *secondary)
 	secondary->flags = 0;
 	secondary->id = type_hash(secondary);
 	return secondary;
+}
+
+// Duplicate and return the tags of a tagged union
+struct type_tagged_union *
+tagged_dup_tags(const struct type_tagged_union *tags)
+{
+	struct type_tagged_union *ret = xcalloc(1, sizeof(struct type_tagged_union));
+	struct type_tagged_union *cur_ret = ret;
+
+	for (const struct type_tagged_union *tu = tags; tu; tu = tu->next) {
+		if (cur_ret->type != NULL) {
+			cur_ret->next = xcalloc(1, sizeof(struct type_tagged_union));
+			cur_ret = cur_ret->next;
+		}
+		cur_ret->type = tu->type;
+	}
+	return ret;
 }
 
 const struct type *
@@ -724,7 +747,7 @@ promote_flexible(struct context *ctx,
 		}
 		if (max_value(ctx, a) < (uint64_t)b->flexible.max) {
 			return NULL;
-		};
+		}
 		lower_flexible(ctx, b, a);
 		return a;
 	default:
@@ -787,7 +810,8 @@ type_is_assignable(struct context *ctx,
 	// const and non-const types are mutually assignable
 	struct type _to, _from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
-	if (to->id == from->id && to->storage != STORAGE_VOID) {
+	if (to->id == from->id && to->storage != STORAGE_VOID
+			&& to->storage != STORAGE_DONE) {
 		return true;
 	}
 
@@ -863,6 +887,7 @@ type_is_assignable(struct context *ctx,
 		assert(to->alias.type);
 		return type_is_assignable(ctx, to->alias.type, from);
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		return to_orig->id == from_orig->id &&
 			(from_orig->flags & TYPE_ERROR)	== (to_orig->flags & TYPE_ERROR);
 	case STORAGE_SLICE:
@@ -954,10 +979,10 @@ is_castable_with_tagged(struct context *ctx,
 const struct type *
 type_is_castable(struct context *ctx, const struct type *to, const struct type *from)
 {
-	if (to->storage == STORAGE_VOID) {
+	if (to->storage == STORAGE_VOID || to->storage == STORAGE_DONE) {
 		if (type_is_flexible(from)) {
 			lower_flexible(ctx, from, NULL);
-		};
+		}
 		return to;
 	} else if (to->storage == STORAGE_ERROR) {
 		return to;
@@ -1055,6 +1080,7 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 	case STORAGE_STRING:
 	case STORAGE_BOOL:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 	case STORAGE_OPAQUE:
 	case STORAGE_FUNCTION:
 	case STORAGE_TUPLE:
@@ -1161,7 +1187,7 @@ builtin_types_init(const char *target)
 		&builtin_type_u8, &builtin_type_u16, &builtin_type_u32,
 		&builtin_type_u64, &builtin_type_uint, &builtin_type_uintptr,
 		&builtin_type_null, &builtin_type_rune, &builtin_type_size,
-		&builtin_type_void,
+		&builtin_type_void, &builtin_type_done,
 		&builtin_type_const_bool, &builtin_type_const_f32,
 		&builtin_type_const_f64, &builtin_type_const_i8,
 		&builtin_type_const_i16, &builtin_type_const_i32,
@@ -1170,8 +1196,9 @@ builtin_types_init(const char *target)
 		&builtin_type_const_u32, &builtin_type_const_u64,
 		&builtin_type_const_uint, &builtin_type_const_uintptr,
 		&builtin_type_const_rune, &builtin_type_const_size,
-		&builtin_type_const_void, &builtin_type_str,
-		&builtin_type_const_str, &builtin_type_valist,
+		&builtin_type_const_void, &builtin_type_const_done,
+		&builtin_type_str, &builtin_type_const_str,
+		&builtin_type_valist,
 	};
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
 		builtins[i]->id = type_hash(builtins[i]);
@@ -1271,6 +1298,11 @@ builtin_type_size = {
 },
 builtin_type_void = {
 	.storage = STORAGE_VOID,
+	.size = 0,
+	.align = 0,
+},
+builtin_type_done = {
+	.storage = STORAGE_DONE,
 	.size = 0,
 	.align = 0,
 },
@@ -1376,6 +1408,12 @@ builtin_type_const_size = {
 },
 builtin_type_const_void = {
 	.storage = STORAGE_VOID,
+	.flags = TYPE_CONST,
+	.size = 0,
+	.align = 0,
+},
+builtin_type_const_done = {
+	.storage = STORAGE_DONE,
 	.flags = TYPE_CONST,
 	.size = 0,
 	.align = 0,

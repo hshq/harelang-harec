@@ -88,6 +88,8 @@ builtin_type_for_storage(enum type_storage storage, bool is_const)
 		return &builtin_type_valist;
 	case STORAGE_VOID:
 		return is_const ? &builtin_type_const_void : &builtin_type_void;
+	case STORAGE_DONE:
+		return is_const ? &builtin_type_const_done : &builtin_type_done;
 	case STORAGE_NULL:
 		return &builtin_type_null; // const null and null are the same type
 	case STORAGE_STRING:
@@ -562,7 +564,7 @@ tagged_init_from_atype(struct context *ctx,
 	tagged_init(type, tu, i);
 	if (!enforce_tagged_invariants(ctx, atype->loc, type)) {
 		*type = builtin_type_error;
-	};
+	}
 }
 
 static struct dimensions
@@ -724,6 +726,7 @@ type_init_from_atype(struct context *ctx,
 	case STORAGE_UINTPTR:
 	case STORAGE_VALIST:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		builtin = builtin_type_for_storage(type->storage, false);
 		type->size = builtin->size;
 		type->align = builtin->align;
@@ -927,7 +930,7 @@ type_init_from_atype(struct context *ctx,
 		// padding an alias can only break packed structs
 		if (type->storage != STORAGE_ALIAS) {
 			add_padding(&dim.size, dim.align);
-		};
+		}
 	}
 	return dim;
 }
@@ -1017,7 +1020,7 @@ type_store_lookup_atype(struct context *ctx, const struct ast_type *atype)
 {
 	if (atype->storage == STORAGE_NULL) {
 		return &builtin_type_null;
-	};
+	}
 	return lookup_atype(ctx, atype);
 }
 
@@ -1357,7 +1360,7 @@ type_store_reduce_result(struct context *ctx, struct location loc,
 					j->type = jt;
 					break;
 				}
-			};
+			}
 		}
 
 		if (i->type->storage == STORAGE_NULL) {

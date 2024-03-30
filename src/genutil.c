@@ -124,8 +124,10 @@ branch_copyresult(struct gen_context *ctx,
 	// the caller. This function facilitates that.
 	if (out
 		|| type_dealias(NULL, merged.type)->storage == STORAGE_VOID
+		|| type_dealias(NULL, merged.type)->storage == STORAGE_DONE
 		|| merged.type->storage == STORAGE_NEVER
 		|| type_dealias(NULL, result.type)->storage == STORAGE_VOID
+		|| type_dealias(NULL, result.type)->storage == STORAGE_DONE
 		|| result.type->storage == STORAGE_NEVER) {
 		return;
 	}

@@ -60,7 +60,7 @@ enum access_type {
 struct expression_access {
 	enum access_type type;
 	union {
-		const struct scope_object *object;
+		struct scope_object *object;
 		struct {
 			struct expression *array;
 			struct expression *index;
@@ -249,7 +249,15 @@ struct expression_delete {
 	bool is_static;
 };
 
+enum for_kind {
+	FOR_ACCUMULATOR,
+	FOR_EACH_VALUE,
+	FOR_EACH_POINTER,
+	FOR_EACH_ITERATOR,
+};
+
 struct expression_for {
+	enum for_kind kind;
 	char *label;
 	struct scope *scope;
 	struct expression *bindings;

@@ -241,7 +241,6 @@ gen_slice_ptrs(struct gen_context *ctx, struct gen_value object)
 	return slice;
 }
 
-
 void
 load_slice_data(struct gen_context *ctx, struct gen_slice *slobj,
 		struct qbe_value *base, struct qbe_value *len,
@@ -280,7 +279,7 @@ gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 			.kind = GV_GLOBAL,
 			.type = obj->type,
 			.name = ident_to_sym(&obj->ident),
-			.threadlocal = obj->threadlocal,
+			.threadlocal = obj->flags & SO_THREADLOCAL,
 		};
 	case O_CONST:
 	case O_TYPE:
@@ -1559,10 +1558,13 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 		}
 		val.type = to;
 		return val;
-	case STORAGE_VOID:
+	default: break;
+	}
+
+	// Special case: cast to type that doesn't have a size
+	if (type_dealias(NULL, to)->size == 0) {
 		gen_expr(ctx, expr->cast.value); // Side-effects
 		return gv_void;
-	default: break;
 	}
 
 	// Special case: tagged => non-tagged
@@ -1743,6 +1745,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	case STORAGE_UNION:
 	case STORAGE_VALIST:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		abort(); // Invariant
 	}
 
@@ -2098,14 +2101,68 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 static struct gen_value
 gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 {
-	struct qbe_statement lloop, lbody, lafter, lend;
+	struct qbe_statement lloop, lbody, lvalid, lafter, lend;
 	struct qbe_value bloop = mklabel(ctx, &lloop, "loop.%d");
 	struct qbe_value bbody = mklabel(ctx, &lbody, "body.%d");
+	struct qbe_value bvalid = mklabel(ctx, &lvalid, "valid.%d");
 	struct qbe_value bend = mklabel(ctx, &lend, ".%d");
 	struct qbe_value bafter = mklabel(ctx, &lafter, "after.%d");
 
-	if (expr->_for.bindings) {
+	struct gen_value gcur_object, ginitializer, gptr;
+	struct qbe_value qcur_object, qinitializer, qptr, qcur_idx, qlength;
+
+	enum for_kind kind = expr->_for.kind;
+
+	if (kind == FOR_ACCUMULATOR && expr->_for.bindings != NULL) {
 		gen_expr_binding(ctx, expr->_for.bindings);
+	}
+
+	if (kind == FOR_EACH_VALUE || kind == FOR_EACH_POINTER) {
+		ginitializer = gen_autoderef(ctx, gen_expr(ctx,
+			expr->_for.bindings->binding.initializer));
+		qinitializer = mklval(ctx, &ginitializer);
+
+		const struct type *initializer_type = type_dealias(NULL,
+			ginitializer.type);
+
+		const struct type *var_type = initializer_type->array.members;
+
+		if (kind == FOR_EACH_POINTER) {
+			var_type = type_dealias(NULL,
+				expr->_for.bindings->binding.object->type);
+		}
+
+		gcur_object = mkgtemp(ctx, var_type, "cur_object.%d");
+		qcur_object = mklval(ctx, &gcur_object);
+
+		struct qbe_value qcur_object_sz = constl(var_type->size);
+		enum qbe_instr alloc = alloc_for_align(var_type->align);
+		pushprei(ctx->current, &qcur_object, alloc, &qcur_object_sz, NULL);
+
+		if (initializer_type->storage == STORAGE_ARRAY) {
+			gptr = mkgtemp(ctx, &builtin_type_uintptr, ".%d");
+			qptr = mklval(ctx, &gptr);
+
+			pushi(ctx->current, &qptr, Q_COPY, &qinitializer, NULL);
+			qlength = constl(initializer_type->array.length);
+		} else {
+			assert(initializer_type->storage == STORAGE_SLICE);
+			qlength = mkqtmp(ctx, ctx->arch.ptr, "len.%d");
+
+			struct gen_slice slice = gen_slice_ptrs(ctx,
+				ginitializer);
+			load_slice_data(ctx, &slice, &qptr, &qlength, NULL);
+
+			gptr = (struct gen_value){
+				.kind = GV_TEMP,
+				.type = &builtin_type_uintptr,
+				.name = qptr.name
+			};
+		}
+
+		struct qbe_value qzero = constl(0);
+		qcur_idx = mkqtmp(ctx, ctx->arch.sz, "cur_idx.%d");
+		pushi(ctx->current, &qcur_idx, Q_COPY, &qzero, NULL);
 	}
 
 	push_scope(ctx, expr->_for.scope);
@@ -2113,9 +2170,164 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 	ctx->scope->end = &bend;
 
 	push(&ctx->current->body, &lloop);
-	struct gen_value cond = gen_expr(ctx, expr->_for.cond);
-	struct qbe_value qcond = mkqval(ctx, &cond);
-	pushi(ctx->current, NULL, Q_JNZ, &qcond, &bbody, &bend, NULL);
+
+	switch (kind) {
+	case FOR_EACH_VALUE:
+	case FOR_EACH_POINTER: {
+		struct qbe_value qvalid = mkqtmp(ctx, &qbe_word, "valid.%d");
+
+		pushi(ctx->current, &qvalid, Q_CULTL, &qcur_idx, &qlength, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &qvalid, &bvalid, &bend, NULL);
+		push(&ctx->current->body, &lvalid);
+
+		if (expr->_for.bindings->binding.unpack == NULL) {
+			struct expression_binding *binding =
+				&expr->_for.bindings->binding;
+			if (type_dealias(NULL, binding->object->type)->size != 0) {
+				struct gen_binding *gb =
+					xcalloc(1, sizeof(struct gen_binding));
+				gb->object = binding->object;
+				gb->value = gcur_object;
+				gb->next = ctx->bindings;
+				ctx->bindings = gb;
+			}
+		}
+
+		if (kind == FOR_EACH_VALUE) {
+			gen_copy_aligned(ctx, gcur_object, gptr);
+
+			struct binding_unpack *unpack =
+				expr->_for.bindings->binding.unpack;
+			if (unpack != NULL) {
+				for (struct binding_unpack *cur_unpack = unpack;
+						cur_unpack;
+						cur_unpack = cur_unpack->next) {
+					if (cur_unpack->object->type->size == 0) {
+						continue;
+					}
+					struct gen_binding *gb = xcalloc(1,
+						sizeof(struct gen_binding));
+
+					gb->value = mkgtemp(ctx,
+						cur_unpack->object->type,
+						"unpack.%d");
+					gb->object = cur_unpack->object;
+					gb->next = ctx->bindings;
+					ctx->bindings = gb;
+
+					struct qbe_value qoff =
+						constl(cur_unpack->offset);
+					struct qbe_value qitem = mklval(ctx,
+						&gb->value);
+					pushi(ctx->current, &qitem, Q_ADD,
+						&qcur_object, &qoff, NULL);
+				}
+			}
+		} else { // FOR_EACH_POINTER
+			enum qbe_instr store = store_for_type(ctx,
+				gcur_object.type);
+			pushi(ctx->current, NULL, store, &qptr,
+				&qcur_object, NULL);
+		}
+
+		struct qbe_value qone = constl(1);
+		pushi(ctx->current, &qcur_idx, Q_ADD, &qcur_idx, &qone, NULL);
+		break;
+	}
+	case FOR_EACH_ITERATOR:
+		ginitializer = gen_expr(ctx,
+			expr->_for.bindings->binding.initializer);
+		qinitializer = mklval(ctx, &ginitializer);
+
+		const struct type *initializer_type = type_dealias(NULL,
+			ginitializer.type);
+
+		struct qbe_value qtag = mkqtmp(ctx, &qbe_word, "tag.%d");
+		gen_load_tag(ctx, &qtag, &qinitializer, initializer_type);
+
+		const struct type *done_type = NULL;
+		for (const struct type_tagged_union *tu = &initializer_type->tagged;
+				tu; tu = tu->next) {
+			if (type_dealias(NULL, tu->type)->storage == STORAGE_DONE) {
+				done_type = tu->type;
+				break;
+			}
+		}
+
+		struct qbe_value qdone_tag = constw(done_type->id);
+		struct qbe_value qisdone = mkqtmp(ctx, &qbe_word, ".%d");
+
+		pushi(ctx->current, &qisdone, Q_CEQW, &qtag, &qdone_tag, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &qisdone, &bend, &bvalid, NULL);
+		push(&ctx->current->body, &lvalid);
+
+		struct binding_unpack *unpack = expr->_for.bindings->binding.unpack;
+		const struct type *var_type;
+
+		if (unpack != NULL) {
+			const struct type_tagged_union *tagged = &initializer_type->tagged;
+			if  (tagged->type->storage == STORAGE_TUPLE) {
+				var_type = tagged->type;
+			} else {
+				var_type = tagged->next->type;
+				assert(var_type->storage == STORAGE_TUPLE);
+			}
+		} else {
+			var_type = expr->_for.bindings->binding.object->type;
+		}
+
+		struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, "cur_val.%d");
+		struct qbe_value qoffset = nested_tagged_offset(
+			ginitializer.type, var_type);
+		pushi(ctx->current, &qptr, Q_ADD, &qinitializer, &qoffset, NULL);
+
+		if (unpack != NULL) {
+			for (struct binding_unpack *cur_unpack = unpack;
+					cur_unpack;
+					cur_unpack = cur_unpack->next) {
+				if (cur_unpack->object->type->size == 0) {
+					continue;
+				}
+				struct gen_binding *gb =
+					xcalloc(1, sizeof(struct gen_binding));
+
+				gb->value = mkgtemp(ctx, cur_unpack->object->type,
+					"unpack.%d");
+				gb->object = cur_unpack->object;
+				gb->next = ctx->bindings;
+				ctx->bindings = gb;
+
+				struct qbe_value qoff =	constl(cur_unpack->offset);
+				struct qbe_value qitem = mklval(ctx, &gb->value);
+				pushi(ctx->current, &qitem, Q_ADD,
+					&qptr, &qoff, NULL);
+			}
+		} else {
+			struct expression_binding *binding =
+				&expr->_for.bindings->binding;
+
+			if (binding->object->type->size != 0) {
+				struct gen_binding *gb =
+					xcalloc(1, sizeof(struct gen_binding));
+
+				gb->object = binding->object;
+				gb->value = (struct gen_value) {
+					.kind = GV_TEMP,
+					.type = binding->object->type,
+					.name = qptr.name,
+				};
+				gb->next = ctx->bindings;
+				ctx->bindings = gb;
+			}
+		}
+		break;
+
+	case FOR_ACCUMULATOR: {
+		struct gen_value cond = gen_expr(ctx, expr->_for.cond);
+		struct qbe_value qcond = mkqval(ctx, &cond);
+
+		pushi(ctx->current, NULL, Q_JNZ, &qcond, &bbody, &bend, NULL);
+	}}
 
 	push(&ctx->current->body, &lbody);
 	gen_expr(ctx, expr->_for.body);
@@ -2123,6 +2335,11 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 	push(&ctx->current->body, &lafter);
 	if (expr->_for.afterthought) {
 		gen_expr(ctx, expr->_for.afterthought);
+	}
+	if (kind == FOR_EACH_VALUE || kind == FOR_EACH_POINTER) {
+		struct qbe_value qmember_sz = constl(
+			type_dealias(NULL, ginitializer.type)->array.members->size);
+		pushi(ctx->current, &qptr, Q_ADD, &qptr, &qmember_sz, NULL);
 	}
 
 	gen_defers(ctx, ctx->scope);
@@ -2369,20 +2586,21 @@ nested_tagged_offset(const struct type *tu, const struct type *target)
 	// The offset of the "foo" field from the start of "bar" is 4, and the
 	// offset of int inside "foo" is 4, so the offset of int from the start
 	// of "bar" is 8. The size is at offset 8.
-	const struct type *test = tu;
-	struct qbe_value offset = constl(0);
+	const struct type *tu_memb;
+	uint64_t offset = 0;
+
 	do {
-		offset.lval += builtin_type_u32.align;
-		test = tagged_select_subtype(NULL, tu, target, false);
-		if (!test) {
+		offset += builtin_type_u32.align;
+		tu_memb = tagged_select_subtype(NULL, tu, target, false);
+		if (!tu_memb) {
 			break;
 		}
-		if (offset.lval % test->align != 0) {
-			offset.lval += test->align - offset.lval % test->align;
+		if (tu_memb->align != 0 && offset % tu_memb->align != 0) {
+			offset += tu_memb->align - offset % tu_memb->align;
 		}
-		tu = test;
-	} while (test->id != target->id && type_dealias(NULL, test)->id != target->id);
-	return offset;
+		tu = tu_memb;
+	} while (tu_memb->id != target->id && type_dealias(NULL, tu_memb)->id != target->id);
+	return constl(offset);
 }
 
 static struct gen_value
@@ -3728,6 +3946,7 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 		}
 		break;
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		break;
 	case STORAGE_ENUM:
 	case STORAGE_UNION:

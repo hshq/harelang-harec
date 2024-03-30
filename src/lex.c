@@ -38,6 +38,7 @@ static const char *tokens[] = {
 	[T_DEFER] = "defer",
 	[T_DEF] = "def",
 	[T_DELETE] = "delete",
+	[T_DONE] = "done",
 	[T_ELSE] = "else",
 	[T_ENUM] = "enum",
 	[T_EXPORT] = "export",
@@ -99,6 +100,7 @@ static const char *tokens[] = {
 	[T_DIVEQ] = "/=",
 	[T_DOT] = ".",
 	[T_DOUBLE_COLON] = "::",
+	[T_DOUBLE_DOT] = "..",
 	[T_ELLIPSIS] = "...",
 	[T_EQUAL] = "=",
 	[T_GREATER] = ">",
@@ -133,7 +135,6 @@ static const char *tokens[] = {
 	[T_RSHIFT] = ">>",
 	[T_RSHIFTEQ] = ">>=",
 	[T_SEMICOLON] = ";",
-	[T_SLICE] = "..",
 	[T_TIMES] = "*",
 	[T_TIMESEQ] = "*=",
 	[T_BXOR] = "^",
@@ -685,7 +686,7 @@ lex3(struct lexer *lexer, struct token *out, uint32_t c)
 				break;
 			default:
 				push(lexer, c, false);
-				out->token = T_SLICE;
+				out->token = T_DOUBLE_DOT;
 				break;
 			}
 			break;
@@ -1182,6 +1183,7 @@ token_str(const struct token *tok)
 		case STORAGE_UNION:
 		case STORAGE_VALIST:
 		case STORAGE_VOID:
+		case STORAGE_DONE:
 			assert(0);
 		}
 		return buf;
