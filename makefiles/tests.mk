@@ -90,7 +90,7 @@ tests/00-literals: $(HARECACHE)/rt.o $(HARECACHE)/testmod.o $(HARECACHE)/tests_0
 	@$(LD) $(LDLINKFLAGS) -T $(RTSCRIPT) -o $@ $(HARECACHE)/rt.o $(HARECACHE)/testmod.o $(HARECACHE)/tests_00_literals.o
 
 tests_00_literals_ha = tests/00-literals.ha
-$(HARECACHE)/tests_00_literals.ssa: $(tests_00_literals_ha) $(HARECACHE)/rt.td $(BINOUT)/harec
+$(HARECACHE)/tests_00_literals.ssa: $(tests_00_literals_ha) $(HARECACHE)/rt.td $(HARECACHE)/testmod.td $(BINOUT)/harec
 	@mkdir -p -- $(HARECACHE)
 	@printf 'HAREC\t%s\n' '$@'
 	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $(tests_00_literals_ha)
