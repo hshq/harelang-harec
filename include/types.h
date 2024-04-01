@@ -8,6 +8,7 @@ enum type_storage {
 	// Built-in types
 	// The order of these is important
 	STORAGE_BOOL,
+	STORAGE_DONE,
 	STORAGE_F32,
 	STORAGE_F64,
 	STORAGE_I16,
@@ -171,6 +172,8 @@ const struct struct_field *type_get_field(struct context *ctx,
 const struct type_tuple *type_get_value(
 	const struct type *type, uint64_t index);
 
+struct type_tagged_union * 
+tagged_dup_tags(const struct type_tagged_union *tags);
 const struct type *tagged_select_subtype(struct context *ctx,
 	const struct type *tagged, const struct type *subtype, bool strip);
 bool tagged_subset_compat(struct context *ctx,
@@ -226,6 +229,7 @@ extern struct type
 	builtin_type_rune,
 	builtin_type_size,
 	builtin_type_void,
+	builtin_type_done,
 	// Const primitives
 	builtin_type_const_bool,
 	builtin_type_const_f32,
@@ -246,6 +250,7 @@ extern struct type
 	builtin_type_const_rune,
 	builtin_type_const_size,
 	builtin_type_const_void,
+	builtin_type_const_done,
 	// etc
 	builtin_type_str,
 	builtin_type_const_str,

@@ -50,7 +50,7 @@ tagged_qtype(struct gen_context *ctx,
 		case 4: valuesname = "values.align4.%d"; break;
 		case 8: valuesname = "values.align8.%d"; break;
 		default: abort();
-		};
+		}
 
 		// Produces type :values = { { x, y, z } }
 		struct qbe_def *values = xcalloc(1, sizeof(struct qbe_def));
@@ -87,7 +87,7 @@ tagged_qtype(struct gen_context *ctx,
 		case 4: batchname = "tagged.align4.%d"; break;
 		case 8: batchname = "tagged.align8.%d"; break;
 		default: abort();
-		};
+		}
 
 		// Produces type :batch = { w 1, :values }
 		struct qbe_def *batch = xcalloc(1, sizeof(struct qbe_def));
@@ -117,7 +117,7 @@ tagged_qtype(struct gen_context *ctx,
 		if (align < maxalign) {
 			field->next = xcalloc(1, sizeof(struct qbe_field));
 			field = field->next;
-		};
+		}
 	}
 
 	if (minalign != 0) {
@@ -244,6 +244,7 @@ aggregate_lookup(struct gen_context *ctx, const struct type *type)
 	case STORAGE_FCONST:
 	case STORAGE_VALIST:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 	case STORAGE_FUNCTION:
 	case STORAGE_OPAQUE:
 	case STORAGE_NEVER:
@@ -304,6 +305,7 @@ qtype_lookup(struct gen_context *ctx,
 	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		abort(); // Invariant
 	case STORAGE_FCONST:
 	case STORAGE_ICONST:
@@ -337,6 +339,7 @@ type_is_aggregate(const struct type *type)
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		return false;
 	case STORAGE_FUNCTION:
 		// Special case

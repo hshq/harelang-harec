@@ -102,6 +102,9 @@ emit_literal(const struct expression *expr, FILE *out)
 	case STORAGE_VOID:
 		xfprintf(out, "void");
 		break;
+	case STORAGE_DONE:
+		xfprintf(out, "done");
+		break;
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 		xfprintf(out, "\'\\U%08" PRIx32 "\'", val->rune);
@@ -233,6 +236,7 @@ emit_type(const struct type *type, FILE *out)
 	case STORAGE_UINTPTR:
 	case STORAGE_VALIST:
 	case STORAGE_VOID:
+	case STORAGE_DONE:
 		xfprintf(out, "%s", type_storage_unparse(type->storage));
 		break;
 	case STORAGE_POINTER:

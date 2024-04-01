@@ -1,5 +1,14 @@
 use rt::{compile, status};
 
+def size_tag = 2206074632;
+def f32_tag = 1568378015;
+def int_tag = 1099590421;
+def void_tag = 3012680272;
+def u8_tag = 3181589295;
+def u16_tag = 3481467866;
+def u32_tag = 1906196061;
+def u64_tag = 1268499444;
+
 fn measurements() void = {
 	const x: (u8 | u16 | u32 | u64) = 1337u16;	// With padding
 	const alignment: size =
@@ -31,19 +40,19 @@ fn storage() void = {
 	assert(offset(y._u32) == 4);
 	assert(offset(y._u64) == 8);
 
-	assert(y.tag == 1268499444); // u8 type ID
+	assert(y.tag == u8_tag);
 	assert(y._u8 == 42);
 
 	x = 1337u16;
-	assert(y.tag == 4119164483); // u16 type ID
+	assert(y.tag == u16_tag);
 	assert(y._u16 == 1337);
 
 	x = 0xCAFEBABEu32;
-	assert(y.tag == 3481467866); // u32 type ID
+	assert(y.tag == u32_tag);
 	assert(y._u32 == 0xCAFEBABE);
 
 	x = 0xCAFEBABEDEADBEEFu64;
-	assert(y.tag == 1906196061); // u64 type ID
+	assert(y.tag == u64_tag);
 	assert(y._u64 == 0xCAFEBABEDEADBEEF);
 };
 
@@ -108,9 +117,9 @@ fn membercast() void = {
 		id: uint,
 		data: int,
 	};
-	assert(p.id == 3650376889);
+	assert(p.id == void_tag);
 	x = 1337;
-	assert(p.id == 2674862226);
+	assert(p.id == int_tag);
 	assert(p.data == 1337);
 
 	// Align of 4
@@ -122,10 +131,10 @@ fn membercast() void = {
 			fdata: f32,
 		},
 	};
-	assert(p.id == 2674862226);
+	assert(p.id == int_tag);
 	assert(p.data.idata == 1337);
 	x = 13.37f32;
-	assert(p.id == 3950255460);
+	assert(p.id == f32_tag);
 	assert(p.data.fdata == 13.37f32);
 
 	// Align of 8
@@ -134,7 +143,7 @@ fn membercast() void = {
 		id: uint,
 		data: size,
 	};
-	assert(p.id == 2843771249);
+	assert(p.id == size_tag);
 	assert(p.data == 1337z);
 };
 
@@ -148,7 +157,7 @@ fn subsetcast() void = {
 		@offset(4) i: int,
 		@offset(8) z: size,
 	};
-	assert(p.tag == 2843771249);
+	assert(p.tag == size_tag);
 	assert(p.z == 1337z);
 	// superset -> subset
 	let x: (size | void | int) = 2z;
@@ -165,7 +174,7 @@ fn subsetcast() void = {
 		@offset(4) i: int,
 		@offset(8) z: size,
 	};
-	assert(p.tag == 2674862226);
+	assert(p.tag == int_tag);
 	assert(p.i == 1337);
 	// superset -> subset
 	let x: (size | int | void) = 2i;

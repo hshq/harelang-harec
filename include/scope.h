@@ -13,12 +13,17 @@ enum object_type {
 	O_TYPE,
 };
 
+enum scope_object_flags {
+	SO_THREADLOCAL = 1 << 0,
+	SO_FOR_EACH_SUBJECT = 1 << 1,
+};
+
 struct scope_object {
 	enum object_type otype;
 	// name is the name of the object within this scope (for lookups)
 	// ident is the global identifier (these may be different in some cases)
 	struct identifier name, ident;
-	bool threadlocal;
+	enum scope_object_flags flags;
 
 	union {
 		const struct type *type;

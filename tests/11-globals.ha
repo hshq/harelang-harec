@@ -25,6 +25,9 @@ def V2: [0]int = [];
 def V3 = (void, void);
 def V4 = struct { v: void = void };
 
+def u32_tag = 1906196061;
+def u64_tag = 1268499444;
+
 fn write() void = {
 	assert(x == 42 && y == 69);
 	x = 1337;
@@ -174,7 +177,7 @@ fn tagged() void = {
 			_u32: u32,
 		},
 	};
-	assert(t4.tag == 3481467866); // u32 type ID
+	assert(t4.tag == u32_tag); // u32 type ID
 	assert(t4._u32 == 10);
 
 	let t8 = &tagged8: *struct {
@@ -185,7 +188,7 @@ fn tagged() void = {
 		},
 		@offset(8) _u64: u64,
 	};
-	assert(t8.tag == 3481467866); // u32 type ID
+	assert(t8.tag == u32_tag); // u32 type ID
 	assert(t8._u32 == 10);
 
 	let t8 = &tagged8_u64: *struct {
@@ -196,7 +199,7 @@ fn tagged() void = {
 		},
 		@offset(8) _u64: u64,
 	};
-	assert(t8.tag == 1906196061); // u64 type ID
+	assert(t8.tag == u64_tag); // u64 type ID
 	assert(t8._u64 == 10);
 };
 
