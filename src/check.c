@@ -2022,7 +2022,7 @@ check_expr_control(struct context *ctx,
 }
 
 static void
-check_expr_for_c_style(struct context *ctx,
+check_expr_for_accumulator(struct context *ctx,
 	const struct ast_expression *aexpr,
 	struct expression *expr,
 	const struct type *hint,
@@ -2283,7 +2283,7 @@ check_expr_for(struct context *ctx,
 
 	switch (expr->_for.kind) {
 	case FOR_ACCUMULATOR:
-		check_expr_for_c_style(ctx, aexpr, expr, hint, scope);
+		check_expr_for_accumulator(ctx, aexpr, expr, hint, scope);
 		break;
 	case FOR_EACH_VALUE:
 	case FOR_EACH_POINTER:
