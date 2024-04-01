@@ -54,10 +54,10 @@ clean:
 check: $(BINOUT)/harec
 	@echo "\nMOD/ :[HAREC]> .ssa :[QBE]> .s :[AS]> MOD.o"
 
-	@echo "rt\n\t$(patsubst  %,\n\t%,$(sort $(patsubst rt/%,%,$(rt_ha))))"
+	@echo "rt\t$(patsubst  %,\n\t%,$(sort $(patsubst rt/%,%,$(rt_ha))))"
 	@make $(HARECACHE)/rt.o
 
-	@echo "testmod\n\t$(patsubst  %,\n\t%,$(patsubst testmod/%,%,$(testmod_ha)))\n"
+	@echo "testmod\t$(patsubst  %,\n\t%,$(patsubst testmod/%,%,$(testmod_ha)))\n"
 	@make $(HARECACHE)/testmod.o
 
 	@echo "tests/ID-TEST.ha :[HAREC]> .ssa :[QBE]> .s :[AS]> .o :[LD]> EXE"
