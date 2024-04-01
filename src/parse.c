@@ -315,6 +315,15 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 		}
 
 		switch (lex(lexer, &tok)) {
+		case T_EQUAL:
+			(*next)->default_value = parse_expression(lexer);
+			break;
+		default:
+			unlex(lexer, &tok);
+			break;
+		}
+
+		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			(*next)->next = mkfuncparams(lexer->loc);
 			next = &(*next)->next;
@@ -326,7 +335,7 @@ parse_parameter_list(struct lexer *lexer, struct ast_function_type *type)
 		case T_RPAREN:
 			return;
 		default:
-			synerr(&tok, T_COMMA, T_ELLIPSIS, T_RPAREN, T_EOF);
+			synerr(&tok, T_COMMA, T_ELLIPSIS, T_RPAREN, T_EQUAL, T_EOF);
 		}
 	}
 }

@@ -79,6 +79,7 @@ enum variadism {
 
 struct type_func_param {
 	const struct type *type;
+	struct expression *default_value;
 	struct type_func_param *next;
 };
 

@@ -431,6 +431,10 @@ type_hash(const struct type *type)
 		for (struct type_func_param *param = type->func.params;
 				param; param = param->next) {
 			hash = fnv1a_u32(hash, type_hash(param->type));
+			if (param->default_value) {
+				hash = fnv1a_u32(hash, expr_hash(
+					param->default_value));
+			}
 		}
 		break;
 	case STORAGE_FCONST:
