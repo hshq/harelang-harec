@@ -680,6 +680,42 @@ add_padding(size_t *size, size_t align)
 	}
 }
 
+static bool
+default_param_from_atype(struct context *ctx,
+	const struct ast_function_parameters *aparam,
+	struct type_func_param *param)
+{
+	// This is leaked. check_expression makes a flexible ref that may be
+	// updated later, so it cannot be on the stack.
+	struct expression *in = xcalloc(1, sizeof(struct expression));
+	check_expression(ctx, aparam->default_value, in, param->type);
+	if (!type_is_assignable(ctx, param->type, in->result)) {
+		char *restypename = gen_typename(in->result);
+		char *partypename = gen_typename(param->type);
+		error(ctx, aparam->loc, NULL,
+			"Result value %s is not assignable to parameter type %s",
+			restypename, partypename);
+		free(restypename);
+		free(partypename);
+		return false;
+	}
+	param->default_value = xcalloc(1, sizeof(struct expression));
+	struct expression *cast = lower_implicit_cast(ctx, param->type, in);
+	if (!eval_expr(ctx, cast, param->default_value)) {
+		error(ctx, aparam->loc, NULL,
+			"Unable to evaluate default parameter at compile time");
+		return false;
+	}
+	// TODO remove this check once it works
+	if (param->default_value->result->storage == STORAGE_POINTER &&
+			param->default_value->literal.object != NULL) {
+		error(ctx, aparam->loc, NULL,
+			"Non-null pointer optional parameters are not currently supported. Will fix.");
+		return false;
+	}
+	return true;
+}
+
 static struct dimensions
 type_init_from_atype(struct context *ctx,
 	struct type *type,
@@ -822,10 +858,24 @@ type_init_from_atype(struct context *ctx,
 		type->func.result = lookup_atype(ctx, atype->func.result);
 		type->func.variadism = atype->func.variadism;
 		struct type_func_param *param, **next = &type->func.params;
+		bool has_optional = false;
 		for (struct ast_function_parameters *aparam = atype->func.params;
 				aparam; aparam = aparam->next) {
 			param = *next = xcalloc(1, sizeof(struct type_func_param));
 			param->type = lookup_atype(ctx, aparam->type);
+			if (aparam->default_value != NULL) {
+				has_optional = true;
+				if (!default_param_from_atype(ctx,
+						aparam, param)) {
+					*type = builtin_type_error;
+					return (struct dimensions){0};
+				}
+			} else if (has_optional) {
+				error(ctx, atype->loc, NULL,
+					"Required function parameter may not follow optional parameters");
+				*type = builtin_type_error;
+				return (struct dimensions){0};
+			}
 			if (param->type->size == SIZE_UNDEFINED) {
 				error(ctx, atype->loc, NULL,
 					"Function parameter types must have defined size");
@@ -838,6 +888,12 @@ type_init_from_atype(struct context *ctx,
 					ctx, aparam->loc, param->type);
 			}
 			next = &param->next;
+		}
+		if (atype->func.variadism != VARIADISM_NONE && has_optional) {
+			error(ctx, atype->loc, NULL,
+				"Variadic function may not have optional parameters");
+			*type = builtin_type_error;
+			return (struct dimensions){0};
 		}
 		break;
 	case STORAGE_POINTER:

@@ -35,6 +35,7 @@ harec_objects = \
 	src/check.o \
 	src/emit.o \
 	src/eval.o \
+	src/expr.o \
 	src/gen.o \
 	src/genutil.o \
 	src/identifier.o \
@@ -63,6 +64,7 @@ $(BINOUT)/harec: $(harec_objects)
 src/check.o: $(headers)
 src/emit.o: $(headers)
 src/eval.o: $(headers)
+src/expr.o: $(headers)
 src/gen.o: $(headers)
 src/genutil.o: $(headers)
 src/identifier.o: $(headers)

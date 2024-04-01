@@ -385,4 +385,6 @@ struct expression {
 	};
 };
 
+uint32_t expr_hash(const struct expression *expr);
+
 #endif

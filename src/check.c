@@ -139,7 +139,7 @@ error_norec(struct context *ctx, struct location loc, const char *fmt, ...)
 	abort();
 }
 
-static struct expression *
+struct expression *
 lower_implicit_cast(struct context *ctx,
 		const struct type *to, struct expression *expr)
 {
@@ -1511,10 +1511,17 @@ check_expr_call(struct context *ctx,
 			"Too many parameters for function call");
 		return;
 	}
-	if (param) {
+	if (param && param->default_value == NULL) {
 		error(ctx, aexpr->loc, expr,
 			"Not enough parameters for function call");
 		return;
+	} else {
+		while (param) {
+			arg = *next = xcalloc(1, sizeof(struct call_argument));
+			arg->value = param->default_value;
+			next = &arg->next;
+			param = param->next;
+		}
 	}
 
 }

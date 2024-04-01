@@ -86,6 +86,7 @@ emit_literal(const struct expression *expr, FILE *out)
 		xfprintf(out, "%" PRIi64 "%s", val->ival,
 			storage_to_suffix(type_dealias(NULL, expr->result)->storage));
 		break;
+	case STORAGE_POINTER: // TODO
 	case STORAGE_NULL:
 		xfprintf(out, "null");
 		break;
@@ -139,6 +140,7 @@ emit_literal(const struct expression *expr, FILE *out)
 		xfprintf(out, ": ");
 		emit_type(expr->literal.tagged.tag, out);
 		break;
+	case STORAGE_SLICE:
 	case STORAGE_ARRAY:
 		xfprintf(out, "[");
 		for (const struct array_literal *item = val->array;
@@ -164,7 +166,6 @@ emit_literal(const struct expression *expr, FILE *out)
 		}
 		xfprintf(out, ")");
 		break;
-	case STORAGE_SLICE:
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
 		assert(0); // TODO
@@ -173,7 +174,6 @@ emit_literal(const struct expression *expr, FILE *out)
 	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
-	case STORAGE_POINTER:
 	case STORAGE_VALIST:
 		assert(0); // Invariant
 	}
@@ -350,6 +350,10 @@ emit_decl_func(struct declaration *decl, FILE *out)
 			param; param = param->next) {
 		if (param->next) {
 			emit_type(param->type, out);
+			if (param->default_value) {
+				xfprintf(out, " = ");
+				emit_literal(param->default_value, out);
+			}
 			xfprintf(out, ", ");
 		} else if (fntype->func.variadism == VARIADISM_HARE) {
 			emit_type(param->type->array.members, out);
@@ -359,6 +363,10 @@ emit_decl_func(struct declaration *decl, FILE *out)
 			xfprintf(out, ", ...");
 		} else {
 			emit_type(param->type, out);
+			if (param->default_value) {
+				xfprintf(out, " = ");
+				emit_literal(param->default_value, out);
+			}
 		}
 	}
 

@@ -10,6 +10,7 @@ test_objects = \
 	src/check.o \
 	src/utf8.o \
 	src/eval.o \
+	src/expr.o \
 	src/typedef.o \
 	src/mod.o
 

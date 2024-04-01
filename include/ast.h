@@ -54,6 +54,7 @@ struct ast_function_parameters {
 	struct location loc;
 	char *name;
 	struct ast_type *type;
+	struct ast_expression *default_value;
 	struct ast_function_parameters *next;
 };
 

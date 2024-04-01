@@ -123,6 +123,9 @@ void mkstrliteral(struct expression *expr, const char *fmt, ...);
 
 char *gen_typename(const struct type *type);
 
+struct expression *lower_implicit_cast(struct context *ctx,
+		const struct type *to, struct expression *expr);
+
 typedef void (*resolvefn)(struct context *,
 		struct incomplete_declaration *idecl);
 

@@ -104,6 +104,14 @@ fn reject() void = {
 
 		// https://todo.sr.ht/~sircmpwn/hare/917
 		"fn f(arg: T...) void; fn g() void = f(1);",
+
+		// required params may not follow optional
+		"fn f(a: int = 5, b: int) void = void;",
+		// no variadism after optional params
+		"fn f(a: int = 5, ...) void = void;",
+		"fn f(a: int = 5, b: int...) void = void;",
+		// default value must be assignable to type
+		"fn f(a: str = 5) void = void;",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
@@ -152,6 +160,51 @@ fn _never() void = {
 	abort();
 };
 
+type int_alias = int;
+
+fn optional_simple(a: int, b: int = 3) int = b;
+fn optional_str(x: str = "hi") str = x;
+fn optional_add(a: int = 3, b: int = 2) int = a + b;
+fn optional_tagged(x: (int | void) = void) (int | void) = x;
+fn optional_tuple(x: (int, str) = (42, "hi")) str = x.1;
+fn optional_alias(x: int_alias = 3) int_alias = x;
+fn optional_alias2(x: int = 3: int_alias) int = x;
+fn optional_slc(x: []int = []) size = len(x);
+fn optional_slc2(x: []int = [1, 2]) int = {
+	// Call repeatedly in a loop to check that the slice is fresh each time.
+	assert(x[1] == 2);
+	x[1] = 3;
+	return x[0];
+};
+fn optional_ptr(x: nullable *int = null) bool = x is null;
+
+fn optional_params() void = {
+	assert(optional_simple(5, 1) == 1);
+	assert(optional_simple(5) == 3);
+	assert(optional_str() == "hi");
+	assert(optional_str("hello") == "hello");
+	assert(optional_add() == 5);
+	assert(optional_add(1) == 3);
+	assert(optional_add(1, 1) == 2);
+	assert(optional_tagged() is void);
+	assert(optional_tagged(5) as int == 5);
+	assert(optional_tuple() == "hi");
+	assert(optional_tuple((12, "wow")) == "wow");
+	assert(optional_alias() == 3);
+	assert(optional_alias(1: int_alias) == 1);
+	assert(optional_alias2() == 3);
+	assert(optional_alias2(1: int_alias) == 1);
+	assert(optional_slc() == 0);
+	assert(optional_slc([1, 2, 3]) == 3);
+	for (let i = 0; i < 3; i += 1) {
+		assert(optional_slc2() == 1);
+		assert(optional_slc2([2, 2]) == 2);
+	};
+	assert(optional_ptr());
+	let i = 0;
+	assert(!optional_ptr(&i));
+};
+
 export fn main() void = {
 	assert(simple() == 69);
 	pointers();
@@ -160,5 +213,6 @@ export fn main() void = {
 	zerosizeparams();
 	assert(x == 1337);
 	reject();
+	optional_params();
 	_never();
 };
