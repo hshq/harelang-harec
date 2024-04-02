@@ -828,48 +828,39 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, struct qbe_value obase
 		struct qbe_value ostart, struct qbe_value olen,
 		const struct expression *rvalue)
 {
-	const struct type *sltype = rvalue->result->array.members;
-	const struct qbe_type *slqtype = qtype_lookup(ctx, sltype, false);
+	size_t arrlen = rvalue->result->array.length;
+	size_t membsz = rvalue->result->array.members->size;
 
-	// get the destination
-	struct qbe_value sz = constl(rvalue->result->array.members->size);
-	struct qbe_value off = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	struct qbe_value odata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &off, Q_MUL, &ostart, &sz, NULL);
-	pushi(ctx->current, &odata, Q_ADD, &obase, &off, NULL);
-
-	// check if there is anything to do
-	struct qbe_statement lzero, lnonzero;
-	struct qbe_value bzero = mklabel(ctx, &lzero, ".%d");
-	struct qbe_value bnonzero = mklabel(ctx, &lnonzero, ".%d");
-
+	struct qbe_statement pass, fail;
+	struct qbe_value lpass = mklabel(ctx, &pass, ".%d");
+	struct qbe_value lfail = mklabel(ctx, &fail, ".%d");
+	struct qbe_value cmplen = constl(arrlen);
 	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
-	struct qbe_value zero = constl(0);
-	pushi(ctx->current, &cmpres, Q_CNEL, &olen, &zero, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bnonzero, &bzero, NULL);
-	push(&ctx->current->body, &lnonzero);
+	pushi(ctx->current, &cmpres, Q_CULEL, &olen, &cmplen, NULL);
+	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &lfail, &lpass, NULL);
+	push(&ctx->current->body, &fail);
+	gen_fixed_abort(ctx, rvalue->loc, ABORT_OOB);
+	push(&ctx->current->body, &pass);
 
-	// get the source
-	struct gen_value val = gen_expr(ctx, rvalue);
-	struct qbe_value qval = mkqval(ctx, &val);
-	struct qbe_value vdata = mkqtmp(ctx, slqtype, ".%d");
-	enum qbe_instr load = load_for_type(ctx, sltype);
-	pushi(ctx->current, &vdata, load, &qval, NULL);
+	struct qbe_value sz = constl(membsz);
+	struct qbe_value off = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	struct gen_value odata = mkgtemp(ctx, &builtin_type_uintptr, ".%d");
+	struct qbe_value qodata = mkqval(ctx, &odata);
+	pushi(ctx->current, &off, Q_MUL, &ostart, &sz, NULL);
+	pushi(ctx->current, &qodata, Q_ADD, &obase, &off, NULL);
 
-	// copy the first item
-	enum qbe_instr store = store_for_type(ctx, sltype);
-	pushi(ctx->current, NULL, store, &vdata, &odata, NULL);
+	gen_expr_at(ctx, rvalue, odata);
 
 	// perform the copy minus the first element
-	struct qbe_value isize = constl(sltype->size);
+	struct qbe_value loffset = constl(membsz * (arrlen - 1));
+	struct qbe_value last = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	pushi(ctx->current, &last, Q_ADD, &qodata, &loffset, NULL);
+	struct qbe_value noffset = constl(membsz * arrlen);
 	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &next, Q_ADD, &odata, &isize, NULL);
-	struct qbe_value one = constl(1);
-	pushi(ctx->current, &olen, Q_SUB, &olen, &one, NULL);
-	pushi(ctx->current, &olen, Q_MUL, &olen, &isize, NULL);
-	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &odata, &olen, NULL);
-
-	push(&ctx->current->body, &lzero);
+	pushi(ctx->current, &next, Q_ADD, &qodata, &noffset, NULL);
+	pushi(ctx->current, &olen, Q_MUL, &olen, &sz, NULL);
+	pushi(ctx->current, &olen, Q_SUB, &olen, &noffset, NULL);
+	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &olen, NULL);
 
 	return gv_void;
 }
