@@ -1,6 +1,5 @@
 .bin/
 .cache/
-src/*.o
 tests/*
 !tests/*.ha
 !tests/*.c

@@ -1,5 +1,5 @@
 TDENV = env HARE_TD_rt=$(HARECACHE)/rt.td HARE_TD_testmod=$(HARECACHE)/testmod.td
-test_objects = \
+test_objects = $(patsubst %,$(HARECACHE)/%,\
 	src/lex.o \
 	src/parse.o \
 	src/type_store.o \
@@ -12,7 +12,7 @@ test_objects = \
 	src/eval.o \
 	src/expr.o \
 	src/typedef.o \
-	src/mod.o
+	src/mod.o)
 
 testmod_ha = testmod/measurement.ha testmod/testmod.ha
 $(HARECACHE)/testmod.ssa: $(testmod_ha) $(HARECACHE)/rt.td $(BINOUT)/harec

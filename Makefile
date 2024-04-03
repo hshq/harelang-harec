@@ -18,7 +18,7 @@ headers = include/*.h
 # harec_objects := $(harec_srcs:.c=.o)
 # harec_objects = $(patsubst %.c,%.o,$(harec_srcs))
 # harec_objects = $(patsubst %.c,%.o,$(shell ls src/*.c))
-harec_objects = $(patsubst %.c,%.o,$(shell ls src/*.c))
+harec_objects = $(patsubst %.c,$(HARECACHE)/%.o,$(shell ls src/*.c))
 
 $(BINOUT)/harec: $(harec_objects)
 	@mkdir -p -- $(BINOUT)
@@ -31,10 +31,13 @@ $(BINOUT)/harec: $(harec_objects)
 .PRECIOUS: %.td %.ssa %.s %.o
 
 $(harec_objects): $(headers)
-
-.c.o:
+	@mkdir -p -- $(dir $@)
 	@printf 'CC\t%s\n' '$@'
-	@$(CC) -c $(CFLAGS) $(C_DEFINES) -o $@ $<
+	@$(CC) -c $(CFLAGS) $(C_DEFINES) -o $@ $(patsubst $(HARECACHE)/%.o,%.c,$@)
+
+# .c.o:
+# 	@printf 'CC\t%s\n' '$@'
+# 	@$(CC) -c $(CFLAGS) $(C_DEFINES) -o $@ $<
 
 .s.o:
 	@$(AS) $(ASFLAGS) -o $@ $<
