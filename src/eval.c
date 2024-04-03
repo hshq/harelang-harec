@@ -14,8 +14,8 @@
 
 static bool
 eval_access(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	struct expression tmp = {0};
 	switch (in->access.type) {
@@ -144,8 +144,8 @@ ftrunc(struct context *ctx, const struct type *type, double val)
 
 static bool
 eval_binarithm(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	struct expression lvalue = {0}, rvalue = {0};
 	if (!eval_expr(ctx, in->binarithm.lvalue, &lvalue)) {
@@ -398,8 +398,8 @@ eval_binarithm(struct context *ctx,
 
 static bool
 eval_literal(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	enum type_storage storage = type_dealias(ctx, out->result)->storage;
 	if (storage == STORAGE_ENUM) {
@@ -503,7 +503,7 @@ eval_literal(struct context *ctx,
 static void
 eval_expand_array(struct context *ctx,
 	const struct type *intype, const struct type *outtype,
-	const struct expression *in, struct expression *out)
+	const struct expression *restrict in, struct expression *restrict out)
 {
 	assert(in->type == EXPR_LITERAL);
 	assert(out->type == EXPR_LITERAL);
@@ -523,8 +523,8 @@ eval_expand_array(struct context *ctx,
 }
 
 static bool
-eval_type_assertion(struct context *ctx, const struct expression *in,
-		struct expression *out)
+eval_type_assertion(struct context *ctx, const struct expression *restrict in,
+		struct expression *restrict out)
 {
 	struct expression val = {0};
 	if (!eval_expr(ctx, in->cast.value, &val)) {
@@ -543,8 +543,8 @@ eval_type_assertion(struct context *ctx, const struct expression *in,
 }
 
 static bool
-eval_type_test(struct context *ctx, const struct expression *in,
-		struct expression *out)
+eval_type_test(struct context *ctx, const struct expression *restrict in,
+		struct expression *restrict out)
 {
 	struct expression val = {0};
 	if (!eval_expr(ctx, in->cast.value, &val)) {
@@ -561,8 +561,8 @@ eval_type_test(struct context *ctx, const struct expression *in,
 
 static bool
 eval_cast(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	struct expression val = {0};
 	if (!eval_expr(ctx, in->cast.value, &val)) {
@@ -579,6 +579,9 @@ eval_cast(struct context *ctx,
 	}
 
 	if (from->storage == STORAGE_ERROR) {
+		return true;
+	} else if (from->storage == STORAGE_TAGGED) {
+		out->literal = val.literal.tagged.value->literal;
 		return true;
 	}
 
@@ -682,17 +685,13 @@ eval_cast(struct context *ctx,
 
 static bool
 eval_len(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	assert(in->type == EXPR_LEN);
 	const struct type *expr_type = type_dereference(ctx, in->len.value->result);
 	assert(expr_type != NULL);
 	expr_type = type_dealias(ctx, expr_type);
-	if (expr_type->storage == STORAGE_ARRAY) {
-		out->literal.uval = expr_type->array.length;
-		return true;
-	}
 
 	struct expression obj = {0};
 	if (!eval_expr(ctx, in->len.value, &obj)) {
@@ -700,7 +699,6 @@ eval_len(struct context *ctx,
 	}
 
 	switch (obj.result->storage) {
-	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
 		break;
 	case STORAGE_STRING:
@@ -709,6 +707,7 @@ eval_len(struct context *ctx,
 	case STORAGE_ERROR:
 		out->literal.uval = 0;
 		return true;
+	case STORAGE_ARRAY:
 	default:
 		abort(); // Invariant
 	}
@@ -868,8 +867,8 @@ autofill_struct(struct context *ctx, const struct type *type, struct struct_lite
 
 static bool
 eval_struct(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	assert(in->type == EXPR_STRUCT);
 	assert(type_dealias(ctx, in->result)->storage != STORAGE_UNION); // TODO
@@ -914,8 +913,8 @@ eval_struct(struct context *ctx,
 
 static bool
 eval_tuple(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	assert(in->type == EXPR_TUPLE);
 	const struct type *type = type_dealias(ctx, in->result);
@@ -945,8 +944,8 @@ eval_tuple(struct context *ctx,
 
 static bool
 eval_unarithm(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	if (in->unarithm.op == UN_ADDRESS) {
 		if (in->unarithm.operand->result == &builtin_type_error) {
@@ -1031,8 +1030,8 @@ eval_unarithm(struct context *ctx,
 
 bool
 eval_expr(struct context *ctx,
-	const struct expression *in,
-	struct expression *out)
+	const struct expression *restrict in,
+	struct expression *restrict out)
 {
 	out->result = in->result;
 	out->type = EXPR_LITERAL;

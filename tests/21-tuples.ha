@@ -12,6 +12,13 @@ fn storage() void = {
 	let ptr = &x: *struct { i: int, z: size };
 	assert(ptr.i == 42 && ptr.z == 1337);
 
+	assert(size((i8, int, size)) == 2 * size(size));
+	assert(size((int, i8, size)) == 2 * size(size));
+	assert(size((size, int, i8)) == 2 * size(size));
+	assert(size((size, i8, int)) == 2 * size(size));
+	assert(size((i8, size, int)) == 3 * size(size));
+	assert(size((int, size, i8)) == 3 * size(size));
+
 	let x: (int, void, size) = (42, void, 1337);
 	assert(size((int, void, size)) == size((int, size)));
 	assert(size((int, (void, size))) == size((int, size)));

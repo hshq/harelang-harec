@@ -225,6 +225,10 @@ fn autofill() void = {
 };
 
 fn invariants() void = {
+	// embedding a non-alias type
+	compile(status::PARSE, "type t = struct { u8, x: int };")!;
+	compile(status::PARSE, "type t = struct { x: int, u8};")!;
+
 	const failures = [
 	// Assign field from non-assignable type:
 	"fn test() void = { let x: struct { y: int } = struct { y: int = 10u }; };",
@@ -245,6 +249,16 @@ fn invariants() void = {
 
 	"type e = struct { x: int }, s = struct { e, y: int};"
 	"fn test() s = s { x = 5, x = 7 };",
+
+	// embedding a nonexistent identifier
+	"type t = struct { a, x: int };"
+	"type t = struct { x: int, a };"
+	// embedding a non-struct alias
+	"type a = str; type t = struct { a, x: int };"
+	"type a = str; type t = struct { x: int, a };"
+	// embedding a non-type object
+	"let a: int = 6; type t = struct { a, x: int };"
+	"let a: int = 6; type t = struct { x: int, a };"
 
 	// Duplicate members
 	"type s = struct { a: int, a: int };"

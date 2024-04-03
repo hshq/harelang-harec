@@ -146,14 +146,12 @@ struct_union_has_field(struct context *ctx,
 }
 
 static struct struct_field *
-struct_new_field(struct context *ctx, const struct struct_field *fields,
-	enum type_storage storage, size_t *size, size_t *usize, size_t *align,
-	size_t *offset, const struct ast_struct_union_type *atype,
+struct_new_field(struct context *ctx, struct type *type,
 	const struct ast_struct_union_field *afield,
-	bool *ccompat, bool size_only, bool last)
+	size_t *usize, size_t *offset, bool size_only)
 {
 	if (afield->name != NULL && !size_only) {
-		if (struct_union_has_field(ctx, afield->name, fields)) {
+		if (struct_union_has_field(ctx, afield->name, type->struct_union.fields)) {
 			error(ctx, afield->type->loc, NULL,
 				"Duplicate struct/union member '%s'",
 				afield->name);
@@ -171,7 +169,7 @@ struct_new_field(struct context *ctx, const struct struct_field *fields,
 	} else {
 		dim = lookup_atype_with_dimensions(ctx, &field->type, afield->type);
 	}
-	if (!last && dim.size == SIZE_UNDEFINED) {
+	if (afield->next != NULL && dim.size == SIZE_UNDEFINED) {
 		error(ctx, afield->type->loc, NULL,
 			"Type of undefined size is not a valid struct/union member");
 		return NULL;
@@ -183,7 +181,7 @@ struct_new_field(struct context *ctx, const struct struct_field *fields,
 	}
 
 	if (afield->offset) {
-		*ccompat = false;
+		type->struct_union.c_compat = false;
 		struct expression in, out;
 		check_expression(ctx, afield->offset, &in, NULL);
 		field->offset = *offset;
@@ -199,16 +197,16 @@ struct_new_field(struct context *ctx, const struct struct_field *fields,
 		} else if (out.literal.uval < *offset) {
 			error(ctx, in.loc, NULL,
 				"Field offset must be greater than or equal to previous field's offset");
-		} else if (out.literal.uval < *size) {
+		} else if (out.literal.uval < type->size) {
 			error(ctx, in.loc, NULL,
 				"Fields must not have overlapping storage");
 		} else {
 			field->offset = *offset = (size_t)out.literal.uval;
 		}
-	} else if (atype->packed) {
-		field->offset = *offset = *size;
+	} else if (type->struct_union.packed) {
+		field->offset = *offset = type->size;
 	} else {
-		*offset = *size;
+		*offset = type->size;
 		if (dim.align != 0 && *offset % dim.align) {
 			*offset += dim.align - (*offset % dim.align);
 		}
@@ -216,14 +214,14 @@ struct_new_field(struct context *ctx, const struct struct_field *fields,
 		assert(dim.align == 0 || field->offset % dim.align == 0);
 	}
 
-	if (dim.size == SIZE_UNDEFINED || *size == SIZE_UNDEFINED) {
-		*size = SIZE_UNDEFINED;
-	} else if (storage == STORAGE_STRUCT) {
-		*size = field->offset + dim.size;
+	if (dim.size == SIZE_UNDEFINED || type->size == SIZE_UNDEFINED) {
+		type->size = SIZE_UNDEFINED;
+	} else if (type->storage == STORAGE_STRUCT) {
+		type->size = field->offset + dim.size;
 	} else {
 		*usize = dim.size > *usize ? dim.size : *usize;
 	}
-	*align = dim.align > *align ? dim.align : *align;
+	type->align = dim.align > type->align ? dim.align : type->align;
 	field->size = dim.size;
 	return field;
 }
@@ -311,29 +309,28 @@ shift_fields(struct context *ctx,
 }
 
 static void
-struct_init_from_atype(struct context *ctx, enum type_storage storage,
-	size_t *size, size_t *align, struct struct_field **fields,
-	const struct ast_struct_union_type *atype, bool *ccompat, bool size_only)
+struct_init_from_atype(struct context *ctx, struct type *type,
+	const struct ast_struct_union_type *atype, bool size_only)
 {
 	// TODO: fields with size SIZE_UNDEFINED
 	size_t usize = 0;
 	size_t offset = 0;
-	assert(storage == STORAGE_STRUCT || storage == STORAGE_UNION);
-	struct struct_field **next = fields;
+	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
+	struct struct_field **next = &type->struct_union.fields;
+	type->struct_union.packed = atype->packed;
 	for (const struct ast_struct_union_field *afield = &atype->fields;
 			afield; afield = afield->next) {
-		bool last = afield->next == NULL;
-		struct struct_field *field = struct_new_field(ctx, *fields,
-			storage, size, &usize, align, &offset, atype, afield,
-			ccompat, size_only, last);
-		if (field == NULL) {
+		struct struct_field *field = struct_new_field(ctx, type,
+			afield, &usize, &offset, size_only);
+	if (field == NULL) {
 			return;
 		}
 		if (size_only) {
 			free(field);
 			continue;
 		} else if (!field->name) {
-			if (!check_embedded_member(ctx, afield, field, *fields)) {
+			if (!check_embedded_member(ctx, afield, field,
+						type->struct_union.fields)) {
 				return;
 			}
 			// We need to shift the embedded struct/union's fields
@@ -348,8 +345,8 @@ struct_init_from_atype(struct context *ctx, enum type_storage storage,
 		next = &field->next;
 	}
 
-	if (storage == STORAGE_UNION) {
-		*size = usize;
+	if (type->storage == STORAGE_UNION) {
+		type->size = usize;
 	}
 }
 
@@ -647,7 +644,11 @@ tuple_init_from_atype(struct context *ctx,
 			return (struct dimensions){0};
 		}
 		if (memb.align != 0) {
-			offset = (dim.size + memb.align - 1) & (~(memb.align - 1));
+			offset = dim.size;
+			if (dim.size % memb.align) {
+				offset += memb.align - dim.size % memb.align;
+			}
+			// offset = (dim.size + memb.align - 1) & (~(memb.align - 1));
 			dim.size = offset + memb.size;
 		}
 		if (dim.align < memb.align) {
@@ -952,10 +953,7 @@ type_init_from_atype(struct context *ctx,
 	case STORAGE_UNION:
 		type->struct_union.c_compat = !atype->struct_union.packed;
 		type->struct_union.packed = atype->struct_union.packed;
-		struct_init_from_atype(ctx, type->storage, &type->size,
-			&type->align, &type->struct_union.fields,
-			&atype->struct_union, &type->struct_union.c_compat,
-			size_only);
+		struct_init_from_atype(ctx, type, &atype->struct_union, size_only);
 		break;
 	case STORAGE_TAGGED:
 		if (size_only) {
@@ -1303,8 +1301,11 @@ type_store_lookup_tuple(struct context *ctx, struct location loc,
 			type.align = t->type->align;
 		}
 		if (t->type->align != 0) {
-			t->offset = type.size % t->type->align + type.size;
-			type.size += type.size % t->type->align + t->type->size;
+			t->offset = type.size;
+			if (type.size % t->type->align) {
+				t->offset += t->type->align - type.size % t->type->align;
+			}
+			type.size = t->offset + t->type->size;
 		}
 	}
 	type.tuple = *values;

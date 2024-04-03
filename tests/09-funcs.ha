@@ -102,6 +102,11 @@ fn reject() void = {
 
 		"fn f() void = { size(*never); };",
 
+		// non-prototype declarations with unnamed parameters
+		"fn f(int) void = void;",
+		"fn f(*int) void = void;",
+		"type t = void; fn f(t) void = void;",
+
 		// https://todo.sr.ht/~sircmpwn/hare/917
 		"fn f(arg: T...) void; fn g() void = f(1);",
 

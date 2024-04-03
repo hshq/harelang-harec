@@ -565,7 +565,6 @@ check_expr_append_insert(struct context *ctx,
 	const struct type *hint)
 {
 	assert(aexpr->type == EXPR_APPEND || aexpr->type == EXPR_INSERT);
-	expr->loc = aexpr->loc;
 	expr->type = aexpr->type;
 	expr->result = &builtin_type_void;
 	expr->append.is_static = aexpr->append.is_static;
@@ -1765,11 +1764,8 @@ check_expr_compound(struct context *ctx,
 			scope->results);
 
 	for (struct yield *yield = scope->yields; yield;) {
-		struct expression *lowered = lower_implicit_cast(ctx, 
-				expr->result, *yield->expression);
-		if (*yield->expression != lowered) {
-			*yield->expression = lowered;
-		}
+		*yield->expression = lower_implicit_cast(ctx, expr->result,
+			*yield->expression);
 
 		struct yield *next = yield->next;
 		free(yield);
@@ -2558,17 +2554,17 @@ check_expr_measure(struct context *ctx,
 	case M_SIZE:
 		break;
 	case M_LEN:
-		expr->type = EXPR_LEN;
 		expr->len.value = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->measure.value, expr->len.value, NULL);
-		const struct type *atype =
+		const struct type *type =
 			type_dereference(ctx, expr->len.value->result);
-		if (!atype) {
+		if (!type) {
 			error(ctx, aexpr->access.array->loc, expr,
 				"Cannot dereference nullable pointer for len");
 			return;
 		}
-		enum type_storage vstor = type_dealias(ctx, atype)->storage;
+		type = type_dealias(ctx, type);
+		enum type_storage vstor = type->storage;
 		bool valid = vstor == STORAGE_ARRAY || vstor == STORAGE_SLICE
 			|| vstor == STORAGE_STRING || vstor == STORAGE_ERROR;
 		if (!valid) {
@@ -2579,11 +2575,19 @@ check_expr_measure(struct context *ctx,
 			free(typename);
 			return;
 		}
-		if (atype->size == SIZE_UNDEFINED) {
-			error(ctx, aexpr->measure.value->loc, expr,
-				"Cannot take length of unbounded array type");
+		if (vstor == STORAGE_ARRAY) {
+			if (type->array.length == SIZE_UNDEFINED) {
+				error(ctx, aexpr->measure.value->loc, expr,
+					"Cannot take length of unbounded array type");
+				return;
+			}
+			expr->type = EXPR_LITERAL;
+			expr->result = &builtin_type_size;
+			expr->literal.object = NULL;
+			expr->literal.uval = type->array.length;
 			return;
 		}
+		expr->type = EXPR_LEN;
 		return;
 	case M_OFFSET:
 		expr->type = EXPR_LITERAL;

@@ -1,21 +1,19 @@
 use rt::{compile, status};
 
+type slice = struct {
+	data: nullable *opaque,
+	length: size,
+	capacity: size,
+};
+
 fn from_array() void = {
 	let src = [1, 2, 3];
 	let x: []int = src;
-	let xptr = &x: *struct {
-		data: nullable *[*]int,
-		length: size,
-		capacity: size,
-	};
+	let xptr = &x: *slice;
 	assert(xptr.data == &src);
 
 	let y: []int = [];
-	let yptr = &y: *struct {
-		data: nullable *[*]int,
-		length: size,
-		capacity: size,
-	};
+	let yptr = &y: *slice;
 	assert(yptr.data == null);
 };
 
@@ -23,11 +21,7 @@ fn storage() void = {
 	let x: []int = [1, 2, 3, 4, 5];
 	const expected = [1, 2, 3, 4, 5];
 
-	let ptr = &x: *struct {
-		data: *[*]int,
-		length: size,
-		capacity: size,
-	};
+	let ptr = &x: *slice;
 
 	assert(len(x) == 5);
 	assert(ptr.length == 5 && ptr.capacity == 5);
@@ -65,6 +59,10 @@ fn measurements() void = {
 	assert(len(x) == 5);
 	assert(&x[0]: uintptr: size % size(int) == 0);
 	static assert(len([1, 2, 3, 4, 5]: []int) == 5);
+
+	compile(status::CHECK,
+		"fn test() void = { let x = []; static assert(len(x) == 0); };"
+	)!;
 };
 
 fn indexing() void = {
@@ -137,13 +135,28 @@ fn assert_slice_eq(actual: []int, expected: []int) void = {
 	};
 };
 
+fn cap(s: []int) size = (&s: *slice).capacity;
+
 fn slicing() void = {
-	let a = [1, 2, 3, 4, 5];
+	let a: [_]int = [1, 2, 3, 4, 5];
 	assert_slice_eq(a[..], [1, 2, 3, 4, 5]);
 	assert_slice_eq(a[..3], [1, 2, 3]);
 	assert_slice_eq(a[1..3], [2, 3]);
 	assert_slice_eq(a[1..], [2, 3, 4, 5]);
 	assert_slice_eq(a[5..], []);
+
+	assert(cap(a[..0]) == len(a));
+	assert(cap(a[..2]) == len(a));
+	assert(cap(a[..]) == len(a));
+	assert(cap(a[2..]) == len(a) - 2);
+	assert(cap(a[5..]) == 0);
+
+	let b = a[..3];
+	assert(cap(b[..0]) == len(a));
+	assert(cap(b[..2]) == len(a));
+	assert(cap(b[..]) == len(a));
+	assert(cap(b[2..]) == len(a) - 2);
+	assert(cap(b[3..]) == 2);
 
 	let b: []int = [1, 2, 3, 4, 5];
 	assert_slice_eq(b[..], [1, 2, 3, 4, 5]);
@@ -243,11 +256,7 @@ fn misc_reject() void = {
 };
 
 fn lencap(s: []int) (size, size) = {
-	let ptr = &s: *struct {
-		data: *[*]int,
-		length: size,
-		capacity: size,
-	};
+	let ptr = &s: *slice;
 	return (ptr.length, ptr.capacity);
 };
 
