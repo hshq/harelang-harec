@@ -86,7 +86,13 @@ export fn compile(
 	};
 
 	match (expected) {
-	case void => void;
+	case void =>
+		const status = wexitstatus(wstatus);
+		if (status == status::SUCCESS) {
+			let s = "expected any failure, got success\n";
+			write(2, constchar(s), len(s));
+			return error;
+		};
 	case let expected: status =>
 		const status = wexitstatus(wstatus);
 		if (status != expected) {
