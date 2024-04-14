@@ -260,7 +260,8 @@ fn numeric() void = {
 		0.0e01, 0.0e+01, 0.0e+00, 0.0e-00, 0e-0, 0e-00, 0e-1, 0e-01,
 		0x0p0, 0x0p1, 0x0p-1, 0x0p+1,
 		0x0.0p0, 0x0.00p0, 0x0.0p1, 0x0.00p1, 0x0.0p+0, 0x0.0p+1, 0x0.0p-0, 0x0.0p00,
-		0x0.0p01, 0x0.0p+01, 0x0.0p+00, 0x0.0p-00, 0x0p-0, 0x0p-00, 0x0p-1, 0x0p-01];
+		0x0.0p01, 0x0.0p+01, 0x0.0p+00, 0x0.0p-00, 0x0p-0, 0x0p-00, 0x0p-1, 0x0p-01,
+		0.00_00];
 	for (let j = 0z; j < len(f); j+= 1) {
 		assert(f[j] == 0.0);
 	};
@@ -294,6 +295,22 @@ fn numeric() void = {
 	// capitalized exponent markers
 	assert(0x0P0 == 0.0);
 	assert(0E0 == 0);
+
+	// separators
+	assert(1_000 == 1000);
+	assert(1_000_000 == 1000000);
+	assert(1_0 == 10);
+	assert(0xAB_CD == 0xABCD);
+	assert(0b1_0_0_1 == 0b1001);
+	assert(0o542_11 == 0o54211);
+	assert(1_6e2 == 16e2);
+	assert(1_000u32 == 1000u32);
+	assert(0x1B_AD_C0_DEu32 == 0x1BADC0DE);
+	assert(1_000.0f32 == 1000f32);
+	assert(0.00_01 == 0.0001);
+	assert(1_00.00_1 == 100.001);
+	assert(1_6.0e2 == 16.0e2);
+	assert(1_6e-2 == 16e-2);
 
 	// double tuple subscript special case
 	let tup = (('a', 'b'), 'c');
@@ -329,6 +346,10 @@ fn numeric() void = {
 	assert(tup.0x0.0 == 'a');
 	assert(tup.0.0x0 == 'a');
 	assert(tup.0x0.0x0 == 'a');
+
+	// tuple with separator
+	let tup = ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k');
+	assert(tup.1_0 == 'k');
 
 	// zero with large exponent
 	assert(0e10000000 == 0);
@@ -397,6 +418,7 @@ fn numeric() void = {
 		"05p3", "00000010p3", "00.0p3", "01.0p3",
 		"05p+3", "00000010p+3", "00.0p+3", "01.0p+3",
 		"05p-3", "00000010p-3", "00.0p-3", "01.0p-3",
+		"0_10",
 
 		// invalid sequences of special characters
 		"1.",
@@ -479,6 +501,14 @@ fn numeric() void = {
 		"1.p-1", "1p-.1",
 		"1.1p-", "1p-1.",
 		"1p-1.1",
+
+		// invalid digit separators
+		"1_", "100_", "1_000_",
+		"1__0", "1__000_0", "1_000__0", "1___0",
+		"2e_8", "2_e8", "2e8_", "3e1__1", "2e+_5", "2e_+5",
+		"0x_FFFF", "0b_1010", "0b1111_0000_", "0o6__6",
+		"0_b1010", "0_o77", "0_xFF", "_0b1010", "_0o77", "_0xFF",
+		"2e1_6", "0x2p1_0", "2e-1_0",
 	];
 	let extra: [_]str = [
 		"let t = 4e-0i;", "let t = 4e-1i;",
@@ -493,6 +523,12 @@ fn numeric() void = {
 
 		// exponent overflow
 		"let t: u64 = 1e1000;",
+
+		"let t = 100u3_2;",
+		"let t = 100u32_;",
+		"let t = 100u_32;",
+		"let t = 100_u32;",
+		"let t = _100u32;",
 	];
 	let suffix = [";", "i;", "i8;", "f32;"];
 	let buf: [256]u8 = [0...];
