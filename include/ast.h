@@ -32,10 +32,14 @@ struct ast_imports {
 	struct ast_imports *next;
 };
 
-struct ast_list_type {
-	struct ast_expression *length; // NULL for slices and unbounded arrays
+struct ast_array_type {
+	struct ast_expression *length; // NULL for unbounded arrays
 	struct ast_type *members;
 	bool contextual;
+};
+
+struct ast_slice_type {
+	struct ast_type *members;
 };
 
 struct ast_enum_field {
@@ -96,10 +100,10 @@ struct ast_type {
 	enum type_storage storage;
 	unsigned int flags;
 	union {
-		struct ast_list_type array;
+		struct ast_array_type array;
 		struct ast_function_type func;
 		struct ast_pointer_type pointer;
-		struct ast_list_type slice;
+		struct ast_slice_type slice;
 		struct ast_struct_union_type struct_union;
 		struct ast_tagged_union_type tagged;
 		struct ast_tuple_type tuple;
@@ -203,12 +207,6 @@ struct ast_expression_cast {
 	struct ast_type *type;
 };
 
-struct ast_array_literal {
-	struct ast_expression *value;
-	struct ast_array_literal *next;
-	bool expand;
-};
-
 struct ast_expression_literal {
 	enum type_storage storage;
 	union {
@@ -221,7 +219,10 @@ struct ast_expression_literal {
 			size_t len;
 			char *value;
 		} string;
-		struct ast_array_literal *array;
+		struct {
+			struct ast_expression_list *exprs;
+			bool expand;
+		} array;
 	};
 };
 

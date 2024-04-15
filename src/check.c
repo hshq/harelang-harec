@@ -1386,11 +1386,11 @@ lower_vaargs(struct context *ctx,
 	if (aarg) {
 		val.loc = aarg->value->loc;
 	}
-	struct ast_array_literal **next = &val.literal.array;
+	struct ast_expression_list **next = &val.literal.array.exprs;
 	while (aarg) {
-		struct ast_array_literal *item = *next =
-			xcalloc(1, sizeof(struct ast_array_literal));
-		item->value = aarg->value;
+		struct ast_expression_list *item = *next =
+			xcalloc(1, sizeof(struct ast_expression_list));
+		item->expr = aarg->value;
 		aarg = aarg->next;
 		next = &item->next;
 	}
@@ -1406,9 +1406,9 @@ lower_vaargs(struct context *ctx,
 		return;
 	}
 
-	struct ast_array_literal *item = val.literal.array;
+	struct ast_expression_list *item = val.literal.array.exprs;
 	while (item) {
-		struct ast_array_literal *next = item->next;
+		struct ast_expression_list *next = item->next;
 		free(item);
 		item = next;
 	}
@@ -1617,8 +1617,7 @@ check_expr_array_literal(struct context *ctx,
 	const struct type *hint)
 {
 	size_t len = 0;
-	bool expand = false;
-	struct ast_array_literal *item = aexpr->literal.array;
+	struct ast_expression_list *item = aexpr->literal.array.exprs;
 	struct array_literal *cur, **next = &expr->literal.array;
 	const struct type *type = NULL;
 	if (hint) {
@@ -1653,7 +1652,7 @@ check_expr_array_literal(struct context *ctx,
 
 	while (item) {
 		struct expression *value = xcalloc(1, sizeof(struct expression));
-		check_expression(ctx, item->value, value, type);
+		check_expression(ctx, item->expr, value, type);
 		cur = *next = xcalloc(1, sizeof(struct array_literal));
 		cur->value = value;
 
@@ -1669,7 +1668,7 @@ check_expr_array_literal(struct context *ctx,
 			if (!type_is_assignable(ctx, type, value->result)) {
 				char *typename1 = gen_typename(type);
 				char *typename2 = gen_typename(value->result);
-				error(ctx, item->value->loc, expr,
+				error(ctx, item->expr->loc, expr,
 					"Array members must be of a uniform type, previously seen %s, but now see %s",
 					typename1, typename2);
 				free(typename1);
@@ -1683,11 +1682,6 @@ check_expr_array_literal(struct context *ctx,
 			cur->value = lower_implicit_cast(ctx, type, cur->value);
 		}
 
-		if (item->expand) {
-			expand = true;
-			assert(!item->next);
-		}
-
 		item = item->next;
 		next = &cur->next;
 		++len;
@@ -1698,7 +1692,7 @@ check_expr_array_literal(struct context *ctx,
 		return;
 	}
 	expr->result = type_store_lookup_array(ctx, aexpr->loc,
-			type, len, expand);
+			type, len, aexpr->literal.array.expand);
 }
 
 static void

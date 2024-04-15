@@ -148,7 +148,7 @@ struct_union_has_field(struct context *ctx,
 static struct struct_field *
 struct_new_field(struct context *ctx, struct type *type,
 	const struct ast_struct_union_field *afield,
-	size_t *usize, size_t *offset, bool size_only)
+	size_t *offset, bool size_only)
 {
 	if (afield->name != NULL && !size_only) {
 		if (struct_union_has_field(ctx, afield->name, type->struct_union.fields)) {
@@ -180,8 +180,26 @@ struct_new_field(struct context *ctx, struct type *type,
 		return NULL;
 	}
 
+	type->align = dim.align > type->align ? dim.align : type->align;
+	field->size = dim.size;
+
+	if (type->storage == STORAGE_UNION) {
+		if (afield->offset) {
+			error(ctx, afield->type->loc, NULL,
+				"Union fields cannot be given explicit offset");
+		}
+		field->offset = 0;
+		if (dim.size == SIZE_UNDEFINED || type->size == SIZE_UNDEFINED) {
+			type->size = SIZE_UNDEFINED;
+		} else {
+			type->size = dim.size > type->size ? dim.size : type->size;
+		}
+		return field;
+	}
+
 	if (afield->offset) {
 		type->struct_union.c_compat = false;
+		bool err = true;
 		struct expression in, out;
 		check_expression(ctx, afield->offset, &in, NULL);
 		field->offset = *offset;
@@ -201,7 +219,11 @@ struct_new_field(struct context *ctx, struct type *type,
 			error(ctx, in.loc, NULL,
 				"Fields must not have overlapping storage");
 		} else {
+			err = false;
 			field->offset = *offset = (size_t)out.literal.uval;
+		}
+		if (err) {
+			return NULL;
 		}
 	} else if (type->struct_union.packed) {
 		field->offset = *offset = type->size;
@@ -216,13 +238,9 @@ struct_new_field(struct context *ctx, struct type *type,
 
 	if (dim.size == SIZE_UNDEFINED || type->size == SIZE_UNDEFINED) {
 		type->size = SIZE_UNDEFINED;
-	} else if (type->storage == STORAGE_STRUCT) {
-		type->size = field->offset + dim.size;
 	} else {
-		*usize = dim.size > *usize ? dim.size : *usize;
+		type->size = field->offset + dim.size;
 	}
-	type->align = dim.align > type->align ? dim.align : type->align;
-	field->size = dim.size;
 	return field;
 }
 
@@ -308,22 +326,28 @@ shift_fields(struct context *ctx,
 	parent->type = type_store_lookup_type(ctx, &new);
 }
 
-static void
+static bool
 struct_init_from_atype(struct context *ctx, struct type *type,
-	const struct ast_struct_union_type *atype, bool size_only)
+	const struct ast_type *atype, bool size_only)
 {
 	// TODO: fields with size SIZE_UNDEFINED
-	size_t usize = 0;
+	if (type->storage == STORAGE_UNION && atype->struct_union.packed) {
+		error(ctx, atype->loc, NULL,
+				"Cannot use @packed attribute for union type");
+		return false;
+	}
+	type->struct_union.packed = atype->struct_union.packed;
+	type->struct_union.c_compat = !atype->struct_union.packed;
+
 	size_t offset = 0;
 	assert(type->storage == STORAGE_STRUCT || type->storage == STORAGE_UNION);
 	struct struct_field **next = &type->struct_union.fields;
-	type->struct_union.packed = atype->packed;
-	for (const struct ast_struct_union_field *afield = &atype->fields;
+	for (const struct ast_struct_union_field *afield = &atype->struct_union.fields;
 			afield; afield = afield->next) {
 		struct struct_field *field = struct_new_field(ctx, type,
-			afield, &usize, &offset, size_only);
-	if (field == NULL) {
-			return;
+			afield, &offset, size_only);
+		if (field == NULL) {
+			return false;
 		}
 		if (size_only) {
 			free(field);
@@ -331,7 +355,7 @@ struct_init_from_atype(struct context *ctx, struct type *type,
 		} else if (!field->name) {
 			if (!check_embedded_member(ctx, afield, field,
 						type->struct_union.fields)) {
-				return;
+				return false;
 			}
 			// We need to shift the embedded struct/union's fields
 			// so that their offsets are from the start of the
@@ -344,10 +368,7 @@ struct_init_from_atype(struct context *ctx, struct type *type,
 		*next = field;
 		next = &field->next;
 	}
-
-	if (type->storage == STORAGE_UNION) {
-		type->size = usize;
-	}
+	return true;
 }
 
 static bool
@@ -930,7 +951,7 @@ type_init_from_atype(struct context *ctx,
 		if (size_only) {
 			break;
 		}
-		type->array.members = lookup_atype(ctx, atype->array.members);
+		type->array.members = lookup_atype(ctx, atype->slice.members);
 		if (type->array.members->storage == STORAGE_ERROR) {
 			*type = builtin_type_error;
 			return (struct dimensions){0};
@@ -951,9 +972,10 @@ type_init_from_atype(struct context *ctx,
 		break;
 	case STORAGE_STRUCT:
 	case STORAGE_UNION:
-		type->struct_union.c_compat = !atype->struct_union.packed;
-		type->struct_union.packed = atype->struct_union.packed;
-		struct_init_from_atype(ctx, type, &atype->struct_union, size_only);
+		if (!struct_init_from_atype(ctx, type, atype, size_only)) {
+			*type = builtin_type_error;
+			return (struct dimensions){0};
+		}
 		break;
 	case STORAGE_TAGGED:
 		if (size_only) {
