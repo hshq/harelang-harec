@@ -4304,6 +4304,7 @@ resolve_function(struct context *ctx, struct incomplete_declaration *idecl)
 	const struct ast_function_decl *decl = &idecl->decl.function;
 
 	const struct ast_type fn_atype = {
+		.loc = idecl->decl.loc,
 		.storage = STORAGE_FUNCTION,
 		.flags = 0,
 		.func = decl->prototype,
