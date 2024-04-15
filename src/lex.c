@@ -339,7 +339,7 @@ lex_number(struct lexer *lexer, struct token *out)
 	};
 	static_assert((BIN | OCT | HEX | DEC) == DEC, "DEC bits must be a superset of all other bases");
 	enum flags {
-		FLT = 3, EXP, SUFF, DIG,
+		FLT = 3, EXP, SUFF, DIG, SEP,
 	};
 
 	static const char chrs[][24] = {
@@ -349,7 +349,7 @@ lex_number(struct lexer *lexer, struct token *out)
 		[HEX] = "0123456789abcdefABCDEF",
 	};
 
-	static const char matching_states[0x80][6] = {
+	static const char matching_states[0x80][7] = {
 		['.'] = {DEC, HEX, 0},
 		['e'] = {DEC, DEC | 1<<FLT, 0},
 		['E'] = {DEC, DEC | 1<<FLT, 0},
@@ -361,13 +361,14 @@ lex_number(struct lexer *lexer, struct token *out)
 		['u'] = {BIN, OCT, HEX, DEC, DEC | 1<<EXP, 0},
 		['z'] = {BIN, OCT, HEX, DEC, DEC | 1<<EXP, 0},
 		['f'] = {DEC, DEC | 1<<FLT, DEC | 1<<EXP, DEC | 1<<FLT | 1<<EXP, 0},
+		['_'] = {BIN, OCT, HEX, DEC, DEC | 1<<FLT, HEX | 1<<FLT, 0},
 	};
 	int state = DEC, base = 10, oldstate = DEC;
 	uint32_t c = next(lexer, &out->loc, true), last = 0;
 	assert(c != C_EOF && c <= 0x7F && isdigit(c));
 	if (c == '0') {
 		c = next(lexer, NULL, true);
-		if (c <= 0x7F && isdigit(c)) {
+		if (c <= 0x7F && (isdigit(c) || c == '_')) {
 			error(out->loc, "Leading zero in base 10 literal");
 		} else if (c == 'b') {
 			state = BIN | 1 << DIG;
@@ -387,9 +388,11 @@ lex_number(struct lexer *lexer, struct token *out)
 	size_t exp = 0, suff = 0;
 	do {
 		if (strchr(chrs[state & MASK], c)) {
-			state &= ~(1 << DIG);
+			state &= ~(1 << DIG | 1 << SEP);
 			last = c;
 			continue;
+		} else if (state & 1 << SEP) {
+			error(out->loc, "Expected digit after separator");
 		} else if (c > 0x7f || !strchr(matching_states[c], state)) {
 			goto end;
 		}
@@ -420,6 +423,10 @@ lex_number(struct lexer *lexer, struct token *out)
 		case 'z':
 			state |= DEC | 1 << SUFF;
 			suff = lexer->buflen - 1;
+			break;
+		case '_':
+			consume(lexer, 1);
+			state |= 1 << SEP;
 			break;
 		default:
 			goto end;
