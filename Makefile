@@ -30,9 +30,9 @@ $(BINOUT)/harec: $(harec_objects)
 
 .PRECIOUS: %.td %.ssa %.s %.o
 
-$(harec_objects): $(headers)
+$(HARECACHE)/%.o: %.c $(headers)
 	@mkdir -p -- $(dir $@)
-	@printf 'CC\t%s\n' '$@'
+	@printf 'CC\t%-16s --> $$HARECACHE/%s\n' '$<' $(notdir $@)
 	@$(CC) -c $(CFLAGS) $(C_DEFINES) -o $@ $(patsubst $(HARECACHE)/%.o,%.c,$@)
 
 # .c.o:
