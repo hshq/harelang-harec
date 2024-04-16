@@ -141,10 +141,11 @@ errline(struct location loc)
 		return;
 	}
 	char *line = NULL;
-	size_t len = 0;
+	size_t sz = 0;
+	ssize_t len;
 	int n = 0;
 	while (n < loc.lineno) {
-		if (getline(&line, &len, src) == -1) {
+		if ((len = getline(&line, &sz, src)) == -1) {
 			fclose(src);
 			free(line);
 			return;
@@ -161,17 +162,11 @@ errline(struct location loc)
 				|| !isatty(fileno(stderr))) {
 			color = false;
 		}
-		xfprintf(stderr, "\n%d |\t%s", loc.lineno, line);
-		if (!strchr(line, '\n')) {
-			xfprintf(stderr, "\n");
-		}
-		for (int i = loc.lineno; i > 0; i /= 10) {
-			xfprintf(stderr, " ");
-		}
-		xfprintf(stderr, " |\t");
-		for (int i = 1; i < loc.colno; i++) {
-			xfprintf(stderr, " ");
-		}
+		xfprintf(stderr, "\n");
+		int lineno_width = xfprintf(stderr, "%d", loc.lineno);
+		xfprintf(stderr, " |\t%s%s%*c |\t%*c",
+				line, line[len - 1] == '\n' ? "" : "\n",
+				lineno_width, ' ', loc.colno - 1, ' ');
 		if (color) {
 			xfprintf(stderr, "\x1b[31m^\x1b[0m\n\n");
 		} else {
