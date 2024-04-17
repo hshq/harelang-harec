@@ -1231,17 +1231,17 @@ parse_call_expression(struct lexer *lexer, struct ast_expression *lvalue)
 	expr->type = EXPR_CALL;
 	expr->call.lvalue = lvalue;
 
-	struct ast_call_argument *arg, **next = &expr->call.args;
+	struct ast_expression_list *arg, **next = &expr->call.args;
 	while (lex(lexer, &tok) != T_RPAREN) {
 		unlex(lexer, &tok);
-		arg = *next = xcalloc(1, sizeof(struct ast_call_argument));
-		arg->value = parse_expression(lexer);
+		arg = *next = xcalloc(1, sizeof(struct ast_expression_list));
+		arg->expr = parse_expression(lexer);
 
 		switch (lex(lexer, &tok)) {
 		case T_COMMA:
 			break;
 		case T_ELLIPSIS:
-			arg->variadic = true;
+			expr->call.variadic = true;
 			want(lexer, T_RPAREN, &tok);
 			// fallthrough
 		case T_RPAREN:

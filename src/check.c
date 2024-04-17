@@ -1379,51 +1379,6 @@ done:
 	}
 }
 
-// Lower Hare-style variadic arguments into an array literal
-static void
-lower_vaargs(struct context *ctx,
-	const struct ast_call_argument *aarg,
-	struct expression *vaargs,
-	const struct type *type)
-{
-	struct ast_expression val = {
-		.type = EXPR_LITERAL,
-		.literal = {
-			.storage = STORAGE_ARRAY,
-		},
-	};
-	// TODO: Provide location some other way
-	if (aarg) {
-		val.loc = aarg->value->loc;
-	}
-	struct ast_expression_list **next = &val.literal.array.exprs;
-	while (aarg) {
-		struct ast_expression_list *item = *next =
-			xcalloc(1, sizeof(struct ast_expression_list));
-		item->expr = aarg->value;
-		aarg = aarg->next;
-		next = &item->next;
-	}
-
-	// XXX: This error handling is minimum-effort and bad
-	const struct type *hint = type_store_lookup_array(ctx,
-			val.loc, type, SIZE_UNDEFINED, false);
-	check_expression(ctx, &val, vaargs, hint);
-	if (vaargs->result->storage != STORAGE_ARRAY
-			|| vaargs->result->array.members != type) {
-		error(ctx, val.loc, vaargs,
-			"Argument is not assignable to variadic parameter type");
-		return;
-	}
-
-	struct ast_expression_list *item = val.literal.array.exprs;
-	while (item) {
-		struct ast_expression_list *next = item->next;
-		free(item);
-		item = next;
-	}
-}
-
 static void
 check_expr_call(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -1448,90 +1403,95 @@ check_expr_call(struct context *ctx,
 		return;
 	}
 	if (fntype->storage != STORAGE_FUNCTION) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot call non-function type");
+		error(ctx, aexpr->loc, expr, "Cannot call non-function type");
 		return;
+	}
+	if (fntype->func.variadism != VARIADISM_HARE && aexpr->call.variadic) {
+		error(ctx, aexpr->loc, expr,
+			"Function type does not permit variadic argument list");
 	}
 	expr->result = fntype->func.result;
 
 	struct call_argument *arg, **next = &expr->call.args;
-	struct ast_call_argument *aarg = aexpr->call.args;
+	struct ast_expression_list *aarg = aexpr->call.args;
 	struct type_func_param *param = fntype->func.params;
-	while ((param || fntype->func.variadism == VARIADISM_C) && aarg) {
+	while (param && aarg) {
 		arg = *next = xcalloc(1, sizeof(struct call_argument));
 		arg->value = xcalloc(1, sizeof(struct expression));
 
-		if (param && !param->next
-				&& fntype->func.variadism == VARIADISM_HARE
-				&& !aarg->variadic) {
-			if (param->type->storage == STORAGE_ERROR) {
-				return;
-			}
-			lower_vaargs(ctx, aarg, arg->value,
-				param->type->array.members);
-			arg->value = lower_implicit_cast(ctx, param->type, arg->value);
-			param = NULL;
-			aarg = NULL;
-			break;
+		struct ast_expression val;
+		if (!param->next && fntype->func.variadism == VARIADISM_HARE
+				&& !aexpr->call.variadic) {
+			// lower the rest to an array
+			val = (struct ast_expression){
+				.loc = aarg->expr->loc,
+				.type = EXPR_LITERAL,
+				.literal = {
+					.storage = STORAGE_ARRAY,
+					.array.exprs = aarg,
+				},
+			};
+		} else {
+			val = *aarg->expr;
 		}
 
-		const struct type *ptype = NULL;
-		if (param) {
-			ptype = param->type;
+		check_expression(ctx, &val, arg->value, param->type);
+		if (!type_is_assignable(ctx, param->type, arg->value->result)) {
+			char *argtypename = gen_typename(arg->value->result);
+			char *paramtypename = gen_typename(param->type);
+			error(ctx, val.loc, expr,
+				"Argument type %s is not assignable to parameter type %s",
+				argtypename, paramtypename);
+			free(argtypename);
+			free(paramtypename);
+			return;
 		}
-		check_expression(ctx, aarg->value, arg->value, ptype);
-
-		if (param) {
-			if (!type_is_assignable(ctx, ptype, arg->value->result)) {
-				char *argtypename = gen_typename(arg->value->result);
-				char *paramtypename = gen_typename(param->type);
-				error(ctx, aarg->value->loc, expr,
-					"Argument type %s is not assignable to parameter type %s",
-					argtypename, paramtypename);
-				free(argtypename);
-				free(paramtypename);
-				return;
-			}
-			arg->value = lower_implicit_cast(ctx, ptype, arg->value);
+		arg->value = lower_implicit_cast(ctx, param->type, arg->value);
+		if (!param->next && fntype->func.variadism == VARIADISM_HARE) {
+			return;
 		}
 
 		aarg = aarg->next;
 		next = &arg->next;
-		if (param) {
-			param = param->next;
-		}
-	}
-
-	if (param && !param->next && fntype->func.variadism == VARIADISM_HARE) {
-		// No variadic arguments, lower to empty slice
-		arg = *next = xcalloc(1, sizeof(struct call_argument));
-		arg->value = xcalloc(1, sizeof(struct expression));
-		if (param->type->storage == STORAGE_ERROR) {
-			return;
-		}
-		lower_vaargs(ctx, NULL, arg->value,
-			param->type->array.members);
-		arg->value = lower_implicit_cast(ctx, param->type, arg->value);
 		param = param->next;
 	}
-
-	if (aarg && fntype->func.variadism != VARIADISM_C) {
-		error(ctx, aexpr->loc, expr,
-			"Too many parameters for function call");
-		return;
-	}
-	if (param && param->default_value == NULL) {
-		error(ctx, aexpr->loc, expr,
-			"Not enough parameters for function call");
-		return;
-	} else {
+	if (param) {
+		if (fntype->func.variadism == VARIADISM_HARE && !param->next) {
+			// No variadic arguments, lower to empty slice
+			arg = *next = xcalloc(1, sizeof(struct call_argument));
+			arg->value = xcalloc(1, sizeof(struct expression));
+			*arg->value = (struct expression){
+				.type = EXPR_LITERAL,
+				.result = param->type,
+				.literal.array = NULL,
+			};
+			return;
+		} else if (param->default_value == NULL) {
+			error(ctx, aexpr->loc, expr,
+				"Not enough arguments for function call");
+			return;
+		}
 		while (param) {
 			arg = *next = xcalloc(1, sizeof(struct call_argument));
 			arg->value = param->default_value;
 			next = &arg->next;
 			param = param->next;
 		}
+	} else if (aarg) {
+		if (fntype->func.variadism != VARIADISM_C) {
+			error(ctx, aexpr->loc, expr,
+				"Too many arguments for function call");
+			return;
+		}
+		while (aarg) {
+			arg = *next = xcalloc(1, sizeof(struct call_argument));
+			arg->value = xcalloc(1, sizeof(struct expression));
+			check_expression(ctx, aarg->expr, arg->value, NULL);
+			aarg = aarg->next;
+			next = &arg->next;
+		}
 	}
+
 
 }
 

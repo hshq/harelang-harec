@@ -190,15 +190,10 @@ struct ast_expression_binding {
 	struct ast_expression_binding *next;
 };
 
-struct ast_call_argument {
-	bool variadic;
-	struct ast_expression *value;
-	struct ast_call_argument *next;
-};
-
 struct ast_expression_call {
 	struct ast_expression *lvalue;
-	struct ast_call_argument *args;
+	struct ast_expression_list *args;
+	bool variadic; // last argument is a variadic argument list
 };
 
 struct ast_expression_cast {
