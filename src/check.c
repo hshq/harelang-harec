@@ -491,7 +491,7 @@ check_expr_alloc_slice(struct context *ctx,
 
 	if (objtype->storage == STORAGE_ARRAY
 			&& objtype->array.expandable) {
-		expr->alloc.kind = ALLOC_WITH_LEN;
+		expr->alloc.kind = ALLOC_LEN;
 	}
 }
 
@@ -547,13 +547,13 @@ check_expr_alloc(struct context *ctx,
 	case ALLOC_OBJECT:
 		check_expr_alloc_init(ctx, aexpr, expr, hint);
 		break;
-	case ALLOC_WITH_CAP:
+	case ALLOC_CAP:
 		check_expr_alloc_slice(ctx, aexpr, expr, hint);
 		break;
 	case ALLOC_COPY:
 		check_expr_alloc_copy(ctx, aexpr, expr, hint);
 		break;
-	case ALLOC_WITH_LEN:
+	case ALLOC_LEN:
 		abort(); // Not determined by parse
 	}
 }

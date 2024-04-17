@@ -1333,7 +1333,7 @@ parse_allocation_expression(struct lexer *lexer)
 		case T_COMMA:
 			// alloc(init, cap)
 			exp->alloc.cap = parse_expression(lexer);
-			exp->alloc.kind = ALLOC_WITH_CAP;
+			exp->alloc.kind = ALLOC_CAP;
 			want(lexer, T_RPAREN, NULL);
 			break;
 		case T_ELLIPSIS:
