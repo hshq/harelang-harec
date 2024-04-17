@@ -1009,7 +1009,7 @@ eval_unarithm(struct context *ctx,
 	case UN_ADDRESS:
 		assert(0); // handled above
 	case UN_BNOT:
-		out->literal.uval = ~lvalue.literal.uval;
+		out->literal.uval = itrunc(ctx, out->result, ~lvalue.literal.uval);
 		break;
 	case UN_DEREF:
 		return false;
@@ -1020,7 +1020,8 @@ eval_unarithm(struct context *ctx,
 		if (type_is_float(ctx, out->result)) {
 			out->literal.fval = -lvalue.literal.fval;
 		} else {
-			out->literal.ival = -(uint64_t)lvalue.literal.ival;
+			out->literal.ival = itrunc(ctx, out->result,
+					-(uint64_t)lvalue.literal.ival);
 		}
 		break;
 	}

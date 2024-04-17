@@ -37,6 +37,9 @@ let x = [1, 2, 3]: d: []int;
 static assert(true: e == true: e);
 static assert('a' == 'a');
 
+static assert(~0u8 == 0xffu8);
+static assert(-2u8 == 0xfeu8);
+
 fn control_never() void = {
 	let x = {
 		yield yield 0;

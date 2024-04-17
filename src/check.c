@@ -1280,8 +1280,13 @@ check_expr_binding(struct context *ctx,
 				return;
 			} else if (initializer->result->array.members
 					!= type->array.members) {
+				char *inittype = gen_typename(initializer->result);
+				char *bindingtype= gen_typename(type);
 				error(ctx, aexpr->loc, expr,
-					"Initializer is not assignable to binding type");
+					"Initializer of type %s is not assignable to binding type %s",
+					inittype, bindingtype);
+				free(inittype);
+				free(bindingtype);
 				return;
 			}
 			type = initializer->result;
@@ -1334,8 +1339,13 @@ check_expr_binding(struct context *ctx,
 			return;
 		}
 		if (!type_is_assignable(ctx, type, initializer->result)) {
+			char *inittype = gen_typename(initializer->result);
+			char *bindingtype= gen_typename(type);
 			error(ctx, aexpr->loc, expr,
-				"Initializer is not assignable to binding type");
+				"Initializer of type %s is not assignable to binding type %s",
+				inittype, bindingtype);
+			free(inittype);
+			free(bindingtype);
 			return;
 		}
 		type = lower_flexible(ctx, type, NULL);
