@@ -2857,11 +2857,7 @@ check_expr_return(struct context *ctx,
 		free(fntypename);
 		return;
 	}
-	if (ctx->fntype->func.result != rval->result) {
-		rval = lower_implicit_cast(ctx, 
-			ctx->fntype->func.result, rval);
-	}
-	expr->_return.value = rval;
+	expr->_return.value = lower_implicit_cast(ctx, ctx->fntype->func.result, rval);
 }
 
 static void
