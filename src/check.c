@@ -1629,12 +1629,6 @@ check_expr_array_literal(struct context *ctx,
 		if (!type) {
 			type = value->result;
 		} else {
-			if (!hint) {
-				// The promote_flexible in
-				// check_expression_literal might've caused the
-				// type to change out from under our feet
-				type = expr->literal.array->value->result;
-			}
 			if (!type_is_assignable(ctx, type, value->result)) {
 				char *typename1 = gen_typename(type);
 				char *typename2 = gen_typename(value->result);
@@ -1646,7 +1640,9 @@ check_expr_array_literal(struct context *ctx,
 				return;
 			}
 			if (!hint) {
-				// Ditto
+				// The promote_flexible in
+				// type_is_assignable might've caused the
+				// type to change out from under our feet
 				type = expr->literal.array->value->result;
 			}
 			cur->value = lower_implicit_cast(ctx, type, cur->value);
