@@ -2857,11 +2857,7 @@ check_expr_return(struct context *ctx,
 		free(fntypename);
 		return;
 	}
-	if (ctx->fntype->func.result != rval->result) {
-		rval = lower_implicit_cast(ctx, 
-			ctx->fntype->func.result, rval);
-	}
-	expr->_return.value = rval;
+	expr->_return.value = lower_implicit_cast(ctx, ctx->fntype->func.result, rval);
 }
 
 static void
@@ -3948,10 +3944,7 @@ check_function(struct context *ctx,
 		free(fntypename);
 		return;
 	}
-	if (body->result->storage != STORAGE_ERROR) {
-		decl->func.body = lower_implicit_cast(ctx,
-			obj->type->func.result, body);
-	}
+	decl->func.body = lower_implicit_cast(ctx, obj->type->func.result, body);
 
 	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
