@@ -3948,10 +3948,7 @@ check_function(struct context *ctx,
 		free(fntypename);
 		return;
 	}
-	if (body->result->storage != STORAGE_ERROR) {
-		decl->func.body = lower_implicit_cast(ctx,
-			obj->type->func.result, body);
-	}
+	decl->func.body = lower_implicit_cast(ctx, obj->type->func.result, body);
 
 	scope_pop(&ctx->scope);
 	ctx->fntype = NULL;
