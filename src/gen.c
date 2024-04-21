@@ -2376,10 +2376,13 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 			var_type = expr->_for.bindings->binding.object->type;
 		}
 
-		struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, "cur_val.%d");
-		struct qbe_value qoffset = nested_tagged_offset(
-			ginitializer.type, var_type);
-		pushi(ctx->current, &qptr, Q_ADD, &qinitializer, &qoffset, NULL);
+		struct qbe_value qptr = qinitializer;
+		if (var_type->storage != STORAGE_TAGGED) {
+			qptr = mkqtmp(ctx, ctx->arch.ptr, "cur_val.%d");
+			struct qbe_value qoffset = nested_tagged_offset(
+				ginitializer.type, var_type);
+			pushi(ctx->current, &qptr, Q_ADD, &qinitializer, &qoffset, NULL);
+		}
 
 		if (unpack != NULL) {
 			for (struct binding_unpack *cur_unpack = unpack;
