@@ -3057,7 +3057,7 @@ check_expr_struct(struct context *ctx,
 		enum type_storage storage = type_dealias(ctx, stype)->storage;
 		if (storage != STORAGE_STRUCT && storage != STORAGE_UNION) {
 			error(ctx, aexpr->loc, expr,
-				"Object named is not a struct or union type");
+				"Type named is not a struct or union type");
 			return;
 		}
 	}
