@@ -34,8 +34,7 @@ module_resolve(struct context *ctx,
 	struct ast_unit aunit = {0};
 
 	// env = "HARE_TD_foo::bar::baz"
-	char env[strlen_HARE_TD_ + IDENT_BUFSIZ];
-	memcpy(env, "HARE_TD_", strlen_HARE_TD_);
+	char env[strlen_HARE_TD_ + IDENT_BUFSIZ] = "HARE_TD_";
 	identifier_unparse_static(ident, &env[strlen_HARE_TD_]);
 
 	char *path = getenv(env);
