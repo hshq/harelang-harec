@@ -1787,10 +1787,6 @@ binop_for_token(enum lexical_token tok)
 static struct ast_expression *
 parse_bin_expression(struct lexer *lexer, struct ast_expression *lvalue, int i)
 {
-	if (!lvalue) {
-		lvalue = parse_cast_expression(lexer, NULL);
-	}
-
 	struct token tok;
 	lex(lexer, &tok);
 
