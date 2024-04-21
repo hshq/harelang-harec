@@ -3844,7 +3844,7 @@ resolve_unresolved(struct context *ctx)
 	}
 }
 
-void
+static void
 check_function(struct context *ctx,
 	const struct scope_object *obj,
 	const struct ast_decl *adecl)
