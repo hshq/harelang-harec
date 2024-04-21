@@ -6,6 +6,6 @@ struct type;
 struct unit;
 
 void emit_type(const struct type *type, FILE *out);
-void emit_typedefs(struct unit *unit, FILE *out);
+void emit_typedefs(const struct unit *unit, FILE *out);
 
 #endif

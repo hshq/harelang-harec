@@ -320,7 +320,7 @@ emit_type(const struct type *type, FILE *out)
 }
 
 static void
-emit_decl_const(struct declaration *decl, FILE *out)
+emit_decl_const(const struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	xfprintf(out, "export def %s", ident);
@@ -336,7 +336,7 @@ emit_decl_const(struct declaration *decl, FILE *out)
 }
 
 static void
-emit_decl_func(struct declaration *decl, FILE *out)
+emit_decl_func(const struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	const struct type *fntype = decl->func.type;
@@ -346,7 +346,7 @@ emit_decl_func(struct declaration *decl, FILE *out)
 	}
 	xfprintf(out, "fn %s(", ident);
 
-	for (struct type_func_param *param = fntype->func.params;
+	for (const struct type_func_param *param = fntype->func.params;
 			param; param = param->next) {
 		if (param->next) {
 			emit_type(param->type, out);
@@ -377,7 +377,7 @@ emit_decl_func(struct declaration *decl, FILE *out)
 }
 
 static void
-emit_decl_global(struct declaration *decl, FILE *out)
+emit_decl_global(const struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	xfprintf(out, "export let ");
@@ -398,7 +398,7 @@ emit_decl_global(struct declaration *decl, FILE *out)
 }
 
 static void
-emit_decl_type(struct declaration *decl, FILE *out)
+emit_decl_type(const struct declaration *decl, FILE *out)
 {
 	char *ident = identifier_unparse(&decl->ident);
 	xfprintf(out, "export type %s = ", ident);
@@ -436,18 +436,18 @@ emit_decl_type(struct declaration *decl, FILE *out)
 }
 
 void
-emit_typedefs(struct unit *unit, FILE *out)
+emit_typedefs(const struct unit *unit, FILE *out)
 {
-	for (struct identifiers *imports = unit->imports;
+	for (const struct identifiers *imports = unit->imports;
 			imports; imports = imports->next) {
 		char *ident = identifier_unparse(&imports->ident);
 		xfprintf(out, "use %s;\n", ident);
 		free(ident);
 	}
 
-	for (struct declarations *decls = unit->declarations;
+	for (const struct declarations *decls = unit->declarations;
 			decls; decls = decls->next) {
-		struct declaration *decl = &decls->decl;
+		const struct declaration *decl = &decls->decl;
 		if (!decl->exported) {
 			continue;
 		}
