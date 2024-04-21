@@ -1129,12 +1129,7 @@ parse_plain_expression(struct lexer *lexer)
 		assert(0); // Unreachable
 	// empty block
 	case T_RBRACE:
-		xfprintf(stderr,
-		"%s:%d:%d: syntax error: cannot have empty block",
-		sources[tok.loc.file], tok.loc.lineno, tok.loc.colno);
-
-		errline(tok.loc);
-		exit(EXIT_FAILURE);
+		error(tok.loc, "syntax error: cannot have empty block");
 	default:
 		synerr(&tok, T_NUMBER, T_NAME,
 			T_LBRACKET, T_STRUCT, T_LPAREN, T_EOF);
