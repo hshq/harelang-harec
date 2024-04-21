@@ -2445,7 +2445,6 @@ gen_expr_for(struct gen_context *ctx, const struct expression *expr)
 		pushi(ctx->current, &qptr, Q_ADD, &qptr, &qmember_sz, NULL);
 	}
 
-	gen_defers(ctx, ctx->scope);
 	pop_scope(ctx);
 
 	pushi(ctx->current, NULL, Q_JMP, &bloop, NULL);
