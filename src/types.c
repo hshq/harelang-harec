@@ -901,8 +901,9 @@ type_is_assignable(struct context *ctx,
 				return false;
 			}
 		}
-		if (from->storage != STORAGE_ARRAY
-				&& from->storage != STORAGE_SLICE) {
+		if (from->storage != STORAGE_SLICE
+				&& (from->storage != STORAGE_ARRAY
+				|| from->array.length == SIZE_UNDEFINED)) {
 			return false;
 		}
 		to_secondary = strip_flags(
@@ -925,7 +926,6 @@ type_is_assignable(struct context *ctx,
 				&& to->array.members == from->array.members;
 		} else {
 			return to->array.length == SIZE_UNDEFINED
-				&& from->array.length != SIZE_UNDEFINED
 				&& to->array.members == from->array.members;
 		}
 	case STORAGE_TAGGED:

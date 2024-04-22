@@ -146,7 +146,6 @@ main(int argc, char *argv[])
 
 	struct ast_unit aunit = {0};
 	struct ast_subunit *subunit = &aunit.subunits;
-	struct ast_subunit **next = &aunit.subunits.next;
 
 	sources = xcalloc(nsources + 2, sizeof(char **));
 	memcpy((char **)sources + 1, argv + optind, sizeof(char **) * nsources);
@@ -187,9 +186,8 @@ main(int argc, char *argv[])
 		lex_init(&lexer, in,  i + 1);
 		parse(&lexer, subunit);
 		if (i + 1 < nsources) {
-			*next = xcalloc(1, sizeof(struct ast_subunit));
-			subunit = *next;
-			next = &subunit->next;
+			subunit->next = xcalloc(1, sizeof(struct ast_subunit));
+			subunit = subunit->next;
 		}
 		lex_finish(&lexer);
 	}

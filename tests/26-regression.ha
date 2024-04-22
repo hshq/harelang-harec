@@ -233,4 +233,6 @@ export fn main() void = {
 	assert(v is int);
 
 	compile(status::CHECK, "fn a() void = { offset(a.b); };")!;
+
+	compile(status::CHECK, "fn f() void = { let x: []u8 = &0: *[*]u8; };")!;
 };

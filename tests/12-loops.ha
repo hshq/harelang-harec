@@ -1,6 +1,7 @@
 use rt::{compile, status};
 
 type int_alias = int;
+type tagged_alias = (int | str);
 
 type slice_alias = []int_alias;
 type array_alias = [4]int_alias;
@@ -176,6 +177,24 @@ fn foreach_large() ([1024]int | done) = {
 	return done;
 };
 
+fn foreach_tagged() (int | str | done) = {
+	static let counter = 0;
+	if (counter < 4) {
+		counter += 1;
+		return if (counter % 2 == 0) counter else "";
+	};
+	return done;
+};
+
+fn foreach_tagged_alias() (tagged_alias | done) = {
+	static let counter = 0;
+	if (counter < 4) {
+		counter += 1;
+		return if (counter % 2 == 0) counter else "";
+	};
+	return done;
+};
+
 fn for_each() void = {
 	let array = [1, 2, 3];
 	let slice: []int = [];
@@ -295,6 +314,28 @@ fn for_each() void = {
 		counter += 1;
 	};
 	assert(counter == 3);
+
+	let counter = 1;
+	for (let x => foreach_tagged()) {
+		if (counter % 2 == 0) {
+			assert(x as int == counter);
+		} else {
+			assert(x as str == "");
+		};
+		counter += 1;
+	};
+	assert(counter == 5);
+
+	let counter = 1;
+	for (let x => foreach_tagged_alias()) {
+		if (counter % 2 == 0) {
+			assert(x as int == counter);
+		} else {
+			assert(x as str == "");
+		};
+		counter += 1;
+	};
+	assert(counter == 5);
 
 	let counter = 1;
 	for (let (x, y) .. [(void, 1), (void, 2), (void, 3)]) {
