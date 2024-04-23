@@ -2563,7 +2563,7 @@ check_expr_measure(struct context *ctx,
 		const struct type *type =
 			type_dereference(ctx, expr->len.value->result);
 		if (!type) {
-			error(ctx, aexpr->access.array->loc, expr,
+			error(ctx, aexpr->measure.value->loc, expr,
 				"Cannot dereference nullable pointer for len");
 			return;
 		}
@@ -2625,7 +2625,7 @@ check_expr_measure(struct context *ctx,
 	struct dimensions dim = type_store_lookup_dimensions(
 		ctx, aexpr->measure.type);
 	if (ctx->next != cur_err) {
-		mkerror(aexpr->measure.value->loc, expr);
+		mkerror(aexpr->measure.type->loc, expr);
 		return;
 	}
 	struct ast_types *next = ctx->unresolved;
@@ -2634,14 +2634,14 @@ check_expr_measure(struct context *ctx,
 	ctx->unresolved->next = next;
 	if (aexpr->measure.op == M_ALIGN) {
 		if (dim.align == ALIGN_UNDEFINED) {
-			error(ctx, aexpr->measure.value->loc, expr,
+			error(ctx, aexpr->measure.type->loc, expr,
 				"Cannot take alignment of a type with undefined alignment");
 			return;
 		}
 		expr->literal.uval = dim.align;
 	} else {
 		if (dim.size == SIZE_UNDEFINED) {
-			error(ctx, aexpr->measure.value->loc, expr,
+			error(ctx, aexpr->measure.type->loc, expr,
 				"Cannot take size of a type with undefined size");
 			return;
 		}
