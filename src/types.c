@@ -814,8 +814,7 @@ type_is_assignable(struct context *ctx,
 	// const and non-const types are mutually assignable
 	struct type _to, _from;
 	to = strip_flags(to, &_to), from = strip_flags(from, &_from);
-	if (to->id == from->id && to->storage != STORAGE_VOID
-			&& to->storage != STORAGE_DONE) {
+	if (to->id == from->id && to->storage != STORAGE_VOID) {
 		return true;
 	}
 
@@ -891,7 +890,6 @@ type_is_assignable(struct context *ctx,
 		assert(to->alias.type);
 		return type_is_assignable(ctx, to->alias.type, from);
 	case STORAGE_VOID:
-	case STORAGE_DONE:
 		return to_orig->id == from_orig->id &&
 			(from_orig->flags & TYPE_ERROR)	== (to_orig->flags & TYPE_ERROR);
 	case STORAGE_SLICE:
@@ -934,6 +932,7 @@ type_is_assignable(struct context *ctx,
 	// The following types are only assignable from themselves, and are
 	// handled above:
 	case STORAGE_BOOL:
+	case STORAGE_DONE:
 	case STORAGE_ENUM:
 	case STORAGE_F32:
 	case STORAGE_FUNCTION:
@@ -983,7 +982,7 @@ is_castable_with_tagged(struct context *ctx,
 const struct type *
 type_is_castable(struct context *ctx, const struct type *to, const struct type *from)
 {
-	if (to->storage == STORAGE_VOID || to->storage == STORAGE_DONE) {
+	if (to->storage == STORAGE_VOID) {
 		if (type_is_flexible(from)) {
 			lower_flexible(ctx, from, NULL);
 		}
