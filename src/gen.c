@@ -216,6 +216,27 @@ gen_fixed_abort(struct gen_context *ctx,
 	pushi(ctx->current, NULL, Q_HLT, NULL);
 }
 
+static void
+gen_fixed_assert(struct gen_context *ctx,
+	struct location loc,
+	enum fixed_aborts reason,
+	enum qbe_instr cmp,
+	struct qbe_value *lvalue,
+	struct qbe_value *rvalue)
+{
+	struct qbe_value cond = mkqtmp(ctx, &qbe_word, "cond.%d");
+	pushi(ctx->current, &cond, cmp, lvalue, rvalue, NULL);
+
+	struct qbe_statement lfail, lpass;
+	struct qbe_value bfail = mklabel(ctx, &lfail, "abort.%d");
+	struct qbe_value bpass = mklabel(ctx, &lpass, "pass.%d");
+
+	pushi(ctx->current, NULL, Q_JNZ, &cond, &bpass, &bfail, NULL);
+	push(&ctx->current->body, &lfail);
+	gen_fixed_abort(ctx, loc, reason);
+	push(&ctx->current->body, &lpass);
+}
+
 static struct gen_value
 gen_autoderef(struct gen_context *ctx, struct gen_value val)
 {
@@ -307,26 +328,6 @@ gen_access_ident(struct gen_context *ctx, const struct scope_object *obj)
 	abort(); // Invariant
 }
 
-static void
-gen_indexing_bounds_check(struct gen_context *ctx,
-	struct location loc,
-	enum qbe_instr instr,
-	struct qbe_value *index,
-	struct qbe_value *length)
-{
-	struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-	pushi(ctx->current, &valid, instr, index, length, NULL);
-
-	struct qbe_statement linvalid, lvalid;
-	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-
-	pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
-	push(&ctx->current->body, &linvalid);
-	gen_fixed_abort(ctx, loc, ABORT_OOB);
-	push(&ctx->current->body, &lvalid);
-}
-
 static struct gen_value
 gen_access_index(struct gen_context *ctx, const struct expression *expr)
 {
@@ -360,7 +361,7 @@ gen_access_index(struct gen_context *ctx, const struct expression *expr)
 	pushi(ctx->current, &qival, Q_ADD, &qlval, &qival, NULL);
 
 	if (checkbounds) {
-		gen_indexing_bounds_check(ctx, expr->loc, Q_CULTL, &qindex, &length);
+		gen_fixed_assert(ctx, expr->loc, ABORT_OOB, Q_CULTL, &qindex, &length);
 	}
 
 	return (struct gen_value){
@@ -441,110 +442,110 @@ gen_expr_access(struct gen_context *ctx, const struct expression *expr)
 	return gen_load(ctx, addr);
 }
 
-static void
-gen_alloc_slice_at(struct gen_context *ctx,
-		const struct expression *expr,
-		struct gen_value out,
-		bool expand)
+static struct gen_value
+gen_expr_alloc_slice_array_with(struct gen_context *ctx,
+	const struct expression *expr, struct gen_value *out)
 {
+	enum alloc_kind kind = expr->alloc.kind;
+	struct gen_value ret = gv_void;
+	if (out == NULL) {
+		ret = mkgtemp(ctx, expr->result, "object.%d");
+		out = &ret;
+
+		struct qbe_value base = mkqval(ctx, out);
+		struct qbe_value sz = constl(expr->result->size);
+		enum qbe_instr alloc = alloc_for_align(expr->result->align);
+		pushprei(ctx->current, &base, alloc, &sz, NULL);
+	}
+
 	struct qbe_value qcap;
-	if (expr->alloc.cap) {
+	if (kind == ALLOC_LEN || kind == ALLOC_CAP) {
 		struct gen_value cap = gen_expr(ctx, expr->alloc.cap);
 		qcap = mkqval(ctx, &cap);
 	}
 
 	struct qbe_value length, initdata;
 	const struct type *inittype = type_dealias(NULL, expr->alloc.init->result);
-	switch (inittype->storage) {
-	case STORAGE_ARRAY:
-		assert(inittype->array.length != SIZE_UNDEFINED);
-		length = constl(inittype->array.length);
-		break;
-	case STORAGE_SLICE:;
+	if (inittype->storage == STORAGE_SLICE) {
+		assert(kind != ALLOC_LEN);
 		struct gen_value init = gen_expr(ctx, expr->alloc.init);
 		struct gen_slice sl = gen_slice_ptrs(ctx, init);
 		load_slice_data(ctx, &sl, &initdata, &length, NULL);
-		break;
-	default: abort(); // Invariant
+	} else if (inittype->storage == STORAGE_ARRAY) {
+		assert(inittype->array.length != SIZE_UNDEFINED);
+		length = constl(inittype->array.length);
+	} else {
+		abort(); // invariant
 	}
 
-	if (!expr->alloc.cap) {
+	if (kind == ALLOC_LEN || kind == ALLOC_CAP) {
+		gen_fixed_assert(ctx, expr->loc, ABORT_CAP_TOO_SMALL,
+				Q_CULEL, &length, &qcap);
+	} else {
 		qcap = length;
 	}
 
-	// reused in next few blocks
-	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
-
-	struct qbe_statement lnotfits, lfits;
-	struct qbe_value bfits = mklabel(ctx, &lfits, ".%d");
-	struct qbe_value bnotfits = mklabel(ctx, &lnotfits, ".%d");
-	pushi(ctx->current, &cmpres, Q_CULEL, &length, &qcap, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bfits, &bnotfits, NULL);
-	push(&ctx->current->body, &lnotfits);
-	gen_fixed_abort(ctx, expr->loc, ABORT_CAP_TOO_SMALL);
-	push(&ctx->current->body, &lfits);
-
-	const struct type *sltype = type_dealias(NULL, expr->result);
-	struct qbe_value isize = constl(sltype->array.members->size);
-	struct qbe_value size = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &size, Q_MUL, &qcap, &isize, NULL);
-
 	struct qbe_statement lzero, lnonzero;
-	struct qbe_value bzero = mklabel(ctx, &lzero, ".%d");
-	struct qbe_value bnonzero = mklabel(ctx, &lnonzero, ".%d");
+	struct qbe_value bzero = mklabel(ctx, &lzero, "zero.%d");
+	struct qbe_value bnonzero = mklabel(ctx, &lnonzero, "nonzero.%d");
 
-	struct qbe_value data = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value newdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 	struct qbe_value zero = constl(0);
-	pushi(ctx->current, &data, Q_COPY, &zero, NULL);
-	pushi(ctx->current, &cmpres, Q_CNEL, &size, &zero, NULL);
+	pushi(ctx->current, &newdata, Q_COPY, &zero, NULL);
+	pushi(ctx->current, &cmpres, Q_CNEL, &qcap, &zero, NULL);
 	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bnonzero, &bzero, NULL);
 	push(&ctx->current->body, &lnonzero);
-	pushi(ctx->current, &data, Q_CALL, &ctx->rt.malloc, &size, NULL);
 
-	struct qbe_statement linvalid;
-	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	pushi(ctx->current, &cmpres, Q_CNEL, &data, &zero, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bzero, &binvalid, NULL);
-	push(&ctx->current->body, &linvalid);
-	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
-	push(&ctx->current->body, &lzero);
+	const struct type *sltype = type_dealias(NULL, expr->result);
+	assert(sltype->storage == STORAGE_SLICE);
+	struct qbe_value sz = mkqtmp(ctx, ctx->arch.sz, ".%d");
+	struct qbe_value membsz = constl(sltype->array.members->size);
+	pushi(ctx->current, &sz, Q_MUL, &membsz, &qcap, NULL);
 
-	struct gen_slice sl = gen_slice_ptrs(ctx, out);
-	store_slice_data(ctx, &sl, &data, expand ? &qcap : &length, &qcap);
+	pushi(ctx->current, &newdata, Q_CALL, &ctx->rt.malloc, &sz, NULL);
+	gen_fixed_assert(ctx, expr->loc, ABORT_ALLOC_FAILURE, Q_CNEL, &newdata, &zero);
 
 	if (inittype->storage == STORAGE_ARRAY) {
+		push(&ctx->current->body, &lzero);
 		struct gen_value storage = (struct gen_value){
 			.kind = GV_TEMP,
 			.type = inittype,
-			.name = data.name,
+			.name = newdata.name,
 		};
 		gen_expr_at(ctx, expr->alloc.init, storage);
+		if (kind == ALLOC_LEN) {
+			struct qbe_value last = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+			struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
+			pushi(ctx->current, &next, Q_MUL, &length, &membsz, NULL);
+			pushi(ctx->current, &next, Q_ADD, &next, &newdata, NULL);
+			pushi(ctx->current, &last, Q_SUB, &next, &membsz, NULL);
+			struct qbe_value remain = mkqtmp(ctx, ctx->arch.sz, ".%d");
+			pushi(ctx->current, &remain, Q_SUB, &qcap, &length, NULL);
+			pushi(ctx->current, &remain, Q_MUL, &remain, &membsz, NULL);
+			pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &remain, NULL);
+			struct gen_slice sl = gen_slice_ptrs(ctx, *out);
+			store_slice_data(ctx, &sl, &newdata, &qcap, &qcap);
+			return ret;
+		}
 	} else {
-		struct qbe_value copysize = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		pushi(ctx->current, &copysize, Q_MUL, &length, &isize, NULL);
 		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy,
-				&data, &initdata, &copysize, NULL);
+				&newdata, &initdata, &sz, NULL);
+		push(&ctx->current->body, &lzero);
 	}
-
-	if (!expand) {
-		return;
-	}
-
-	struct qbe_value last = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	struct qbe_value next = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	pushi(ctx->current, &next, Q_MUL, &length, &isize, NULL);
-	pushi(ctx->current, &next, Q_ADD, &next, &data, NULL);
-	pushi(ctx->current, &last, Q_SUB, &next, &isize, NULL);
-	struct qbe_value remain = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	pushi(ctx->current, &remain, Q_SUB, &qcap, &length, NULL);
-	pushi(ctx->current, &remain, Q_MUL, &remain, &isize, NULL);
-	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &next, &last, &remain, NULL);
+	struct gen_slice sl = gen_slice_ptrs(ctx, *out);
+	store_slice_data(ctx, &sl, &newdata, &length, &qcap);
+        return ret;
 }
 
 static struct gen_value
-gen_expr_alloc_init_with(struct gen_context *ctx,
+gen_expr_alloc_with(struct gen_context *ctx,
 	const struct expression *expr, struct gen_value *out)
 {
+	if (expr->alloc.kind != ALLOC_OBJECT) {
+		return gen_expr_alloc_slice_array_with(ctx, expr, out);
+	}
+
 	// alloc(init) case
 	assert(expr->alloc.cap == NULL);
 
@@ -558,17 +559,9 @@ gen_expr_alloc_init_with(struct gen_context *ctx,
 	pushi(ctx->current, &qresult, Q_CALL, &ctx->rt.malloc, &sz, NULL);
 
 	if (!(type_dealias(NULL, expr->result)->pointer.flags & PTR_NULLABLE)) {
-		struct qbe_statement linvalid, lvalid;
-		struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
 		struct qbe_value zero = constl(0);
-		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-
-		pushi(ctx->current, &cmpres, Q_CNEL, &qresult, &zero, NULL);
-		pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bvalid, &binvalid, NULL);
-		push(&ctx->current->body, &linvalid);
-		gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
-		push(&ctx->current->body, &lvalid);
+		gen_fixed_assert(ctx, expr->loc, ABORT_ALLOC_FAILURE,
+				Q_CNEL, &qresult, &zero);
 	}
 
 	struct gen_value object = {
@@ -581,111 +574,6 @@ gen_expr_alloc_init_with(struct gen_context *ctx,
 		gen_store(ctx, *out, result);
 	}
 	return result;
-}
-
-static struct gen_value
-gen_expr_alloc_slice_with(struct gen_context *ctx,
-	const struct expression *expr, struct gen_value *out)
-{
-	// alloc(init, cap | len) case
-	bool expand = expr->alloc.kind == ALLOC_WITH_LEN;
-	if (out) {
-		gen_alloc_slice_at(ctx, expr, *out, expand);
-		return gv_void;
-	}
-	struct gen_value temp = mkgtemp(ctx, expr->result, "object.%d");
-	struct qbe_value base = mkqval(ctx, &temp);
-	struct qbe_value sz = constl(expr->result->size);
-	enum qbe_instr alloc = alloc_for_align(expr->result->align);
-	pushprei(ctx->current, &base, alloc, &sz, NULL);
-	gen_alloc_slice_at(ctx, expr, temp, expand);
-	return temp;
-}
-
-static struct gen_value
-gen_expr_alloc_copy_with(struct gen_context *ctx,
-	const struct expression *expr, struct gen_value *out)
-{
-	// alloc(init...) case
-	assert(expr->alloc.cap == NULL);
-
-	struct gen_value ret = gv_void;
-	if (out == NULL) {
-		ret = mkgtemp(ctx, expr->result, "object.%d");
-		out = &ret;
-
-		struct qbe_value base = mkqval(ctx, out);
-		struct qbe_value sz = constl(expr->result->size);
-		enum qbe_instr alloc = alloc_for_align(expr->result->align);
-		pushprei(ctx->current, &base, alloc, &sz, NULL);
-	}
-
-	const struct type *initres = type_dealias(NULL, expr->alloc.init->result);
-	struct qbe_value srcdata, length;
-	struct gen_value src = gen_expr(ctx, expr->alloc.init);
-	if (initres->storage == STORAGE_SLICE) {
-		assert(initres->array.length == SIZE_UNDEFINED);
-		struct gen_slice sl = gen_slice_ptrs(ctx, src);
-		load_slice_data(ctx, &sl, &srcdata, &length, NULL);
-	} else if (initres->storage == STORAGE_ARRAY) {
-		assert(initres->array.length != SIZE_UNDEFINED);
-		srcdata = mkcopy(ctx, &src, ".%d"); // TODO: object.%d
-		length = constl(initres->array.length);
-	} else {
-		abort();
-	}
-
-	struct qbe_statement linvalid, lvalid, lalloc, lcopy;
-	struct qbe_value balloc = mklabel(ctx, &lalloc, ".%d");
-	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-	struct qbe_value bcopy = mklabel(ctx, &lcopy, ".%d");
-
-	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
-	struct qbe_value newdata = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-	struct qbe_value zero = constl(0);
-	pushi(ctx->current, &newdata, Q_COPY, &zero, NULL);
-	pushi(ctx->current, &cmpres, Q_CNEL, &length, &zero, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &balloc, &bvalid, NULL);
-	push(&ctx->current->body, &lalloc);
-
-	const struct type *result = type_dealias(NULL, expr->result);
-	assert(result->storage == STORAGE_SLICE);
-	struct qbe_value sz = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	struct qbe_value membsz = constl(result->array.members->size);
-	pushi(ctx->current, &sz, Q_MUL, &membsz, &length, NULL);
-
-	pushi(ctx->current, &newdata, Q_CALL, &ctx->rt.malloc, &sz, NULL);
-	pushi(ctx->current, &cmpres, Q_CNEL, &newdata, &zero, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bcopy, &binvalid, NULL);
-
-	push(&ctx->current->body, &linvalid);
-	gen_fixed_abort(ctx, expr->loc, ABORT_ALLOC_FAILURE);
-
-	push(&ctx->current->body, &lcopy);
-	pushi(ctx->current, NULL, Q_CALL, &ctx->rt.memcpy, &newdata, &srcdata, &sz, NULL);
-
-	push(&ctx->current->body, &lvalid);
-	struct gen_slice sl = gen_slice_ptrs(ctx, *out);
-	store_slice_data(ctx, &sl, &newdata, &length, &length);
-
-	return ret;
-}
-
-static struct gen_value
-gen_expr_alloc_with(struct gen_context *ctx,
-	const struct expression *expr, struct gen_value *out)
-{
-	switch (expr->alloc.kind) {
-	case ALLOC_OBJECT:
-		return gen_expr_alloc_init_with(ctx, expr, out);
-	case ALLOC_WITH_CAP:
-	case ALLOC_WITH_LEN:
-		return gen_expr_alloc_slice_with(ctx, expr, out);
-	case ALLOC_COPY:
-		return gen_expr_alloc_copy_with(ctx, expr, out);
-	}
-	abort(); // Unreachable
 }
 
 static struct gen_value
@@ -826,17 +714,8 @@ gen_expr_assign_slice_expandable(struct gen_context *ctx, struct qbe_value obase
 {
 	size_t arrlen = rvalue->result->array.length;
 	size_t membsz = rvalue->result->array.members->size;
-
-	struct qbe_statement pass, fail;
-	struct qbe_value lpass = mklabel(ctx, &pass, ".%d");
-	struct qbe_value lfail = mklabel(ctx, &fail, ".%d");
 	struct qbe_value cmplen = constl(arrlen);
-	struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
-	pushi(ctx->current, &cmpres, Q_CULEL, &olen, &cmplen, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &cmpres, &lfail, &lpass, NULL);
-	push(&ctx->current->body, &fail);
-	gen_fixed_abort(ctx, rvalue->loc, ABORT_OOB);
-	push(&ctx->current->body, &pass);
+	gen_fixed_assert(ctx, rvalue->loc, ABORT_OOB, Q_CULEL, &cmplen, &olen);
 
 	struct qbe_value sz = constl(membsz);
 	struct qbe_value off = mkqtmp(ctx, ctx->arch.sz, ".%d");
@@ -898,20 +777,11 @@ gen_expr_assign_slice(struct gen_context *ctx, const struct expression *expr)
 	struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	pushi(ctx->current, &ptr, Q_ADD, &qval, &step, NULL);
 	pushi(ctx->current, &vlen, Q_LOADL, &ptr, NULL);
-
-	struct qbe_statement linvalid, lvalid;
-	struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-	struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-	struct qbe_value tmp = mkqtmp(ctx, &qbe_long, ".%d");
-	pushi(ctx->current, &tmp, Q_CEQL, &olen, &vlen, NULL);
-	pushi(ctx->current, NULL, Q_JNZ, &tmp, &bvalid, &binvalid, NULL);
-	push(&ctx->current->body, &linvalid);
-	gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-	push(&ctx->current->body, &lvalid);
+	gen_fixed_assert(ctx, expr->loc, ABORT_OOB, Q_CEQL, &olen, &vlen);
 
 	struct qbe_value vptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value os = mkqtmp(ctx, ctx->arch.sz, ".%d");
-	tmp = constl(vtype->array.members->size);
+	struct qbe_value tmp = constl(vtype->array.members->size);
 	pushi(ctx->current, &os, Q_MUL, &ostart, &tmp, NULL);
 	pushi(ctx->current, &optr, Q_ADD, &optr, &os, NULL);
 	pushi(ctx->current, &vptr, Q_LOADL, &qval, NULL);
@@ -1616,20 +1486,7 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 			pushi(ctx->current, &qout, compare, &qval, &zero, NULL);
 			return out;
 		} else if (expr->cast.kind == C_ASSERTION) {
-			struct qbe_statement failedl, passedl;
-			struct qbe_value bfailed =
-				mklabel(ctx, &failedl, "failed.%d");
-			struct qbe_value bpassed =
-				mklabel(ctx, &passedl, "passed.%d");
-
-			struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
-			pushi(ctx->current, &cmpres, compare, &qval, &zero, NULL);
-			pushi(ctx->current, NULL, Q_JNZ, &cmpres,
-				&bpassed, &bfailed, NULL);
-			push(&ctx->current->body, &failedl);
-			gen_fixed_abort(ctx, expr->loc, ABORT_TYPE_ASSERTION);
-
-			push(&ctx->current->body, &passedl);
+			gen_fixed_assert(ctx, expr->loc, ABORT_TYPE_ASSERTION, compare, &qval, &zero);
 			if (want_null) {
 				return (struct gen_value){
 					.kind = GV_CONST,
@@ -2167,7 +2024,7 @@ gen_expr_delete(struct gen_context *ctx, const struct expression *expr)
 	if (dexpr->type == EXPR_SLICE) {
 		gen_subslice_info(ctx, dexpr, &qlen, &qcap, &qstart, &qend, NULL, NULL);
 	} else {
-		gen_indexing_bounds_check(ctx, expr->loc, Q_CULTL, &qstart, &qlen);
+		gen_fixed_assert(ctx, expr->loc, ABORT_OOB, Q_CULTL, &qstart, &qlen);
 		struct qbe_value tmp = constl(1);
 		qend = mkqtmp(ctx, qstart.type, ".%d");
 		pushi(ctx->current, &qend, Q_ADD, &qstart, &tmp, NULL);
@@ -2548,7 +2405,7 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 			expr->append.object->access.index);
 		qindex = mkqval(ctx, &index);
 		qindex_ptr = &qindex;
-		gen_indexing_bounds_check(ctx, expr->loc, Q_CULEL, &qindex, &prevlen);
+		gen_fixed_assert(ctx, expr->loc, ABORT_OOB, Q_CULEL, &qindex, &prevlen);
 	}
 
 	struct qbe_value appendlen;
@@ -2599,16 +2456,7 @@ gen_expr_append_insert(struct gen_context *ctx, const struct expression *expr)
 		struct qbe_value lval = mklval(ctx, &slice);
 		pushi(ctx->current, NULL, Q_CALL, &ctx->rt.ensure, &lval, &membsz, NULL);
 	} else {
-		struct qbe_statement lvalid, linvalid;
-		struct qbe_value bvalid = mklabel(ctx, &lvalid, ".%d");
-		struct qbe_value binvalid = mklabel(ctx, &linvalid, ".%d");
-		struct qbe_value valid = mkqtmp(ctx, &qbe_word, ".%d");
-		pushi(ctx->current, &valid, Q_CULEL, &newlen, &cap, NULL);
-		pushi(ctx->current, NULL, Q_JNZ, &valid, &bvalid, &binvalid, NULL);
-
-		push(&ctx->current->body, &linvalid);
-		gen_fixed_abort(ctx, expr->loc, ABORT_OOB);
-		push(&ctx->current->body, &lvalid);
+		gen_fixed_assert(ctx, expr->loc, ABORT_OOB, Q_CULEL, &newlen, &cap);
 	}
 
 	struct qbe_value base = mkqtmp(ctx, ctx->arch.ptr, ".%d");

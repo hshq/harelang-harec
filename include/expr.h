@@ -80,8 +80,8 @@ struct expression_access {
 
 enum alloc_kind {
 	ALLOC_OBJECT,	// alloc(42)
-	ALLOC_WITH_CAP,	// alloc([], 42)
-	ALLOC_WITH_LEN,	// alloc([0...], 42)
+	ALLOC_CAP,	// alloc([], 42)
+	ALLOC_LEN,	// alloc([0...], 42)
 	ALLOC_COPY,	// alloc(x...);
 };
 

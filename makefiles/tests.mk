@@ -65,6 +65,7 @@ $(HARECACHE)/tests/24-imports: 		$(HARECACHE)/testmod.o
 $(HARECACHE)/tests/34-declarations: $(HARECACHE)/testmod.o
 
 
+$(HARECACHE)/tests/00-literals.ssa: tests/00-literals.ha $(HARECACHE)/rt.td $(BINOUT)/harec $(HARECACHE)/testmod.td
 $(HARECACHE)/tests/10-binarithms.ssa: 	$(HARECACHE)/testmod.td
 $(HARECACHE)/tests/15-enums.ssa: 		$(HARECACHE)/testmod.td
 $(HARECACHE)/tests/24-imports.ssa: 		$(HARECACHE)/testmod.td

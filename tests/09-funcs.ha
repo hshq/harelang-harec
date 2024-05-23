@@ -82,9 +82,12 @@ fn cvaargs() void = {
 };
 
 fn reject() void = {
+	compile(status::PARSE, "fn f(x: int..., ...) void = void;")!;
+
 	let failures: [_]str = [
 		// parameter of undefined size
 		"fn f(x: [*]int) void = void;",
+		"fn f(x: [*]int...) void = void;",
 		// return value of undefined size
 		"fn f(x: int) [*]int = void;",
 
@@ -107,8 +110,16 @@ fn reject() void = {
 		"fn f(*int) void = void;",
 		"type t = void; fn f(t) void = void;",
 
-		// https://todo.sr.ht/~sircmpwn/hare/917
+		// variadic call to a function that does not support that
+		"fn a(x: int) void = void; fn b() void = { a(5...); };",
+		"fn a(x: int, ...) void = void; fn b() void = { a(5...); };",
+		"fn a(x: []int) void = void; fn b() void = { a([5]...); };",
+		"fn a(x: []int, ...) void = void; fn b() void = { a([5]...); };",
+
+		// unresolved parameter type
+		"fn f(arg: T) void; fn g() void = f(1);",
 		"fn f(arg: T...) void; fn g() void = f(1);",
+		"fn f(arg: T, ...) void; fn g() void = f(1);",
 
 		// required params may not follow optional
 		"fn f(a: int = 5, b: int) void = void;",
@@ -117,6 +128,20 @@ fn reject() void = {
 		"fn f(a: int = 5, b: int...) void = void;",
 		// default value must be assignable to type
 		"fn f(a: str = 5) void = void;",
+
+		// too many arguments
+		"fn f() void = f(0);",
+		"fn f(x: int) void = f(0, 1);",
+		// not enough arguments
+		"fn f(x: int) void = f();",
+		"fn f(x: int, y: int...) void = f();",
+		"fn f(x: int, y: int) void = f(0);",
+		"fn f(x: int, y: int, z: int...) void = f(0);",
+		// argument type mismatch
+		"fn f(x: str) void = f(0);",
+		"fn f(x: str = \"asdf\") void = f(0);",
+		"fn f(x: str...) void = f(0);",
+		"fn f(x: str...) void = f(\"asdf\", 0);",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
