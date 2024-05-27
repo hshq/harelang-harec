@@ -1455,6 +1455,12 @@ check_expr_call(struct context *ctx,
 		next = &arg->next;
 		param = param->next;
 	}
+	while (param && param->default_value) {
+		arg = *next = xcalloc(1, sizeof(struct call_argument));
+		arg->value = param->default_value;
+		next = &arg->next;
+		param = param->next;
+	}
 	if (param) {
 		if (fntype->func.variadism == VARIADISM_HARE && !param->next) {
 			// No variadic arguments, lower to empty slice
@@ -1471,12 +1477,6 @@ check_expr_call(struct context *ctx,
 				"Not enough arguments for function call");
 			return;
 		}
-		while (param) {
-			arg = *next = xcalloc(1, sizeof(struct call_argument));
-			arg->value = param->default_value;
-			next = &arg->next;
-			param = param->next;
-		}
 	} else if (aarg) {
 		if (fntype->func.variadism != VARIADISM_C) {
 			error(ctx, aexpr->loc, expr,
@@ -1491,8 +1491,6 @@ check_expr_call(struct context *ctx,
 			next = &arg->next;
 		}
 	}
-
-
 }
 
 static void
