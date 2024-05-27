@@ -123,9 +123,6 @@ fn reject() void = {
 
 		// required params may not follow optional
 		"fn f(a: int = 5, b: int) void = void;",
-		// no variadism after optional params
-		"fn f(a: int = 5, ...) void = void;",
-		"fn f(a: int = 5, b: int...) void = void;",
 		// default value must be assignable to type
 		"fn f(a: str = 5) void = void;",
 
@@ -207,6 +204,14 @@ fn optional_slc2(x: []int = [1, 2]) int = {
 	return x[0];
 };
 fn optional_ptr(x: nullable *int = null) bool = x is null;
+fn optional_variadic(a: int = 3, b: int...) bool = a == 3 || len(b) == 2;
+fn optional_variadic_c(n: int = 0, ...) void = {
+	let ap = vastart();
+	defer vaend(ap);
+	for (let i = 0; i < n; i += 1) {
+		assert(vaarg(ap): int == i);
+	};
+};
 
 fn optional_params() void = {
 	assert(optional_simple(5, 1) == 1);
@@ -233,6 +238,13 @@ fn optional_params() void = {
 	assert(optional_ptr());
 	let i = 0;
 	assert(!optional_ptr(&i));
+	assert(optional_variadic());
+	assert(optional_variadic(3));
+	assert(optional_variadic(0, 1, 2));
+	optional_variadic_c();
+	optional_variadic_c(0);
+	optional_variadic_c(1, 0);
+	optional_variadic_c(3, 0, 1, 2);
 };
 
 export fn main() void = {

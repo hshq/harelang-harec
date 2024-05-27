@@ -884,6 +884,12 @@ type_init_from_atype(struct context *ctx,
 				aparam; aparam = aparam->next) {
 			param = *next = xcalloc(1, sizeof(struct type_func_param));
 			param->type = lookup_atype(ctx, aparam->type);
+			if (param->type->size == SIZE_UNDEFINED) {
+				error(ctx, atype->loc, NULL,
+					"Function parameter types must have defined size");
+				*type = builtin_type_error;
+				return (struct dimensions){0};
+			}
 			if (aparam->default_value != NULL) {
 				has_optional = true;
 				if (!default_param_from_atype(ctx,
@@ -891,30 +897,17 @@ type_init_from_atype(struct context *ctx,
 					*type = builtin_type_error;
 					return (struct dimensions){0};
 				}
+			} else if (atype->func.variadism == VARIADISM_HARE
+					&& !aparam->next) {
+				param->type = type_store_lookup_slice(
+					ctx, aparam->loc, param->type);
 			} else if (has_optional) {
 				error(ctx, atype->loc, NULL,
 					"Required function parameter may not follow optional parameters");
 				*type = builtin_type_error;
 				return (struct dimensions){0};
 			}
-			if (param->type->size == SIZE_UNDEFINED) {
-				error(ctx, atype->loc, NULL,
-					"Function parameter types must have defined size");
-				*type = builtin_type_error;
-				return (struct dimensions){0};
-			}
-			if (atype->func.variadism == VARIADISM_HARE
-					&& !aparam->next) {
-				param->type = type_store_lookup_slice(
-					ctx, aparam->loc, param->type);
-			}
 			next = &param->next;
-		}
-		if (atype->func.variadism != VARIADISM_NONE && has_optional) {
-			error(ctx, atype->loc, NULL,
-				"Variadic function may not have optional parameters");
-			*type = builtin_type_error;
-			return (struct dimensions){0};
 		}
 		break;
 	case STORAGE_POINTER:
