@@ -1944,8 +1944,6 @@ parse_for_expression(struct lexer *lexer)
 	exp->type = EXPR_FOR;
 
 	struct token tok = {0};
-	want(lexer, T_FOR, &tok);
-
 	switch (lex(lexer, &tok)) {
 	case T_COLON:
 		want(lexer, T_NAME, &tok);
@@ -2435,23 +2433,12 @@ parse_expression(struct lexer *lexer)
 	case T_CONTINUE:
 	case T_RETURN:
 	case T_YIELD:
+		unlex(lexer, &tok);
+		return parse_control_expression(lexer);
 	case T_FOR:
+		return parse_for_expression(lexer);
 	case T_IF:
-		switch (tok.token) {
-		case T_BREAK:
-		case T_CONTINUE:
-		case T_RETURN:
-		case T_YIELD:
-			unlex(lexer, &tok);
-			return parse_control_expression(lexer);
-		case T_FOR:
-			unlex(lexer, &tok);
-			return parse_for_expression(lexer);
-		case T_IF:
-			return parse_if_expression(lexer);
-		default:
-			assert(0);
-		}
+		return parse_if_expression(lexer);
 	default:
 		break;
 	}
