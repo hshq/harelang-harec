@@ -4683,16 +4683,7 @@ scan_decl(struct context *ctx, struct scope *imports, const struct ast_decl *dec
 				template = "finifunc.%d";
 			}
 			assert(template);
-			char *gen = gen_name(&ctx->id, template);
-
-			mkident(ctx, &ident, &func->ident, func->symbol);
-			char *sym = ident_to_sym(&ident);
-
-			size_t n = snprintf(NULL, 0, "%s.%s", gen, sym);
-			ident.name = xcalloc(n + 1, 1);
-			snprintf(ident.name, n + 1, "%s.%s", gen, sym);
-			free(gen);
-			free(sym);
+			ident.name = gen_name(&ctx->id, template);
 			++ctx->id;
 
 			name = &ident;
