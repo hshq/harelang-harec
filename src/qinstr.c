@@ -3,7 +3,6 @@
 #include "gen.h"
 #include "qbe.h"
 #include "types.h"
-#include "type_store.h"
 
 enum qbe_instr
 alloc_for_align(size_t align)

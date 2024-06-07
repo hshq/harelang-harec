@@ -1,6 +1,5 @@
 #ifndef HARE_IDENTIFIER_H
 #define HARE_IDENTIFIER_H
-#include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
 

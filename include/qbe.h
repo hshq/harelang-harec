@@ -1,6 +1,5 @@
 #ifndef HAREC_QBE_H
 #define HAREC_QBE_H
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

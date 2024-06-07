@@ -1,10 +1,8 @@
 #include <assert.h>
-#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "gen.h"
 #include "qbe.h"
-#include "type_store.h"
 #include "types.h"
 #include "util.h"
 

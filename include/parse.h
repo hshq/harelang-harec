@@ -1,6 +1,6 @@
 #ifndef HAREC_PARSE_H
 #define HAREC_PARSE_H
-#include <stdio.h>
+#include <stdbool.h>
 
 struct ast_expression;
 struct ast_subunit;
