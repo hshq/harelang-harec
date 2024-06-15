@@ -21,6 +21,7 @@ expr_hash(const struct expression *expr)
 	}
 
 	switch (storage) {
+	case STORAGE_ERROR:
 	case STORAGE_VOID:
 	case STORAGE_NULL:
 	case STORAGE_DONE:
@@ -91,7 +92,6 @@ expr_hash(const struct expression *expr)
 	case STORAGE_OPAQUE:
 	case STORAGE_FUNCTION:
 	case STORAGE_VALIST:
-	case STORAGE_ERROR:
 	case STORAGE_ALIAS: // handled above
 		assert(0);
 	}
