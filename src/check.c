@@ -1994,6 +1994,9 @@ check_expr_for_accumulator(struct context *ctx,
 	if (aexpr->_for.bindings) {
 		bindings = xcalloc(1, sizeof(struct expression));
 		check_expression(ctx, aexpr->_for.bindings, bindings, NULL);
+		if (bindings->result->storage == STORAGE_ERROR) {
+			return;
+		}
 		assert(bindings->result->storage == STORAGE_VOID);
 		expr->_for.bindings = bindings;
 	}
