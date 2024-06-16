@@ -178,6 +178,11 @@ fn reject() void = {
 
 	// compile-time evaluation of len with slice
 	compile(status::CHECK, "let x: []int; let y = len(x);")!;
+
+	// cast to array of undefined size
+	compile(status::CHECK, "fn f() void = { let x = [1, 2, 3]: [*]int; };")!;
+	compile(status::CHECK, "fn f() void = { let x = [1...]: [*]int; };")!;
+	compile(status::CHECK, "fn f() void = { ([]: [*]int)[0]; };")!;
 };
 
 export fn main() void = {

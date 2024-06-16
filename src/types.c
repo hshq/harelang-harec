@@ -1009,6 +1009,11 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 		return to_orig;
 	}
 
+	if ((!type_is_flexible(from) && from->size == SIZE_UNDEFINED)
+			|| (!type_is_flexible(to) && to->size == SIZE_UNDEFINED)) {
+		return NULL;
+	}
+
 	switch (from->storage) {
 	case STORAGE_ICONST:
 		switch (to->storage) {
