@@ -1829,12 +1829,7 @@ parse_if_expression(struct lexer *lexer)
 
 	switch (lex(lexer, &tok)) {
 	case T_ELSE:
-		if (lex(lexer, &tok) == T_IF) {
-			exp->_if.false_branch = parse_if_expression(lexer);
-		} else {
-			unlex(lexer, &tok);
-			exp->_if.false_branch = parse_expression(lexer);
-		}
+		exp->_if.false_branch = parse_expression(lexer);
 		break;
 	default:
 		unlex(lexer, &tok);
