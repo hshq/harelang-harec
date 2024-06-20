@@ -3854,11 +3854,10 @@ gen_decl(struct gen_context *ctx, const struct declaration *decl)
 }
 
 void
-gen(const struct unit *unit, type_store *store, struct qbe_program *out)
+gen(const struct unit *unit, struct qbe_program *out)
 {
 	struct gen_context ctx = {
 		.out = out,
-		.store = store,
 		.ns = unit->ns,
 		.arch = {
 			.ptr = &qbe_long,

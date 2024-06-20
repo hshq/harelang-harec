@@ -206,7 +206,7 @@ main(int argc, char *argv[])
 	}
 
 	struct qbe_program prog = {0};
-	gen(&unit, &ts, &prog);
+	gen(&unit, &prog);
 
 	FILE *out;
 	if (!output) {
