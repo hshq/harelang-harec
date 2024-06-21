@@ -146,6 +146,11 @@ fn pointers() void = {
 
 	compile(status::CHECK, "let a = [1, 2, 3]; let b = &a[3];")!;
 	compile(status::CHECK, "let a = (1, 2, 3); let b = &a.3;")!;
+
+	// Disallow auto-dereference
+	compile(status::CHECK, "let a = [1, 2, 3]; let b = &a; let c = &b[1];")!;
+	compile(status::CHECK, "let a = (1, 2, 3); let b = &a; let c = &b.1;")!;
+	compile(status::CHECK, "let a = struct { x: int = 2 }; let b = &a; let c = &b.x;")!;
 };
 
 type foo = (int | uint);

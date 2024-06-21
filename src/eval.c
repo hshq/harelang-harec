@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -960,6 +959,7 @@ eval_unarithm(struct context *ctx,
 		const struct expression_access *access =
 			&in->unarithm.operand->access;
 		struct expression new_in = {0};
+		const struct type *operand_type;
 		switch (access->type) {
 		case ACCESS_IDENTIFIER:
 			if (access->object->otype != O_DECL) {
@@ -978,13 +978,23 @@ eval_unarithm(struct context *ctx,
 			if (!eval_expr(ctx, access->index, &index)) {
 				return false;
 			}
-			out->literal.ival += index.literal.uval * type_dealias(ctx,
-				access->array->result)->array.members->size;
+			operand_type = type_dealias(ctx, access->array->result);
+			if (operand_type->storage != STORAGE_ARRAY) {
+				// autodereferencing not allowed
+				return false;
+			}
+			out->literal.ival +=
+				index.literal.uval * operand_type->array.members->size;
 			return true;
 		case ACCESS_FIELD:
 			new_in = *in;
 			new_in.unarithm.operand = access->_struct;
 			if (!eval_expr(ctx, &new_in, out)) {
+				return false;
+			}
+			operand_type = type_dealias(ctx, access->tuple->result);
+			if (operand_type->storage != STORAGE_STRUCT) {
+				// autodereferencing not allowed
 				return false;
 			}
 			out->literal.ival += access->field->offset;
@@ -993,6 +1003,11 @@ eval_unarithm(struct context *ctx,
 			new_in = *in;
 			new_in.unarithm.operand = access->tuple;
 			if (!eval_expr(ctx, &new_in, out)) {
+				return false;
+			}
+			operand_type = type_dealias(ctx, access->tuple->result);
+			if (operand_type->storage != STORAGE_TUPLE) {
+				// autodereferencing not allowed
 				return false;
 			}
 			out->literal.ival += access->tvalue->offset;

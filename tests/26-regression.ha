@@ -235,4 +235,8 @@ export fn main() void = {
 	compile(status::CHECK, "fn a() void = { offset(a.b); };")!;
 
 	compile(status::CHECK, "fn f() void = { let x: []u8 = &0: *[*]u8; };")!;
+
+	compile(status::CHECK, "fn f(x: t = 2u) void = void;")!;
+
+	compile(status::CHECK, "fn f() void = { for (let i = return; true) void; };")!;
 };

@@ -1,7 +1,6 @@
 #ifndef HAREC_EXPR_H
 #define HAREC_EXPR_H
 #include <stdint.h>
-#include "identifier.h"
 #include "lex.h"
 #include "types.h"
 

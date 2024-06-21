@@ -167,8 +167,27 @@ emit_literal(const struct expression *expr, FILE *out)
 		xfprintf(out, ")");
 		break;
 	case STORAGE_STRUCT:
+		if (expr->result->storage == STORAGE_ALIAS) {
+			char *ident =
+				identifier_unparse(&expr->result->alias.ident);
+			xfprintf(out, "%s", ident);
+			free(ident);
+		} else {
+			xfprintf(out, "struct");
+		}
+		xfprintf(out, " { ");
+		for (struct struct_literal *cur = val->_struct;
+				cur; cur = cur->next) {
+			xfprintf(out, "%s: ", cur->field->name);
+			emit_type(cur->field->type, out);
+			xfprintf(out, " = ");
+			emit_literal(cur->value, out);
+			xfprintf(out, ", ");
+		}
+		xfprintf(out, "}");
+		break;
 	case STORAGE_UNION:
-		assert(0); // TODO
+		assert(0); // TODO, blocked on union support in eval
 	case STORAGE_ALIAS:
 	case STORAGE_ERROR:
 	case STORAGE_FUNCTION:

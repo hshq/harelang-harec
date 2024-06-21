@@ -65,7 +65,6 @@ struct rt {
 struct gen_context {
 	struct qbe_program *out;
 	struct gen_arch arch;
-	type_store *store;
 	struct identifier *ns;
 	struct rt rt;
 	struct gen_value *sources;
@@ -80,7 +79,7 @@ struct gen_context {
 
 struct unit;
 
-void gen(const struct unit *unit, type_store *store, struct qbe_program *out);
+void gen(const struct unit *unit, struct qbe_program *out);
 
 // genutil.c
 void rtfunc_init(struct gen_context *ctx);

@@ -15,12 +15,10 @@ expr_hash(const struct expression *expr)
 	// different hashes than their types.
 	hash = fnv1a_u32(hash, expr->result->storage);
 
-	enum type_storage storage = expr->result->storage;
-	if (storage == STORAGE_ALIAS) {
-		storage = type_dealias(NULL, expr->result)->storage;
-	}
+	enum type_storage storage = type_dealias(NULL, expr->result)->storage;
 
 	switch (storage) {
+	case STORAGE_ERROR:
 	case STORAGE_VOID:
 	case STORAGE_NULL:
 	case STORAGE_DONE:
@@ -91,7 +89,6 @@ expr_hash(const struct expression *expr)
 	case STORAGE_OPAQUE:
 	case STORAGE_FUNCTION:
 	case STORAGE_VALIST:
-	case STORAGE_ERROR:
 	case STORAGE_ALIAS: // handled above
 		assert(0);
 	}

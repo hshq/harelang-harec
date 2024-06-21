@@ -1,5 +1,6 @@
 #ifndef HAREC_UTF8_H
 #define HAREC_UTF8_H
+#include <stdint.h>
 #include <limits.h>
 #include <stdio.h>
 
