@@ -129,6 +129,8 @@ emit_literal(const struct expression *expr, FILE *out)
 		} else if (type_is_signed(NULL, t->alias.type)) {
 			xfprintf(out, "%" PRIi64 "%s: %s", val->ival,
 				storage_to_suffix(t->alias.type->storage), ident);
+		} else if (t->alias.type->storage == STORAGE_RUNE) {
+			xfprintf(out, "\'\\U%08" PRIx32 "\'", val->rune);
 		} else {
 			xfprintf(out, "%" PRIu64 "%s: %s", val->uval,
 				storage_to_suffix(t->alias.type->storage), ident);
