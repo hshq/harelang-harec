@@ -12,6 +12,10 @@ export type other = enum {
 export type enum_alias = _enum;
 export type error_enum = !_enum;
 
+export type rune_enum = enum rune {
+	SEMICOLON = ';',
+};
+
 // used for a test in tests/15-enums.ha
 // this is kinda a hack; it simulates a declaration in a module whose namespace
 // has multiple components (in this case testmod::x)
