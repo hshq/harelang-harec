@@ -225,6 +225,17 @@ struct expression_literal {
 			size_t len;
 			char *value;
 		} string;
+		struct {
+			union {
+				// if object is null
+				struct array_literal *array;
+				// if object is non-null
+				size_t offset;
+			};
+			size_t start;
+			size_t len;
+			size_t cap;
+		} slice;
 		struct array_literal *array;
 		struct struct_literal *_struct;
 		struct tuple_literal *tuple;

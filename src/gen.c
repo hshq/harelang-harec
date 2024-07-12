@@ -3561,7 +3561,22 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 	if (literal->object) {
 		item->type = QD_SYMOFFS;
 		item->sym = ident_to_sym(&literal->object->ident);
-		item->offset = literal->ival;
+		if (type->storage == STORAGE_SLICE) {
+			item->offset = literal->slice.offset +
+				literal->slice.start * type->array.members->size;
+
+			item->next = xcalloc(1, sizeof(struct qbe_data_item));
+			item = item->next;
+			item->type = QD_VALUE;
+			item->value = constl(literal->slice.len);
+
+			item->next = xcalloc(1, sizeof(struct qbe_data_item));
+			item = item->next;
+			item->type = QD_VALUE;
+			item->value = constl(literal->slice.cap);
+		} else {
+			item->offset = literal->ival;
+		}
 		return item;
 	}
 
@@ -3665,38 +3680,35 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 		def->kind = Q_DATA;
 		def->data.align = ALIGN_UNDEFINED;
 
-		size_t len = 0;
-		struct qbe_data_item *subitem = &def->data.items;
-		for (struct array_literal *c = literal->array;
-				c; c = c->next) {
-			subitem = gen_data_item(ctx, c->value, subitem);
-			if (c->next) {
-				subitem->next = xcalloc(1,
-					sizeof(struct qbe_data_item));
-				subitem = subitem->next;
+		if (literal->slice.len != 0) {
+			struct qbe_data_item *subitem = &def->data.items;
+			for (struct array_literal *c = literal->slice.array;
+					c; c = c->next) {
+				subitem = gen_data_item(ctx, c->value, subitem);
+				if (c->next) {
+					subitem->next = xcalloc(1,
+						sizeof(struct qbe_data_item));
+					subitem = subitem->next;
+				}
 			}
-			++len;
-		}
-
-		item->type = QD_VALUE;
-		if (len != 0) {
 			qbe_append_def(ctx->out, def);
-			item->value.kind = QV_GLOBAL;
-			item->value.type = &qbe_long;
-			item->value.name = xstrdup(def->name);
+			item->type = QD_SYMOFFS;
+			item->sym = xstrdup(def->name);
+			item->offset =
+				literal->slice.start * type->array.members->size;
 		} else {
-			free(def);
+			item->type = QD_VALUE;
 			item->value = constl(0);
 		}
 
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 		item->type = QD_VALUE;
-		item->value = constl(len);
+		item->value = constl(literal->slice.len);
 		item->next = xcalloc(1, sizeof(struct qbe_data_item));
 		item = item->next;
 		item->type = QD_VALUE;
-		item->value = constl(len);
+		item->value = constl(literal->slice.cap);
 		break;
 	case STORAGE_STRUCT:
 		for (struct struct_literal *f = literal->_struct;

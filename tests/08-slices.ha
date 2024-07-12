@@ -271,6 +271,85 @@ fn cap_borrowed() void = {
 	assert(capacity == 5);
 };
 
+type s = struct {
+	i: int,
+	data: [4]int,
+	tuple: ([2]int, int),
+	nested: [4][3]int,
+};
+let global = s { ... };
+
+let backing = [1, 2, 3, 4];
+let ref = backing[1..3];
+let ref_chained = backing[1..][..2];
+
+let literal = [1, 2, 3][..2];
+
+let chained = [1, 2, 3, 4][1..][..2];
+let long_chain = [1, 2, 3, 4][1..][1..][1..];
+
+fn eval() void = {
+	static assert(len([1, 2, 3][1..2]) == 1);
+	static assert(len([1, 2, 3][1..][..1]) == 1);
+	static assert(len(backing[1..2]) == 1);
+	static assert(len(backing[1..2][..]) == 1);
+
+	let (length, capacity) = lencap(literal);
+	assert(length == 2);
+	assert(capacity == 3);
+	assert(literal[0] == 1 && literal[1] == 2);
+
+	let (length, capacity) = lencap(chained);
+	assert(length == 2);
+	assert(capacity == 3);
+	assert(chained[0] == 2 && chained[1] == 3);
+
+	let (length, capacity) = lencap(ref);
+	assert(length == 2);
+	assert(capacity == 3);
+	assert(ref[0] == 2 && ref[1] == 3);
+
+	let (length, capacity) = lencap(ref_chained);
+	assert(length == 2);
+	assert(capacity == 3);
+	assert(ref[0] == 2 && ref[1] == 3);
+
+	let (length, capacity) = lencap(global.data[..0]);
+	assert(length == 0);
+	assert(capacity == 4);
+
+	let (length, capacity) = lencap(global.tuple.0[1..]);
+	assert(length == 1);
+	assert(capacity == 1);
+
+	let (length, capacity) = lencap(global.tuple.0[..][1..]);
+	assert(length == 1);
+	assert(capacity == 1);
+
+	let (length, capacity) = lencap(global.nested[2][1..]);
+	assert(length == 2);
+	assert(capacity == 2);
+
+	let (length, capacity) = lencap(global.nested[2][1..][..1]);
+	assert(length == 1);
+	assert(capacity == 2);
+
+	compile(status::CHECK, "let x = [1, 2, 3][2..1];")!;
+	compile(status::CHECK, "let x = [1, 2, 3][..10];")!;
+	compile(status::CHECK, "let x = [1, 2, 3][4..];")!;
+
+	compile(status::CHECK, "let x = [1, 2, 3][..][2..1];")!;
+	compile(status::CHECK, "let x = [1, 2, 3][..][..10];")!;
+	compile(status::CHECK, "let x = [1, 2, 3][..][4..];")!;
+
+	compile(status::CHECK, "let x = [1, 2, 3]; let y = x[2..1];")!;
+	compile(status::CHECK, "let x = [1, 2, 3]; let y = x[..10];")!;
+	compile(status::CHECK, "let x = [1, 2, 3]; let y = x[4..];")!;
+
+	compile(status::CHECK, "let x = [1, 2, 3]; let y = x[..]; let a = y[..];")!;
+	compile(status::CHECK, "let x = [1, 2, 3]; let y = x[..]; let a = y[1];")!;
+};
+
 export fn main() void = {
 	from_array();
 	storage();
@@ -282,4 +361,5 @@ export fn main() void = {
 	expandable();
 	misc_reject();
 	cap_borrowed();
+	eval();
 };

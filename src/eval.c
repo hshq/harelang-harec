@@ -487,12 +487,12 @@ eval_literal(struct context *ctx,
 	case STORAGE_UINTPTR:
 	case STORAGE_VOID:
 	case STORAGE_DONE:
+	case STORAGE_SLICE:
 		out->literal = in->literal;
 		break;
 	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
-	case STORAGE_SLICE:
 	case STORAGE_VALIST:
 		abort(); // Invariant
 	}
@@ -632,8 +632,11 @@ eval_cast(struct context *ctx,
 		}
 		return true;
 	case STORAGE_SLICE:
-		assert(type_dealias(ctx, val.result)->storage == STORAGE_ARRAY);
-		out->literal = val.literal;
+		assert(from->storage == STORAGE_ARRAY);
+		out->literal.slice.array = val.literal.array;
+		out->literal.slice.start = 0;
+		out->literal.slice.len = out->literal.slice.cap =
+			from->array.length;
 		return true;
 	case STORAGE_F32:
 	case STORAGE_F64:
@@ -699,7 +702,8 @@ eval_len(struct context *ctx,
 
 	switch (obj.result->storage) {
 	case STORAGE_SLICE:
-		break;
+		out->literal.uval = obj.literal.slice.len;
+		return true;
 	case STORAGE_STRING:
 		out->literal.uval = obj.literal.string.len;
 		return true;
@@ -911,6 +915,93 @@ eval_struct(struct context *ctx,
 }
 
 static bool
+eval_slice(struct context *ctx,
+	const struct expression *restrict in,
+	struct expression *restrict out)
+{
+	assert(in->type == EXPR_SLICE);
+
+	const struct type *object_type = type_dealias(ctx, in->slice.object->result);
+
+	struct expression object = {0};
+	if (object_type->storage == STORAGE_SLICE) {
+		if (!eval_expr(ctx, in->slice.object, &object)) {
+			return false;
+		}
+		object_type = type_dealias(ctx, object.result);
+	} else if (object_type->storage == STORAGE_ARRAY) {
+		object = *in->slice.object;
+	} else {
+		return false;
+	}
+
+	size_t start = 0;
+	if (in->slice.start) {
+		struct expression start_expr = {0};
+		if (!eval_expr(ctx, in->slice.start, &start_expr)) {
+			return false;
+		}
+		start = start_expr.literal.uval;
+	}
+
+	size_t end;
+	if (object_type->storage == STORAGE_ARRAY) {
+		end = object_type->array.length;
+	} else {
+		end = object.literal.slice.len;
+	}
+	if (in->slice.end) {
+		struct expression end_expr = {0};
+		if (!eval_expr(ctx, in->slice.end, &end_expr)) {
+			return false;
+		}
+		end = end_expr.literal.uval;
+	}
+
+	if (object_type->storage == STORAGE_SLICE) {
+		if (start >= end || start >= object.literal.slice.len
+				|| end > object.literal.slice.len) {
+			error(ctx, in->loc, NULL, "slice access out of bounds");
+			return false;
+		}
+
+		out->literal = object.literal;
+		out->literal.slice.start += start;
+		out->literal.slice.len = end - start;
+		out->literal.slice.cap -= start;
+		return true;
+	}
+
+	assert(object_type->storage == STORAGE_ARRAY);
+	out->literal.slice.start = start;
+	out->literal.slice.len = end - start;
+	out->literal.slice.cap = object_type->array.length - start;
+
+	switch (object.type) {
+	case EXPR_ACCESS:;
+		struct expression addr_expr = {0}, addr = {0};
+		addr_expr.type = EXPR_UNARITHM;
+		addr_expr.unarithm.op = UN_ADDRESS;
+		addr_expr.unarithm.operand = &object;
+
+		if (!eval_expr(ctx, &addr_expr, &addr)) {
+			return false;
+		}
+
+		out->literal.object = addr.literal.object;
+		out->literal.slice.offset = addr.literal.ival;
+		break;
+	case EXPR_LITERAL:
+		out->literal.object = NULL;
+		out->literal.slice.array = object.literal.array;
+		break;
+	default:
+		assert(0); // Invariant
+	}
+	return true;
+}
+
+static bool
 eval_tuple(struct context *ctx,
 	const struct expression *restrict in,
 	struct expression *restrict out)
@@ -1075,7 +1166,7 @@ eval_expr(struct context *ctx,
 	case EXPR_STRUCT:
 		return eval_struct(ctx, in, out);
 	case EXPR_SLICE:
-		assert(0); // TODO
+		return eval_slice(ctx, in, out);
 	case EXPR_TUPLE:
 		return eval_tuple(ctx, in, out);
 	case EXPR_UNARITHM:
