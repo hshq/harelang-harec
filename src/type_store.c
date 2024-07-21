@@ -709,6 +709,9 @@ default_param_from_atype(struct context *ctx,
 	// updated later, so it cannot be on the stack.
 	struct expression *in = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aparam->default_value, in, param->type);
+	if (in->result->storage == STORAGE_ERROR) {
+		return false;
+	}
 	if (!type_is_assignable(ctx, param->type, in->result)) {
 		char *restypename = gen_typename(in->result);
 		char *partypename = gen_typename(param->type);
