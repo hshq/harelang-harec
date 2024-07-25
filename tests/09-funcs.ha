@@ -139,6 +139,8 @@ fn reject() void = {
 		"fn f(x: str = \"asdf\") void = f(0);",
 		"fn f(x: str...) void = f(0);",
 		"fn f(x: str...) void = f(\"asdf\", 0);",
+		// cannot return a type with undefined size
+		"fn f() fn() void = g; fn g() void = void;",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
