@@ -29,7 +29,7 @@ is known immediately when it is detected, so it can be completed right away.
 For values of enum aliases we need to cover three possible configurations:
     (a) An alias to an enum whose values are already completed at this stage.
 	This happens when the underlying enum was imported from another module.
-	This is the easiest case to handle, we can just copy it's values to the
+	This is the easiest case to handle, we can just copy its values to the
 	alias immediately.
     (b) An enum alias whose underlying enum is defined in the same unit this
 	case is handled by the general resolution algorithm described below.

@@ -3889,6 +3889,16 @@ check_function(struct context *ctx,
 		free(fntypename);
 		return;
 	}
+
+	if (obj->type->func.result->storage != STORAGE_NEVER &&
+			obj->type->func.result->size == SIZE_UNDEFINED) {
+		char *fntypename = gen_typename(obj->type->func.result);
+		error(ctx, afndecl->body->loc, body,
+			"Types with undefined size such as %s cannot be returned, consider using a pointer instead",
+			fntypename);
+		free(fntypename);
+		return;
+	}
 	decl->func.body = lower_implicit_cast(ctx, obj->type->func.result, body);
 
 	scope_pop(&ctx->scope);
