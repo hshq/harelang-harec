@@ -2651,209 +2651,206 @@ gen_subset_match_tests(struct gen_context *ctx,
 }
 
 static struct gen_value
-gen_match_with_tagged(struct gen_context *ctx,
+gen_expr_match_with(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value *out)
 {
+	struct gen_value object = gen_expr(ctx, expr->match.value);
+	struct qbe_value qobject = mkqval(ctx, &object);
+	const struct type *objtype = type_dealias(NULL,
+		expr->match.value->result);
+
+	bool is_tagged = objtype->storage == STORAGE_TAGGED;
+	bool is_nullable_ptr = false, is_tagged_ptr = false;
+	// If objtype is a pointer, ref_type is the dealiased referent type.
+	const struct type *ref_type = objtype;
+	if (objtype->storage == STORAGE_POINTER) {
+		is_nullable_ptr = (objtype->pointer.flags & PTR_NULLABLE) > 0;
+		ref_type = type_dealias(NULL, objtype->pointer.referent);
+		is_tagged_ptr = ref_type->storage == STORAGE_TAGGED;
+		object.type = ref_type;
+	}
+	assert(is_tagged || is_nullable_ptr || is_tagged_ptr);
+
+	// Pass over the list once to find the default case and null case, if
+	// they exist. For matching on nullable pointers to tagged unions, we
+	// need to check for null before we dereference the pointer to check the
+	// tag.
+	const struct match_case *default_case = NULL;
+	const struct match_case *null_case = NULL;
+	for (const struct match_case *c = expr->match.cases; c; c = c->next) {
+		if (!c->type) {
+			default_case = c;
+		} else if (c->type->storage == STORAGE_NULL) {
+			null_case = c;
+		}
+	}
+	if (is_nullable_ptr) {
+		assert(default_case || null_case);
+	}
+
 	struct gen_value gvout = gv_void;
 	if (!out) {
 		gvout = mkgtemp(ctx, expr->result, ".%d");
 	}
-
-	const struct type *objtype = expr->match.value->result;
-	struct gen_value object = gen_expr(ctx, expr->match.value);
-	struct qbe_value qobject = mkqval(ctx, &object);
-	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
-	gen_load_tag(ctx, &tag, &qobject, objtype);
-
+	struct gen_value bval;
 	struct qbe_statement lout;
 	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
 
-	struct gen_value bval;
-	const struct match_case *_default = NULL;
-	for (const struct match_case *_case = expr->match.cases;
-			_case; _case = _case->next) {
-		if (!_case->type) {
-			_default = _case;
+	struct qbe_statement ldefault;
+	struct qbe_value bdefault = mklabel(ctx, &ldefault, "default.%d");
+	struct qbe_value zero = constl(0);
+	if (is_nullable_ptr) {
+		struct qbe_statement lmatch, lnext;
+		struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
+		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
+		struct qbe_value bnext = mklabel(ctx, &lnext, "next.%d");
+		// If there is no null case, go to the default case on null.
+		struct qbe_value *where = null_case ? &bmatch : &bdefault;
+		pushi(ctx->current, &cmpres, Q_CEQL, &qobject, &zero, NULL);
+		pushi(ctx->current, NULL, Q_JNZ, &cmpres, where, &bnext, NULL);
+		push(&ctx->current->body, &lmatch);
+		if (null_case) {
+			bval = gen_expr_with(ctx, null_case->value, out);
+			branch_copyresult(ctx, bval, gvout, out);
+			if (null_case->value->result->storage != STORAGE_NEVER) {
+				pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
+			}
+		}
+		push(&ctx->current->body, &lnext);
+	}
+
+	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
+	if (is_tagged || is_tagged_ptr) {
+		gen_load_tag(ctx, &tag, &qobject, ref_type);
+	}
+
+	for (const struct match_case *c = expr->match.cases; c; c = c->next) {
+		if (c == null_case || c == default_case) {
 			continue;
 		}
 
 		struct qbe_statement lmatch, lnext;
 		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
 		struct qbe_value bnext = mklabel(ctx, &lnext, "next.%d");
-		const struct type *subtype =
-			tagged_select_subtype(NULL, objtype, _case->type, false);
-		enum match_compat compat = COMPAT_SUBTYPE;
-		if (subtype) {
-			gen_nested_match_tests(ctx, object,
-				bmatch, bnext, tag, _case->type);
+		if (is_nullable_ptr && !is_tagged_ptr) {
+			struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
+			pushi(ctx->current, &cmpres, Q_CNEL, &qobject, &zero,
+				NULL);
+			pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bmatch,
+				&bnext, NULL);
+			push(&ctx->current->body, &lmatch);
+
+			if (c->object) {
+				struct gen_binding *gb = xcalloc(1,
+					sizeof(struct gen_binding));
+				gb->value = mkgtemp(ctx, c->type, "binding.%d");
+				gb->object = c->object;
+				gb->next = ctx->bindings;
+				ctx->bindings = gb;
+
+				enum qbe_instr store = store_for_type(ctx,
+					c->type);
+				enum qbe_instr alloc = alloc_for_align(
+					c->type->align);
+				struct qbe_value qv = mkqval(ctx, &gb->value);
+				struct qbe_value sz = constl(c->type->size);
+				pushprei(ctx->current, &qv, alloc, &sz, NULL);
+				pushi(ctx->current, NULL, store, &qobject, &qv,
+					NULL);
+			}
 		} else {
-			assert(type_dealias(NULL, _case->type)->storage == STORAGE_TAGGED);
-			assert(tagged_subset_compat(NULL, objtype, _case->type));
-			compat = COMPAT_SUBSET;
-			const struct type *casetype = type_dealias(NULL, _case->type);
-			gen_subset_match_tests(ctx, bmatch, bnext, tag, casetype);
+			const struct type *case_tag_type = c->type;
+			if (is_tagged_ptr && c->type->size > 0) {
+				case_tag_type = c->type->pointer.referent;
+			};
+			const struct type *subtype = tagged_select_subtype(NULL,
+				ref_type, case_tag_type, false);
+			enum match_compat compat = COMPAT_SUBTYPE;
+			if (subtype) {
+				gen_nested_match_tests(ctx, object,
+					bmatch, bnext, tag, case_tag_type);
+			} else {
+				assert(type_dealias(NULL, case_tag_type)
+					->storage == STORAGE_TAGGED);
+				assert(tagged_subset_compat(NULL, ref_type,
+					case_tag_type));
+				compat = COMPAT_SUBSET;
+				const struct type *casetype = type_dealias(NULL,
+					case_tag_type);
+				gen_subset_match_tests(ctx, bmatch, bnext, tag,
+					casetype);
+			}
+
+			push(&ctx->current->body, &lmatch);
+
+			if (c->object && c->type->size > 0) {
+				struct gen_binding *gb = xcalloc(1,
+					sizeof(struct gen_binding));
+				gb->value = mkgtemp(ctx, c->type, "binding.%d");
+				gb->object = c->object;
+				gb->next = ctx->bindings;
+				ctx->bindings = gb;
+
+				struct qbe_value qv = mklval(ctx, &gb->value);
+				enum qbe_instr alloc = alloc_for_align(
+					c->type->align);
+				struct qbe_value sz = constl(c->type->size);
+				pushprei(ctx->current, &qv, alloc, &sz, NULL);
+
+				struct qbe_value ptr = mkqtmp(ctx,
+					ctx->arch.ptr, ".%d");
+				struct gen_value src = {
+					.kind = GV_TEMP,
+					.type = c->type,
+					.name = ptr.name,
+				};
+				struct gen_value load;
+				struct qbe_value offset;
+				switch (compat) {
+				case COMPAT_SUBTYPE:
+					offset = nested_tagged_offset(ref_type,
+						case_tag_type);
+					pushi(ctx->current, &ptr, Q_ADD,
+						&qobject, &offset, NULL);
+					break;
+				case COMPAT_SUBSET:
+					pushi(ctx->current, &ptr, Q_COPY,
+						&qobject, NULL);
+					break;
+				}
+				if (is_tagged) {
+					load = gen_load(ctx, src);
+					gen_store(ctx, gb->value, load);
+				} else {
+					gen_store(ctx, gb->value, src);
+				}
+			}
 		}
-
-		push(&ctx->current->body, &lmatch);
-
-		if (!_case->object || _case->type->size == 0) {
-			goto next;
-		}
-
-		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
-		gb->value = mkgtemp(ctx, _case->type, "binding.%d");
-		gb->object = _case->object;
-		gb->next = ctx->bindings;
-		ctx->bindings = gb;
-
-		struct qbe_value qv = mklval(ctx, &gb->value);
-		enum qbe_instr alloc = alloc_for_align(_case->type->align);
-		struct qbe_value sz = constl(_case->type->size);
-		pushprei(ctx->current, &qv, alloc, &sz, NULL);
-
-		struct qbe_value ptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
-		struct gen_value src = {
-			.kind = GV_TEMP,
-			.type = _case->type,
-			.name = ptr.name,
-		};
-		struct gen_value load;
-		struct qbe_value offset;
-		switch (compat) {
-		case COMPAT_SUBTYPE:
-			offset = nested_tagged_offset(object.type, _case->type);
-			pushi(ctx->current, &ptr, Q_ADD, &qobject, &offset, NULL);
-			load = gen_load(ctx, src);
-			gen_store(ctx, gb->value, load);
-			break;
-		case COMPAT_SUBSET:
-			pushi(ctx->current, &ptr, Q_COPY, &qobject, NULL);
-			load = gen_load(ctx, src);
-			gen_store(ctx, gb->value, load);
-			break;
-		}
-
-next:
-		bval = gen_expr_with(ctx, _case->value, out);
+		bval = gen_expr_with(ctx, c->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
-		if (_case->value->result->storage != STORAGE_NEVER) {
+		if (c->value->result->storage != STORAGE_NEVER) {
 			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
 		}
 		push(&ctx->current->body, &lnext);
 	}
 
-	if (_default) {
-		bval = gen_expr_with(ctx, _default->value, out);
+	if (default_case) {
+		push(&ctx->current->body, &ldefault);
+		bval = gen_expr_with(ctx, default_case->value, out);
 		branch_copyresult(ctx, bval, gvout, out);
+		if (default_case->value->result->storage != STORAGE_NEVER) {
+			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
+		}
 	} else {
+		// We can remove this abort once we have exhaustivity checking.
 		struct qbe_statement labort;
 		mklabel(ctx, &labort, ".%d");
 		push(&ctx->current->body, &labort);
 		gen_fixed_abort(ctx, expr->loc, ABORT_UNREACHABLE);
 	}
-
 	push(&ctx->current->body, &lout);
 	return gvout;
-}
-
-static struct gen_value
-gen_match_with_nullable(struct gen_context *ctx,
-	const struct expression *expr,
-	struct gen_value *out)
-{
-	struct gen_value gvout = gv_void;
-	if (!out) {
-		gvout = mkgtemp(ctx, expr->result, ".%d");
-	}
-
-	struct qbe_statement lout;
-	struct qbe_value bout = mklabel(ctx, &lout, ".%d");
-	struct gen_value object = gen_expr(ctx, expr->match.value);
-	struct qbe_value qobject = mkqval(ctx, &object);
-	struct qbe_value zero = constl(0);
-
-	struct gen_value bval;
-	const struct match_case *_default = NULL;
-	for (const struct match_case *_case = expr->match.cases;
-			_case; _case = _case->next) {
-		if (!_case->type) {
-			_default = _case;
-			continue;
-		}
-
-		struct qbe_statement lmatch, lnext;
-		struct qbe_value cmpres = mkqtmp(ctx, &qbe_word, ".%d");
-		struct qbe_value bmatch = mklabel(ctx, &lmatch, "matches.%d");
-		struct qbe_value bnext = mklabel(ctx, &lnext, "next.%d");
-
-		enum qbe_instr compare;
-		if (_case->type->storage == STORAGE_NULL) {
-			compare = Q_CEQL;
-		} else {
-			compare = Q_CNEL;
-		}
-		pushi(ctx->current, &cmpres, compare, &qobject, &zero, NULL);
-		pushi(ctx->current, NULL, Q_JNZ, &cmpres, &bmatch, &bnext, NULL);
-
-		push(&ctx->current->body, &lmatch);
-
-		if (!_case->object) {
-			goto next;
-		}
-
-		struct gen_binding *gb = xcalloc(1, sizeof(struct gen_binding));
-		gb->value = mkgtemp(ctx, _case->type, "binding.%d");
-		gb->object = _case->object;
-		gb->next = ctx->bindings;
-		ctx->bindings = gb;
-
-		enum qbe_instr store = store_for_type(ctx, _case->type);
-		enum qbe_instr alloc = alloc_for_align(_case->type->align);
-		struct qbe_value qv = mkqval(ctx, &gb->value);
-		struct qbe_value sz = constl(_case->type->size);
-		pushprei(ctx->current, &qv, alloc, &sz, NULL);
-		pushi(ctx->current, NULL, store, &qobject, &qv, NULL);
-
-next:
-		bval = gen_expr_with(ctx, _case->value, out);
-		branch_copyresult(ctx, bval, gvout, out);
-		if (_case->value->result->storage != STORAGE_NEVER) {
-			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
-		}
-		push(&ctx->current->body, &lnext);
-	}
-
-	if (_default) {
-		bval = gen_expr_with(ctx, _default->value, out);
-		branch_copyresult(ctx, bval, gvout, out);
-		if (_default->value->result->storage != STORAGE_NEVER) {
-			pushi(ctx->current, NULL, Q_JMP, &bout, NULL);
-		}
-	}
-
-	struct qbe_statement labort;
-	mklabel(ctx, &labort, ".%d");
-	push(&ctx->current->body, &labort);
-	gen_fixed_abort(ctx, expr->loc, ABORT_UNREACHABLE);
-
-	push(&ctx->current->body, &lout);
-	return gvout;
-}
-
-static struct gen_value
-gen_expr_match_with(struct gen_context *ctx,
-	const struct expression *expr,
-	struct gen_value *out)
-{
-	const struct type *objtype = expr->match.value->result;
-	switch (type_dealias(NULL, objtype)->storage) {
-	case STORAGE_POINTER:
-		return gen_match_with_nullable(ctx, expr, out);
-	case STORAGE_TAGGED:
-		return gen_match_with_tagged(ctx, expr, out);
-	default: abort(); // Invariant
-	}
 }
 
 static struct gen_value

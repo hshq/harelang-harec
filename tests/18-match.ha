@@ -11,6 +11,67 @@ type align_8 = (void | int | i64);
 type aint = int;
 type bint = aint;
 
+fn match_tagged_simple(x: *(int | f64 | void)) int = {
+	match (x) {
+	case void =>
+		return 0;
+	case let i: *int =>
+		*i = *i + 1;
+		return 1;
+	case let f: *f64 =>
+		*f = *f / 2.0;
+		return 2;
+	};
+};
+
+fn tagged_ptr() void = {
+	let x: (int | f64 | void) = void;
+	assert(match_tagged_simple(&x) == 0);
+	assert(x is void);
+
+	x = 4;
+	assert(match_tagged_simple(&x) == 1);
+	assert(x as int == 5);
+
+	x = 4.0;
+	assert(match_tagged_simple(&x) == 2);
+	assert(x as f64 == 2.0);
+
+	x = 4;
+	match (&x) {
+	case void => abort();
+	case let t: *(int | f64) =>
+		assert(*t as int == 4);
+		let v: (int | f64) = 4.0;
+		*t = v;
+	};
+	assert(x as f64 == 4.0);
+
+	let y: nullable *(int | f64 | void) = null;
+	match (y) {
+	case null => yield;
+	case => abort();
+	};
+
+	match (y) {
+	case *(int | f64 | void) => abort();
+	case => yield;
+	};
+
+	match (y) {
+	case *int => abort();
+	case => yield;
+	};
+
+	x = 4;
+	y = &x;
+	match (y) {
+	case let i: *int => *i = *i + 1;
+	case => abort();
+	};
+	assert(x as int == 5);
+};
+
 fn tagged() void = {
 	let cases: [3](int | uint | str) = [10i, 10u, "hello"];
 	let expected: [_]size = [1, 2, 5];
@@ -73,6 +134,32 @@ fn pointer() void = {
 		yield 1337;
 	};
 	assert(z == 1337);
+
+	y = null;
+	z = match (y) {
+	case *int =>
+		abort();
+	case =>
+		yield 1337;
+	};
+
+	y = null;
+	z = match (y) {
+	case =>
+		abort();
+	case null =>
+		yield 1337;
+	};
+
+	assert(z == 1337);
+	let y: nullable *baz = &x;
+	let z: int = match (y) {
+	case let y: *int =>
+		yield *y;
+	case null =>
+		abort();
+	};
+	assert(z == 42);
 };
 
 fn alias() void = {
@@ -259,6 +346,7 @@ fn label() void = {
 };
 
 export fn main() void = {
+	tagged_ptr();
 	tagged();
 	_never();
 	_default();
