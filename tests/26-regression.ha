@@ -20,8 +20,6 @@ def THING: thing = thing{
 	},
 };
 
-type mod::t = (size | const size); // needs to have a type id larger than size
-
 // order of these three matters
 type b = struct { c: c };
 type a = struct { b };
@@ -186,7 +184,6 @@ export fn main() void = {
 	compile(status::CHECK, "let a = [*&0];")!;
 	compile(status::CHECK, "fn a() *opaque = alloc(void);")!;
 	compile(status::CHECK, "fn a() void = { static let b = x & struct { a: int = 0 }; };")!;
-	let a: (size | mod::t) = 0;
 	assert(0xffu8 + 1 >> 1 == 0);
 	compile(status::CHECK, "type a = *...b; type b = *...a;")!;
 	compile(status::CHECK, "def A = len([1]: []str);")!;

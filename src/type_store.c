@@ -42,57 +42,57 @@ ast_array_len(struct context *ctx, const struct ast_type *atype)
 }
 
 const struct type *
-builtin_type_for_storage(enum type_storage storage, bool is_const)
+builtin_type_for_storage(enum type_storage storage)
 {
 	switch (storage) {
 	case STORAGE_BOOL:
-		return is_const ? &builtin_type_const_bool : &builtin_type_bool;
+		return &builtin_type_bool;
 	case STORAGE_ERROR:
 		return &builtin_type_error;
 	case STORAGE_F32:
-		return is_const ? &builtin_type_const_f32 : &builtin_type_f32;
+		return &builtin_type_f32;
 	case STORAGE_F64:
-		return is_const ? &builtin_type_const_f64 : &builtin_type_f64;
+		return &builtin_type_f64;
 	case STORAGE_I8:
-		return is_const ? &builtin_type_const_i8 : &builtin_type_i8;
+		return &builtin_type_i8;
 	case STORAGE_I16:
-		return is_const ? &builtin_type_const_i16 : &builtin_type_i16;
+		return &builtin_type_i16;
 	case STORAGE_I32:
-		return is_const ? &builtin_type_const_i32 : &builtin_type_i32;
+		return &builtin_type_i32;
 	case STORAGE_I64:
-		return is_const ? &builtin_type_const_i64 : &builtin_type_i64;
+		return &builtin_type_i64;
 	case STORAGE_INT:
-		return is_const ? &builtin_type_const_int : &builtin_type_int;
+		return &builtin_type_int;
 	case STORAGE_NEVER:
-		return is_const ? &builtin_type_const_never : &builtin_type_never;
+		return &builtin_type_never;
 	case STORAGE_OPAQUE:
-		return is_const ? &builtin_type_const_opaque : &builtin_type_opaque;
+		return &builtin_type_opaque;
 	case STORAGE_RUNE:
-		return is_const ? &builtin_type_const_rune : &builtin_type_rune;
+		return &builtin_type_rune;
 	case STORAGE_SIZE:
-		return is_const ? &builtin_type_const_size : &builtin_type_size;
+		return &builtin_type_size;
 	case STORAGE_U8:
-		return is_const ? &builtin_type_const_u8 : &builtin_type_u8;
+		return &builtin_type_u8;
 	case STORAGE_U16:
-		return is_const ? &builtin_type_const_u16 : &builtin_type_u16;
+		return &builtin_type_u16;
 	case STORAGE_U32:
-		return is_const ? &builtin_type_const_u32 : &builtin_type_u32;
+		return &builtin_type_u32;
 	case STORAGE_U64:
-		return is_const ? &builtin_type_const_u64 : &builtin_type_u64;
+		return &builtin_type_u64;
 	case STORAGE_UINT:
-		return is_const ? &builtin_type_const_uint : &builtin_type_uint;
+		return &builtin_type_uint;
 	case STORAGE_UINTPTR:
-		return is_const ? &builtin_type_const_uintptr : &builtin_type_uintptr;
+		return &builtin_type_uintptr;
 	case STORAGE_VALIST:
 		return &builtin_type_valist;
 	case STORAGE_VOID:
-		return is_const ? &builtin_type_const_void : &builtin_type_void;
+		return &builtin_type_void;
 	case STORAGE_DONE:
-		return is_const ? &builtin_type_const_done : &builtin_type_done;
+		return &builtin_type_done;
 	case STORAGE_NULL:
-		return &builtin_type_null; // const null and null are the same type
+		return &builtin_type_null;
 	case STORAGE_STRING:
-		return is_const ? &builtin_type_const_str : &builtin_type_str;
+		return &builtin_type_str;
 	case STORAGE_ALIAS:
 	case STORAGE_ARRAY:
 	case STORAGE_FUNCTION:
@@ -117,8 +117,7 @@ builtin_for_type(const struct type *type)
 	if (type->flags & TYPE_ERROR) {
 		return NULL;
 	}
-	bool is_const = (type->flags & TYPE_CONST) != 0;
-	return builtin_type_for_storage(type->storage, is_const);
+	return builtin_type_for_storage(type->storage);
 }
 
 static bool
@@ -786,7 +785,7 @@ type_init_from_atype(struct context *ctx,
 	case STORAGE_VALIST:
 	case STORAGE_VOID:
 	case STORAGE_DONE:
-		builtin = builtin_type_for_storage(type->storage, false);
+		builtin = builtin_type_for_storage(type->storage);
 		type->size = builtin->size;
 		type->align = builtin->align;
 		break;
@@ -1305,8 +1304,7 @@ type_store_lookup_enum(struct context *ctx, const struct ast_type *atype,
 	mkident(ctx, &type.alias.ident, &atype->alias, NULL);
 	identifier_dup(&type.alias.name, &atype->alias);
 	type.alias.exported = exported;
-	type.alias.type =
-		builtin_type_for_storage(atype->_enum.storage, false);
+	type.alias.type = builtin_type_for_storage(atype->_enum.storage);
 	if (!type_is_integer(ctx, type.alias.type)
 			&& type.alias.type->storage != STORAGE_RUNE) {
 		error(ctx, atype->loc, NULL,
@@ -1351,24 +1349,6 @@ type_store_reduce_result(struct context *ctx, struct location loc,
 		struct type_tagged_union *i = *tu;
 		bool dropped = false;
 		const struct type *it = i->type;
-
-		if (it->flags & TYPE_CONST) {
-			struct type_tagged_union **j = &in;
-			while (*j) {
-				const struct type *jt = (*j)->type;
-				if (jt == it) {
-					j = &(*j)->next;
-					continue;
-				}
-				jt = type_store_lookup_with_flags(ctx, jt,
-					jt->flags | TYPE_CONST);
-				if (jt == it) {
-					*j = (*j)->next;
-				} else {
-					j = &(*j)->next;
-				}
-			}
-		}
 
 		if (it->storage == STORAGE_NEVER || it->storage == STORAGE_ERROR) {
 			*tu = i->next;

@@ -671,13 +671,8 @@ parse_type(struct lexer *lexer)
 {
 	struct token tok = {0};
 	uint32_t flags = 0;
-	switch (lex(lexer, &tok)) {
-	case T_CONST:
-		flags |= TYPE_CONST;
-		break;
-	default:
+	if (lex(lexer, &tok) != T_CONST) {
 		unlex(lexer, &tok);
-		break;
 	}
 	switch (lex(lexer, &tok)) {
 	case T_LNOT:
@@ -1844,12 +1839,9 @@ static void parse_for_predicate(struct lexer *lexer,
 	struct ast_expression_for *for_exp)
 {
 	struct token tok = {0};
-	unsigned int flags = 0;
 
 	switch (lex(lexer, &tok)) {
 	case T_CONST:
-		flags = TYPE_CONST;
-		break;
 	case T_LET:
 		break;
 	default:
@@ -1866,8 +1858,6 @@ static void parse_for_predicate(struct lexer *lexer,
 
 		bool for_kind_found = false;
 		while (true) {
-			binding->flags = flags;
-
 			switch (lex(lexer, &tok)) {
 			case T_NAME:
 				binding->name = tok.name;
@@ -1881,7 +1871,6 @@ static void parse_for_predicate(struct lexer *lexer,
 
 			if (lex(lexer, &tok) == T_COLON) {
 				binding->type = parse_type(lexer);
-				binding->type->flags |= flags;
 			} else {
 				unlex(lexer, &tok);
 			}
@@ -2212,7 +2201,6 @@ static struct ast_expression *
 parse_binding_list(struct lexer *lexer, bool is_static)
 {
 	struct ast_expression *exp = mkexpr(lexer->loc);
-	unsigned int flags = 0;
 
 	struct token tok = {0};
 	switch (lex(lexer, &tok)) {
@@ -2220,8 +2208,6 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 		exp->type = EXPR_DEFINE;
 		break;
 	case T_CONST:
-		flags = TYPE_CONST;
-		// fallthrough
 	case T_LET:
 		exp->type = EXPR_BINDING;
 		break;
@@ -2248,13 +2234,11 @@ parse_binding_list(struct lexer *lexer, bool is_static)
 			synerr(&tok, T_NAME, T_LPAREN, T_EOF);
 		}
 		binding->initializer = mkexpr(lexer->loc);
-		binding->flags = flags;
 		binding->is_static = is_static;
 
 		switch (lex(lexer, &tok)) {
 		case T_COLON:
 			binding->type = parse_type(lexer);
-			binding->type->flags |= flags;
 			want(lexer, T_EQUAL, &tok);
 			break;
 		case T_EQUAL:
@@ -2559,9 +2543,6 @@ parse_global_decl(struct lexer *lexer, enum lexical_token mode,
 		switch (lex(lexer, &tok)) {
 		case T_COLON:
 			i->type = parse_type(lexer);
-			if (mode == T_CONST) {
-				i->type->flags |= TYPE_CONST;
-			}
 			if (lex(lexer, &tok) != T_EQUAL) {
 				synassert(mode != T_DEF, &tok, T_EQUAL, T_EOF);
 				unlex(lexer, &tok);

@@ -114,19 +114,6 @@ int main(void) {
 	test(&ctx, "nullable *int",
 		"if (true) null: *int "
 		"else null: nullable *int");
-	test(&ctx, "(*int | const nullable *int)",
-		"if (true) null: *int "
-		"else null: const nullable *int");
-	test(&ctx, "const rune",
-		"if (true) 'a' "
-		"else 'a': const rune");
-	test(&ctx, "const rune",
-		"if (true) 'a': const rune "
-		"else 'a'");
-	test(&ctx, "(*int | const nullable *int)",
-		"if (true) null: *int "
-		"else if (true) null: const nullable *int "
-		"else null: nullable *int");
 	test(&ctx, "(int | void)",
 		"{ "
 		"if (true) yield; "

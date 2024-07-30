@@ -223,9 +223,6 @@ emit_struct(const struct type *type, FILE *out)
 void
 emit_type(const struct type *type, FILE *out)
 {
-	if (type->flags & TYPE_CONST) {
-		xfprintf(out, "const ");
-	}
 	if (type->flags & TYPE_ERROR) {
 		xfprintf(out, "!");
 	}
