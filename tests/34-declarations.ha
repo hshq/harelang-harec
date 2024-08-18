@@ -371,6 +371,7 @@ fn hosted_main() void = {
 	let failures = [
 		"fn main() void = void;",
 		"export fn main(x: int) void;",
+		"export fn main(...) void;",
 		"export fn main() int;",
 		"export type main = int;",
 		"export def main = 0;",

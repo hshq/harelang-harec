@@ -4011,6 +4011,11 @@ check_hosted_main(struct context *ctx,
 			"main must not have parameters in hosted environment");
 		return;
 	}
+	if (func->prototype.variadism != VARIADISM_NONE) {
+		error(ctx, loc, NULL,
+			"main must not be variadic in hosted environment");
+		return;
+	}
 	if (func->prototype.result->storage != STORAGE_VOID) {
 		error(ctx, loc, NULL,
 			"main must return void in hosted environment");
