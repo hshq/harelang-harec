@@ -53,10 +53,6 @@ const struct type *type_store_lookup_alias(struct context *ctx,
 const struct type *type_store_lookup_tagged(struct context *ctx,
 	struct location loc, struct type_tagged_union *tags);
 
-// Returns a (non-tagged) union of the members of a tagged union type
-const struct type *type_store_tagged_to_union(
-	struct context *ctx, const struct type *tagged);
-
 const struct type *type_store_lookup_tuple(struct context *ctx,
 	struct location loc, struct type_tuple *values);
 
