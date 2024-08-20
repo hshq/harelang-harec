@@ -72,7 +72,6 @@ struct gen_context {
 	int id;
 
 	struct qbe_func *current;
-	const struct type *functype;
 	struct gen_binding *bindings;
 	struct gen_scope *scope;
 };
