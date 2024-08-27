@@ -2353,6 +2353,56 @@ check_expr_if(struct context *ctx,
 	expr->_if.false_branch = false_branch;
 }
 
+static const char *
+check_match_case_nullable_ptr(struct context *ctx,
+	const struct type *ctype,
+	const struct type *ref_type)
+{
+	// match (e: nullable *ref_type) {
+	// case ctype =>
+	// Null has already been handled.
+	if (ctype->storage != STORAGE_POINTER) {
+		return "Match on nullable pointer: case is not null or pointer type";
+	} else if (ref_type != type_dealias(ctx, ctype->pointer.referent)) {
+		return "Match on nullable pointer: case has invalid pointer type";
+	}
+	return NULL;
+}
+
+static const char *
+check_match_case_tagged(struct context *ctx,
+	const struct type *ctype,
+	const struct type *type)
+{
+	// match (e: type) {
+	// case ctype =>
+	// TODO: Assign a score to tagged compatibility
+	// and choose the branch with the highest score.
+	if (!type_is_assignable(ctx, type, ctype)) {
+		return "Match on tagged union: case is not assignable to match type";
+	}
+	return NULL;
+}
+
+static const char *
+check_match_case_tagged_ptr(struct context *ctx,
+	const struct type *ctype,
+	const struct type *ref_type)
+{
+	// match (e: *ref_type) {
+	// case ctype =>
+	if (ctype->size == 0) {
+		if (!type_is_assignable(ctx, ref_type, ctype)) {
+			return "Match on pointer to tagged union: zero-sized case type is not assignable to match type";
+		}
+	} else if (ctype->storage != STORAGE_POINTER) {
+		return "Match on pointer to tagged union: finite-sized case type is not a pointer";
+	} else if (!type_is_assignable(ctx, ref_type, ctype->pointer.referent)) {
+		return "Match on pointer to tagged union: case is not assignable to match type";
+	}
+	return NULL;
+}
+
 static void
 check_expr_match(struct context *ctx,
 	const struct ast_expression *aexpr,
@@ -2362,18 +2412,30 @@ check_expr_match(struct context *ctx,
 	expr->type = EXPR_MATCH;
 
 	struct expression *value = xcalloc(1, sizeof(struct expression));
-	check_expression(ctx, aexpr->match.value, value, NULL); expr->match.value = value;
+	check_expression(ctx, aexpr->match.value, value, NULL);
+	expr->match.value = value;
 
 	const struct type *type = type_dealias(ctx, value->result);
 	if (type->storage == STORAGE_ERROR) {
 		mkerror(aexpr->match.value->loc, expr);
 		return;
 	}
-	bool is_ptr = type->storage == STORAGE_POINTER
-		&& type->pointer.flags & PTR_NULLABLE;
-	if (type->storage != STORAGE_TAGGED && !is_ptr) {
+	bool is_tagged = type->storage == STORAGE_TAGGED;
+	bool is_nullable_ptr = false, is_tagged_ptr = false;
+	const struct type *ref_type = NULL;
+	if (type->storage == STORAGE_POINTER) {
+		is_nullable_ptr = (type->pointer.flags & PTR_NULLABLE) > 0;
+		ref_type = type_dealias(ctx, type->pointer.referent);
+		if (ref_type->storage == STORAGE_ERROR) {
+			mkerror(aexpr->match.value->loc, expr);
+			return;
+		}
+		is_tagged_ptr = ref_type->storage == STORAGE_TAGGED;
+
+	}
+	if (!is_tagged && !is_nullable_ptr && !is_tagged_ptr) {
 		error(ctx, aexpr->match.value->loc, expr,
-			"match value must be tagged union or nullable pointer type");
+			"Match value is not tagged union, pointer to tagged union, or nullable pointer type");
 		return;
 	}
 
@@ -2390,30 +2452,23 @@ check_expr_match(struct context *ctx,
 		const struct type *ctype = NULL;
 		if (acase->type) {
 			ctype = type_store_lookup_atype(ctx, acase->type);
-			if (is_ptr) {
-				switch (ctype->storage) {
-				case STORAGE_NULL:
-					break;
-				case STORAGE_POINTER:
-					if (type->pointer.referent != ctype->pointer.referent) {
-						error(ctx, acase->type->loc, expr,
-							"Match case on incompatible pointer type");
-						return;
-					}
-					break;
-				default:
-					error(ctx, acase->type->loc, expr,
-						"Invalid type for match case (expected null or pointer type)");
-					return;
-				}
+			const char *err_msg = NULL;
+			if (ctype->storage == STORAGE_NULL && is_nullable_ptr) {
+				// Ok in all cases.
+			} else if (is_nullable_ptr && !is_tagged_ptr) {
+				err_msg = check_match_case_nullable_ptr(ctx,
+					ctype, ref_type);
+			} else if (is_tagged_ptr) {
+				err_msg = check_match_case_tagged_ptr(ctx,
+					ctype, ref_type);
 			} else {
-				// TODO: Assign a score to tagged compatibility
-				// and choose the branch with the highest score.
-				if (!type_is_assignable(ctx, type, ctype)) {
-					error(ctx, acase->type->loc, expr,
-						"Invalid type for match case (match is not assignable to this type)");
-					return;
-				}
+				assert(is_tagged);
+				err_msg = check_match_case_tagged(ctx,
+					ctype, type);
+			}
+			if (err_msg) {
+				error(ctx, acase->type->loc, expr, err_msg);
+				return;
 			}
 		}
 
@@ -4009,6 +4064,11 @@ check_hosted_main(struct context *ctx,
 	if (func->prototype.params != NULL) {
 		error(ctx, loc, NULL,
 			"main must not have parameters in hosted environment");
+		return;
+	}
+	if (func->prototype.variadism != VARIADISM_NONE) {
+		error(ctx, loc, NULL,
+			"main must not be variadic in hosted environment");
 		return;
 	}
 	if (func->prototype.result->storage != STORAGE_VOID) {

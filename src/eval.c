@@ -1140,6 +1140,7 @@ eval_expr(struct context *ctx,
 	const struct expression *restrict in,
 	struct expression *restrict out)
 {
+	out->loc = in->loc;
 	out->result = in->result;
 	out->type = EXPR_LITERAL;
 
