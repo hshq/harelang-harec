@@ -101,8 +101,6 @@ itrunc(struct context *ctx, const struct type *type, uint64_t val)
 	case STORAGE_SIZE:
 	case STORAGE_UINTPTR:
 		return val;
-	case STORAGE_BOOL:
-		return (bool)val;
 	case STORAGE_NULL:
 		return (uintptr_t)NULL;
 	case STORAGE_ALIAS:
@@ -111,6 +109,7 @@ itrunc(struct context *ctx, const struct type *type, uint64_t val)
 		return itrunc(ctx, type->alias.type, val);
 	case STORAGE_ERROR:
 		return val;
+	case STORAGE_BOOL:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
