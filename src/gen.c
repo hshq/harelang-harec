@@ -2720,7 +2720,7 @@ gen_expr_match_with(struct gen_context *ctx,
 		push(&ctx->current->body, &lnext);
 	}
 
-	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
+	struct qbe_value tag = mkqtmp(ctx, &qbe_word, "tag.%d");
 	if (is_tagged || is_tagged_ptr) {
 		gen_load_tag(ctx, &tag, &qobject, ref_type);
 	}
