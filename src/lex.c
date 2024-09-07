@@ -854,9 +854,6 @@ lex2(struct lexer *lexer, struct token *out, uint32_t c)
 		case '=':
 			out->token = T_DIVEQ;
 			break;
-		case '/':
-			while ((c = next(lexer, NULL, false)) != C_EOF && c != '\n') ;
-			return lex(lexer, out);
 		default:
 			push(lexer, c, false);
 			out->token = T_DIV;
@@ -990,11 +987,25 @@ lex(struct lexer *lexer, struct token *out)
 		return out->token;
 	}
 
-	uint32_t c = wgetc(lexer, &out->loc);
-	if (c == C_EOF) {
-		out->token = T_EOF;
-		return out->token;
-	}
+	uint32_t c = 0;
+	do {
+		c = wgetc(lexer, &out->loc);
+		if (c == C_EOF) {
+			out->token = T_EOF;
+			return out->token;
+		} else if (c == '/') {
+			c = next(lexer, NULL, false);
+			if (c != '/') {
+				push(lexer, c, false);
+				lexer->require_int = false;
+				return lex2(lexer, out, '/');
+			}
+			// comment
+			while ((c = next(lexer, NULL, false)) != C_EOF && c != '\n') ;
+		} else {
+			break;
+		}
+	} while (true);
 
 	if (c <= 0x7F && isdigit(c)) {
 		push(lexer, c, false);
@@ -1024,13 +1035,15 @@ lex(struct lexer *lexer, struct token *out)
 		return lex3(lexer, out, c);
 	case '*': // * *=
 	case '%': // % %=
-	case '/': // / /= //
 	case '+': // + +=
 	case '-': // - -=
 	case ':': // : ::
 	case '!': // ! !=
 	case '=': // = == =>
 		return lex2(lexer, out, c);
+	case '/': // / /=
+		// already handled above, because of special case for comment
+		assert(0);
 	case '~':
 		out->token = T_BNOT;
 		break;
