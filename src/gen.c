@@ -3444,7 +3444,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		size_t ln = ctx->current->body.ln;
 		struct qbe_statement *last = &ctx->current->body.stmts[ln - 1];
 		if (last->type != Q_INSTR || last->instr != Q_RET) {
-			pushi(ctx->current, NULL, Q_RET, NULL);
+			pushi(ctx->current, NULL, Q_HLT, NULL);
 		}
 	} else if (fntype->func.result->size != 0) {
 		struct qbe_value qret = mkqval(ctx, &ret);
