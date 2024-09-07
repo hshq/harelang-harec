@@ -121,9 +121,16 @@ fn unsigned_casts() void = {
 	assert(i == 13);
 };
 
+fn eval() void = {
+	// TODO: more compile-time evaluation tests
+	assert(0.3f32: f64 != 0.3);
+	static assert(0.3f32: f64 != 0.3);
+};
+
 export fn main() void = {
-	// TODO: test parsing, compile-time evaluation
+	// TODO: test parsing
 	measurements();
 	signed_casts();
 	unsigned_casts();
+	eval();
 };

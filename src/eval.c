@@ -464,7 +464,6 @@ eval_literal(struct context *ctx,
 		break;
 	case STORAGE_BOOL:
 	case STORAGE_ERROR:
-	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
 	case STORAGE_NULL:
@@ -473,6 +472,9 @@ eval_literal(struct context *ctx,
 	case STORAGE_DONE:
 	case STORAGE_SLICE:
 		out->literal = in->literal;
+		break;
+	case STORAGE_F32:
+		out->literal.fval = (float)in->literal.fval;
 		break;
 	case STORAGE_I16:
 	case STORAGE_I32:
