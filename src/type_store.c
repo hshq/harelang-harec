@@ -1258,39 +1258,6 @@ type_store_lookup_tagged(struct context *ctx, struct location loc,
 }
 
 const struct type *
-type_store_tagged_to_union(struct context *ctx, const struct type *tagged)
-{
-	assert(tagged->storage == STORAGE_TAGGED);
-	struct type type = {
-		.storage = STORAGE_UNION,
-		.flags = tagged->flags,
-	};
-	struct struct_field **next = &type.struct_union.fields;
-	for (const struct type_tagged_union *tu = &tagged->tagged;
-			tu; tu = tu->next) {
-		if (tu->type->size == 0) {
-			continue;
-		}
-
-		if (tu->type->size > type.size) {
-			type.size = tu->type->size;
-		}
-		if (tu->type->align > type.align) {
-			type.align = tu->type->align;
-		}
-
-		struct struct_field *sf =
-			xcalloc(1, sizeof(struct struct_field));
-		sf->name = "unnamed";
-		sf->type = tu->type;
-		sf->next = *next, *next = sf;
-		next = &sf->next;
-	}
-	type.struct_union.c_compat = true; // XXX: Unsure about this
-	return _type_store_lookup_type(ctx, &type, NULL);
-}
-
-const struct type *
 type_store_lookup_tuple(struct context *ctx, struct location loc,
 		struct type_tuple *values)
 {

@@ -241,4 +241,6 @@ export fn main() void = {
 	compile(status::CHECK, "fn f() void = { for (let i = return; true) void; };")!;
 
 	compile(status::CHECK, "fn f(a: (int | uint) = invalid) void = void;")!;
+
+	compile(status::CHECK, "def X = void: done;")!;
 };

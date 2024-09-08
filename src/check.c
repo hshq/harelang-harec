@@ -267,7 +267,7 @@ check_expr_access(struct context *ctx,
 			if (eval_expr(ctx, expr->access.index, evaled)) {
 				if (evaled->literal.uval >= atype->array.length) {
 					error(ctx, aexpr->loc, expr,
-						"Index must not be greater than array length");
+						"Index must be less than array length");
 					free(evaled);
 					return;
 				}
@@ -3057,7 +3057,7 @@ check_expr_struct(struct context *ctx,
 		enum type_storage storage = type_dealias(ctx, stype)->storage;
 		if (storage != STORAGE_STRUCT && storage != STORAGE_UNION) {
 			error(ctx, aexpr->loc, expr,
-				"Object named is not a struct or union type");
+				"Type named is not a struct or union type");
 			return;
 		}
 	}
@@ -3844,7 +3844,7 @@ resolve_unresolved(struct context *ctx)
 	}
 }
 
-void
+static void
 check_function(struct context *ctx,
 	const struct scope_object *obj,
 	const struct ast_decl *adecl)
