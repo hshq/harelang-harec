@@ -101,8 +101,6 @@ itrunc(struct context *ctx, const struct type *type, uint64_t val)
 	case STORAGE_SIZE:
 	case STORAGE_UINTPTR:
 		return val;
-	case STORAGE_BOOL:
-		return (bool)val;
 	case STORAGE_NULL:
 		return (uintptr_t)NULL;
 	case STORAGE_ALIAS:
@@ -111,6 +109,7 @@ itrunc(struct context *ctx, const struct type *type, uint64_t val)
 		return itrunc(ctx, type->alias.type, val);
 	case STORAGE_ERROR:
 		return val;
+	case STORAGE_BOOL:
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
@@ -465,17 +464,24 @@ eval_literal(struct context *ctx,
 		break;
 	case STORAGE_BOOL:
 	case STORAGE_ERROR:
-	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:
+	case STORAGE_NULL:
+	case STORAGE_POINTER:
+	case STORAGE_VOID:
+	case STORAGE_DONE:
+	case STORAGE_SLICE:
+		out->literal = in->literal;
+		break;
+	case STORAGE_F32:
+		out->literal.fval = (float)in->literal.fval;
+		break;
 	case STORAGE_I16:
 	case STORAGE_I32:
 	case STORAGE_I64:
 	case STORAGE_I8:
 	case STORAGE_ICONST:
 	case STORAGE_INT:
-	case STORAGE_NULL:
-	case STORAGE_POINTER:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
 	case STORAGE_SIZE:
@@ -485,10 +491,7 @@ eval_literal(struct context *ctx,
 	case STORAGE_U8:
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
-	case STORAGE_VOID:
-	case STORAGE_DONE:
-	case STORAGE_SLICE:
-		out->literal = in->literal;
+		out->literal.uval = itrunc(ctx, in->result, in->literal.uval);
 		break;
 	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:

@@ -791,12 +791,10 @@ struct_subtype(struct context *ctx,
 	if (from->storage != STORAGE_STRUCT) {
 		return false;
 	}
-	for (struct struct_field *f = from->struct_union.fields; f;
-			f = f->next) {
-		if (f->offset == 0) {
-			return f->type == to
-				|| struct_subtype(ctx, to, type_dealias(ctx, f->type));
-		}
+	for (struct struct_field *f = from->struct_union.fields;
+			f && f->offset == 0; f = f->next) {
+		return f->type == to
+			|| struct_subtype(ctx, to, type_dealias(ctx, f->type));
 	}
 	return false;
 }

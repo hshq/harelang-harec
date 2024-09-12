@@ -2722,7 +2722,7 @@ gen_expr_match_with(struct gen_context *ctx,
 		push(&ctx->current->body, &lnext);
 	}
 
-	struct qbe_value tag = mkqtmp(ctx, ctx->arch.sz, "tag.%d");
+	struct qbe_value tag = mkqtmp(ctx, &qbe_word, "tag.%d");
 	if (is_tagged || is_tagged_ptr) {
 		gen_load_tag(ctx, &tag, &qobject, ref_type);
 	}
@@ -3446,7 +3446,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		size_t ln = ctx->current->body.ln;
 		struct qbe_statement *last = &ctx->current->body.stmts[ln - 1];
 		if (last->type != Q_INSTR || last->instr != Q_RET) {
-			pushi(ctx->current, NULL, Q_RET, NULL);
+			pushi(ctx->current, NULL, Q_HLT, NULL);
 		}
 	} else if (fntype->func.result->size != 0) {
 		struct qbe_value qret = mkqval(ctx, &ret);
@@ -3473,7 +3473,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			.type = QD_VALUE,
 			.value = {
 				.kind = QV_GLOBAL,
-				.type = &qbe_long,
+				.type = ctx->arch.ptr,
 				.name = xstrdup(qdef->name),
 			},
 			.next = NULL,
@@ -3499,7 +3499,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 			.type = QD_VALUE,
 			.value = {
 				.kind = QV_GLOBAL,
-				.type = &qbe_long,
+				.type = ctx->arch.ptr,
 				.name = xstrdup(qdef->name),
 			},
 			.next = NULL,
@@ -3531,7 +3531,7 @@ gen_function_decl(struct gen_context *ctx, const struct declaration *decl)
 		struct qbe_data_item *next = xcalloc(1, sizeof *next);
 		next->type = QD_VALUE;
 		next->value.kind = QV_GLOBAL;
-		next->value.type = &qbe_long;
+		next->value.type = ctx->arch.ptr;
 		next->value.name = xstrdup(qdef->name);
 		next->next = NULL;
 		dataitem->next = next;
@@ -3655,7 +3655,7 @@ gen_data_item(struct gen_context *ctx, const struct expression *expr,
 		if (expr->literal.string.len != 0) {
 			qbe_append_def(ctx->out, def);
 			item->value.kind = QV_GLOBAL;
-			item->value.type = &qbe_long;
+			item->value.type = ctx->arch.ptr;
 			item->value.name = xstrdup(def->name);
 		} else {
 			free(def);

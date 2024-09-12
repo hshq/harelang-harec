@@ -243,4 +243,9 @@ export fn main() void = {
 	compile(status::CHECK, "fn f(a: (int | uint) = invalid) void = void;")!;
 
 	compile(status::CHECK, "def X = void: done;")!;
+
+	// tuple indexing lexer thing: even after a comment, 0.0 should be lexed
+	// as three separate tokens, rather than as a float literal
+	assert(((1, 2), 3). // don't remove this comment
+		0.0 == 1);
 };
