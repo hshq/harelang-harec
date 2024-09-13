@@ -344,6 +344,7 @@ struct ast_expression_unarithm {
 
 struct ast_expression_vaarg {
 	struct ast_expression *ap;
+	struct ast_type *type;
 };
 
 struct ast_expression {

@@ -58,11 +58,11 @@ fn cvafn(n: int, ...) void = {
 	let ap2 = ap;
 	defer vaend(ap2);
 	for (let i = 0; i < n; i += 1) {
-		let arg: int = vaarg(ap);
+		let arg = vaarg(ap, int);
 		assert(arg == i + 1);
 	};
 	for (let i = 0; i < n; i += 1) {
-		let arg: int = vaarg(ap2);
+		let arg = vaarg(ap2, int);
 		assert(arg == i + 1);
 	};
 };
@@ -70,8 +70,8 @@ fn cvafn(n: int, ...) void = {
 fn cvafn2(...) void = {
 	let ap = vastart();
 	defer vaend(ap);
-	assert(vaarg(ap): int == 1337);
-	assert(vaarg(ap): int == 42);
+	assert(vaarg(ap, int) == 1337);
+	assert(vaarg(ap, int) == 42);
 };
 
 fn cvaargs() void = {
@@ -211,7 +211,7 @@ fn optional_variadic_c(n: int = 0, ...) void = {
 	let ap = vastart();
 	defer vaend(ap);
 	for (let i = 0; i < n; i += 1) {
-		assert(vaarg(ap): int == i);
+		assert(vaarg(ap, int) == i);
 	};
 };
 
