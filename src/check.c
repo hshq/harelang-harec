@@ -1547,9 +1547,13 @@ check_expr_cast(struct context *ctx,
 		if (!((tagged_subset_compat(ctx, primary, secondary)
 				|| tagged_select_subtype(ctx, primary, secondary, true))
 				&& !tagged_subset_compat(ctx, secondary, primary))) {
+			char *typename1 = gen_typename(secondary);
+			char *typename2 = gen_typename(primary);
 			error(ctx, aexpr->cast.type->loc, expr,
-				"Type is not a valid member of "
-				"the tagged union type");
+				"Type %s is not a valid member of tagged union type %s",
+				typename1, typename2);
+			free(typename1);
+			free(typename2);
 			return;
 		}
 		break;
