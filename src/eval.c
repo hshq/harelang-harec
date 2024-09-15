@@ -97,7 +97,6 @@ itrunc(struct context *ctx, const struct type *type, uint64_t val)
 		return (unsigned int)val;
 	case STORAGE_ARRAY:
 	case STORAGE_ICONST:
-	case STORAGE_POINTER:
 	case STORAGE_SIZE:
 	case STORAGE_UINTPTR:
 		return val;
@@ -116,6 +115,7 @@ itrunc(struct context *ctx, const struct type *type, uint64_t val)
 	case STORAGE_FUNCTION:
 	case STORAGE_NEVER:
 	case STORAGE_OPAQUE:
+	case STORAGE_POINTER:
 	case STORAGE_SLICE:
 	case STORAGE_STRING:
 	case STORAGE_STRUCT:
@@ -324,12 +324,13 @@ eval_binarithm(struct context *ctx,
 		neg = true;
 		/* fallthrough */
 	case BIN_LEQUAL:
-		if (type_is_float(ctx, lvalue.result)) {
+		if (type_dealias(ctx, lvalue.result)->storage == STORAGE_POINTER) {
+			return false;
+		} else if (type_is_float(ctx, lvalue.result)) {
 			bval = ftrunc(ctx, lvalue.result, flval) == ftrunc(ctx, rvalue.result, frval);
 		} else if (type_is_signed(ctx, lvalue.result)) {
 			bval = itrunc(ctx, lvalue.result, ilval) == itrunc(ctx, rvalue.result, irval);
-		} else if (type_is_integer(ctx, lvalue.result)
-				|| type_dealias(ctx, lvalue.result)->storage == STORAGE_POINTER) {
+		} else if (type_is_integer(ctx, lvalue.result)) {
 			bval = itrunc(ctx, lvalue.result, ulval) == itrunc(ctx, rvalue.result, urval);
 		} else if (type_dealias(ctx, lvalue.result)->storage == STORAGE_BOOL) {
 			bval = lvalue.literal.bval == rvalue.literal.bval;
@@ -386,9 +387,10 @@ eval_binarithm(struct context *ctx,
 	} else if (type_dealias(ctx, in->result)->storage == STORAGE_BOOL
 			|| type_dealias(ctx, in->result)->storage == STORAGE_STRING) {
 		out->literal.bval = bval;
+	} else if (type_dealias(ctx, in->result)->storage == STORAGE_POINTER) {
+		return false;
 	} else {
-		assert(type_is_integer(ctx, in->result)
-			|| type_dealias(ctx, in->result)->storage == STORAGE_POINTER);
+		assert(type_is_integer(ctx, in->result));
 		out->literal.uval = itrunc(ctx, in->result, uval);
 	}
 	return true;
@@ -617,7 +619,9 @@ eval_cast(struct context *ctx,
 	case STORAGE_SIZE:
 	case STORAGE_RCONST:
 	case STORAGE_RUNE:
-		if (type_is_float(ctx, val.result)) {
+		if (type_dealias(ctx, from)->storage == STORAGE_POINTER) {
+			return false;
+		} else if (type_is_float(ctx, val.result)) {
 			out->literal.ival =
 				itrunc(ctx, to, (int64_t)val.literal.fval);
 		} else if (type_is_signed(ctx, val.result)) {

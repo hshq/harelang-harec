@@ -290,6 +290,24 @@ fn reject() void = {
 			let a = &struct { i: int = 0, v: void = void }.v;
 		};
 	`)!;
+
+	// eval
+	compile(status::CHECK, `
+		let a = 0;
+		let b = 0;
+		let c = &a == &b;
+	`)!;
+
+	compile(status::CHECK, `
+		let a = 0;
+		let b = 0;
+		let c = &a < &b;
+	`)!;
+
+	compile(status::CHECK, `
+		let a = 0;
+		let b = &a: uintptr;
+	`)!;
 };
 
 export fn main() void = {
