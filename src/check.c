@@ -1469,7 +1469,11 @@ check_expr_call(struct context *ctx,
 			*arg->value = (struct expression){
 				.type = EXPR_LITERAL,
 				.result = param->type,
-				.literal.array = NULL,
+				.literal = {
+					.object = NULL,
+					.slice.array = NULL,
+					.slice.len = 0,
+				},
 			};
 			return;
 		} else if (param->default_value == NULL) {

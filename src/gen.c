@@ -1761,18 +1761,19 @@ gen_literal_slice_at(struct gen_context *ctx,
 	const struct expression *expr,
 	struct gen_value out)
 {
-	// Slice literals are stored as array literals.
-	struct array_literal *aexpr = expr->literal.array;
+	struct array_literal *aexpr = expr->literal.slice.array;
 
 	enum qbe_instr store = store_for_type(ctx, &builtin_type_size);
 	struct qbe_value base = mklval(ctx, &out);
-	struct qbe_value ln;
-	if (aexpr) {
-		struct expression *first = aexpr->value;
 
-		struct qbe_type *qt = xcalloc(1, sizeof(struct qbe_type));
-		qt->stype = Q_LONG;
-		struct qbe_value aobj = mkqtmp(ctx, qt, "object.%d");
+	struct qbe_type *qt = xcalloc(1, sizeof(struct qbe_type));
+	qt->stype = Q_LONG;
+	struct qbe_value obj = mkqtmp(ctx, qt, "object.%d");
+
+	if (expr->literal.object == NULL && aexpr != NULL) {
+		// slicing a literal array
+
+		struct expression *first = aexpr->value;
 
 		size_t n = 0;
 		struct gen_value item = mkgtemp(ctx, first->result, "item.%d");
@@ -1780,27 +1781,47 @@ gen_literal_slice_at(struct gen_context *ctx,
 		for (const struct array_literal *ac = aexpr; ac; ac = ac->next) {
 			struct qbe_value offs = constl(n * first->result->size);
 			ptr = mklval(ctx, &item);
-			pushi(ctx->current, &ptr, Q_ADD, &aobj, &offs, NULL);
+			pushi(ctx->current, &ptr, Q_ADD, &obj, &offs, NULL);
 			gen_expr_at(ctx, ac->value, item);
 			++n;
 		}
-		struct qbe_value asz = constl(n);
+		struct qbe_value asz = constl(n * first->result->size);
 		enum qbe_instr alloc = alloc_for_align(first->result->align);
-		pushprei(ctx->current, &aobj, alloc, &asz, NULL);
+		pushprei(ctx->current, &obj, alloc, &asz, NULL);
 
-		ln = constl(n);
-		pushi(ctx->current, NULL, store, &aobj, &base, NULL);
-	} else {
-		ln = constl(0);
+		struct qbe_value offset =
+			constl(expr->literal.slice.start * first->result->size);
+		pushi(ctx->current, &obj, Q_ADD, &obj, &offset, NULL);
+		pushi(ctx->current, NULL, store, &obj, &base, NULL);
+	} else if (expr->literal.object == NULL) {
+		// slicing an empty array
+
 		struct qbe_value tmp = constl(0);
 		pushi(ctx->current, NULL, store, &tmp, &base, NULL);
+	} else {
+		// slicing an access expression
+
+		const struct scope_object *sobj = expr->literal.object;
+		struct gen_value gobj = gen_access_ident(ctx, sobj);
+		struct qbe_value tmp = mkqval(ctx, &gobj);
+		const struct type *otype =
+			sobj->otype == O_CONST ? sobj->value->result : sobj->type;
+		size_t offs = expr->literal.slice.offset;
+		offs += expr->literal.slice.start * otype->size;
+		struct qbe_value qoffs = constl(offs);
+		pushi(ctx->current, &obj, Q_ADD, &tmp, &qoffs, NULL);
+		pushi(ctx->current, NULL, store, &obj, &base, NULL);
 	}
+
 	struct qbe_value qptr = mkqtmp(ctx, ctx->arch.ptr, ".%d");
 	struct qbe_value sz = constl(builtin_type_size.size);
+	struct qbe_value len = constl(expr->literal.slice.len);
+	struct qbe_value cap = constl(expr->literal.slice.cap);
+
 	pushi(ctx->current, &qptr, Q_ADD, &base, &sz, NULL);
-	pushi(ctx->current, NULL, store, &ln, &qptr, NULL);
+	pushi(ctx->current, NULL, store, &len, &qptr, NULL);
 	pushi(ctx->current, &qptr, Q_ADD, &qptr, &sz, NULL);
-	pushi(ctx->current, NULL, store, &ln, &qptr, NULL);
+	pushi(ctx->current, NULL, store, &cap, &qptr, NULL);
 }
 
 static struct qbe_data_item *gen_data_item(struct gen_context *,

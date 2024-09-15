@@ -251,4 +251,11 @@ export fn main() void = {
 
 	compile(status::SUCCESS,
 		"type s = struct { a: [2]int }; def x = s { ... }; def y = x.a[1];")!;
+
+	def A: [](int | []str) = [
+		0, 0,
+		["a"],
+		[""],
+	];
+	assert((A[2] as []str)[0] == "a");
 };
