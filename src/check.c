@@ -1515,7 +1515,8 @@ check_expr_cast(struct context *ctx,
 			secondary == &builtin_type_void ? NULL : secondary);
 
 	const struct type *primary = type_dealias(ctx, expr->cast.value->result);
-	if (primary->storage == STORAGE_ERROR) {
+	if (primary->storage == STORAGE_ERROR
+			|| secondary->storage == STORAGE_ERROR) {
 		mkerror(aexpr->cast.value->loc, expr);
 		return;
 	}
