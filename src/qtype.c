@@ -112,21 +112,19 @@ tagged_qtype(struct gen_context *ctx,
 		field->type = &batch->type;
 		field->count = 1;
 
-		if (align < maxalign) {
+		// We'll need an extra field for 0-aligned values
+		if (align < maxalign || minalign == 0) {
 			field->next = xcalloc(1, sizeof(struct qbe_field));
 			field = field->next;
 		}
 	}
 
-	if (minalign != 0) {
-		return &def->type;
+	// Which is initialized here
+	if (minalign == 0) {
+		field->type = &qbe_word;
+		field->count = 1;
 	}
 
-	// Add a case for values of size zero
-	field->next = xcalloc(1, sizeof(struct qbe_field));
-	field = field->next;
-	field->type = &qbe_word;
-	field->count = 1;
 	return &def->type;
 }
 
