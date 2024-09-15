@@ -731,7 +731,8 @@ static bool
 literal_default(struct context *ctx, struct expression *v)
 {
 	struct expression b = {0};
-	switch (type_dealias(ctx, v->result)->storage) {
+	const struct type *t = type_dealias(ctx, v->result);
+	switch (t->storage) {
 	case STORAGE_ERROR:
 	case STORAGE_POINTER:
 	case STORAGE_I16:
@@ -770,12 +771,21 @@ literal_default(struct context *ctx, struct expression *v)
 		v->literal.string.len = 0;
 		break;
 	case STORAGE_ARRAY:
-		v->literal.array = xcalloc(1, sizeof(struct array_literal));
-		v->literal.array->value = xcalloc(1, sizeof(struct expression));
-		v->literal.array->value->type = EXPR_LITERAL;
-		v->literal.array->value->result =
-			type_dealias(ctx, v->result)->array.members;
-		return literal_default(ctx, v->literal.array->value);
+		assert(!t->array.expandable); // Invariant
+		if (t->array.length == SIZE_UNDEFINED) {
+			return false;
+		}
+		struct array_literal **next = &v->literal.array;
+		for (size_t i = 0; i < t->array.length; i++) {
+			*next = xcalloc(1, sizeof(struct array_literal));
+			(*next)->value = xcalloc(1, sizeof(struct expression));
+			(*next)->value->type = EXPR_LITERAL;
+			(*next)->value->result = t->array.members;
+			if (!literal_default(ctx, (*next)->value)) {
+				return false;
+			}
+			next = &(*next)->next;
+		}
 		break;
 	case STORAGE_TAGGED:
 		return false;

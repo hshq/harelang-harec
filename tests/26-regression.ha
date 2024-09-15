@@ -248,4 +248,7 @@ export fn main() void = {
 	// as three separate tokens, rather than as a float literal
 	assert(((1, 2), 3). // don't remove this comment
 		0.0 == 1);
+
+	compile(status::SUCCESS,
+		"type s = struct { a: [2]int }; def x = s { ... }; def y = x.a[1];")!;
 };
