@@ -3179,6 +3179,10 @@ gen_expr_vaarg(struct gen_context *ctx,
 	const struct expression *expr)
 {
 	// XXX: qbe only supports variadic base types, should check for this
+	assert(expr->result->size != SIZE_UNDEFINED);
+	if (expr->result->size == 0) {
+		return gv_void;
+	}
 	struct gen_value result = mkgtemp(ctx, expr->result, ".%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
 	struct gen_value ap = gen_expr(ctx, expr->vaarg.ap);

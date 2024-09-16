@@ -63,6 +63,8 @@ fn cvafn(n: int, ...) void = {
 	};
 	for (let i = 0; i < n; i += 1) {
 		let arg = vaarg(ap2, int);
+		vaarg(ap2, void);
+		vaarg(ap2, [0]int);
 		assert(arg == i + 1);
 	};
 };
