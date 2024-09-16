@@ -1469,7 +1469,11 @@ check_expr_call(struct context *ctx,
 			*arg->value = (struct expression){
 				.type = EXPR_LITERAL,
 				.result = param->type,
-				.literal.array = NULL,
+				.literal = {
+					.object = NULL,
+					.slice.array = NULL,
+					.slice.len = 0,
+				},
 			};
 			return;
 		} else if (param->default_value == NULL) {
@@ -1511,7 +1515,8 @@ check_expr_cast(struct context *ctx,
 			secondary == &builtin_type_void ? NULL : secondary);
 
 	const struct type *primary = type_dealias(ctx, expr->cast.value->result);
-	if (primary->storage == STORAGE_ERROR) {
+	if (primary->storage == STORAGE_ERROR
+			|| secondary->storage == STORAGE_ERROR) {
 		mkerror(aexpr->cast.value->loc, expr);
 		return;
 	}
@@ -1547,9 +1552,13 @@ check_expr_cast(struct context *ctx,
 		if (!((tagged_subset_compat(ctx, primary, secondary)
 				|| tagged_select_subtype(ctx, primary, secondary, true))
 				&& !tagged_subset_compat(ctx, secondary, primary))) {
+			char *typename1 = gen_typename(secondary);
+			char *typename2 = gen_typename(primary);
 			error(ctx, aexpr->cast.type->loc, expr,
-				"Type is not a valid member of "
-				"the tagged union type");
+				"Type %s is not a valid member of tagged union type %s",
+				typename1, typename2);
+			free(typename1);
+			free(typename2);
 			return;
 		}
 		break;
