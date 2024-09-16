@@ -59,7 +59,7 @@ $(BINOUT)/harec: $(harec_objects)
 	@$(CC) $(LDFLAGS) -o $@ $(harec_objects) $(LIBS)
 
 .SUFFIXES:
-.SUFFIXES: .ha .ssa .td .c .o .s .scd .1 .5
+.SUFFIXES: .ssa .td .c .o .s .scd .1 .5
 
 src/check.o: $(headers)
 src/emit.o: $(headers)
@@ -97,10 +97,6 @@ src/util.o: $(headers)
 
 .ssa.td:
 	@cmp -s $@ $@.tmp 2>/dev/null || cp $@.tmp $@
-
-.ha.ssa:
-	@printf 'HAREC\t%s\n' '$@'
-	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $<
 
 clean:
 	@rm -rf -- $(HARECACHE) $(BINOUT) $(harec_objects) $(tests)
