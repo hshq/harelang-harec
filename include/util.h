@@ -30,10 +30,12 @@ void *xcalloc(size_t n, size_t s);
 void *xrealloc(void *p, size_t s);
 char *xstrdup(const char *s);
 
-#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 3)
-#define FORMAT(FIRST) __attribute__((__format__(__printf__, 2, FIRST)))
-#else
 #define FORMAT(FIRST)
+#ifdef __has_attribute
+#if __has_attribute(format)
+#undef FORMAT
+#define FORMAT(FIRST) __attribute__((format(printf, 2, FIRST)))
+#endif
 #endif
 
 int xfprintf(FILE *restrict f, const char *restrict fmt, ...) FORMAT(3);
