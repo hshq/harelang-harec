@@ -113,6 +113,9 @@ gen_store(struct gen_context *ctx,
 	struct gen_value value)
 {
 	const struct type *ty = type_dealias(NULL, object.type);
+	if (value.type->size == 0 || value.type->storage == STORAGE_NEVER) {
+		return; // no storage
+	}
 	switch (ty->storage) {
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
@@ -129,9 +132,6 @@ gen_store(struct gen_context *ctx,
 		break;
 	default:
 		break; // no-op
-	}
-	if (value.type->size == 0 || value.type->storage == STORAGE_NEVER) {
-		return; // no storage
 	}
 
 	struct qbe_value qobj = mkqval(ctx, &object),
