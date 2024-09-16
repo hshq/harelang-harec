@@ -3702,6 +3702,10 @@ check_expr_vaarg(struct context *ctx,
 		return;
 	}
 	expr->result = type_store_lookup_atype(ctx, aexpr->vaarg.type);
+	if (expr->result->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->loc, expr, "vaarg type must have defined size");
+		return;
+	}
 }
 
 static void
