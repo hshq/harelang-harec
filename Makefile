@@ -92,7 +92,8 @@ src/util.o: $(headers)
 
 .ssa.s:
 	@printf 'QBE\t%s\n' '$@'
-	@$(QBE) $(QBEFLAGS) -o $@ $<
+	@$(QBE) $(QBEFLAGS) -o $@.tmp $<
+	@mv $@.tmp $@
 
 .ssa.td:
 	@cmp -s $@ $@.tmp 2>/dev/null || cp $@.tmp $@
