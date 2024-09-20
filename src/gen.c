@@ -1498,18 +1498,16 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	default: break;
 	}
 
-	// Special case: cast to type that doesn't have a size
-	if (type_dealias(NULL, to)->size == 0) {
-		gen_expr(ctx, expr->cast.value); // Side-effects
-		return gv_void;
-	}
-
 	// Special case: tagged => non-tagged
 	if (type_dealias(NULL, from)->storage == STORAGE_TAGGED) {
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value base = mkcopy(ctx, &value, ".%d");
 		if (expr->cast.kind == C_ASSERTION) {
 			gen_type_assertion_or_test(ctx, expr, value);
+		}
+
+		if (type_dealias(NULL, to)->size == 0) {
+			return gv_void;
 		}
 
 		struct qbe_value align = nested_tagged_offset(
@@ -1521,6 +1519,12 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 			.name = base.name,
 		};
 		return gen_load(ctx, storage);
+	}
+
+	// Special case: cast to type that doesn't have a size
+	if (type_dealias(NULL, to)->size == 0) {
+		gen_expr(ctx, expr->cast.value); // Side-effects
+		return gv_void;
 	}
 
 	// Special case: no conversion required
