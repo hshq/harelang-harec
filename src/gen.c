@@ -113,6 +113,9 @@ gen_store(struct gen_context *ctx,
 	struct gen_value value)
 {
 	const struct type *ty = type_dealias(NULL, object.type);
+	if (value.type->size == 0 || value.type->storage == STORAGE_NEVER) {
+		return; // no storage
+	}
 	switch (ty->storage) {
 	case STORAGE_ARRAY:
 	case STORAGE_SLICE:
@@ -129,9 +132,6 @@ gen_store(struct gen_context *ctx,
 		break;
 	default:
 		break; // no-op
-	}
-	if (value.type->size == 0 || value.type->storage == STORAGE_NEVER) {
-		return; // no storage
 	}
 
 	struct qbe_value qobj = mkqval(ctx, &object),
@@ -3181,6 +3181,10 @@ gen_expr_vaarg(struct gen_context *ctx,
 	const struct expression *expr)
 {
 	// XXX: qbe only supports variadic base types, should check for this
+	assert(expr->result->size != SIZE_UNDEFINED);
+	if (expr->result->size == 0) {
+		return gv_void;
+	}
 	struct gen_value result = mkgtemp(ctx, expr->result, ".%d");
 	struct qbe_value qresult = mkqval(ctx, &result);
 	struct gen_value ap = gen_expr(ctx, expr->vaarg.ap);

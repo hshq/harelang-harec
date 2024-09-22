@@ -258,4 +258,6 @@ export fn main() void = {
 		[""],
 	];
 	assert((A[2] as []str)[0] == "a");
+
+	compile(status::CHECK, "type e = enum { A }; fn f() void = { e::A: bool; };")!;
 };

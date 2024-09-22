@@ -65,6 +65,13 @@ fn storage() void = {
 	assert(rune_storage::FOO == '0' && rune_storage::BAR == '1');
 };
 
+fn runes() void = {
+	let val = '1': rune_storage;
+	let val = rune_storage::FOO: rune;
+
+	compile(status::CHECK, "type a = enum rune { A = 'x' }; fn f() void = { a::A: str; };")!;
+};
+
 fn reject() void = {
 	// enum type definition used outside type declaration
 	compile(status::PARSE, "export let a: enum { A, B } = 0;")!;
@@ -175,6 +182,7 @@ export fn main() void = {
 	implicit();
 	explicit();
 	storage();
+	runes();
 	reject();
 	interdependent();
 	aliases();

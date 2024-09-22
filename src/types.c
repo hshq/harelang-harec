@@ -1052,7 +1052,10 @@ type_is_castable(struct context *ctx, const struct type *to, const struct type *
 		return type_is_integer(ctx, to)
 			? to_orig : NULL;
 	case STORAGE_ENUM:
-		return to->storage == STORAGE_ENUM || type_is_integer(ctx, from)
+		if (from->alias.type->storage == STORAGE_RUNE) {
+			return to->storage == STORAGE_RUNE ? to_orig : NULL;
+		}
+		return to->storage == STORAGE_ENUM || type_is_integer(ctx, to)
 			? to_orig : NULL;
 	case STORAGE_F32:
 	case STORAGE_F64:

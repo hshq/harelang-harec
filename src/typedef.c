@@ -409,11 +409,7 @@ emit_decl_global(const struct declaration *decl, FILE *out)
 		xfprintf(out, "@threadlocal ");
 	}
 	xfprintf(out, "%s: ", ident);
-	if (decl->constant.type) {
-		emit_type(decl->global.type, out);
-	} else {
-		emit_type(decl->global.value->result, out);
-	};
+	emit_type(decl->global.type, out);
 	xfprintf(out, ";\n");
 	free(ident);
 }

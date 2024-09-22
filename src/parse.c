@@ -1565,6 +1565,8 @@ parse_va_expression(struct lexer *lexer)
 		expr->type = EXPR_VAARG;
 		want(lexer, T_LPAREN, NULL);
 		expr->vaarg.ap = parse_object_selector(lexer);
+		want(lexer, T_COMMA, NULL);
+		expr->vaarg.type = parse_type(lexer);
 		want(lexer, T_RPAREN, NULL);
 		return expr;
 	case T_VAEND:

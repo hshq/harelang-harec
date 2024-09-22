@@ -58,11 +58,13 @@ fn cvafn(n: int, ...) void = {
 	let ap2 = ap;
 	defer vaend(ap2);
 	for (let i = 0; i < n; i += 1) {
-		let arg: int = vaarg(ap);
+		let arg = vaarg(ap, int);
 		assert(arg == i + 1);
 	};
 	for (let i = 0; i < n; i += 1) {
-		let arg: int = vaarg(ap2);
+		let arg = vaarg(ap2, int);
+		vaarg(ap2, void);
+		vaarg(ap2, [0]int);
 		assert(arg == i + 1);
 	};
 };
@@ -70,8 +72,8 @@ fn cvafn(n: int, ...) void = {
 fn cvafn2(...) void = {
 	let ap = vastart();
 	defer vaend(ap);
-	assert(vaarg(ap): int == 1337);
-	assert(vaarg(ap): int == 42);
+	assert(vaarg(ap, int) == 1337);
+	assert(vaarg(ap, int) == 42);
 };
 
 fn cvaargs() void = {
@@ -141,6 +143,8 @@ fn reject() void = {
 		"fn f(x: str...) void = f(\"asdf\", 0);",
 		// cannot return a type with undefined size
 		"fn f() fn() void = g; fn g() void = void;",
+
+		"fn f(ap: valist) void = { vaarg(ap, opaque); };",
 	];
 
 	for (let i = 0z; i < len(failures); i += 1) {
@@ -211,7 +215,7 @@ fn optional_variadic_c(n: int = 0, ...) void = {
 	let ap = vastart();
 	defer vaend(ap);
 	for (let i = 0; i < n; i += 1) {
-		assert(vaarg(ap): int == i);
+		assert(vaarg(ap, int) == i);
 	};
 };
 

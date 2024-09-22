@@ -26,7 +26,7 @@ $(BINOUT)/harec: $(harec_objects)
 	@$(CC) $(LDFLAGS) -o $@ $(harec_objects) $(LIBS)
 
 .SUFFIXES:
-.SUFFIXES: .ha .ssa .td .c .o .s .scd .1 .5
+.SUFFIXES: .ssa .td .c .o .s .scd .1 .5
 
 .PRECIOUS: %.td %.ssa %.s %.o
 
@@ -43,13 +43,11 @@ $(HARECACHE)/%.o: %.c $(headers)
 	@$(AS) $(ASFLAGS) -o $@ $<
 
 .ssa.s:
-	@$(QBE) $(QBEFLAGS) -o $@ $<
+	@$(QBE) $(QBEFLAGS) -o $@.tmp $<
+	@mv $@.tmp $@
 
 .ssa.td:
 	@cmp -s $@ $@.tmp 2>/dev/null || mv $@.tmp $@
-
-.ha.ssa:
-	@$(TDENV) $(BINOUT)/harec $(HARECFLAGS) -o $@ $<
 
 clean:
 	@rm -rf -- $(HARECACHE) $(BINOUT) $(harec_objects) $(tests)

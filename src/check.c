@@ -3694,11 +3694,6 @@ check_expr_vaarg(struct context *ctx,
 	const struct type *hint)
 {
 	expr->type = EXPR_VAARG;
-	if (hint == NULL) {
-		error(ctx, aexpr->loc, expr,
-			"Cannot infer type of vaarg without hint");
-		return;
-	}
 	expr->vaarg.ap = xcalloc(1, sizeof(struct expression));
 	check_expression(ctx, aexpr->vaarg.ap, expr->vaarg.ap, &builtin_type_valist);
 	if (type_dealias(ctx, expr->vaarg.ap->result)->storage != STORAGE_VALIST) {
@@ -3706,7 +3701,11 @@ check_expr_vaarg(struct context *ctx,
 			"Expected vaarg operand to be valist");
 		return;
 	}
-	expr->result = hint;
+	expr->result = type_store_lookup_atype(ctx, aexpr->vaarg.type);
+	if (expr->result->size == SIZE_UNDEFINED) {
+		error(ctx, aexpr->loc, expr, "vaarg type must have defined size");
+		return;
+	}
 }
 
 static void
