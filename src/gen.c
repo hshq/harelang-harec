@@ -1143,9 +1143,21 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 	args->value = mkqval(ctx, &lvalue);
 	next = &args->next;
-	for (struct call_argument *carg = expr->call.args;
-			carg; carg = carg->next) {
+	for (struct call_argument *carg = expr->call.args; ; carg = carg->next) {
+		if (!param && !cvar && rtype->func.variadism == VARIADISM_C) {
+			cvar = true;
+			args = *next = xcalloc(1, sizeof(struct qbe_arguments));
+			args->value.kind = QV_VARIADIC;
+			next = &args->next;
+		}
+		if (!carg) {
+			break;
+		}
+
 		struct gen_value arg = gen_expr(ctx, carg->value);
+		if (param) {
+			param = param->next;
+		}
 		if (carg->value->result->size == 0) {
 			continue;
 		}
@@ -1156,15 +1168,6 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		args->value = mkqval(ctx, &arg);
 		args->value.type = qtype_lookup(ctx, carg->value->result, false);
 		next = &args->next;
-		if (param) {
-			param = param->next;
-		}
-		if (!param && !cvar && rtype->func.variadism == VARIADISM_C) {
-			cvar = true;
-			args = *next = xcalloc(1, sizeof(struct qbe_arguments));
-			args->value.kind = QV_VARIADIC;
-			next = &args->next;
-		}
 	}
 
 	if (rtype->func.result->storage == STORAGE_NEVER) {
