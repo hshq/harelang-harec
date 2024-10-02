@@ -69,6 +69,7 @@ function fix_asm() {
         -e "s/^(rt\..+:)$/_\1/g" \
         -e "s/^(crypto\.aes\.x86ni_.+:)$/_\1/g" \
         -e "s/^(debug\.getfp:)$/_\1/g" \
+        -e "s/^(debug\.altstack:)$/_\1/g" \
         \
         -e "s/adrp	x0, _environ@page/adrp	x0, _environ@GOTPAGE/g" \
         -e "s/add	x0, x0, _environ@pageoff/ldr	x0, [x0, _environ@GOTPAGEOFF]/g" \
