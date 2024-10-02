@@ -88,11 +88,17 @@ function header() {
 function AS() {
     args=
     code=
+    asm=
     until [ $# -eq 0 ]; do
         case $1 in
             --)
                 ;;
-            -o|-I|-arch)
+            -o)
+                asm=$HARECACHE/"$(basename $2)".s
+                args="$args $1 $2"
+                shift
+                ;;
+            -I|-arch)
                 args="$args $1 $2"
                 shift
                 ;;
@@ -111,8 +117,11 @@ function AS() {
         shift
     done
 
-    echo "$code" | fix_asm | as $args --
-    # echo "$code" | fix_asm | as $ASFLAGS $args --
+    # echo "$code" | fix_asm | as $args --
+    # # echo "$code" | fix_asm | as $ASFLAGS $args --
+
+    echo "$code" | fix_asm > $asm
+    as $args $asm
 }
 
 
