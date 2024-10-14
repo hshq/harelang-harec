@@ -957,7 +957,7 @@ type_init_from_atype(struct context *ctx,
 		}
 		if (type->array.members->storage == STORAGE_NEVER) {
 			error(ctx, atype->loc, NULL,
-				"Never is not a valid slice member");
+				"never is not a valid slice member");
 			*type = builtin_type_error;
 			return (struct dimensions){0};
 		}
