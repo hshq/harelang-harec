@@ -1,4 +1,4 @@
-use rt::{compile, error, status, toutf8};
+use rt::{compile, status, toutf8};
 
 type my_enum = enum u8 {
 	FOO,
