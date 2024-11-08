@@ -30,5 +30,8 @@ export let val4 = 69;
 export let @symbol("s_x") s_a: int;
 export let @symbol("s_y") s_b: int = 1;
 
+export type f64_alias = f64;
+export def val5: f64_alias = 0.0;
+
 // ensure rt isn't imported in this subunit
 static assert(SIZE_RT_SLICE == size([]opaque));
