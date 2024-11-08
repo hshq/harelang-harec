@@ -214,6 +214,15 @@ fn implicit_cast() void = {
 		yield *z;
 	};
 	assert(a is foobar);
+
+	let x: (*int | nullable *int | void) = null;
+	// reduces to nullable *int
+	let x = match (x) {
+	case let x: (*int | nullable *int) =>
+		yield x;
+	case void => abort();
+	};
+	assert(x == null);
 };
 
 fn transitivity() void = {
