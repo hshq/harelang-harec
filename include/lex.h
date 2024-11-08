@@ -137,7 +137,7 @@ enum lexical_token {
 
 	// Tokens with additional information
 	T_NAME,
-	T_NUMBER,
+	T_LITERAL,
 
 	// Magic tokens
 	T_EOF,
