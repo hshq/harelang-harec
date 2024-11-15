@@ -67,7 +67,7 @@ emit_literal(const struct expression *expr, FILE *out)
 	case STORAGE_F32:
 	case STORAGE_F64:
 	case STORAGE_FCONST:;
-		const char *suffix = storage_to_suffix(expr->result->storage);
+		const char *suffix = storage_to_suffix(t->storage);
 		if (isnan(val->fval)) {
 			xfprintf(out, "0.0%s / 0.0%s", suffix, suffix);
 		} else if (isinf(val->fval)) {
@@ -84,7 +84,7 @@ emit_literal(const struct expression *expr, FILE *out)
 	case STORAGE_ICONST:
 	case STORAGE_INT:
 		xfprintf(out, "%" PRIi64 "%s", val->ival,
-			storage_to_suffix(type_dealias(NULL, expr->result)->storage));
+			storage_to_suffix(t->storage));
 		break;
 	case STORAGE_POINTER: // TODO
 	case STORAGE_NULL:
@@ -98,7 +98,7 @@ emit_literal(const struct expression *expr, FILE *out)
 	case STORAGE_UINT:
 	case STORAGE_UINTPTR:
 		xfprintf(out, "%" PRIu64 "%s", val->uval,
-			storage_to_suffix(type_dealias(NULL, expr->result)->storage));
+			storage_to_suffix(t->storage));
 		break;
 	case STORAGE_VOID:
 		xfprintf(out, "void");

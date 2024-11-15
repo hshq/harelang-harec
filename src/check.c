@@ -2547,7 +2547,7 @@ check_expr_match(struct context *ctx,
 		struct match_case *_case = expr->match.cases;
 		struct ast_match_case *acase = aexpr->match.cases;
 		while (_case) {
-			if (!type_is_assignable(ctx, expr->result, _case->value->result)) {
+			if (hint && !type_is_assignable(ctx, hint, _case->value->result)) {
 				error(ctx, acase->exprs.expr->loc, expr,
 					"Match case is not assignable to result type");
 				return;

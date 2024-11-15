@@ -1143,9 +1143,21 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 	args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 	args->value = mkqval(ctx, &lvalue);
 	next = &args->next;
-	for (struct call_argument *carg = expr->call.args;
-			carg; carg = carg->next) {
+	for (struct call_argument *carg = expr->call.args; ; carg = carg->next) {
+		if (!param && !cvar && rtype->func.variadism == VARIADISM_C) {
+			cvar = true;
+			args = *next = xcalloc(1, sizeof(struct qbe_arguments));
+			args->value.kind = QV_VARIADIC;
+			next = &args->next;
+		}
+		if (!carg) {
+			break;
+		}
+
 		struct gen_value arg = gen_expr(ctx, carg->value);
+		if (param) {
+			param = param->next;
+		}
 		if (carg->value->result->size == 0) {
 			continue;
 		}
@@ -1164,9 +1176,6 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		args->value = mkqval(ctx, &arg);
 		args->value.type = qtype_lookup(ctx, carg->value->result, false);
 		next = &args->next;
-		if (param) {
-			param = param->next;
-		}
 	}
 
 	if (rtype->func.result->storage == STORAGE_NEVER) {
@@ -1500,18 +1509,16 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 	default: break;
 	}
 
-	// Special case: cast to type that doesn't have a size
-	if (type_dealias(NULL, to)->size == 0) {
-		gen_expr(ctx, expr->cast.value); // Side-effects
-		return gv_void;
-	}
-
 	// Special case: tagged => non-tagged
 	if (type_dealias(NULL, from)->storage == STORAGE_TAGGED) {
 		struct gen_value value = gen_expr(ctx, expr->cast.value);
 		struct qbe_value base = mkcopy(ctx, &value, ".%d");
 		if (expr->cast.kind == C_ASSERTION) {
 			gen_type_assertion_or_test(ctx, expr, value);
+		}
+
+		if (type_dealias(NULL, to)->size == 0) {
+			return gv_void;
 		}
 
 		struct qbe_value align = nested_tagged_offset(
@@ -1523,6 +1530,12 @@ gen_expr_cast(struct gen_context *ctx, const struct expression *expr)
 			.name = base.name,
 		};
 		return gen_load(ctx, storage);
+	}
+
+	// Special case: cast to type that doesn't have a size
+	if (type_dealias(NULL, to)->size == 0) {
+		gen_expr(ctx, expr->cast.value); // Side-effects
+		return gv_void;
 	}
 
 	// Special case: no conversion required

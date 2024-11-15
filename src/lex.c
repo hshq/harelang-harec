@@ -447,7 +447,7 @@ end:
 want_int:
 		push(lexer, c, true);
 	}
-	out->token = T_NUMBER;
+	out->token = T_LITERAL;
 	lexer->require_int = false;
 
 	enum kind {
@@ -641,7 +641,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		}
 		char *s = xcalloc(lexer->buflen + 1, 1);
 		memcpy(s, lexer->buf, lexer->buflen);
-		out->token = T_NUMBER;
+		out->token = T_LITERAL;
 		out->storage = STORAGE_STRING;
 		out->string.len = lexer->buflen;
 		out->string.value = s;
@@ -669,7 +669,7 @@ lex_string(struct lexer *lexer, struct token *out)
 		if (next(lexer, NULL, false) != '\'') {
 			error(out->loc, "Expected trailing single quote");
 		}
-		out->token = T_NUMBER;
+		out->token = T_LITERAL;
 		out->storage = STORAGE_RCONST;
 		return out->token;
 	default:
@@ -1010,7 +1010,7 @@ lex(struct lexer *lexer, struct token *out)
 	if (c <= 0x7F && isdigit(c)) {
 		push(lexer, c, false);
 		lex_number(lexer, out);
-		return T_NUMBER;
+		return T_LITERAL;
 	}
 
 	lexer->require_int = false;
@@ -1088,7 +1088,7 @@ token_finish(struct token *tok)
 	case T_NAME:
 		free(tok->name);
 		break;
-	case T_NUMBER:
+	case T_LITERAL:
 		switch (tok->storage) {
 		case STORAGE_STRING:
 			free(tok->string.value);
@@ -1113,8 +1113,8 @@ lexical_token_str(enum lexical_token tok)
 	switch (tok) {
 	case T_NAME:
 		return "name";
-	case T_NUMBER:
-		return "number";
+	case T_LITERAL:
+		return "literal";
 	case T_EOF:
 		return "end of file";
 	case T_NONE:
@@ -1128,32 +1128,35 @@ lexical_token_str(enum lexical_token tok)
 static const char *
 string_unparse(const struct token *tok)
 {
-	static char buf[1024];
-	assert(tok->token == T_NUMBER && tok->storage == STORAGE_STRING);
-	int bytes = 0;
-	memset(buf, 0, sizeof(buf));
-	bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "\"");
+	static char buf[128];
+	assert(tok->token == T_LITERAL && tok->storage == STORAGE_STRING);
+	buf[0] = '"';
+	int bytes = 1;
 	const char *s = tok->string.value;
 	for (uint32_t c = utf8_decode(&s);
 			s - tok->string.value <= (ptrdiff_t)tok->string.len;
 			c = utf8_decode(&s)) {
-		bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "%s",
+		// subtract 1 from sizeof(buf) to leave room for closing quote
+		// at the end
+		bytes += snprintf(&buf[bytes], sizeof(buf) - 1 - bytes, "%s",
 			rune_unparse(c));
+		if (bytes >= (int)sizeof(buf) - 1) {
+			return "string literal";
+		}
 	}
-	bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "\"");
+	snprintf(&buf[bytes], sizeof(buf) - bytes, "\"");
 	return buf;
 }
 
 const char *
 token_str(const struct token *tok)
 {
-	static char buf[1024];
-	int bytes = 0;
+	static char buf[128];
 	switch (tok->token) {
-	case T_NAME:
-		snprintf(buf, sizeof(buf), "name %s", tok->name);
-		return buf;
-	case T_NUMBER:
+	case T_NAME:;
+		int n = snprintf(buf, sizeof(buf), "name %s", tok->name);
+		return n < (int)sizeof(buf) ? buf : "name";
+	case T_LITERAL:
 		switch (tok->storage) {
 		case STORAGE_U8:
 		case STORAGE_U16:
@@ -1178,10 +1181,8 @@ token_str(const struct token *tok)
 			snprintf(buf, sizeof(buf), "%f", tok->fval);
 			break;
 		case STORAGE_RCONST:
-			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
-			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "%s",
+			snprintf(buf, sizeof(buf), "'%s'",
 				rune_unparse(tok->rune));
-			bytes += snprintf(&buf[bytes], sizeof(buf) - bytes, "'");
 			break;
 		case STORAGE_STRING:
 			return string_unparse(tok);
@@ -1207,9 +1208,8 @@ token_str(const struct token *tok)
 			assert(0);
 		}
 		return buf;
-	default:;
-		const char *out = lexical_token_str(tok->token);
-		return out;
+	default:
+		return lexical_token_str(tok->token);
 	}
 }
 

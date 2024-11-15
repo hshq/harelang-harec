@@ -50,7 +50,7 @@ vsynerr(struct token *tok, va_list ap)
 		sources[tok->loc.file], tok->loc.lineno, tok->loc.colno);
 
 	while (t != T_EOF) {
-		if (t == T_NUMBER || t == T_NAME) {
+		if (t == T_LITERAL || t == T_NAME) {
 			xfprintf(stderr, "%s", lexical_token_str(t));
 		} else {
 			xfprintf(stderr, "'%s'", lexical_token_str(t));
@@ -824,11 +824,11 @@ parse_literal(struct lexer *lexer)
 	case T_DONE:
 		exp->literal.storage = STORAGE_DONE;
 		return exp;
-	case T_NUMBER:
+	case T_LITERAL:
 		exp->literal.storage = tok.storage;
 		break;
 	default:
-		synerr(&tok, T_NUMBER, T_TRUE,
+		synerr(&tok, T_LITERAL, T_TRUE,
 			T_FALSE, T_NULL, T_VOID, T_EOF);
 		break;
 	}
@@ -863,7 +863,7 @@ parse_literal(struct lexer *lexer)
 	case STORAGE_STRING:
 		exp->literal.string.len = tok.string.len;
 		exp->literal.string.value = tok.string.value;
-		while (lex(lexer, &tok) == T_NUMBER
+		while (lex(lexer, &tok) == T_LITERAL
 				&& tok.storage == STORAGE_STRING) {
 			size_t len = exp->literal.string.len;
 			exp->literal.string.value = xrealloc(
@@ -1088,7 +1088,7 @@ parse_plain_expression(struct lexer *lexer)
 	struct ast_expression *exp;
 	switch (lex(lexer, &tok)) {
 	// plain-expression
-	case T_NUMBER:
+	case T_LITERAL:
 	case T_TRUE:
 	case T_FALSE:
 	case T_NULL:
@@ -1132,7 +1132,7 @@ parse_plain_expression(struct lexer *lexer)
 	case T_RBRACE:
 		error(tok.loc, "syntax error: cannot have empty block");
 	default:
-		synerr(&tok, T_NUMBER, T_NAME,
+		synerr(&tok, T_LITERAL, T_NAME,
 			T_LBRACKET, T_STRUCT, T_LPAREN, T_EOF);
 	}
 	assert(0); // Unreachable
@@ -1483,14 +1483,14 @@ parse_postfix_expression(struct lexer *lexer, struct ast_expression *lvalue)
 			exp->access._struct = lvalue;
 			exp->access.field = tok.name;
 			break;
-		case T_NUMBER:
+		case T_LITERAL:
 			exp->access.type = ACCESS_TUPLE;
 			exp->access.tuple = lvalue;
 			unlex(lexer, &tok);
 			exp->access.value = parse_literal(lexer);
 			break;
 		default:
-			synerr(&tok, T_NAME, T_NUMBER, T_EOF);
+			synerr(&tok, T_NAME, T_LITERAL, T_EOF);
 		}
 
 		lvalue = exp;
@@ -2513,7 +2513,7 @@ parse_attr_symbol(struct lexer *lexer)
 {
 	struct token tok = {0};
 	want(lexer, T_LPAREN, NULL);
-	want(lexer, T_NUMBER, &tok);
+	want(lexer, T_LITERAL, &tok);
 	synassert_msg(tok.storage == STORAGE_STRING,
 		"expected string literal", &tok);
 	synassert_msg(tok.string.len > 0, "invalid symbol", &tok);
