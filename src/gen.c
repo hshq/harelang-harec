@@ -1161,14 +1161,6 @@ gen_expr_call(struct gen_context *ctx, const struct expression *expr)
 		if (carg->value->result->size == 0) {
 			continue;
 		}
-
-		if (!param && !cvar && rtype->func.variadism == VARIADISM_C) {
-			cvar = true;
-			args = *next = xcalloc(1, sizeof(struct qbe_arguments));
-			args->value.kind = QV_VARIADIC;
-			next = &args->next;
-		}
-
 		args = *next = xcalloc(1, sizeof(struct qbe_arguments));
 		if (carg->value->result->storage == STORAGE_NEVER) {
 			return rval;
