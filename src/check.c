@@ -47,7 +47,7 @@ mkstrliteral(struct expression *expr, const char *fmt, ...)
 
 	*expr = (struct expression) {
 		.type = EXPR_LITERAL,
-		.result = &builtin_type_const_str,
+		.result = &builtin_type_str,
 	};
 	expr->literal.string.value = s;
 	expr->literal.string.len = n;
@@ -408,16 +408,9 @@ check_expr_alloc_init(struct context *ctx,
 			objtype = promoted;
 		}
 	} else if (inithint) {
-		// XXX: this is dumb, but we're gonna get rid of the const flag
-		// anyway so it doesn't matter
-		struct type stripped_objtype = *type_dealias(ctx, objtype);
-		stripped_objtype.flags &= ~TYPE_CONST;
-		stripped_objtype.id = type_hash(&stripped_objtype);
-		struct type stripped_inithint = *type_dealias(ctx, inithint);
-		stripped_inithint.flags &= ~TYPE_CONST;
-		stripped_inithint.id = type_hash(&stripped_inithint);
-
-		if (stripped_objtype.id == stripped_inithint.id) {
+		uint32_t objtype_id = type_dealias(ctx, objtype)->id;
+		uint32_t inithint_id = type_dealias(ctx, inithint)->id;
+		if (objtype_id == inithint_id) {
 			objtype = inithint;
 		}
 	}
@@ -626,11 +619,6 @@ check_expr_append_insert(struct context *ctx,
 			"%s expression must operate on a slice, but got %s",
 			exprtype_name, typename);
 		free(typename);
-		return;
-	}
-	if (sltype->flags & TYPE_CONST) {
-		error(ctx, aexpr->append.object->loc, expr,
-			"expression must operate on a mutable slice");
 		return;
 	}
 	if (sltype->array.members->size == SIZE_UNDEFINED) {
@@ -1751,7 +1739,7 @@ check_expr_literal(struct context *ctx,
 {
 	expr->type = EXPR_LITERAL;
 	enum type_storage storage = aexpr->literal.storage;
-	expr->result = builtin_type_for_storage(storage, false);
+	expr->result = builtin_type_for_storage(storage);
 
 	switch (aexpr->literal.storage) {
 	case STORAGE_ICONST:
@@ -1888,11 +1876,6 @@ check_expr_delete(struct context *ctx,
 	if (otype->storage != STORAGE_SLICE) {
 		error(ctx, aexpr->delete.expr->loc, expr,
 			"delete must operate on a slice");
-		return;
-	}
-	if (otype->flags & TYPE_CONST) {
-		error(ctx, aexpr->delete.expr->loc, expr,
-			"delete must operate on a mutable slice");
 		return;
 	}
 }
@@ -3073,7 +3056,6 @@ check_expr_struct(struct context *ctx,
 
 	struct ast_type satype = {
 		.storage = STORAGE_STRUCT,
-		.flags = TYPE_CONST,
 	};
 	struct ast_struct_union_field *tfield = &satype.struct_union.fields;
 	struct ast_struct_union_field **tnext = &tfield->next;
@@ -3632,17 +3614,9 @@ check_expr_unarithm(struct context *ctx,
 				operand->result = promoted;
 			}
 		} else if (ptrhint) {
-			// XXX: this is dumb, but we're gonna get rid of the
-			// const flag anyway so it doesn't matter
-			struct type stripped_result =
-				*type_dealias(ctx, operand->result);
-			stripped_result.flags &= ~TYPE_CONST;
-			stripped_result.id = type_hash(&stripped_result);
-			struct type stripped_ptrhint = *type_dealias(ctx, ptrhint);
-			stripped_ptrhint.flags &= ~TYPE_CONST;
-			stripped_ptrhint.id = type_hash(&stripped_ptrhint);
-
-			if (stripped_result.id == stripped_ptrhint.id) {
+			uint32_t result_id = type_dealias(ctx, operand->result)->id;
+			uint32_t ptrhint_id = type_dealias(ctx, ptrhint)->id;
+			if (result_id == ptrhint_id) {
 				operand->result = ptrhint;
 			}
 		}

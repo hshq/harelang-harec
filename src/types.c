@@ -1121,18 +1121,8 @@ builtin_types_init(const char *target)
 		builtin_type_null.align = 8;
 		builtin_type_size.size = 8;
 		builtin_type_size.align = 8;
-		builtin_type_const_int.size = 4;
-		builtin_type_const_int.align = 4;
-		builtin_type_const_uint.size = 4;
-		builtin_type_const_uint.align = 4;
-		builtin_type_const_uintptr.size = 8;
-		builtin_type_const_uintptr.align = 8;
-		builtin_type_const_size.size = 8;
-		builtin_type_const_size.align = 8;
 		builtin_type_str.size = 24;
 		builtin_type_str.align = 8;
-		builtin_type_const_str.size = 24;
-		builtin_type_const_str.align = 8;
 		builtin_type_valist.size = 32;
 		builtin_type_valist.align = 8;
 	} else if (strcmp(target, "riscv64") == 0) {
@@ -1146,18 +1136,8 @@ builtin_types_init(const char *target)
 		builtin_type_null.align = 8;
 		builtin_type_size.size = 8;
 		builtin_type_size.align = 8;
-		builtin_type_const_int.size = 4;
-		builtin_type_const_int.align = 4;
-		builtin_type_const_uint.size = 4;
-		builtin_type_const_uint.align = 4;
-		builtin_type_const_uintptr.size = 8;
-		builtin_type_const_uintptr.align = 8;
-		builtin_type_const_size.size = 8;
-		builtin_type_const_size.align = 8;
 		builtin_type_str.size = 24;
 		builtin_type_str.align = 8;
-		builtin_type_const_str.size = 24;
-		builtin_type_const_str.align = 8;
 		builtin_type_valist.size = 8;
 		builtin_type_valist.align = 8;
 	} else if (strcmp(target, "x86_64") == 0) {
@@ -1171,18 +1151,8 @@ builtin_types_init(const char *target)
 		builtin_type_null.align = 8;
 		builtin_type_size.size = 8;
 		builtin_type_size.align = 8;
-		builtin_type_const_int.size = 4;
-		builtin_type_const_int.align = 4;
-		builtin_type_const_uint.size = 4;
-		builtin_type_const_uint.align = 4;
-		builtin_type_const_uintptr.size = 8;
-		builtin_type_const_uintptr.align = 8;
-		builtin_type_const_size.size = 8;
-		builtin_type_const_size.align = 8;
 		builtin_type_str.size = 24;
 		builtin_type_str.align = 8;
-		builtin_type_const_str.size = 24;
-		builtin_type_const_str.align = 8;
 		builtin_type_valist.size = 24;
 		builtin_type_valist.align = 8;
 	} else {
@@ -1196,17 +1166,7 @@ builtin_types_init(const char *target)
 		&builtin_type_u8, &builtin_type_u16, &builtin_type_u32,
 		&builtin_type_u64, &builtin_type_uint, &builtin_type_uintptr,
 		&builtin_type_null, &builtin_type_rune, &builtin_type_size,
-		&builtin_type_void, &builtin_type_done,
-		&builtin_type_const_bool, &builtin_type_const_f32,
-		&builtin_type_const_f64, &builtin_type_const_i8,
-		&builtin_type_const_i16, &builtin_type_const_i32,
-		&builtin_type_const_i64, &builtin_type_const_int,
-		&builtin_type_const_u8, &builtin_type_const_u16,
-		&builtin_type_const_u32, &builtin_type_const_u64,
-		&builtin_type_const_uint, &builtin_type_const_uintptr,
-		&builtin_type_const_rune, &builtin_type_const_size,
-		&builtin_type_const_void, &builtin_type_const_done,
-		&builtin_type_str, &builtin_type_const_str,
+		&builtin_type_void, &builtin_type_done, &builtin_type_str,
 		&builtin_type_valist,
 	};
 	for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); ++i) {
@@ -1315,126 +1275,8 @@ builtin_type_done = {
 	.size = 0,
 	.align = 0,
 },
-builtin_type_const_bool = {
-	.storage = STORAGE_BOOL,
-	.flags = TYPE_CONST,
-	.size = 1,
-	.align = 1,
-},
-builtin_type_const_f32 = {
-	.storage = STORAGE_F32,
-	.flags = TYPE_CONST,
-	.size = 4,
-	.align = 4,
-},
-builtin_type_const_f64 = {
-	.storage = STORAGE_F64,
-	.flags = TYPE_CONST,
-	.size = 8,
-	.align = 8,
-},
-builtin_type_const_i8 = {
-	.storage = STORAGE_I8,
-	.flags = TYPE_CONST,
-	.size = 1,
-	.align = 1,
-},
-builtin_type_const_i16 = {
-	.storage = STORAGE_I16,
-	.flags = TYPE_CONST,
-	.size = 2,
-	.align = 2,
-},
-builtin_type_const_i32 = {
-	.storage = STORAGE_I32,
-	.flags = TYPE_CONST,
-	.size = 4,
-	.align = 4,
-},
-builtin_type_const_i64 = {
-	.storage = STORAGE_I64,
-	.flags = TYPE_CONST,
-	.size = 8,
-	.align = 8,
-},
-builtin_type_const_int = {
-	.storage = STORAGE_INT,
-	.flags = TYPE_CONST,
-},
-builtin_type_const_never = {
-	.storage = STORAGE_NEVER,
-	.flags = TYPE_CONST,
-	.size = SIZE_UNDEFINED,
-	.align = ALIGN_UNDEFINED,
-},
-builtin_type_const_opaque = {
-	.storage = STORAGE_OPAQUE,
-	.flags = TYPE_CONST,
-	.size = SIZE_UNDEFINED,
-	.align = ALIGN_UNDEFINED,
-},
-builtin_type_const_u8 = {
-	.storage = STORAGE_U8,
-	.flags = TYPE_CONST,
-	.size = 1,
-	.align = 1,
-},
-builtin_type_const_u16 = {
-	.storage = STORAGE_U16,
-	.flags = TYPE_CONST,
-	.size = 2,
-	.align = 2,
-},
-builtin_type_const_u32 = {
-	.storage = STORAGE_U32,
-	.flags = TYPE_CONST,
-	.size = 4,
-	.align = 4,
-},
-builtin_type_const_u64 = {
-	.storage = STORAGE_U64,
-	.flags = TYPE_CONST,
-	.size = 8,
-	.align = 8,
-},
-builtin_type_const_uint = {
-	.storage = STORAGE_UINT,
-	.flags = TYPE_CONST,
-},
-builtin_type_const_uintptr = {
-	.storage = STORAGE_UINTPTR,
-	.flags = TYPE_CONST,
-},
-builtin_type_const_rune = {
-	.storage = STORAGE_RUNE,
-	.flags = TYPE_CONST,
-	.size = 4,
-	.align = 4,
-},
-builtin_type_const_size = {
-	.storage = STORAGE_SIZE,
-	.flags = TYPE_CONST,
-},
-builtin_type_const_void = {
-	.storage = STORAGE_VOID,
-	.flags = TYPE_CONST,
-	.size = 0,
-	.align = 0,
-},
-builtin_type_const_done = {
-	.storage = STORAGE_DONE,
-	.flags = TYPE_CONST,
-	.size = 0,
-	.align = 0,
-};
-
-// Others
-struct type builtin_type_str = {
+builtin_type_str = {
 	.storage = STORAGE_STRING,
-},
-builtin_type_const_str = {
-	.storage = STORAGE_STRING,
-	.flags = TYPE_CONST,
 },
 builtin_type_valist = {
 	.storage = STORAGE_VALIST,

@@ -137,8 +137,7 @@ struct type_tagged_union {
 };
 
 enum type_flags {
-	TYPE_CONST = 1 << 0,
-	TYPE_ERROR = 1 << 1,
+	TYPE_ERROR = 1 << 0,
 };
 
 struct type {
@@ -231,30 +230,7 @@ extern struct type
 	builtin_type_size,
 	builtin_type_void,
 	builtin_type_done,
-	// Const primitives
-	builtin_type_const_bool,
-	builtin_type_const_f32,
-	builtin_type_const_f64,
-	builtin_type_const_i8,
-	builtin_type_const_i16,
-	builtin_type_const_i32,
-	builtin_type_const_i64,
-	builtin_type_const_int,
-	builtin_type_const_never,
-	builtin_type_const_opaque,
-	builtin_type_const_u8,
-	builtin_type_const_u16,
-	builtin_type_const_u32,
-	builtin_type_const_u64,
-	builtin_type_const_uint,
-	builtin_type_const_uintptr,
-	builtin_type_const_rune,
-	builtin_type_const_size,
-	builtin_type_const_void,
-	builtin_type_const_done,
-	// etc
 	builtin_type_str,
-	builtin_type_const_str,
 	builtin_type_valist;
 
 #endif
