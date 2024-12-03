@@ -39,8 +39,6 @@ qbe_aggregate = {
 	.stype = Q__AGGREGATE,
 };
 
-const struct qbe_value variadic_sigil = {0};
-
 const char *qbe_instr[Q_LAST_INSTR] = {
 	[Q_ADD] = "add",
 	[Q_ALLOC16] = "alloc16",
